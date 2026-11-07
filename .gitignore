@@ -1,0 +1,5 @@
+.claude
+.cache/
+dist/
+node_modules/
+public/catalog.json
