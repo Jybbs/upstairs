@@ -1,0 +1,27 @@
+body:
+  - attributes:
+      description: What the site shows or does, at which spot and time, and on which browser and screen width.
+      label: Behavior
+    id: happens
+    type: textarea
+    validations:
+      required: true
+  - attributes:
+      description: What the site shows or does instead, with the source a reader can check it against where one exists.
+      label: Expected Behavior
+    id: expected
+    type: textarea
+    validations:
+      required: true
+  - attributes:
+      description: The steps that reach the defect, starting from the address the site opens on.
+      label: Steps
+      value: |
+        1.
+    id: steps
+    type: textarea
+    validations:
+      required: true
+description: Report a defect in what the site shows or does
+labels: ["🐞 bug"]
+name: Bug

@@ -1,0 +1,5 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "workflows"
+#MISE description = "Audit the workflows and the action manifests with zizmor, passing any further arguments to it"
+
+zizmor "$@" .github

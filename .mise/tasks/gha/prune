@@ -1,0 +1,6 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE description = "Delete every tool cache a newer one of the same tool subset has replaced"
+
+gh cache list --json createdAt,id,key --key provision- --limit 100 \
+  | jq -r 'group_by(.key | split("-")[1]) | map(sort_by(.createdAt) | reverse | .[1:][]) | .[].id' \
+  | xargs -r -n 1 gh cache delete

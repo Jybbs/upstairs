@@ -1,0 +1,5 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE depends     = ["site:install"]
+#MISE description = "Write the workflow run's summary from the `needs` context in `NEEDS`, failing unless every job succeeded"
+
+bun run tools/brief.ts

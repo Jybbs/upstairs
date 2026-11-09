@@ -1,0 +1,6 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "links"
+#MISE depends     = ["site:press"]
+#MISE description = "Check every link, asset, and heading fragment in the pressed site against the files the build wrote"
+
+lychee --include-fragments --no-progress --offline --root-dir "$PWD/dist" "$@" dist

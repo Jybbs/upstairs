@@ -1,0 +1,78 @@
+concurrency:
+  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+jobs:
+  brief:
+    if: always()
+    name: 🔭 Brief
+    needs: [prune, save]
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Provision
+        uses: $/.github/actions/provision
+        with:
+          tools: bun
+      - name: Write the summary
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: mise run gha:brief
+    timeout-minutes: 10
+  prune:
+    name: 🧹 Prune
+    needs: [save]
+    permissions:
+      actions: write
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Provision
+        uses: $/.github/actions/provision
+        with:
+          cache: 'false'
+          tools: bun
+      - name: Delete the superseded caches
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: mise run gha:prune
+    timeout-minutes: 10
+  save:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Provision
+        uses: $/.github/actions/provision
+        with:
+          save: 'true'
+          tools: ${{ matrix.tools }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: 🔥 Bun, tools: bun }
+          - { name: 🔥 Bun and Lychee, tools: bun lychee }
+          - { name: 🔥 Zizmor, tools: zizmor }
+    timeout-minutes: 15
+name: 🛰️ Warm
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/actions/provision/**
+      - .github/workflows/warm.yml
+      - .mise/config.toml
+      - .mise/mise.lock
+  workflow_dispatch:
+permissions:
+  contents: read

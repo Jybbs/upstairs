@@ -1,0 +1,7 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "rulesets"
+#MISE confirm     = "Send the settings, the About box, and the rulesets under `.github/` to GitHub?"
+#MISE depends     = ["site:install"]
+#MISE description = "Send the repository settings, the About box, and the rulesets to GitHub and list each live ruleset no file names"
+
+bun run tools/sync.ts rulesets

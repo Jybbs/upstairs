@@ -1,0 +1,20 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "lockfile"
+#MISE description = "Verify each lockfile matches its manifest"
+
+restore() {
+  cmp -s "$snapshot" .mise/mise.lock || mv -f "$snapshot" .mise/mise.lock
+  rm -f "$snapshot"
+}
+
+snapshot=$(mktemp)
+cp -p .mise/mise.lock "$snapshot"
+trap restore EXIT
+log=$(mise lock 2>&1) || { printf '%s\n' "$log" >&2; exit 1; }
+printf '%s\n' "$log" >&2
+if grep -qi 'warn.*failed to resolve' <<< "$log"; then
+  exit 1
+fi
+diff -u "$snapshot" .mise/mise.lock >&2
+MISE_LOCKED_SCOPES=project mise install --dry-run --force --locked
+bun install --dry-run --frozen-lockfile

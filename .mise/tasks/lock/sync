@@ -1,0 +1,6 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "relock"
+#MISE description = "Re-resolve each lockfile against its manifest"
+
+mise lock
+bun install

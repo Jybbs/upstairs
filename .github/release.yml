@@ -1,0 +1,16 @@
+changelog:
+  categories:
+    - labels: ["🐞 bug"]
+      title: 🐞 Fixes
+    - labels: ["🛰️ orbit"]
+      title: 🛰️ Orbit
+    - labels: ["🗺️ map"]
+      title: 🗺️ Map
+    - labels: ["🎨 identity"]
+      title: 🎨 Identity
+    - labels: ["📚 docs"]
+      title: 📚 Docs
+    - labels: ["🗜️ build"]
+      title: 🗜️ Build
+    - labels: ["*"]
+      title: Other

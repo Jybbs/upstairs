@@ -10,22 +10,24 @@ The site lists the active satellites above the horizon at that spot, plays their
 
 ```sh
 mise install
-bun install
-mise run catalog   # download the catalog into public/
-mise run dev       # serve the site
-mise run test
-mise run build
+mise run site:install
+mise run catalog
+mise serve
+mise test
+mise press
 ```
 
-CelesTrak publishes new orbital data every two hours and asks for one download per update, so run `mise run catalog` sparingly.
+`mise run catalog` downloads the catalog into `public/`. CelesTrak publishes new orbital data every two hours and asks for one download per update, so run it sparingly. `mise tasks` lists every task, and [the contributor guide](CONTRIBUTING.md) lists the checks a pull request runs.
 
 ## How it fits together
 
-- `tools/catalog.ts` trims CelesTrak's active catalog to the fields the site reads.
+- `tools/catalog.ts` trims CelesTrak's active catalog to the fields the site reads, and the other scripts under `tools/` audit and sync the repository's declarations.
 - `src/orbit/` holds the orbit scan and the web worker that runs it.
 - `src/map/` holds the terrain style and the canvases drawn above it.
 - `src/state/` holds the page's shared state and the traced passes.
 - `src/ui/` holds the components.
+- `.mise/` pins the tools and holds the tasks, one folder per domain.
+- `.github/` holds the workflows, the label registry, the rulesets, and the repository's settings.
 
 ## Data
 

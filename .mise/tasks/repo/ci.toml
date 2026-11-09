@@ -1,0 +1,15 @@
+["repo:ci"]
+alias       = "ci"
+depends     = [
+  "lock:audit",
+  "lock:check",
+  "repo:audit",
+  "repo:lint",
+  "site:coverage",
+  "site:cruft",
+  "site:links",
+  "site:lint",
+  "site:press",
+  "site:typecheck"
+]
+description = "Run every check a pull request runs"
