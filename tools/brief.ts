@@ -8,10 +8,13 @@ interface Brief {
   summary : string
 }
 
+const rowNameOf = (id: string, name?: string) => name?.includes('${{') === false ? name : id
+
 /**
  * Fills a workflow's summary template from the `needs` context its gate reads,
  * writing one row per job beside its result and the link to the workflow run,
- * and passes only where every job succeeded.
+ * and passes only where every job succeeded. A row takes the job's name, or
+ * its id where the name is missing or an expression such as a matrix value.
  *
  * Args:
  *   needs    : The `needs` context, keyed by job id.
@@ -26,7 +29,7 @@ export const briefOf = (
   workflow : Pick<Workflow, 'jobs'>
 ): Brief => {
   const jobs = Object.entries(needs)
-    .map(([id, { result }]) => `| \`${workflow.jobs[id]?.name ?? id}\` | ${result} |`)
+    .map(([id, { result }]) => `| \`${rowNameOf(id, workflow.jobs[id]?.name)}\` | ${result} |`)
     .join('\n')
   return {
     passed  : Object.values(needs).every(({ result }) => result === 'success'),

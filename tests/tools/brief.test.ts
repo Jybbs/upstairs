@@ -15,11 +15,11 @@ describe('briefOf', () => {
   ])('passes only where %s', (_, needs, passed) =>
     expect(briefOf(needs, RUN, TEMPLATE, WORKFLOW).passed).toBe(passed))
 
-  it('writes one row per job under its name, falling back to its id, and links the run', () => {
-    const needs = { prune: { result: 'success' }, save: { result: 'failure' } }
+  it('names each row by its job, or by its id where the name is missing or an expression', () => {
+    const needs = { check: { result: 'success' }, prune: { result: 'success' }, save: { result: 'failure' } }
     expect(briefOf(needs, RUN, TEMPLATE, WORKFLOW).summary).toBe(
-        '| **Job** | **Result** |\n|---|---|\n| `🧹 Prune` | success |\n| `save` | failure |\n\n'
-      + `[The workflow run](${RUN})`
+        '| **Job** | **Result** |\n|---|---|\n| `check` | success |\n| `🧹 Prune` | success |\n'
+      + `| \`save\` | failure |\n\n[The workflow run](${RUN})`
     )
   })
 })
