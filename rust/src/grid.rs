@@ -34,10 +34,11 @@ impl Grid {
         }
     }
 
-    /// Places the satellites in rows `from` up to `to` at every sample.
+    /// Places the satellites in rows `from` up to `to` at every sample, stopping
+    /// at the last row the grid was built for even where `orbits` has grown since.
     pub fn fill(&mut self, orbits: &Orbits, from: usize, to: usize) {
         let width = self.moments.len() * 3;
-        let rows = from..to.min(orbits.size());
+        let rows = from..to.min(self.positions.len() / width);
         let slots = self.positions[rows.start * width..rows.end * width].chunks_exact_mut(width);
         for (row, slot) in rows.zip(slots) {
             let Some(propagator) = orbits.get(row) else {

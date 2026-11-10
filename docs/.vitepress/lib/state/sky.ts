@@ -1,5 +1,6 @@
 import { computed, reactive, ref, shallowRef } from 'vue'
 
+import * as catalog           from '../orbit/catalog.ts'
 import * as kinds             from '../orbit/kinds.ts'
 import type { Pass, Spot }    from '../orbit/scan.ts'
 import type { Answer, Asked } from '../orbit/worker.ts'
@@ -50,7 +51,7 @@ class Sky {
   seconds     = 0
   readonly at = ref(0)
 
-  readonly loaded   = ref<{ count: number, fetched: string } | null>(null)
+  readonly loaded   = ref<{ count: number, fetched: number } | null>(null)
   readonly failed   = ref<string | null>(null)
   readonly done     = ref(false)
   readonly share    = ref(0)
@@ -85,6 +86,17 @@ class Sky {
     return { list: list.slice(0, ROWS), more: Math.max(list.length - ROWS, 0) }
   })
 
+  /**
+   * The catalog's age in days at the start of the window, and what that age
+   * allows.
+   */
+  readonly age       = computed(() => {
+    const loaded = this.loaded.value
+    return loaded ? catalog.ageOf(loaded.fetched, this.start.value) : 0
+  })
+  readonly freshness = computed(() => catalog.freshnessOf(this.age.value))
+  readonly expired   = computed(() => this.freshness.value === 'expired')
+
   readonly focus = computed<Pass | null>(() => {
     void this.version.value
     return this.tracks.passes.find(pass => pass.id === this.selected.value) ?? null
@@ -92,7 +104,7 @@ class Sky {
 
   constructor() {
     this.worker.onmessage = ({ data }: MessageEvent<Answer>) => this.hear(data)
-    this.ask({ type: 'load', url: `${import.meta.env.BASE_URL}catalog.json` })
+    this.ask({ type: 'load', url: `${import.meta.env.BASE_URL}${catalog.FILE}` })
   }
 
   private ask(asked: Asked) { this.worker.postMessage(asked) }
@@ -122,7 +134,8 @@ class Sky {
   }
 
   /**
-   * Starts over for the current spot and window.
+   * Starts over for the current spot and window, placing nothing once the
+   * catalog has expired.
    */
   scan() {
     this.scanId++
@@ -132,6 +145,7 @@ class Sky {
     this.counts        = null
     this.inFrame.value = new Uint8Array()
     this.version.value++
+    if (this.expired.value) return
     this.ask({
       id      : this.scanId,
       minutes : this.minutes.value,

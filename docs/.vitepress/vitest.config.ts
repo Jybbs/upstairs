@@ -8,12 +8,12 @@ export default defineConfig({
   test: {
     include  : ['.vitepress/tests/**/*.test.ts'],
     coverage : {
-      include          : ['.vitepress/{lib,theme,tools}/**'],
+      include          : ['.vitepress/catalog/**/*.ts', '.vitepress/{lib,theme,tools}/**'],
       provider         : 'v8',
       reportOnFailure  : true,
       reporter         : ['text', 'html'],
       reportsDirectory : '../.cache/coverage',
-      thresholds       : { branches: 19, functions: 45, lines: 23, statements: 23 }
+      thresholds       : { branches: 28, functions: 51, lines: 34, statements: 34 }
     }
   }
 })

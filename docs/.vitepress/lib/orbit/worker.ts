@@ -1,15 +1,16 @@
 /**
  * Runs the pass scan off the page, holding the catalog's propagators in the
- * WebAssembly module. Each scan posts its counts and then its passes in
- * batches, and stops once a newer scan arrives.
+ * WebAssembly module and adding each segment of the catalog file as it
+ * arrives. Each scan posts its counts and then its passes in batches, and
+ * stops once a newer scan arrives.
  */
 
-import init, * as orbit            from '../../../../rust/pkg/orbit.js'
-import { type Catalog, recordsOf } from './catalog.ts'
-import * as scan                   from './scan.ts'
+import init, * as orbit              from '../../../../rust/pkg/orbit.js'
+import { elementsOf, segmentsOf } from './catalog.ts'
+import * as scan                     from './scan.ts'
 
 export type Answer =
-  | { type: 'loaded', count: number, fetched: string }
+  | { type: 'loaded', count: number, fetched: number }
   | { type: 'failed', reason: string }
   | { type: 'counts', id: number, counts: Uint16Array, step: number }
   | {
@@ -51,11 +52,12 @@ const breathe = () => new Promise<void>(resolve => {
 })
 
 /**
- * The rough grid of a window, kept between spots since a satellite's positions
- * do not depend on who is looking. Null when a newer scan has taken over.
+ * The rough grid of a window over the records loaded so far, kept between
+ * spots since a satellite's positions do not depend on who is looking. Null
+ * when a newer scan has taken over.
  */
 const gridOf = async (orbits: orbit.Orbits, id: number, minutes: number, start: number) => {
-  const key = `${start}/${minutes}`
+  const key = `${orbits.size}/${start}/${minutes}`
   if (held?.key === key) return held.grid
   held?.grid.free()
   held = null
@@ -120,13 +122,14 @@ self.onmessage = async ({ data }: MessageEvent<Asked>) => {
   if (data.type === 'load') {
     try {
       const response = await fetch(data.url)
-      if (!response.ok) throw new Error(`The catalog answered ${response.status}`)
-      const text             = await response.text()
-      const catalog: Catalog = JSON.parse(text)
+      if (!response.ok || !response.body) throw new Error(`The catalog answered ${response.status}`)
       await ready
-      orbits     = new orbit.Orbits(text)
-      satellites = scan.satellitesOf(recordsOf(catalog))
-      post({ count: satellites.length, fetched: catalog.fetched, type: 'loaded' })
+      orbits = new orbit.Orbits()
+      for await (const { fetched, records } of segmentsOf(response.body)) {
+        orbits.extend(records.map(record => record.EPOCH), elementsOf(records))
+        satellites = [...satellites, ...scan.satellitesOf(records)]
+        post({ count: satellites.length, fetched, type: 'loaded' })
+      }
     } catch (error) {
       post({ reason: String(error), type: 'failed' })
     }
