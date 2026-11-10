@@ -2,5 +2,5 @@
 .cache/
 dist/
 node_modules/
-docs/public/catalog.json
+docs/public/catalog.bin
 rust/pkg/

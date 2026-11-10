@@ -2,7 +2,7 @@
 
 Pick a spot on the map and watch every satellite passing over it.
 
-The site lists the active satellites above the horizon at that spot, plays their passes through a window of time, and shows where each one is headed. Everything is calculated in the browser from published orbital data, so the site runs without a server of its own.
+The site lists the active satellites above the horizon at that spot, plays their passes through a window of time, and shows where each one is headed. Everything is calculated in the browser from published orbital data, which the Cloudflare service under `docs/.vitepress/catalog/`, once deployed, downloads from CelesTrak at most once every two hours.
 
 ## Run it
 
@@ -17,14 +17,15 @@ mise test
 mise press
 ```
 
-`mise run catalog` downloads the catalog into `docs/public/`. CelesTrak publishes new orbital data every two hours and asks for one download per update, so run it sparingly. `mise tasks` lists every task, and [the contributor guide](CONTRIBUTING.md) lists the checks a pull request runs.
+`mise run catalog` downloads the catalog into `docs/public/catalog.bin`, or encodes a CelesTrak file given as its argument. CelesTrak publishes new orbital data every two hours and asks for one download per update, so run it sparingly. `mise tasks` lists every task, and [the contributor guide](CONTRIBUTING.md) lists the checks a pull request runs.
 
 ## How it fits together
 
 - `docs/` holds the pages of the site, which [VitePress](https://vitepress.dev/) builds, with the map as its home page, beside the manifest and the lockfile.
-- `docs/.vitepress/tools/catalog.ts` trims CelesTrak's active catalog to the fields the site reads, and the other scripts beside it audit and sync the repository's declarations.
+- `docs/.vitepress/catalog/` holds the Cloudflare Worker and its Durable Object, which download CelesTrak's active catalog once a cycle, encode the fields the orbit model reads as compressed binary columns, and serve the file from Workers KV through the edge cache.
+- `docs/.vitepress/tools/` holds the scripts that audit and sync the repository's declarations.
 - `rust/` holds the orbit crate, which places each satellite with SGP4 and finds its passes, compiled to WebAssembly.
-- `docs/.vitepress/lib/orbit/` holds the catalog's fields, the satellite kinds, and the web worker that runs the crate's scan.
+- `docs/.vitepress/lib/orbit/` holds the catalog reader, the satellite kinds, and the web worker that runs the crate's scan.
 - `docs/.vitepress/lib/map/` holds the terrain style and the canvases drawn above it.
 - `docs/.vitepress/lib/state/` holds the map's shared state and the traced passes.
 - `docs/.vitepress/lib/site/` holds the sections the navigation bar links and the preload of the map's chunk.

@@ -1,6 +1,6 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "coverage"
-#MISE depends     = ["site:install"]
+#MISE depends     = ["crate:compile", "site:install"]
 #MISE description = "Run the site's suite under coverage, failing below the thresholds `docs/.vitepress/vitest.config.ts` declares"
 #MISE dir         = "{{config_root}}/docs"
 
