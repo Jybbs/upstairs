@@ -88,6 +88,7 @@ onMounted(async () => {
   })
   map.touchZoomRotate.disableRotation()
   map.keyboard.disableRotation()
+  holdCredit(map)
 
   overlay = new Overlay(lower.value!, upper.value!, () => ({
     selected : sky.selected.value,
@@ -97,7 +98,6 @@ onMounted(async () => {
   }))
   fit()
 
-  map.once('load', () => holdCredit(map))
   map.on('move', placed)
   map.on('moveend', refreshFrame)
   map.on('idle', refreshFrame)
