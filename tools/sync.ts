@@ -37,9 +37,7 @@ const rulesets = async (declared: repository.Repository) => {
   for (const request of [...requestsOf(settings), ...rulesetRequestsOf(live, declared.rulesets)]) {
     await send(request)
   }
-  live
-    .filter(ruleset => !declared.rulesets.some(other => other.name === ruleset.name))
-    .forEach(ruleset => console.log(`The live ruleset ${ruleset.name} has no file under .github/rulesets/`))
+  unnamedOf(live, declared.rulesets).forEach(line => console.log(line))
 }
 
 const send = async ({ body, method, path }: Request) => {
@@ -54,15 +52,20 @@ const send = async ({ body, method, path }: Request) => {
 
 /**
  * Lists the requests that set every repository setting `.github/settings.toml`
- * declares and the About box the site's manifest declares, where a toggle
- * that is on takes a `PUT` and one that is off takes a `DELETE`.
+ * declares and the About box the site's manifest declares, sending the homepage
+ * as its bare domain, where a toggle that is on takes a `PUT` and one that is
+ * off takes a `DELETE`.
  */
 export const requestsOf = (
   settings : Settings,
   about    : Pick<typeof manifest, 'description' | 'homepage' | 'keywords'> = manifest
 ): Request[] => [
   {
-    body   : { ...settings.repository, description: about.description, homepage: about.homepage },
+    body   : {
+      ...settings.repository,
+      description : about.description,
+      homepage    : new URL(about.homepage).host
+    },
     method : 'PATCH',
     path   : REPOSITORY
   },
@@ -85,6 +88,15 @@ export const rulesetRequestsOf = (live: Live[], rulesets: repository.Ruleset[]):
       ? { body: ruleset, method: 'PUT', path: `${REPOSITORY}/rulesets/${id}` }
       : { body: ruleset, method: 'POST', path: `${REPOSITORY}/rulesets` }
   })
+
+/**
+ * Lists a sentence for each live ruleset whose name no file under
+ * `.github/rulesets/` declares.
+ */
+export const unnamedOf = (live: Live[], rulesets: repository.Ruleset[]): string[] =>
+  live
+    .filter(ruleset => !rulesets.some(other => other.name === ruleset.name))
+    .map(ruleset => `The live ruleset ${ruleset.name} has no file under .github/rulesets/`)
 
 if (import.meta.main) {
   const declared = await repository.Repository.read()

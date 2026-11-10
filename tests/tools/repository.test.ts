@@ -24,6 +24,7 @@ beforeAll(async () => {
 describe('Repository', () => {
   it('reads the gate the ruleset requires and one row per check', () => {
     expect(base.gates).toEqual(['🔭 Brief'])
+    expect(base.problems).toEqual([])
     expect(base.rows.map(row => row.task).sort()).toEqual([...base.sweep].sort())
   })
 
@@ -83,6 +84,11 @@ describe('Repository', () => {
       'bug.yml names 🦄 unicorn, which .github/labels.toml lacks'
     ],
     [
+      'a guide leaving the gate out',
+      ({ guide }) => ({ guide: guide.replaceAll('`🔭 Brief`', '`🔭 Gate`') }),
+      '.github/CONTRIBUTING.md names no 🔭 Brief gate'
+    ],
+    [
       'a guide leaving a label out',
       ({ guide }) => ({ guide: guide.replaceAll('`🐞 bug`', '') }),
       '.github/CONTRIBUTING.md lists no 🐞 bug label'
@@ -90,6 +96,16 @@ describe('Repository', () => {
     [
       'a guide leaving a row out',
       ({ guide }) => ({ guide: guide.replace('`mise run site:press`', '') }),
+      '.github/CONTRIBUTING.md lists no 📰 Press row running mise run site:press'
+    ],
+    [
+      'a label in two release categories',
+      ({ categories }) => ({ categories: [...categories, { labels: ['🐞 bug'], title: 'Again' }] }),
+      '🐞 bug sits in 2 release categories rather than one'
+    ],
+    [
+      'a guide naming a row by another name',
+      ({ guide }) => ({ guide: guide.replace('`📰 Press`', '`📰 Pressed`') }),
       '.github/CONTRIBUTING.md lists no 📰 Press row running mise run site:press'
     ],
     [
@@ -119,6 +135,11 @@ describe('Repository', () => {
       'an action pinned to a tag',
       () => action('octo/unpinned@v1'),
       'action.yml uses octo/unpinned@v1, which names no full commit'
+    ],
+    [
+      'an action pinned to a short commit',
+      () => action('octo/unpinned@3d3c42e'),
+      'action.yml uses octo/unpinned@3d3c42e, which names no full commit'
     ],
     [
       'an action pinned to two commits',

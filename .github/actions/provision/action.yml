@@ -25,6 +25,7 @@ runs:
       with:
         cache: ${{ inputs.cache }}
         cache_key: provision-${{ steps.floor.outputs.label }}-{{default}}
+        cache_max_age_days: '0'
         cache_save: ${{ inputs.save }}
         install_args: ${{ inputs.tools }}
         version: ${{ steps.floor.outputs.version }}

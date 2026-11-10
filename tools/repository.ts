@@ -182,6 +182,9 @@ export class Repository {
   private get guideProblems(): string[] {
     const lines = this.guide.split('\n')
     return [
+      ...this.gates
+        .filter(gate => !lines.some(line => line.includes(`\`${gate}\``)))
+        .map(gate => `${FILES.guide} names no ${gate} gate`),
       ...this.labels
         .filter(label => !lines.some(line => line.includes(`\`${label.name}\``)))
         .map(label => `${FILES.guide} lists no ${label.name} label`),

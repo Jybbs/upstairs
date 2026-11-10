@@ -24,7 +24,7 @@ The site reads the satellite catalog from `public/catalog.json`, which `mise run
 | `mise labels` | *The labels in `.github/labels.toml`, sent to GitHub once approved* |
 | `mise rulesets` | *The settings in `.github/settings.toml`, the About box in `package.json`, and the rulesets under `.github/rulesets/`, sent to GitHub once approved* |
 
-`mise tasks` lists every task with its description. A task that writes to GitHub prompts for confirmation before it runs.
+`mise tasks` lists every task with its description. `mise labels` and `mise rulesets` each prompt for confirmation before they write to GitHub.
 
 ## Checks
 

@@ -1,51 +1,56 @@
+import { $ }          from 'bun'
 import { appendFile } from 'node:fs/promises'
 import { basename }   from 'node:path'
-
-import { type Workflow, parseFile } from './repository.ts'
 
 interface Brief {
   passed  : boolean
   summary : string
 }
 
-const rowNameOf = (id: string, name?: string) => name?.includes('${{') === false ? name : id
+interface Job {
+  conclusion : string | null
+  name       : string
+  status     : string
+}
 
 /**
- * Fills a workflow's summary template from the `needs` context its gate reads,
- * writing one row per job beside its result and the link to the workflow run,
- * and passes only where every job succeeded. A row takes the job's name, or
- * its id where the name is missing or an expression such as a matrix value.
+ * Fills a workflow's summary template from the jobs of its run, writing one row
+ * per finished job beside its conclusion and the link to the workflow run, and
+ * passes only where every job in the `needs` context its gate reads succeeded.
+ * A matrix job takes one row per leg, each under the name its leg expands to.
  *
  * Args:
+ *   jobs     : The jobs of the run, in the order the run lists them.
  *   needs    : The `needs` context, keyed by job id.
  *   run      : The address of the workflow run.
  *   template : The Markdown holding `{{jobs}}` and `{{run}}`.
- *   workflow : The workflow the gate ends, for the name of each job.
  */
 export const briefOf = (
+  jobs     : Job[],
   needs    : Record<string, { result: string }>,
   run      : string,
-  template : string,
-  workflow : Pick<Workflow, 'jobs'>
+  template : string
 ): Brief => {
-  const jobs = Object.entries(needs)
-    .map(([id, { result }]) => `| \`${rowNameOf(id, workflow.jobs[id]?.name)}\` | ${result} |`)
+  const rows = jobs
+    .filter(job => job.status === 'completed')
+    .map(job => `| \`${job.name}\` | ${job.conclusion} |`)
     .join('\n')
   return {
     passed  : Object.values(needs).every(({ result }) => result === 'success'),
-    summary : template.replace('{{jobs}}', jobs).replace('{{run}}', run)
+    summary : template.replace('{{jobs}}', rows).replace('{{run}}', run)
   }
 }
 
 if (import.meta.main) {
   const env      = process.env
   const file     = basename(env.GITHUB_WORKFLOW_REF?.split('@')[0] ?? '', '.yml')
-  const workflow = await parseFile(`.github/workflows/${file}.yml`)
+  const path     = `repos/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}/jobs?per_page=100`
+  const { jobs } = await $`gh api ${path}`.json()
   const brief    = briefOf(
+    jobs,
     JSON.parse(env.NEEDS ?? '{}'),
     `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`,
-    await Bun.file(`.github/scripts/summaries/${file}.md`).text(),
-    workflow
+    await Bun.file(`.github/scripts/summaries/${file}.md`).text()
   )
   await appendFile(env.GITHUB_STEP_SUMMARY ?? '/dev/stdout', brief.summary)
   process.exit(brief.passed ? 0 : 1)

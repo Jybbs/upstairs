@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { requestsOf, rulesetRequestsOf, type Settings } from '../../tools/sync.ts'
+import { requestsOf, rulesetRequestsOf, type Settings, unnamedOf } from '../../tools/sync.ts'
 
 const ABOUT    = {
   description : 'Shows the satellites.',
@@ -18,7 +18,7 @@ describe('requestsOf', () => {
   it('sends the About box with the repository settings and each table to its endpoint', () =>
     expect(requestsOf(SETTINGS, ABOUT)).toEqual([
       {
-        body   : { description: 'Shows the satellites.', has_wiki: false, homepage: 'https://upstairs.fyi' },
+        body   : { description: 'Shows the satellites.', has_wiki: false, homepage: 'upstairs.fyi' },
         method : 'PATCH',
         path   : 'repos/{owner}/{repo}'
       },
@@ -43,4 +43,12 @@ describe('rulesetRequestsOf', () => {
   ])('%s', (_, live, method, path) =>
     expect(rulesetRequestsOf(live, [ruleset]))
       .toEqual([{ body: ruleset, method, path: `repos/{owner}/{repo}/${path}` }]))
+})
+
+describe('unnamedOf', () => {
+  it('reports each live ruleset no file names', () =>
+    expect(unnamedOf(
+      [{ id: 7, name: 'main branch protection' }, { id: 8, name: 'legacy protection' }],
+      [{ name: 'main branch protection', rules: [] }]
+    )).toEqual(['The live ruleset legacy protection has no file under .github/rulesets/']))
 })
