@@ -1,12 +1,11 @@
-//! Reads a catalog file into one SGP4 propagator per record, built from the
+//! Reads the records of a catalog into one SGP4 propagator each, built from the
 //! WGS72 constants the catalog's orbits are fitted with.
 
 use std::cell::Cell;
-use std::collections::HashMap;
+use std::error::Error;
 use std::f64::consts::PI;
+use std::fmt;
 
-use serde::Deserialize;
-use serde_json::Value;
 use sgp4::chrono::NaiveDateTime;
 use sgp4::{
     Constants, MinutesSinceEpoch, Orbit, WGS72, iau_epoch_to_sidereal_time,
@@ -14,17 +13,10 @@ use sgp4::{
 };
 use wasm_bindgen::prelude::*;
 
-/// The shape of a catalog file, one row per record holding its values in the
-/// order `fields` names them.
-#[derive(Deserialize)]
-struct Catalog {
-    fields: Vec<String>,
-    rows: Vec<Vec<Value>>,
-}
-
 /// The propagator of every record in a catalog, in its order, holding `None`
 /// for a record SGP4 cannot start from.
 #[wasm_bindgen]
+#[derive(Default)]
 pub struct Orbits {
     propagators: Vec<Option<Propagator>>,
 }
@@ -39,6 +31,13 @@ pub struct Propagator {
     period: f64,
 }
 
+/// A segment whose epochs and elements hold different numbers of records.
+#[derive(Debug)]
+pub struct Uneven {
+    elements: usize,
+    epochs: usize,
+}
+
 /// How far past its epoch a record's orbit has been followed, in minutes.
 #[derive(Clone, Copy)]
 enum Decay {
@@ -49,6 +48,16 @@ enum Decay {
     Clear(f64, f64),
 }
 
+/// The elements of a record in the order a segment holds them, after its epoch.
+pub const ELEMENTS: [&str; 7] = [
+    "MEAN_MOTION",
+    "ECCENTRICITY",
+    "INCLINATION",
+    "RA_OF_ASC_NODE",
+    "ARG_OF_PERICENTER",
+    "MEAN_ANOMALY",
+    "BSTAR",
+];
 /// The height in kilometers above the surface below which a perigee is
 /// followed through each revolution, and the most the perigee is taken to fall
 /// in one revolution above it.
@@ -59,28 +68,19 @@ const PRECISION: f64 = 1e-4;
 /// `MARGIN` of the surface.
 const SAMPLES: f64 = 100.0;
 
-impl Catalog {
-    /// Builds the propagator of each row, reading every field by its name.
-    fn propagators(&self) -> Vec<Option<Propagator>> {
-        let columns: HashMap<&str, usize> = self
-            .fields
-            .iter()
-            .enumerate()
-            .map(|(column, field)| (field.as_str(), column))
-            .collect();
-        self.rows
-            .iter()
-            .map(|row| Propagator::read(|field| row.get(*columns.get(field)?)))
-            .collect()
-    }
-}
-
 #[wasm_bindgen]
 impl Orbits {
-    /// Reads the catalog file's text, throwing where it is not a catalog.
+    /// Starts with no records.
     #[wasm_bindgen(constructor)]
-    pub fn new(text: &str) -> Result<Orbits, JsError> {
-        Ok(Self::read(text)?)
+    pub fn new() -> Orbits {
+        Self::default()
+    }
+
+    /// Appends the records of one segment, given as each record's epoch beside
+    /// the values of every record's `ELEMENTS` in turn, throwing where the two
+    /// hold different numbers of records.
+    pub fn extend(&mut self, epochs: Vec<String>, elements: &[f64]) -> Result<(), JsError> {
+        Ok(self.append(&epochs, elements)?)
     }
 
     /// The number of records, a failed one included.
@@ -91,13 +91,21 @@ impl Orbits {
 }
 
 impl Orbits {
-    /// Reads the catalog file's text, returning the parse error where it is not
-    /// a catalog.
-    pub fn read(text: &str) -> serde_json::Result<Self> {
-        let catalog: Catalog = serde_json::from_str(text)?;
-        Ok(Self {
-            propagators: catalog.propagators(),
-        })
+    /// Appends the records of one segment, as `extend` does, returning the
+    /// mismatch where the epochs and the elements hold different numbers of
+    /// records.
+    pub fn append(&mut self, epochs: &[impl AsRef<str>], elements: &[f64]) -> Result<(), Uneven> {
+        let (rows, rest) = elements.as_chunks();
+        if !rest.is_empty() || rows.len() != epochs.len() {
+            return Err(Uneven {
+                elements: elements.len(),
+                epochs: epochs.len(),
+            });
+        }
+        let read = epochs.iter().zip(rows);
+        self.propagators
+            .extend(read.map(|(epoch, row)| Propagator::read(epoch.as_ref(), *row)));
+        Ok(())
     }
 
     /// Returns the propagator of the record at `row`, or `None` where SGP4 cannot
@@ -108,20 +116,30 @@ impl Orbits {
 }
 
 impl Propagator {
-    /// Builds a propagator from the fields of one record, returning `None` where
-    /// a field is missing or SGP4 rejects the elements.
-    pub fn read<'a>(field: impl Fn(&str) -> Option<&'a Value>) -> Option<Self> {
-        let number = |name: &str| field(name)?.as_f64();
-        let angle = |name: &str| number(name).map(f64::to_radians);
-        let epoch: NaiveDateTime = field("EPOCH")?.as_str()?.parse().ok()?;
-        let motion = number("MEAN_MOTION")?;
+    /// Builds a propagator from a record's epoch and its `ELEMENTS`, returning
+    /// `None` where the epoch does not parse, an element is not finite, or SGP4
+    /// rejects the elements.
+    pub fn read(epoch: &str, elements: [f64; ELEMENTS.len()]) -> Option<Self> {
+        if !elements.iter().all(|element| element.is_finite()) {
+            return None;
+        }
+        let [
+            motion,
+            eccentricity,
+            inclination,
+            node,
+            pericenter,
+            anomaly,
+            bstar,
+        ] = elements;
+        let epoch: NaiveDateTime = epoch.parse().ok()?;
         let orbit = Orbit::from_kozai_elements(
             &WGS72,
-            angle("INCLINATION")?,
-            angle("RA_OF_ASC_NODE")?,
-            number("ECCENTRICITY")?,
-            angle("ARG_OF_PERICENTER")?,
-            angle("MEAN_ANOMALY")?,
+            inclination.to_radians(),
+            node.to_radians(),
+            eccentricity,
+            pericenter.to_radians(),
+            anomaly.to_radians(),
             motion * PI / 720.0,
         )
         .ok()?;
@@ -129,7 +147,7 @@ impl Propagator {
             WGS72,
             iau_epoch_to_sidereal_time,
             julian_years_since_j2000(&epoch),
-            number("BSTAR")?,
+            bstar,
             orbit,
         )
         .ok()?;
@@ -227,3 +245,15 @@ impl Propagator {
         (square >= WGS72.ae * WGS72.ae).then_some(position)
     }
 }
+
+impl fmt::Display for Uneven {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            formatter,
+            "The segment holds {} epochs beside {} elements",
+            self.epochs, self.elements
+        )
+    }
+}
+
+impl Error for Uneven {}

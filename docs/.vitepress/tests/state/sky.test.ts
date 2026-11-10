@@ -41,7 +41,7 @@ const loaded = async () => {
   })
   vi.resetModules()
   const { sky } = await import('../../lib/state/sky.ts')
-  hear({ count: 1, fetched: '', type: 'loaded' })
+  hear({ count: 1, fetched: NOW, type: 'loaded' })
   return sky
 }
 

@@ -1,35 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
-import * as catalog from '../../lib/orbit/catalog.ts'
-import { kindOf }   from '../../lib/orbit/kinds.ts'
-import * as scan    from '../../lib/orbit/scan.ts'
-import answers      from '../fixtures/answers.json' with { type: 'json' }
-import full         from '../fixtures/records.json' with { type: 'json' }
+import type { Record } from '../../lib/orbit/catalog.ts'
+import { kindOf }      from '../../lib/orbit/kinds.ts'
+import * as scan       from '../../lib/orbit/scan.ts'
+import answers         from '../fixtures/answers.json' with { type: 'json' }
+import full            from '../fixtures/records.json' with { type: 'json' }
 
-const records = full as unknown as catalog.Record[]
-const trimmed = catalog.recordsOf({
-  fetched : '',
-  fields  : catalog.FIELDS,
-  rows    : records.map(record => catalog.FIELDS.map(field => record[field]))
-})
-
-describe('the trimmed catalog', () => {
-  it.each(records.map((record, index) => [record.OBJECT_NAME, index] as const))(
-    'keeps every field of %s the site reads',
-    (_, index) => {
-      const fields = catalog.FIELDS.map(field => [field, records[index][field]])
-      expect(trimmed[index]).toEqual(Object.fromEntries(fields))
-    }
-  )
-
-  it('keeps the fields the known answers place each record from', () => {
-    expect(catalog.FIELDS).toEqual(answers.fields)
-  })
-})
+const records = full as unknown as Record[]
 
 describe('the satellites of a catalog', () => {
   it('names each record by its catalog number, its name, and the kind its name reads as', () => {
-    expect(scan.satellitesOf(trimmed)).toEqual(records.map(record => ({
+    expect(scan.satellitesOf(records)).toEqual(records.map(record => ({
       id   : record.NORAD_CAT_ID,
       kind : kindOf(record.OBJECT_NAME),
       name : record.OBJECT_NAME
@@ -55,7 +36,7 @@ describe('the windows of a scan', () => {
 })
 
 describe('a traced pass', () => {
-  const satellite = scan.satellitesOf(trimmed).find(({ name }) => name === 'GOES 19')!
+  const satellite = scan.satellitesOf(records).find(({ name }) => name === 'GOES 19')!
   const traced    = {
     earlier : true,
     heading : undefined,

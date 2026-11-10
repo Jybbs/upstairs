@@ -1,6 +1,7 @@
 ["repo:ci"]
 alias       = "ci"
 depends     = [
+  "catalog:typecheck",
   "crate:lint",
   "crate:test",
   "lock:audit",

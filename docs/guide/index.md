@@ -8,7 +8,7 @@ The home page opens on the map around a spot, counting every active satellite ab
 
 ## The Readout
 
-The readout counts the satellites above the horizon, with the spot, the time, and the date beneath the count, then how many of them stand nearly straight up and how many belong to Starlink. While the passes are still being traced, its last line shows how far the scan has reached, and once the map is zoomed in close, that line links to how far off a position can be. A screen reader announces the count at most once every 20 seconds.
+The readout counts the satellites above the horizon, with the spot, the time, and the date beneath the count, then how many of them stand nearly straight up and how many belong to Starlink. While the passes are still being traced, its last line shows how far the scan has reached, and once the map is zoomed in close, that line links to how far off a position can be. Orbits more than three days old take that line first, giving their age. A screen reader announces the count at most once every 20 seconds.
 
 ## The Filters
 

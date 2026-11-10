@@ -9,10 +9,10 @@
 
 use std::sync::LazyLock;
 
-use orbit::{Grid, Moment, Orbits, Point, Propagator, Site, Trace, Traced, Tracer};
+use orbit::{ELEMENTS, Grid, Moment, Orbits, Point, Propagator, Site, Trace, Traced, Tracer};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
 use sgp4::chrono::DateTime;
 
 #[derive(Deserialize)]
@@ -136,12 +136,19 @@ fn start() -> f64 {
 }
 
 fn orbits(records: &[Map<String, Value>]) -> Orbits {
-    let fields = &ANSWERS.fields;
-    let rows: Vec<Vec<&Value>> = records
-        .iter()
-        .map(|record| fields.iter().map(|field| &record[field.as_str()]).collect())
-        .collect();
-    Orbits::read(&json!({ "fields": fields, "rows": rows }).to_string()).unwrap()
+    let epochs: Vec<&str> = records.iter().map(epoch).collect();
+    let elements: Vec<f64> = records.iter().flat_map(elements).collect();
+    let mut orbits = Orbits::new();
+    orbits.append(&epochs, &elements).unwrap();
+    orbits
+}
+
+fn epoch(record: &Map<String, Value>) -> &str {
+    record["EPOCH"].as_str().unwrap_or_default()
+}
+
+fn elements(record: &Map<String, Value>) -> [f64; ELEMENTS.len()] {
+    ELEMENTS.map(|field| record[field].as_f64().unwrap_or(f64::NAN))
 }
 
 fn id(row: u32) -> u64 {
@@ -149,7 +156,7 @@ fn id(row: u32) -> u64 {
 }
 
 fn propagator(record: &Map<String, Value>) -> Option<Propagator> {
-    Propagator::read(|field| record.get(field))
+    Propagator::read(epoch(record), elements(record))
 }
 
 fn close(what: &str, actual: f64, expected: f64, tolerance: f64) {
@@ -420,6 +427,45 @@ fn places_the_same_satellites_when_filled_in_chunks_past_the_last_row() {
 }
 
 #[test]
-fn refuses_text_that_is_not_a_catalog() {
-    assert!(Orbits::read("{}").is_err());
+fn reads_the_elements_in_the_order_the_answers_name_them() {
+    assert_eq!(ANSWERS.fields[3..], ELEMENTS);
+}
+
+#[test]
+fn appends_each_segment_after_the_records_before_it() {
+    let (first, rest) = RECORDS.split_at(RECORDS.len() / 2);
+    let mut orbits = orbits(first);
+    let epochs: Vec<&str> = rest.iter().map(epoch).collect();
+    let elements: Vec<f64> = rest.iter().flat_map(elements).collect();
+    orbits.append(&epochs, &elements).unwrap();
+    let window = &ANSWERS.grid;
+    let sighting = window
+        .grid(&orbits)
+        .sight(ANSWERS.spot.latitude, ANSWERS.spot.longitude);
+    assert_eq!(sighting.counts, window.counts);
+}
+
+#[test]
+fn places_only_the_rows_a_grid_was_built_for_once_the_orbits_grow() {
+    let (first, rest) = RECORDS.split_at(RECORDS.len() / 2);
+    let mut orbits = orbits(first);
+    let window = &ANSWERS.grid;
+    let mut grid = Grid::new(&orbits, start(), window.samples(), window.step);
+    let epochs: Vec<&str> = rest.iter().map(epoch).collect();
+    let elements: Vec<f64> = rest.iter().flat_map(elements).collect();
+    orbits.append(&epochs, &elements).unwrap();
+    grid.fill(&orbits, 0, orbits.size());
+    let sighting = grid.sight(ANSWERS.spot.latitude, ANSWERS.spot.longitude);
+    assert_eq!(sighting.counts.len(), window.samples());
+}
+
+#[test]
+fn refuses_a_segment_whose_epochs_and_elements_differ() {
+    let epochs: Vec<&str> = RECORDS.iter().map(epoch).collect();
+    let elements: Vec<f64> = RECORDS.iter().flat_map(elements).collect();
+    let mut orbits = Orbits::new();
+    for (epochs, elements) in [(&epochs[1..], &elements[..]), (&epochs[..], &elements[1..])] {
+        assert!(orbits.append(epochs, elements).is_err());
+    }
+    assert_eq!(orbits.size(), 0);
 }
