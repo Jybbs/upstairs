@@ -53,7 +53,8 @@ describe('a download cycle', () => {
   it('dates the stored file by the time the cycle ran', async () => {
     const { cycle, stored } = cycleOf(good)
     await cycle.run(start)
-    const { value } = await segmentsOf(new Blob([stored.get(FILE) as Uint8Array<ArrayBuffer>]).stream()).next()
+    const file      = new Blob([stored.get(FILE) as Uint8Array<ArrayBuffer>])
+    const { value } = await segmentsOf(file.stream()).next()
     expect(value?.fetched).toBe(start)
   })
 
@@ -92,7 +93,7 @@ describe('a download cycle', () => {
     cycle.resume()
     expect(await cycle.run(start + 3 * EVERY)).toBe('stored')
   })
-  it('sends the alert again on each halted run until a send succeeds, asking CelesTrak nothing more', async () => {
+  it('sends the alert again on each halted run until a send succeeds, asking CelesTrak once', async () => {
     const { cycle, sent, fetcher } = cycleOf(() => new Response(null, { status: 403 }), 2)
     await expect(cycle.run(start)).rejects.toThrow('E_RECIPIENT_NOT_ALLOWED')
     await expect(cycle.run(start + EVERY)).rejects.toThrow('E_RECIPIENT_NOT_ALLOWED')
