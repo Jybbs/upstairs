@@ -18,6 +18,7 @@ describe('the address', () => {
     ['#90.01,0', null],
     ['#0,-180.01', null],
     ['#42.36', null],
+    ['#,', null],
     ['#boston', null],
     ['', null]
   ])('reads %s as %o', (fragment, spot) => expect(spotIn(fragment)).toEqual(spot))

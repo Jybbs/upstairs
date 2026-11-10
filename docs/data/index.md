@@ -51,4 +51,4 @@ Each service below receives requests from the reader's browser, and none of them
 
 ## Licenses
 
-The license notice of each package the site bundles ships with it in [licenses.txt](/licenses.txt).
+The license notice of each npm package the site bundles ships with it in [licenses.txt](/licenses.txt).

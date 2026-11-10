@@ -17,6 +17,6 @@ export const fragmentOf = ({ latitude, longitude }: Spot): string =>
  * it holds no latitude and longitude on the globe.
  */
 export const spotIn = (fragment: string): Spot | null => {
-  const [latitude, longitude] = fragment.slice(1).split(',').map(Number)
+  const [latitude, longitude] = fragment.slice(1).split(',').map(parseFloat)
   return Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null
 }

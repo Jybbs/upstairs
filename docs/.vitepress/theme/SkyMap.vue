@@ -6,10 +6,10 @@ import mapWorker                                  from 'maplibre-gl/dist/maplibr
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { CREDITS, holdCredit } from '../lib/map/credit.ts'
-import { namesOn, placeNear }   from '../lib/map/places.ts'
-import { Overlay }              from '../lib/map/overlay.ts'
-import { styleOf }              from '../lib/map/style.ts'
-import { sky }                  from '../lib/state/sky.ts'
+import { namesOn, placeNear }  from '../lib/map/places.ts'
+import { Overlay }             from '../lib/map/overlay.ts'
+import { styleOf }             from '../lib/map/style.ts'
+import { sky }                 from '../lib/state/sky.ts'
 
 const DEM     = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
 const SYNC_MS = 250

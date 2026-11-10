@@ -25,8 +25,8 @@ mise press
 - `docs/.vitepress/tools/catalog.ts` trims CelesTrak's active catalog to the fields the site reads, and the other scripts beside it audit and sync the repository's declarations.
 - `rust/` holds the orbit crate, which places each satellite with SGP4 and finds its passes, compiled to WebAssembly.
 - `docs/.vitepress/lib/orbit/` holds the catalog's fields, the satellite kinds, and the web worker that runs the crate's scan.
-- `docs/.vitepress/lib/map/` holds the terrain style and the canvases drawn above it.
-- `docs/.vitepress/lib/state/` holds the map's shared state and the traced passes.
+- `docs/.vitepress/lib/map/` holds the terrain style, the canvases drawn above it, and the map's credit.
+- `docs/.vitepress/lib/state/` holds the map's shared state, the spot the page's address carries, and the traced passes.
 - `docs/.vitepress/lib/site/` holds the sections the navigation bar links and the preload of the map's chunk.
 - `docs/.vitepress/theme/` holds the components, the map's layout, and the stylesheet.
 - `docs/.vitepress/tests/` holds the suite, one folder per folder it covers.

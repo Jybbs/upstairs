@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve }      from 'node:path'
 
-import type { Map }                                 from 'maplibre-gl'
+import type { Map }                                        from 'maplibre-gl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CREDITS, HOLD, holdCredit } from '../../lib/map/credit.ts'
@@ -30,8 +30,8 @@ describe('the map credit', () => {
   })
   afterEach(() => vi.useRealTimers())
 
-  it('stays open until the wait has passed', () => {
-    vi.advanceTimersByTime(HOLD.wait - 1)
+  it('stays open for five seconds before it closes', () => {
+    vi.advanceTimersByTime(4_999)
     expect(shown()).toBe(true)
     vi.advanceTimersByTime(1)
     expect(shown()).toBe(false)
