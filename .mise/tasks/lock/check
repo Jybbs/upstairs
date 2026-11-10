@@ -18,3 +18,4 @@ fi
 diff -u "$snapshot" .mise/mise.lock >&2
 MISE_LOCKED_SCOPES=project mise install --dry-run --force --locked
 bun install --cwd docs --dry-run --frozen-lockfile
+cargo metadata --format-version 1 --locked --manifest-path rust/Cargo.toml > /dev/null

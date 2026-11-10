@@ -24,6 +24,7 @@ export default defineConfig({
   vite: {
     optimizeDeps : { exclude: ['maplibre-gl'] },
     plugins      : [tailwindcss(), home.plugin],
+    server       : { fs: { allow: ['../rust/pkg'] } },
     worker       : { format: 'es' }
   }
 })

@@ -4,7 +4,7 @@ description: How the site calculates where each satellite stands.
 
 # Method
 
-Your browser calculates each position with the SGP4 orbit model through [`satellite.js`](https://github.com/shashwatak/satellite-js), reading the orbital elements [Data](/data/) names and scanning each one over the window the time strip shows.
+Your browser calculates each position with the SGP4 orbit model through the [`sgp4`](https://docs.rs/sgp4) crate compiled to WebAssembly, reading the orbital elements [Data](/data/) names and scanning each one over the window the time strip shows.
 
 ## Accuracy
 

@@ -1,13 +1,12 @@
-import { ecfToLookAngles, eciToEcf, gstime, json2satrec, propagate } from 'satellite.js'
-import { describe, expect, it }                                       from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import * as catalog from '../../lib/orbit/catalog.ts'
+import { kindOf }   from '../../lib/orbit/kinds.ts'
 import * as scan    from '../../lib/orbit/scan.ts'
+import answers      from '../fixtures/answers.json' with { type: 'json' }
 import full         from '../fixtures/records.json' with { type: 'json' }
 
-const BOSTON  = { latitude: 42.36, longitude: -71.06 }
 const records = full as unknown as catalog.Record[]
-const start   = Date.parse('2026-11-06T18:37:00Z')
 const trimmed = catalog.recordsOf({
   fetched : '',
   fields  : catalog.FIELDS,
@@ -16,63 +15,67 @@ const trimmed = catalog.recordsOf({
 
 describe('the trimmed catalog', () => {
   it.each(records.map((record, index) => [record.OBJECT_NAME, index] as const))(
-    'places %s where the full record does',
+    'keeps every field of %s the site reads',
     (_, index) => {
-      const date = new Date(start)
-      const a    = propagate(json2satrec(records[index]), date)
-      const b    = propagate(json2satrec(trimmed[index]), date)
-      expect(b?.position).toEqual(a?.position)
+      const fields = catalog.FIELDS.map(field => [field, records[index][field]])
+      expect(trimmed[index]).toEqual(Object.fromEntries(fields))
     }
   )
+
+  it('keeps the fields the known answers place each record from', () => {
+    expect(catalog.FIELDS).toEqual(answers.fields)
+  })
 })
 
-describe('the rough grid', () => {
-  const satellites = scan.satellitesOf(records)
-  const samples    = scan.samplesFor(60, scan.GRID_STEP)
-  const grid       = new Float32Array(satellites.length * samples * 3)
-  satellites.forEach((satellite, row) => scan.fillGrid(grid, row, satellite.record, start, samples))
-  const { counts, risen } = scan.readGrid(grid, satellites.length, samples, BOSTON)
+describe('the satellites of a catalog', () => {
+  it('names each record by its catalog number, its name, and the kind its name reads as', () => {
+    expect(scan.satellitesOf(trimmed)).toEqual(records.map(record => ({
+      id   : record.NORAD_CAT_ID,
+      kind : kindOf(record.OBJECT_NAME),
+      name : record.OBJECT_NAME
+    })))
+  })
+})
 
-  it.each(Array.from({ length: samples }, (_, sample) => [sample]))(
-    'counts sample %i as the look angles do',
-    sample => {
-      const date     = new Date(start + sample * scan.GRID_STEP * 1000)
-      const expected = satellites.filter(({ record }) => {
-        const moved = propagate(record, date)
-        return moved
-          && ecfToLookAngles(scan.observerOf(BOSTON), eciToEcf(moved.position, gstime(date))).elevation > 0
-      }).length
-      expect(counts[sample]).toBe(expected)
-    }
-  )
+describe('the windows of a scan', () => {
+  it.each([
+    ['grid', answers.grid, scan.GRID_STEP],
+    ['track', answers.track, scan.TRACK_STEP]
+  ] as const)('samples the %s at the step the known answers were taken at', (_, window, step) => {
+    expect(window.step).toBe(step)
+  })
 
-  it('lists a geostationary satellite in view as risen', () => {
-    expect(risen.map(row => satellites[row].name)).toContain('GOES 19')
+  it('stores as many values per track sample as the known answers hold', () => {
+    expect(scan.TRACK_WIDTH).toBe(answers.track.width)
+  })
+
+  it('takes one grid sample per count the known answers hold, both ends included', () => {
+    expect(scan.samplesFor(answers.grid.minutes, scan.GRID_STEP)).toBe(answers.grid.counts.length)
   })
 })
 
 describe('a traced pass', () => {
-  const satellites = scan.satellitesOf(records)
-  const samples    = scan.samplesFor(120, scan.TRACK_STEP)
-  const trace      = (name: string) => {
-    const track = new Float32Array(samples * scan.TRACK_WIDTH)
-    return {
-      pass  : scan.traceInto(track, 0, satellites.find(item => item.name === name)!, BOSTON, start, samples),
-      track : track
-    }
+  const satellite = scan.satellitesOf(trimmed).find(({ name }) => name === 'GOES 19')!
+  const traced    = {
+    earlier : true,
+    heading : undefined,
+    height  : 35786,
+    later   : false,
+    peak    : 40.9,
+    peakAt  : 0,
+    range   : 37500,
+    riseAt  : 0,
+    riseAz  : 203.5,
+    setAt   : 7170,
+    setAz   : 204.1
   }
 
-  it('marks a geostationary satellite as holding its place', () => {
-    const { pass } = trace('GOES 19')
-    expect(pass?.heading).toBeNull()
-    expect(pass?.earlier && pass?.later).toBe(true)
-    expect(pass?.height).toBeGreaterThan(35000)
+  it('joins the satellite it belongs to, keeping each time, angle, and distance', () => {
+    const joined = { ...satellite, ...traced, heading: 12 }
+    expect(scan.passOf(satellite, { ...traced, heading: 12 })).toEqual(joined)
   })
 
-  it('keeps every elevation of the pass above the horizon between its rise and set', () => {
-    const { pass, track } = trace('ISS (ZARYA)')
-    if (!pass) return
-    for (let at = pass.riseAt; at <= pass.setAt; at += scan.TRACK_STEP)
-      expect(track[at / scan.TRACK_STEP * scan.TRACK_WIDTH + 2]).toBeGreaterThan(0)
+  it('marks a satellite the WebAssembly module gives no heading as holding its place', () => {
+    expect(scan.passOf(satellite, traced).heading).toBeNull()
   })
 })

@@ -4,3 +4,4 @@
 
 mise lock
 bun install --cwd docs
+cargo update --manifest-path rust/Cargo.toml --workspace
