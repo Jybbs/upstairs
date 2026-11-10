@@ -12,8 +12,10 @@ use crate::orbits::{Orbits, Propagator};
 pub const TRACK_WIDTH: usize = 3;
 /// The share of a bracket each golden-section round keeps.
 const GOLDEN: f64 = 0.618_033_988_749_895;
-/// The milliseconds a bracket around a pass's highest point closes to, within
-/// which a satellite near the zenith climbs less than a hundredth of a degree.
+/// The milliseconds a bracket around a pass's highest point closes to, whose
+/// middle then lies within 5 milliseconds of the peak, over which a satellite
+/// 225 kilometers up or higher climbs less than a hundredth of a degree even
+/// at the zenith.
 const SETTLED: f64 = 10.0;
 /// The degrees a satellite moves across the samples beside its peak, below which
 /// it reads as holding its place and takes no heading.
@@ -111,8 +113,8 @@ impl Tracer {
         (at.saturating_sub(1), (at + 1).min(self.moments.len() - 1))
     }
 
-    /// Returns the look from the spot and the point below a satellite at a Unix
-    /// time in milliseconds, or `None` where its propagator fails there.
+    /// Returns the look from the spot and the point below a satellite at
+    /// `moment`, or `None` where its propagator fails there.
     fn look(&self, propagator: &Propagator, moment: &Moment) -> Seen {
         let fixed = moment.fixed(propagator.at(moment.time)?);
         Some((self.site.look(fixed), Point::below(fixed)))

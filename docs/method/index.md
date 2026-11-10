@@ -8,8 +8,8 @@ Your browser calculates each position with the SGP4 orbit model through the [`sg
 
 ## Passes
 
-The scan samples each satellite every 30 seconds through the window, and a pass runs across each stretch of samples standing above the horizon, so a satellite rising twice in the window makes two passes. The highest point of a pass is then found between the samples on either side of the highest sample, narrowing that minute to 10 milliseconds, which puts the peak's elevation within a hundredth of a degree of its true value.
+The scan samples each satellite every 30 seconds through the window, and a pass runs across each stretch of samples standing above the horizon, so a satellite rising twice in the window makes two passes. The highest point of a pass is then found between the samples on either side of the highest sample, narrowing that minute to 10 milliseconds, which puts the peak's elevation within a hundredth of a degree of the highest elevation the orbit model gives.
 
 ## Accuracy
 
-Each position comes from an orbit fitted hours or days earlier and shifts once a satellite maneuvers. Compared against precise GPS orbits, SGP4 places a satellite a few kilometers along its track from where it is near the time its orbit was fitted, and the gap grows with each day the prediction runs from that time, per [Kelso (2007)](https://celestrak.org/publications/AAS/07-127/). Once the map is zoomed in far enough for 5 kilometers to span 10 pixels, the readout says so. The positions serve curiosity rather than safety or navigation.
+Each position comes from an orbit fitted hours or days earlier and shifts once a satellite maneuvers. [Kelso (2007)](https://celestrak.org/publications/AAS/07-127/) compared SGP4 against the precise orbits of the GPS satellites and found each one kilometers from where it was, mostly along its track. The error differed from one satellite to the next, was not smallest at the time the orbit was fitted, and grew as the prediction ran on from that time. Once the map is zoomed in far enough for 5 kilometers to span 10 pixels, the readout says so. The positions serve curiosity rather than safety or navigation.
