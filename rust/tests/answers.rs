@@ -360,6 +360,51 @@ fn finds_each_highest_point_within_a_hundredth_of_a_degree() {
 }
 
 #[test]
+fn finds_a_zenith_between_samples_within_a_hundredth_of_a_degree() {
+    let window = &ANSWERS.track;
+    let row = RECORDS
+        .iter()
+        .position(|record| record["NORAD_CAT_ID"] == 63848)
+        .unwrap();
+    let orbits = orbits(&RECORDS);
+    let time = start() + 1.37 * window.step * 1000.0;
+    let teme = propagator(&RECORDS[row]).unwrap().at(time).unwrap();
+    let below = Point::below(Moment::at(time).fixed(teme));
+    let tracer = Tracer::new(
+        below.latitude,
+        below.longitude,
+        start(),
+        window.samples(),
+        window.step,
+    );
+    let trace = tracer.trace(&orbits, &[row as u32]);
+    let pass = trace
+        .passes
+        .iter()
+        .max_by(|a, b| a.peak.total_cmp(&b.peak))
+        .unwrap();
+    close("zenith", pass.peak, 90.0, 0.01);
+}
+
+#[test]
+fn reads_each_height_and_range_at_the_highest_point() {
+    let site = Site::new(ANSWERS.spot.latitude, ANSWERS.spot.longitude);
+    for pass in &TRACE.passes {
+        let what = |field: &str| format!("{}, {field}", id(pass.row));
+        let time = start() + pass.peak_at * 1000.0;
+        let propagator = propagator(&RECORDS[pass.row as usize]).unwrap();
+        let fixed = Moment::at(time).fixed(propagator.at(time).unwrap());
+        close(
+            &what("height"),
+            pass.height,
+            Point::below(fixed).height,
+            DISTANCE,
+        );
+        close(&what("range"), pass.range, site.look(fixed).range, DISTANCE);
+    }
+}
+
+#[test]
 fn fails_a_record_once_its_orbit_decays() {
     let propagator = propagator(&ANSWERS.decayed.record).unwrap();
     let epoch = ANSWERS.decayed.record["EPOCH"].as_str().unwrap();

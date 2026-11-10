@@ -79,7 +79,10 @@ describe('the count a screen reader hears', () => {
     expect(sky.spoken.value).toBe('5 satellites above the horizon')
     hear({ counts: countsOf(7), id, step: scan.GRID_STEP, type: 'counts' })
     expect(sky.spoken.value).toBe('5 satellites above the horizon')
-    vi.advanceTimersByTime(20_000)
+    vi.advanceTimersByTime(19_999)
+    sky.tally()
+    expect(sky.spoken.value).toBe('5 satellites above the horizon')
+    vi.advanceTimersByTime(1)
     sky.tally()
     expect(sky.spoken.value).toBe('7 satellites above the horizon')
   })
@@ -91,6 +94,7 @@ describe('the chosen pass', () => {
     traced([passAt(0, 30), passAt(1800, 50)])
     sky.focusOn(sky.tracks.passes[0])
     sky.scan()
+    expect(sky.focus.value).toBeNull()
     traced([passAt(0, 30), passAt(1800, 50)])
     expect(sky.selected.value).toBe(sky.tracks.passes[0])
   })
@@ -106,12 +110,16 @@ describe('the chosen pass', () => {
 })
 
 describe('the window', () => {
-  it('moves to begin at the present once the present passes its end', async () => {
+  it.each([
+    ['stays put while the present stands a millisecond short of its end', -1, false],
+    ['moves to begin at the present once the present reaches its end', 0, true]
+  ])('%s', async (_, offset, moved) => {
     const sky   = await loaded()
     const start = sky.start.value
-    vi.setSystemTime(start + sky.span.value * 1000)
+    const now   = start + sky.span.value * 1000 + offset
+    vi.setSystemTime(now)
     sky.tally()
-    expect(sky.start.value).toBe(start + sky.span.value * 1000)
+    expect(sky.start.value).toBe(moved ? now : start)
     expect(posted.at(-1)).toMatchObject({ start: sky.start.value, type: 'scan' })
   })
 })
