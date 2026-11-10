@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import 'maplibre-gl/dist/maplibre-gl.css'
-
 import mlcontour                                  from 'maplibre-contour'
 import * as maplibregl                            from 'maplibre-gl'
+import mapStyle                                   from 'maplibre-gl/dist/maplibre-gl.css?url'
 import mapWorker                                  from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
@@ -45,7 +44,20 @@ const refreshFrame = () => {
   overlay.invalidate()
 }
 
-onMounted(() => {
+/**
+ * Links the map's stylesheet from the page's head once, resolving once it has
+ * loaded.
+ */
+const styled = () => new Promise(resolve => {
+  if (document.querySelector(`link[href="${mapStyle}"]`)) return resolve(null)
+  const link = Object.assign(document.createElement('link'), { href: mapStyle, rel: 'stylesheet' })
+  link.onload = resolve
+  document.head.append(link)
+})
+
+onMounted(async () => {
+  await styled()
+  if (!frame.value) return
   maplibregl.setWorkerUrl(mapWorker)
   const demSource = new mlcontour.DemSource({ encoding: 'terrarium', maxzoom: 13, url: DEM, worker: true })
   demSource.setupMaplibre(maplibregl)

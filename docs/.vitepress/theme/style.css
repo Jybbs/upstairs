@@ -33,3 +33,5 @@
 }
 
 .maplibregl-ctrl-attrib, .maplibregl-ctrl-attrib a { font-family: var(--font-book); }
+
+.VPNavBar.home .divider-line { background-color: var(--vp-nav-divider-color); }

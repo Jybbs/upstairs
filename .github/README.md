@@ -35,6 +35,6 @@ mise press
 ## Data
 
 - Orbital data: [CelesTrak](https://celestrak.org/), from the US Space Force through [Space-Track](https://www.space-track.org/)
-- Terrain: [Mapzen terrain tiles](https://github.com/tilezen/joerd/blob/master/docs/attribution.md)
+- Terrain: the [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset and its sources
 - Map data: [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) through [OpenFreeMap](https://openfreemap.org/)
 - Place search: [Photon](https://photon.komoot.io/)

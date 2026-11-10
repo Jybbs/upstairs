@@ -20,8 +20,8 @@ const tierOf = (kind: string, zoom: number): { order: number, tier: Label['tier'
 
 /**
  * Reads the names in the map tiles on screen, largest places first, keeping
- * those with room around them. The map carries no text of its own, and these
- * names are set in the page's book serif.
+ * those with room around them. The map carries no text of its own, and the
+ * overlay sets cities and waters in the book serif and regions in the mono.
  */
 export const namesOn = (map: Map, view: View): Label[] => {
   const zoom  = map.getZoom()

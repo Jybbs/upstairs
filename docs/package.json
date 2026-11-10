@@ -32,8 +32,10 @@
     "@types/node": "26.6.6",
     "@vitejs/plugin-vue": "6.0.10",
     "@vitest/coverage-v8": "5.1.0",
+    "@vue/test-utils": "2.5.1",
     "@vue/tsconfig": "0.9.1",
     "culori": "4.0.2",
+    "happy-dom": "21.0.4",
     "knip": "6.44.2",
     "oxlint": "1.92.0",
     "tailwindcss": "4.3.5",
@@ -42,6 +44,10 @@
     "vitepress": "2.0.0-alpha.21",
     "vitest": "5.1.0",
     "vue-tsc": "3.3.14"
+  },
+  "overrides": {
+    "glob": "14.0.4",
+    "minimatch": "11.0.6"
   },
   "knip": {
     "entry": [

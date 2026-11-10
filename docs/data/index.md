@@ -4,7 +4,7 @@ description: Where the orbits, the map, and the place search come from.
 
 # Data
 
-*Upstairs* stores no locations. Moving the map requests map tiles from the providers below, and typing in the search box sends that text to Photon.
+*Upstairs* keeps the spot you choose in the page's address, so a link copied from it carries the spot. Moving the map requests map tiles from the providers below, and typing in the search box sends that text to Photon.
 
 ## Orbits
 

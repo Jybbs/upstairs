@@ -1,11 +1,11 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { dirname }                    from 'node:path'
+import { dirname, join }              from 'node:path'
 
 import { FIELDS, type Record } from '../lib/orbit/catalog.ts'
 
 const AT_LEAST = 5000
 const SOURCE   = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json'
-const TARGET   = 'public/catalog.json'
+const TARGET   = join(import.meta.dir, '../../public/catalog.json')
 
 /**
  * Reads the catalog from a file given as the first argument, or from CelesTrak.
