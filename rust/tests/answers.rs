@@ -117,7 +117,10 @@ const DISTANCE: f64 = 1e-2;
 const EARTH: f64 = 6378.137;
 
 fn read<T: DeserializeOwned>(name: &str) -> T {
-    let path = format!("{}/../docs/.vitepress/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+    let path = format!(
+        "{}/../docs/.vitepress/tests/fixtures/{name}",
+        env!("CARGO_MANIFEST_DIR")
+    );
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
