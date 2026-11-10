@@ -10,7 +10,7 @@ export default defineConfig({
 
   test: {
     coverage: {
-      include          : ['src/**', 'tools/**'],
+      include          : ['catalog/**/*.ts', 'src/**', 'tools/**'],
       provider         : 'v8',
       reporter         : ['text', 'html'],
       reportOnFailure  : true,

@@ -1,0 +1,16 @@
+{
+  "name": "upstairs-catalog",
+  "main": "service.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    { "pattern": "upstairs.fyi/catalog.bin", "zone_name": "upstairs.fyi" },
+    { "pattern": "upstairs.fyi/catalog/resume", "zone_name": "upstairs.fyi" }
+  ],
+  "triggers": { "crons": ["0 */2 * * *"] },
+  "durable_objects": { "bindings": [{ "name": "REFRESHER", "class_name": "Refresher" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Refresher"] }],
+  "kv_namespaces": [{ "binding": "CATALOG" }],
+  "send_email": [{ "name": "EMAIL" }],
+  "vars": { "ALERT_FROM": "catalog@upstairs.fyi" }
+}

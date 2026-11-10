@@ -52,6 +52,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - { name: 🧷 Catalog Types, task: catalog:typecheck, tools: bun }
           - { name: 🩺 Advisories, task: lock:audit, tools: bun }
           - { name: 🔐 Lockfiles, task: lock:check, tools: bun }
           - { name: 📋 Audit, task: repo:audit, tools: bun }

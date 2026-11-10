@@ -16,6 +16,8 @@ const about = computed(() => {
   const note   = NOTES[pass.value.id] ?? KINDS[pass.value.kind].about
   return docked ? `${note} Flying with ${docked} docked ${docked === 1 ? 'craft or module' : 'craft and modules'}.` : note
 })
+const empty = computed(() => sky.expired.value ? 'The orbits are too old to draw'
+                           : sky.done.value ? 'No satellite matches these filters' : 'Tracing passes')
 const distance = (kilometers: number) => `${Math.round(kilometers).toLocaleString()} km`
 </script>
 
@@ -44,6 +46,6 @@ const distance = (kilometers: number) => `${Math.round(kilometers).toLocaleStrin
         </div>
       </dl>
     </template>
-    <p v-else class="caps text-sea">{{ sky.done.value ? 'No satellite matches these filters' : 'Tracing passes' }}</p>
+    <p v-else class="caps text-sea">{{ empty }}</p>
   </section>
 </template>

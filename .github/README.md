@@ -2,7 +2,7 @@
 
 Pick a spot on the map and watch every satellite passing over it.
 
-The site lists the active satellites above the horizon at that spot, plays their passes through a window of time, and shows where each one is headed. Everything is calculated in the browser from published orbital data, so the site runs without a server of its own.
+The site lists the active satellites above the horizon at that spot, plays their passes through a window of time, and shows where each one is headed. Everything is calculated in the browser from published orbital data, which a Cloudflare service downloads from CelesTrak every two hours and serves beside the site.
 
 ## Run it
 
@@ -17,12 +17,13 @@ mise test
 mise press
 ```
 
-`mise run catalog` downloads the catalog into `public/`. CelesTrak publishes new orbital data every two hours and asks for one download per update, so run it sparingly. `mise tasks` lists every task, and [the contributor guide](CONTRIBUTING.md) lists the checks a pull request runs.
+`mise run catalog` downloads the catalog into `public/catalog.bin`, or encodes a CelesTrak file given as its argument. CelesTrak publishes new orbital data every two hours and asks for one download per update, so run it sparingly. `mise tasks` lists every task, and [the contributor guide](CONTRIBUTING.md) lists the checks a pull request runs.
 
 ## How it fits together
 
-- `tools/catalog.ts` trims CelesTrak's active catalog to the fields the site reads, and the other scripts under `tools/` audit and sync the repository's declarations.
-- `src/orbit/` holds the orbit scan and the web worker that runs it.
+- `catalog/` holds the Cloudflare Worker and its Durable Object, which download CelesTrak's active catalog once a cycle, encode the fields the orbit model reads as compressed binary columns, and serve the file from Workers KV through the edge cache.
+- `tools/` holds the scripts that audit and sync the repository's declarations.
+- `src/orbit/` holds the catalog reader, the orbit scan, and the web worker that runs it.
 - `src/map/` holds the terrain style and the canvases drawn above it.
 - `src/state/` holds the page's shared state and the traced passes.
 - `src/ui/` holds the components.

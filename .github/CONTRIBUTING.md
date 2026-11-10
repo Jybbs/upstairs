@@ -9,7 +9,7 @@
 3. Run `mise run site:install`, which installs the packages `bun.lock` resolves with their install scripts off
 4. Run `mise serve` to serve the site locally
 
-The site reads the satellite catalog from `public/catalog.json`, which `mise run catalog` downloads from [CelesTrak](https://celestrak.org/). CelesTrak publishes new orbital data every two hours and asks for one download per update, so the task runs only when the catalog itself has to move.
+The site reads the satellite catalog from `public/catalog.bin`, which `mise run catalog` downloads from [CelesTrak](https://celestrak.org/). CelesTrak publishes new orbital data every two hours and asks for one download per update, so the task runs only when the catalog itself has to move.
 
 ## Tasks
 
@@ -32,6 +32,7 @@ Each pull request runs `🛰️ CI`, one row per check below, and the `🔭 Brie
 
 | **Row** | **Local Command** | **Fails When** |
 |---|---|---|
+| `🧷 Catalog Types` | `mise run catalog:typecheck` | *`tsc` reports a type error in the catalog service under the Workers runtime types* |
 | `🩺 Advisories` | `mise run lock:audit` | *`bun audit` finds an advisory for a package `bun.lock` resolves, or cannot reach its advisory database* |
 | `🔐 Lockfiles` | `mise run lock:check` | *`.mise/mise.lock` or `bun.lock` drifts from its manifest* |
 | `📋 Audit` | `mise run repo:audit` | *The registries, the templates, this guide, the workflows, and the rulesets disagree with one another* |

@@ -1,23 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { ecfToLookAngles, eciToEcf, gstime, json2satrec, propagate } from 'satellite.js'
+import { ecfToLookAngles, eciToEcf, gstime, propagate } from 'satellite.js'
 
-import { FIELDS, recordsOf, type Record } from '../../src/orbit/catalog.ts'
+import type { Record } from '../../src/orbit/catalog.ts'
 import * as scan from '../../src/orbit/scan.ts'
 import full from '../fixtures/records.json'
 
 const records = full as unknown as Record[]
-const trimmed = recordsOf({ fetched: '', fields: FIELDS, rows: records.map(record => FIELDS.map(field => record[field])) })
 const start   = Date.parse('2026-11-06T18:37:00Z')
 const boston  = { latitude: 42.36, longitude: -71.06 }
-
-describe('the trimmed catalog', () => {
-  it.each(records.map((record, index) => [record.OBJECT_NAME, index] as const))('places %s where the full record does', (_, index) => {
-    const date = new Date(start)
-    const a = propagate(json2satrec(records[index]), date)
-    const b = propagate(json2satrec(trimmed[index]), date)
-    expect(b?.position).toEqual(a?.position)
-  })
-})
 
 describe('the rough grid', () => {
   const satellites = scan.satellitesOf(records)
