@@ -22,6 +22,7 @@ export default defineConfig({
   ],
 
   vite: {
+    build        : { license: { fileName: 'licenses.txt' } },
     optimizeDeps : { exclude: ['maplibre-gl'] },
     plugins      : [tailwindcss(), home.plugin],
     server       : { fs: { allow: ['../rust/pkg'] } },
