@@ -17,5 +17,5 @@ if grep -qi 'warn.*failed to resolve' <<< "$log"; then
 fi
 diff -u "$snapshot" .mise/mise.lock >&2
 MISE_LOCKED_SCOPES=project mise install --dry-run --force --locked
-bun install --dry-run --frozen-lockfile
+bun install --cwd docs --dry-run --frozen-lockfile
 cargo metadata --format-version 1 --locked --manifest-path rust/Cargo.toml > /dev/null

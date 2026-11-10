@@ -1,9 +1,9 @@
 //! Holds the crate to the positions, the grid, and the passes `satellite.js`
-//! computed for the records under `tests/fixtures/`, within 10 meters and a
-//! thousandth of a degree, which a position's azimuth divides by the cosine of
-//! its elevation. Those answers take each epoch cut to the millisecond, which
-//! moves a low satellite by up to 8 meters, so the tolerance sits above that
-//! shift.
+//! computed for the records under `docs/.vitepress/tests/fixtures/`, within 10
+//! meters and a thousandth of a degree, which a position's azimuth divides by
+//! the cosine of its elevation. Those answers take each epoch cut to the
+//! millisecond, which moves a low satellite by up to 8 meters, so the tolerance
+//! sits above that shift.
 
 use std::sync::LazyLock;
 
@@ -117,7 +117,7 @@ const DISTANCE: f64 = 1e-2;
 const EARTH: f64 = 6378.137;
 
 fn read<T: DeserializeOwned>(name: &str) -> T {
-    let path = format!("{}/../tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+    let path = format!("{}/../docs/.vitepress/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 

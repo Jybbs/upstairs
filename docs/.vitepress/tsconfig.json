@@ -1,0 +1,11 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "WebWorker"],
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "types": ["bun", "node", "vite/client"]
+  },
+  "include": ["config.ts", "lib", "tests", "theme", "tools", "vitest.config.ts"]
+}

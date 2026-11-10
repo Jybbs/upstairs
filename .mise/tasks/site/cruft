@@ -2,5 +2,6 @@
 #MISE alias       = "cruft"
 #MISE depends     = ["crate:compile", "site:install"]
 #MISE description = "Report the unused files, exports, and dependencies knip finds in the site"
+#MISE dir         = "{{config_root}}/docs"
 
 bun run knip "$@"

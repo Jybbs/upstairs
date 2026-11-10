@@ -1,6 +1,7 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "serve"
 #MISE depends     = ["crate:compile", "site:install"]
-#MISE description = "Serve the site locally, reloading a page as it is edited and passing any further arguments to Vite"
+#MISE description = "Serve the site locally, reloading a page as it is edited and passing any further arguments to VitePress"
+#MISE dir         = "{{config_root}}/docs"
 
-bun run --bun vite "$@"
+bun run --bun vitepress dev "$@"

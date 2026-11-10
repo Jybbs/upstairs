@@ -3,4 +3,4 @@
 #MISE depends     = ["site:install"]
 #MISE description = "Report each disagreement between the registries, the templates, the guide, the workflows, and the rulesets"
 
-bun run tools/repository.ts
+bun run docs/.vitepress/tools/repository.ts
