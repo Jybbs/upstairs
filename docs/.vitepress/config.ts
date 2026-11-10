@@ -1,11 +1,18 @@
 import tailwindcss     from '@tailwindcss/vite'
 import { defineConfig } from 'vitepress'
 
-import manifest      from '../package.json' with { type: 'json' }
-import { preloadOf } from './lib/site/preload.ts'
-import { navOf }     from './lib/site/sections.ts'
+import manifest       from '../package.json' with { type: 'json' }
+import { licensesOf } from './lib/site/licenses.ts'
+import { preloadOf }  from './lib/site/preload.ts'
+import { navOf }      from './lib/site/sections.ts'
 
-const home = preloadOf('/theme/HomeMap.vue', 'index.md')
+const LICENSES = 'licenses.txt'
+const home     = preloadOf('/theme/HomeMap.vue', 'index.md')
+const notices  = licensesOf(
+  LICENSES,
+  new URL('../../rust/Cargo.toml', import.meta.url),
+  new URL('../../rust/pkg/licenses.txt', import.meta.url)
+)
 
 export default defineConfig({
   appearance    : false,
@@ -22,9 +29,9 @@ export default defineConfig({
   ],
 
   vite: {
-    build        : { license: { fileName: 'licenses.txt' } },
+    build        : { license: { fileName: LICENSES } },
     optimizeDeps : { exclude: ['maplibre-gl'] },
-    plugins      : [tailwindcss(), home.plugin],
+    plugins      : [tailwindcss(), home.plugin, notices],
     server       : { fs: { allow: ['../rust/pkg'] } },
     worker       : { format: 'es' }
   }
