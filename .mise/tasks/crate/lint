@@ -1,0 +1,6 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "clippy"
+#MISE description = "Lint the orbit crate with Clippy, failing on any warning, and check its formatting with rustfmt"
+
+cargo clippy --all-targets --locked --manifest-path rust/Cargo.toml -- --deny warnings
+cargo fmt --check --manifest-path rust/Cargo.toml

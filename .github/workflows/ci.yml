@@ -53,16 +53,18 @@ jobs:
       matrix:
         include:
           - { name: 🧷 Catalog Types, task: catalog:typecheck, tools: bun }
-          - { name: 🩺 Advisories, task: lock:audit, tools: bun }
-          - { name: 🔐 Lockfiles, task: lock:check, tools: bun }
+          - { name: 📎 Clippy, task: crate:lint, tools: rust }
+          - { name: 🦀 Crate Tests, task: crate:test, tools: rust }
+          - { name: 🩺 Advisories, task: lock:audit, tools: bun osv-scanner }
+          - { name: 🔐 Lockfiles, task: lock:check, tools: bun rust }
           - { name: 📋 Audit, task: repo:audit, tools: bun }
           - { name: 🔦 Workflows, task: repo:lint, tools: zizmor }
-          - { name: 🎯 Site Coverage, task: site:coverage, tools: bun }
-          - { name: ✂️ Knip, task: site:cruft, tools: bun }
-          - { name: 🔗 Links, task: site:links, tools: bun lychee }
+          - { name: 🎯 Site Coverage, task: site:coverage, tools: bun rust github:wasm-bindgen/wasm-bindgen }
+          - { name: ✂️ Knip, task: site:cruft, tools: bun rust github:wasm-bindgen/wasm-bindgen }
+          - { name: 🔗 Links, task: site:links, tools: bun lychee rust github:wasm-bindgen/wasm-bindgen }
           - { name: ⚓ Oxlint, task: site:lint, tools: bun }
-          - { name: 📰 Press, task: site:press, tools: bun }
-          - { name: 🧷 Types, task: site:typecheck, tools: bun }
+          - { name: 📰 Press, task: site:press, tools: bun rust github:wasm-bindgen/wasm-bindgen }
+          - { name: 🧷 Types, task: site:typecheck, tools: bun rust github:wasm-bindgen/wasm-bindgen }
     timeout-minutes: 15
 name: 🛰️ CI
 on:

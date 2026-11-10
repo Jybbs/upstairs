@@ -1,4 +1,5 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE description = "Install the packages `bun.lock` resolves, failing where the lockfile would change"
+#MISE dir         = "{{config_root}}/docs"
 
 bun install --frozen-lockfile

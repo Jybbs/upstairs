@@ -1,6 +1,7 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "press"
-#MISE depends     = ["site:install"]
-#MISE description = "Build the site into `dist/`, passing any further arguments to Vite"
+#MISE depends     = ["crate:compile", "site:install"]
+#MISE description = "Build the site into `docs/.vitepress/dist/`, passing any further arguments to VitePress"
+#MISE dir         = "{{config_root}}/docs"
 
-bun run --bun vite build "$@"
+bun run --bun vitepress build "$@"

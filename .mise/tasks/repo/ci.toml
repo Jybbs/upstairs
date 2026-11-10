@@ -2,6 +2,8 @@
 alias       = "ci"
 depends     = [
   "catalog:typecheck",
+  "crate:lint",
+  "crate:test",
   "lock:audit",
   "lock:check",
   "repo:audit",
