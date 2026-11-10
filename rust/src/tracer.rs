@@ -1,5 +1,6 @@
 //! Traces satellites through a window over one spot, writing each one's track
-//! and reading its highest pass from that track.
+//! and reading every pass it makes from that track, each pass's highest point
+//! found between the samples beside it.
 
 use wasm_bindgen::prelude::*;
 
@@ -9,20 +10,31 @@ use crate::orbits::{Orbits, Propagator};
 /// The values a track stores per sample, meaning latitude, longitude, and
 /// elevation, in degrees.
 pub const TRACK_WIDTH: usize = 3;
+/// The share of a bracket each golden-section round keeps.
+const GOLDEN: f64 = 0.618_033_988_749_895;
+/// The milliseconds a bracket around a pass's highest point closes to, within
+/// which a satellite near the zenith climbs less than a hundredth of a degree.
+const SETTLED: f64 = 10.0;
 /// The degrees a satellite moves across the samples beside its peak, below which
 /// it reads as holding its place and takes no heading.
 const STATIONARY: f64 = 0.05;
 
-/// The tracks of the satellites a batch traced that rise over the spot, one
-/// after another in the order of `passes`.
+/// The look from the spot and the point below a satellite at one sample, or
+/// `None` where its propagator fails there.
+type Seen = Option<(Look, Point)>;
+
+/// The tracks of the satellites in a batch that rise over the spot, one after
+/// another, beside every pass they make and, for each pass, the index in
+/// `track` where its satellite's samples begin.
 #[wasm_bindgen(getter_with_clone)]
 pub struct Trace {
+    pub offsets: Vec<u32>,
     pub passes: Vec<Traced>,
     pub track: Vec<f32>,
 }
 
-/// One satellite's highest pass over the spot within the window, with its
-/// times in seconds from the start of the window and its angles in degrees.
+/// One pass of a satellite over the spot within the window, with its times in
+/// seconds from the start of the window and its angles in degrees.
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug)]
 pub struct Traced {
@@ -67,111 +79,163 @@ impl Tracer {
         }
     }
 
-    /// Traces the satellites in `rows`, keeping the track and the pass of each
-    /// one that rises at a traced sample.
+    /// Traces the satellites in `rows`, keeping the track of each one that
+    /// rises at a traced sample beside every pass it makes.
     pub fn trace(&self, orbits: &Orbits, rows: &[u32]) -> Trace {
-        let mut looks = vec![None; self.moments.len()];
-        let mut passes = Vec::new();
-        let mut track = Vec::with_capacity(rows.len() * self.moments.len() * TRACK_WIDTH);
+        let mut seen = vec![None; self.moments.len()];
+        let mut trace = Trace {
+            offsets: Vec::new(),
+            passes: Vec::new(),
+            track: Vec::with_capacity(rows.len() * self.moments.len() * TRACK_WIDTH),
+        };
         for &row in rows {
-            let first = track.len();
-            match self.pass(row, orbits.get(row as usize), &mut looks, &mut track) {
-                Some(pass) => passes.push(pass),
-                None => track.truncate(first),
+            let Some(propagator) = orbits.get(row as usize) else {
+                continue;
+            };
+            let first = trace.track.len();
+            self.sample(propagator, &mut seen, &mut trace.track);
+            trace.passes.extend(self.passes(row, propagator, &seen));
+            if trace.passes.len() == trace.offsets.len() {
+                trace.track.truncate(first);
+            } else {
+                trace.offsets.resize(trace.passes.len(), first as u32);
             }
         }
-        Trace { passes, track }
+        trace
     }
 }
 
 impl Tracer {
-    /// Appends one satellite's samples to `track`, writing the look and height of
-    /// each into `looks`, and returns the highest elevation beside the sample it
-    /// was reached at.
-    fn sample(
-        &self,
-        propagator: Option<&Propagator>,
-        looks: &mut [Option<(Look, f64)>],
-        track: &mut Vec<f32>,
-    ) -> (f64, usize) {
-        let mut peak = (f64::NEG_INFINITY, 0);
-        for (sample, (moment, seen)) in self.moments.iter().zip(looks.iter_mut()).enumerate() {
-            *seen = propagator
-                .and_then(|propagator| propagator.at(moment.time))
-                .map(|position| {
-                    let fixed = moment.fixed(position);
-                    let (look, point) = (self.site.look(fixed), Point::below(fixed));
-                    track.extend(
-                        [point.latitude, point.longitude, look.elevation].map(|value| value as f32),
-                    );
-                    if look.elevation > peak.0 {
-                        peak = (look.elevation, sample);
-                    }
-                    (look, point.height)
-                });
-            if seen.is_none() {
-                track.extend([f32::NAN; TRACK_WIDTH]);
-            }
-        }
-        peak
+    /// Returns the samples on either side of `at`, each held inside the window.
+    fn beside(&self, at: usize) -> (usize, usize) {
+        (at.saturating_sub(1), (at + 1).min(self.moments.len() - 1))
     }
 
-    /// Appends one satellite's samples to `track` and returns its highest pass,
-    /// or `None` where it never rises at a traced sample.
+    /// Returns the look from the spot and the point below a satellite at a Unix
+    /// time in milliseconds, or `None` where its propagator fails there.
+    fn look(&self, propagator: &Propagator, moment: &Moment) -> Seen {
+        let fixed = moment.fixed(propagator.at(moment.time)?);
+        Some((self.site.look(fixed), Point::below(fixed)))
+    }
+
+    /// Builds one pass from the samples `rise` through `set`, every one of
+    /// which stands above the horizon.
     fn pass(
         &self,
         row: u32,
-        propagator: Option<&Propagator>,
-        looks: &mut [Option<(Look, f64)>],
-        track: &mut Vec<f32>,
-    ) -> Option<Traced> {
-        let first = track.len();
-        let (elevation, at) = self.sample(propagator, looks, track);
-        if elevation <= 0.0 {
-            return None;
-        }
-
-        let samples = &track[first..];
-        let value = |sample: usize, field: usize| f64::from(samples[sample * TRACK_WIDTH + field]);
-        let up = |sample: usize| value(sample, 2) > 0.0;
-        let last = self.moments.len() - 1;
-        let edge =
-            |side: &mut dyn Iterator<Item = usize>| side.take_while(|&sample| up(sample)).last();
-        let rise = edge(&mut (0..at).rev()).unwrap_or(at);
-        let set = edge(&mut (at + 1..=last)).unwrap_or(at);
-
-        let (before, after) = (at.saturating_sub(1), (at + 1).min(last));
-        let from = (value(before, 0), value(before, 1));
-        let to = (value(after, 0), value(after, 1));
-        let moved = (to.0 - from.0).hypot((to.1 - from.1 + 540.0).rem_euclid(360.0) - 180.0);
-        let (look, height) = looks[at]?;
-
-        Some(Traced {
+        propagator: &Propagator,
+        seen: &[Seen],
+        rise: usize,
+        set: usize,
+    ) -> Traced {
+        let at = (rise..=set)
+            .max_by(|&a, &b| elevation(seen[a]).total_cmp(&elevation(seen[b])))
+            .unwrap_or(rise);
+        let point = |sample: usize| seen[sample].map(|(_, point)| point);
+        let (before, after) = self.beside(at);
+        let (from, to) = (point(before), point(after));
+        let heading = from.zip(to).and_then(|(from, to)| {
+            let moved = (to.latitude - from.latitude)
+                .hypot((to.longitude - from.longitude + 540.0).rem_euclid(360.0) - 180.0);
+            (moved >= STATIONARY).then(|| bearing(from, to))
+        });
+        let (time, summit) = self.summit(propagator, at, seen[at]);
+        let (look, below) = summit.expect("a pass's highest sample places the satellite");
+        let azimuth = |sample: usize| seen[sample].map_or(f64::NAN, |(look, _)| look.azimuth);
+        Traced {
             row,
             earlier: rise == 0,
-            heading: (moved >= STATIONARY).then(|| bearing(from, to)),
-            height,
-            later: set == last,
-            peak: elevation,
-            peak_at: at as f64 * self.step,
+            heading,
+            height: below.height,
+            later: set == self.moments.len() - 1,
+            peak: look.elevation,
+            peak_at: (time - self.moments[0].time) / 1000.0,
             range: look.range,
             rise_at: rise as f64 * self.step,
-            rise_az: looks[rise]?.0.azimuth,
+            rise_az: azimuth(rise),
             set_at: set as f64 * self.step,
-            set_az: looks[set]?.0.azimuth,
-        })
+            set_az: azimuth(set),
+        }
+    }
+
+    /// Returns every pass of one satellite, meaning each run of consecutive
+    /// samples standing above the horizon.
+    fn passes<'a>(
+        &'a self,
+        row: u32,
+        propagator: &'a Propagator,
+        seen: &'a [Seen],
+    ) -> impl Iterator<Item = Traced> + 'a {
+        let mut start = 0;
+        seen.chunk_by(|a, b| up(*a) == up(*b))
+            .filter_map(move |run| {
+                let rise = start;
+                start += run.len();
+                up(run[0]).then(|| self.pass(row, propagator, seen, rise, start - 1))
+            })
+    }
+
+    /// Appends one satellite's samples to `track`, writing what each one sees
+    /// into `seen`.
+    fn sample(&self, propagator: &Propagator, seen: &mut [Seen], track: &mut Vec<f32>) {
+        for (moment, slot) in self.moments.iter().zip(seen.iter_mut()) {
+            *slot = self.look(propagator, moment);
+            track.extend(slot.map_or([f32::NAN; TRACK_WIDTH], |(look, point)| {
+                [point.latitude, point.longitude, look.elevation].map(|value| value as f32)
+            }));
+        }
+    }
+
+    /// Finds the highest point between the samples beside `at` by golden-section
+    /// search on elevation, closing the bracket to `SETTLED`, and returns its
+    /// time in milliseconds beside what the spot sees there, keeping the sample
+    /// `at` itself where the search lands lower.
+    fn summit(&self, propagator: &Propagator, at: usize, seen: Seen) -> (f64, Seen) {
+        let height = |time: f64| elevation(self.look(propagator, &Moment::at(time)));
+        let (before, after) = self.beside(at);
+        let mut low = self.moments[before].time;
+        let mut high = self.moments[after].time;
+        let mut left = high - GOLDEN * (high - low);
+        let mut right = low + GOLDEN * (high - low);
+        let (mut below, mut above) = (height(left), height(right));
+        while high - low > SETTLED {
+            if below < above {
+                (low, left, below) = (left, right, above);
+                right = low + GOLDEN * (high - low);
+                above = height(right);
+            } else {
+                (high, right, above) = (right, left, below);
+                left = high - GOLDEN * (high - low);
+                below = height(left);
+            }
+        }
+        let time = (low + high) / 2.0;
+        let found = self.look(propagator, &Moment::at(time));
+        if elevation(found) > elevation(seen) {
+            (time, found)
+        } else {
+            (self.moments[at].time, seen)
+        }
     }
 }
 
 /// Returns the initial bearing from one point to another on a sphere, in degrees
 /// clockwise from north.
-fn bearing(
-    (from_latitude, from_longitude): (f64, f64),
-    (to_latitude, to_longitude): (f64, f64),
-) -> f64 {
-    let (phi1, phi2) = (from_latitude.to_radians(), to_latitude.to_radians());
-    let delta = (to_longitude - from_longitude).to_radians();
+fn bearing(from: Point, to: Point) -> f64 {
+    let (phi1, phi2) = (from.latitude.to_radians(), to.latitude.to_radians());
+    let delta = (to.longitude - from.longitude).to_radians();
     let angle = (delta.sin() * phi2.cos())
         .atan2(phi1.cos() * phi2.sin() - phi1.sin() * phi2.cos() * delta.cos());
     angle.to_degrees().rem_euclid(360.0)
+}
+
+/// Returns the elevation a sample sees, or negative infinity where its
+/// propagator fails.
+fn elevation(seen: Seen) -> f64 {
+    seen.map_or(f64::NEG_INFINITY, |(look, _)| look.elevation)
+}
+
+/// Reports whether a sample stands above the horizon.
+fn up(seen: Seen) -> bool {
+    elevation(seen) > 0.0
 }

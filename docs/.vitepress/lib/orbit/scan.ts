@@ -7,13 +7,15 @@ import type { Record }       from './catalog.ts'
 import { kindOf, type Kind } from './kinds.ts'
 
 /**
- * One satellite's highest pass over a spot within a window, with its times in
- * seconds from the start of the window.
+ * One pass of a satellite over a spot within a window, with its times in
+ * seconds from the start of the window and a key no other pass in the window
+ * shares.
  */
 export interface Pass extends Satellite {
   earlier : boolean
   heading : number | null
   height  : number
+  key     : string
   later   : boolean
   peak    : number
   peakAt  : number
@@ -33,9 +35,10 @@ export interface Satellite {
 export interface Spot { latitude: number, longitude: number }
 
 /**
- * A pass as the WebAssembly module traces it, before it is joined to its satellite.
+ * A pass as the WebAssembly module traces it, before it is joined to its
+ * satellite.
  */
-export type Traced = Omit<Pass, keyof Satellite | 'heading'> & { heading: number | undefined }
+export type Traced = Omit<Pass, keyof Satellite | 'heading' | 'key'> & { heading: number | undefined }
 
 /**
  * Seconds between samples of the rough scan that finds what rises at all.
@@ -59,6 +62,7 @@ export const passOf = (satellite: Satellite, traced: Traced): Pass => ({
   earlier : traced.earlier,
   heading : traced.heading ?? null,
   height  : traced.height,
+  key     : `${satellite.id}/${traced.riseAt}`,
   later   : traced.later,
   peak    : traced.peak,
   peakAt  : traced.peakAt,

@@ -1,10 +1,10 @@
-import { KINDS }                 from '../orbit/kinds.ts'
-import { TRACK_STEP, type Spot } from '../orbit/scan.ts'
-import type { Tracks }           from '../state/tracks.ts'
-import { View }                  from './mercator.ts'
+import { KINDS }                             from '../orbit/kinds.ts'
+import { TRACK_STEP, type Pass, type Spot } from '../orbit/scan.ts'
+import type { Tracks }                       from '../state/tracks.ts'
+import { View }                              from './mercator.ts'
 
 export interface Drawn {
-  selected : number | null
+  selected : Pass | null
   spot     : Spot
   traced   : (pass: number) => boolean
   tracks   : Tracks
@@ -124,11 +124,10 @@ export class Overlay {
 
     const { tracks } = state
     context.lineCap  = 'round'
+    const chosen     = state.selected ? tracks.passes.indexOf(state.selected) : -1
     for (let pass = 0; pass < tracks.passes.length; pass++) {
-      const selected = tracks.passes[pass].id === state.selected
-      if (state.traced(pass) && !selected) this.drawPath(context, tracks, pass, false)
+      if (pass !== chosen && state.traced(pass)) this.drawPath(context, tracks, pass, false)
     }
-    const chosen = tracks.passes.findIndex(pass => pass.id === state.selected)
     if (chosen >= 0) this.drawPath(context, tracks, chosen, true)
     this.drawSpot(context, state.spot)
   }
@@ -264,14 +263,14 @@ export class Overlay {
 
     context.fillStyle = FAINT
     for (let pass = 0; pass < tracks.passes.length; pass++) {
-      if (!tracks.at(pass, seconds) || tracks.elevation <= 0) continue
+      if (!tracks.up(pass, seconds)) continue
       const x = view.column(tracks.longitude)
       const y = view.row(tracks.latitude)
       if (!view.inside(x, y, PADDING)) continue
       this.remember(x, y, pass)
       if (state.traced(pass)) {
         const height = tracks.elevation
-        if (tracks.passes[pass].id === state.selected) chosen = pass
+        if (tracks.passes[pass] === state.selected) chosen = pass
         else this.rank(pass, height)
       } else {
         context.fillRect(x - 1.25, y - 1.25, 2.5, 2.5)
@@ -279,8 +278,8 @@ export class Overlay {
     }
 
     for (let pass = 0; pass < tracks.passes.length; pass++) {
-      if (!state.traced(pass) || !tracks.at(pass, seconds) || tracks.elevation <= 0) continue
-      this.drawMark(context, tracks, pass, seconds, tracks.passes[pass].id === state.selected)
+      if (!state.traced(pass) || !tracks.up(pass, seconds)) continue
+      this.drawMark(context, tracks, pass, seconds, tracks.passes[pass] === state.selected)
     }
 
     for (let index = 0; index < SHOWN; index++) {

@@ -7,10 +7,15 @@ import type { DefaultTheme } from 'vitepress'
 const SECTIONS = ['Guide', 'Method', 'Data'] as const
 
 /**
+ * Returns the path of a section's folder.
+ */
+export const linkOf = (section: typeof SECTIONS[number]) => `/${section.toLowerCase()}/`
+
+/**
  * Builds the navigation bar's links, one per section, each marked active on
  * every page under its folder.
  */
 export const navOf = () => SECTIONS.map(text => {
-  const link = `/${text.toLowerCase()}/`
+  const link = linkOf(text)
   return { activeMatch: `^${link}`, link, text } satisfies DefaultTheme.NavItemWithLink
 })

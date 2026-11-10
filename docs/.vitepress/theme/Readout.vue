@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { linkOf }  from '../lib/site/sections.ts'
 import { sky }     from '../lib/state/sky.ts'
 import PlaceSearch from './PlaceSearch.vue'
 
@@ -17,10 +18,13 @@ const over = computed(() => sky.place.value ?? coordinates.value)
     <PlaceSearch />
     <div>
       <p class="flex items-baseline gap-2">
-        <output class="font-display text-5xl leading-none tabular-nums">{{ sky.loaded.value ? sky.up.value.toLocaleString() : '···' }}</output>
+        <output class="font-display text-5xl leading-none tabular-nums" aria-live="off">{{ sky.loaded.value ? sky.up.value.toLocaleString() : '···' }}</output>
         <span class="text-sm leading-tight">satellites above the horizon</span>
       </p>
-      <p class="mt-1 truncate text-sm text-soft">over {{ over }} at {{ sky.clockOf(sky.at.value) }} your time</p>
+      <p class="mt-1 truncate text-sm text-soft">
+        over {{ over }} at {{ sky.clockOf(sky.at.value) }} your time on {{ sky.dayOf(sky.at.value) }}
+      </p>
+      <p class="sr-only" aria-live="polite">{{ sky.spoken.value }}</p>
     </div>
     <dl class="grid grid-cols-2 gap-x-3 border-t border-rule pt-2">
       <div>
@@ -35,6 +39,7 @@ const over = computed(() => sky.place.value ?? coordinates.value)
     <p class="caps h-3 text-soft">
       <template v-if="sky.failed.value">The catalog did not load</template>
       <template v-else-if="!sky.done.value">Tracing passes {{ Math.round(sky.share.value * 100) }}%</template>
+      <a v-else-if="sky.closeUp.value" class="underline" :href="`${linkOf('Method')}#accuracy`">Positions here can be kilometers off</a>
       <template v-else>Click the map to move the spot</template>
     </p>
   </section>

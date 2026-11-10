@@ -71,7 +71,7 @@ describe('a traced pass', () => {
   }
 
   it('joins the satellite it belongs to, keeping each time, angle, and distance', () => {
-    const joined = { ...satellite, ...traced, heading: 12 }
+    const joined = { ...satellite, ...traced, heading: 12, key: `${satellite.id}/0` }
     expect(scan.passOf(satellite, { ...traced, heading: 12 })).toEqual(joined)
   })
 

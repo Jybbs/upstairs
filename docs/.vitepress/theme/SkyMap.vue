@@ -5,6 +5,7 @@ import mapStyle                                   from 'maplibre-gl/dist/maplibr
 import mapWorker                                  from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { Hosts }              from '../lib/map/hosts.ts'
 import { namesOn, placeNear } from '../lib/map/places.ts'
 import { Overlay }            from '../lib/map/overlay.ts'
 import { styleOf }            from '../lib/map/style.ts'
@@ -13,13 +14,16 @@ import { sky }                from '../lib/state/sky.ts'
 const CREDIT = 'Terrain: <a '
              + 'href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md">Mapzen and its '
              + 'sources</a>'
-const DEM     = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
-const SYNC_MS = 250
-const ZOOM    = 5
-const cursor  = ref('crosshair')
-const frame   = ref<HTMLElement>()
-const lower   = ref<HTMLCanvasElement>()
-const upper   = ref<HTMLCanvasElement>()
+const DEM      = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
+const DRIFT_KM = 5
+const DRIFT_PX = 10
+const SYNC_MS  = 250
+const ZOOM     = 5
+const cursor   = ref('crosshair')
+const frame    = ref<HTMLElement>()
+const hosts    = new Hosts()
+const lower    = ref<HTMLCanvasElement>()
+const upper    = ref<HTMLCanvasElement>()
 
 let map: maplibregl.Map
 let overlay: Overlay
@@ -35,6 +39,7 @@ const placed = () => {
   const center                      = map.getCenter()
   const { clientWidth, clientHeight } = map.getContainer()
   overlay.view.set(clientWidth, clientHeight, map.getZoom(), center.lng, center.lat)
+  sky.closeUp.value = overlay.view.scale(center.lat) * DRIFT_KM >= DRIFT_PX
   overlay.invalidate()
 }
 
@@ -82,10 +87,12 @@ onMounted(async () => {
     center             : [longitude, latitude],
     container          : frame.value!,
     dragRotate         : false,
+    maxPitch           : 0,
     maxZoom            : 12,
     minZoom            : 1.5,
     pitchWithRotate    : false,
     style              : styleOf(contourTiles, demSource.sharedDemProtocolUrl),
+    touchPitch         : false,
     zoom               : ZOOM
   })
   map.touchZoomRotate.disableRotation()
@@ -104,6 +111,8 @@ onMounted(async () => {
     credit?.classList.remove('maplibregl-compact-show')
     credit?.removeAttribute('open')
   })
+  map.on('error', ({ sourceId }: maplibregl.ErrorEvent & { sourceId?: string }) => hosts.fail(sourceId))
+  map.on('sourcedata', ({ sourceId, tile }) => tile && hosts.load(sourceId))
   map.on('move', placed)
   map.on('moveend', refreshFrame)
   map.on('idle', refreshFrame)
@@ -114,7 +123,7 @@ onMounted(async () => {
   map.on('click', ({ point, lngLat }) => {
     const pass = overlay.nearest(point.x, point.y)
     if (pass !== null) {
-      sky.selected.value = sky.tracks.passes[pass].id
+      sky.selected.value = sky.tracks.passes[pass]
       return
     }
     sky.pick(
@@ -163,5 +172,12 @@ onBeforeUnmount(() => {
     <div ref="frame" class="size-full [&_.maplibregl-canvas]:cursor-[inherit]!" />
     <canvas ref="lower" class="pointer-events-none absolute inset-0 size-full" />
     <canvas ref="upper" class="pointer-events-none absolute inset-0 size-full" />
+    <p
+      v-if="hosts.message.value"
+      class="absolute inset-x-4 top-1/3 mx-auto max-w-sm rounded-sm border border-rule bg-paper/95 p-4 text-center text-sm"
+      role="alert"
+    >
+      {{ hosts.message.value }}
+    </p>
   </div>
 </template>
