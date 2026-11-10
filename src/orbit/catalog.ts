@@ -1,21 +1,26 @@
-import type { OMMJsonObject } from 'satellite.js'
-
 /**
- * The fields of a catalog record that the site reads: the name, plus every field
- * the orbit model reads.
+ * Declares the fields a catalog file keeps for each record, and rebuilds the
+ * records from the rows the file holds them in.
  */
-export const FIELDS = [
-  'OBJECT_NAME', 'NORAD_CAT_ID', 'EPOCH', 'MEAN_MOTION', 'ECCENTRICITY', 'INCLINATION',
-  'RA_OF_ASC_NODE', 'ARG_OF_PERICENTER', 'MEAN_ANOMALY', 'BSTAR', 'MEAN_MOTION_DOT', 'MEAN_MOTION_DDOT',
-] as const
-
-export type Record = OMMJsonObject & { OBJECT_NAME: string, NORAD_CAT_ID: number }
 
 export interface Catalog {
   fetched : string
   fields  : readonly string[]
   rows    : readonly (readonly (string | number)[])[]
 }
+
+export type Record = {
+  readonly [Field in typeof FIELDS[number]]: Field extends 'OBJECT_NAME' | 'EPOCH' ? string : number
+}
+
+/**
+ * The fields of a catalog record the site reads, meaning its name and number
+ * beside the elements SGP4 starts an orbit from.
+ */
+export const FIELDS = [
+  'OBJECT_NAME', 'NORAD_CAT_ID', 'EPOCH', 'MEAN_MOTION', 'ECCENTRICITY', 'INCLINATION',
+  'RA_OF_ASC_NODE', 'ARG_OF_PERICENTER', 'MEAN_ANOMALY', 'BSTAR'
+] as const
 
 /**
  * Rebuilds the records of a catalog file from its rows.

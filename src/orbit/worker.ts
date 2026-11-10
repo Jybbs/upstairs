@@ -1,71 +1,124 @@
+/**
+ * Runs the pass scan off the page, holding the catalog's propagators in the
+ * WebAssembly module. Each scan posts its counts and then its passes in
+ * batches, and stops once a newer scan arrives.
+ */
+
+import init, * as orbit            from '../../rust/pkg/orbit.js'
 import { recordsOf, type Catalog } from './catalog.ts'
-import type { Pass, Satellite, Spot } from './scan.ts'
-import * as scan from './scan.ts'
+import * as scan                   from './scan.ts'
 
 export type Asked =
   | { type: 'load', url: string }
-  | { type: 'scan', id: number, spot: Spot, start: number, minutes: number }
+  | { type: 'scan', id: number, spot: scan.Spot, start: number, minutes: number }
 
 export type Answer =
   | { type: 'loaded', count: number, fetched: string }
   | { type: 'failed', reason: string }
   | { type: 'counts', id: number, counts: Uint16Array, step: number }
-  | { type: 'passes', id: number, passes: Pass[], track: Float32Array, samples: number, done: number, total: number }
+  | {
+    done    : number
+    id      : number
+    passes  : scan.Pass[]
+    samples : number
+    total   : number
+    track   : Float32Array
+    type    : 'passes'
+  }
   | { type: 'done', id: number }
 
-const CHUNK = 400
-const BATCH = 100
+const BATCH   = 100
+const CHUNK   = 400
+const channel = new MessageChannel()
+const ready   = init()
 
-let satellites: Satellite[] = []
-let latest = 0
-let held: { key: string, grid: Float32Array, samples: number } | null = null
+let held: { grid: orbit.Grid, key: string } | null = null
+let latest                                         = 0
+let orbits: orbit.Orbits | null                    = null
+let satellites: scan.Satellite[]                   = []
 
-const post = (answer: Answer, transfer: Transferable[] = []) => self.postMessage(answer, { transfer })
-const breathe = () => new Promise(resolve => setTimeout(resolve))
+const breathe = () => new Promise(resolve => {
+  channel.port1.onmessage = resolve
+  channel.port2.postMessage(null)
+})
 
 /**
  * The rough grid of a window, kept between spots since a satellite's positions
  * do not depend on who is looking. Null when a newer scan has taken over.
  */
-const gridOf = async (id: number, start: number, minutes: number) => {
+const gridOf = async (orbits: orbit.Orbits, id: number, minutes: number, start: number) => {
   const key = `${start}/${minutes}`
-  if (held?.key === key) return held
-  const samples = scan.samplesFor(minutes, scan.GRID_STEP)
-  const grid    = new Float32Array(satellites.length * samples * 3)
-  for (let row = 0; row < satellites.length; row++) {
-    scan.fillGrid(grid, row, satellites[row].record, start, samples)
-    if (row % CHUNK === 0) {
-      await breathe()
-      if (id !== latest) return null
+  if (held?.key === key) return held.grid
+  held?.grid.free()
+  held = null
+  const grid = new orbit.Grid(orbits, start, scan.samplesFor(minutes, scan.GRID_STEP), scan.GRID_STEP)
+  for (let row = 0; row < orbits.size; row += CHUNK) {
+    grid.fill(orbits, row, row + CHUNK)
+    await breathe()
+    if (id !== latest) {
+      grid.free()
+      return null
     }
   }
-  return held = { key, grid, samples }
+  held = { grid, key }
+  return grid
 }
 
-const run = async (id: number, spot: Spot, start: number, minutes: number) => {
-  const held = await gridOf(id, start, minutes)
-  if (!held) return
-  const { counts, risen } = scan.readGrid(held.grid, satellites.length, held.samples, spot)
+/**
+ * Copies a traced pass out of the module's memory beside the satellite it
+ * belongs to, freeing the copy the module holds.
+ */
+const passOf = (traced: orbit.Traced): scan.Pass => {
+  const pass = {
+    ...satellites[traced.row],
+    earlier : traced.earlier,
+    heading : traced.heading ?? null,
+    height  : traced.height,
+    later   : traced.later,
+    peak    : traced.peak,
+    peakAt  : traced.peakAt,
+    range   : traced.range,
+    riseAt  : traced.riseAt,
+    riseAz  : traced.riseAz,
+    setAt   : traced.setAt,
+    setAz   : traced.setAz
+  }
+  traced.free()
+  return pass
+}
+
+const post = (answer: Answer, transfer: Transferable[] = []) => self.postMessage(answer, { transfer })
+
+const run = async (orbits: orbit.Orbits, id: number, minutes: number, spot: scan.Spot, start: number) => {
+  const grid = await gridOf(orbits, id, minutes, start)
+  if (!grid) return
+  const sighting          = grid.sight(spot.latitude, spot.longitude)
+  const { counts, risen } = sighting
+  sighting.free()
   post({ type: 'counts', id, counts, step: scan.GRID_STEP })
 
   // Everything but Starlink comes first, since those rows are the ones that get read.
-  const order   = [...risen].sort((a, b) => Number(satellites[a].kind === 'starlink') - Number(satellites[b].kind === 'starlink'))
-  const samples = scan.samplesFor(minutes, scan.TRACK_STEP)
-  const width   = samples * scan.TRACK_WIDTH
+  const starlink = (row: number) => Number(satellites[row].kind === 'starlink')
+  const order    = risen.toSorted((a, b) => starlink(a) - starlink(b))
+  const samples  = scan.samplesFor(minutes, scan.TRACK_STEP)
+  const tracer   = new orbit.Tracer(spot.latitude, spot.longitude, start, samples, scan.TRACK_STEP)
 
-  for (let first = 0; first < order.length; first += BATCH) {
-    const batch = order.slice(first, first + BATCH)
-    const track = new Float32Array(batch.length * width)
-    const passes: Pass[] = []
-    for (const row of batch) {
-      const pass = scan.traceInto(track, passes.length * width, satellites[row], spot, start, samples)
-      if (pass) passes.push(pass)
+  try {
+    for (let first = 0; first < order.length; first += BATCH) {
+      const batch             = order.subarray(first, first + BATCH)
+      const trace             = tracer.trace(orbits, batch)
+      const { passes, track } = trace
+      trace.free()
+      const done  = first + batch.length
+      const total = order.length
+      post({ type: 'passes', done, id, passes: passes.map(passOf), samples, total, track }, [track.buffer])
+      await breathe()
+      if (id !== latest) return
     }
-    post({ type: 'passes', id, passes, track, samples, done: first + batch.length, total: order.length }, [track.buffer])
-    await breathe()
-    if (id !== latest) return
+    post({ type: 'done', id })
+  } finally {
+    tracer.free()
   }
-  post({ type: 'done', id })
 }
 
 self.onmessage = async ({ data }: MessageEvent<Asked>) => {
@@ -73,7 +126,10 @@ self.onmessage = async ({ data }: MessageEvent<Asked>) => {
     try {
       const response = await fetch(data.url)
       if (!response.ok) throw new Error(`The catalog answered ${response.status}`)
-      const catalog: Catalog = await response.json()
+      const text             = await response.text()
+      const catalog: Catalog = JSON.parse(text)
+      await ready
+      orbits     = new orbit.Orbits(text)
       satellites = scan.satellitesOf(recordsOf(catalog))
       post({ type: 'loaded', count: satellites.length, fetched: catalog.fetched })
     } catch (error) {
@@ -81,6 +137,7 @@ self.onmessage = async ({ data }: MessageEvent<Asked>) => {
     }
     return
   }
+  if (!orbits) return
   latest = data.id
-  await run(data.id, data.spot, data.start, data.minutes)
+  await run(orbits, data.id, data.minutes, data.spot, data.start)
 }

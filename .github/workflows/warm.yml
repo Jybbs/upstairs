@@ -64,7 +64,10 @@ jobs:
       matrix:
         include:
           - { name: 🔥 Bun, tools: bun }
-          - { name: 🔥 Bun and Lychee, tools: bun lychee }
+          - { name: 🔥 Bun and OSV-Scanner, tools: bun osv-scanner }
+          - { name: 🔥 Bun and Rust, tools: bun rust }
+          - { name: 🔥 Bun, Lychee, Rust, and wasm-bindgen, tools: bun lychee rust github:wasm-bindgen/wasm-bindgen }
+          - { name: 🔥 Bun, Rust, and wasm-bindgen, tools: bun rust github:wasm-bindgen/wasm-bindgen }
           - { name: 🔥 Zizmor, tools: zizmor }
     timeout-minutes: 15
 name: 🛰️ Warm

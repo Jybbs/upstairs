@@ -1,6 +1,6 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "serve"
-#MISE depends     = ["site:install"]
+#MISE depends     = ["crate:compile", "site:install"]
 #MISE description = "Serve the site locally, reloading a page as it is edited and passing any further arguments to Vite"
 
 bun run --bun vite "$@"

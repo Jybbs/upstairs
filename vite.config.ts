@@ -7,16 +7,15 @@ export default defineConfig({
   optimizeDeps : { exclude: ['maplibre-gl'] },
   plugins      : [vue(), tailwindcss()],
   worker       : { format: 'es' },
-
-  test: {
-    coverage: {
+  test         : {
+    include  : ['tests/**/*.test.ts'],
+    coverage : {
       include          : ['src/**', 'tools/**'],
       provider         : 'v8',
       reporter         : ['text', 'html'],
       reportOnFailure  : true,
       reportsDirectory : '.cache/coverage',
-      thresholds       : { branches: 19, functions: 42, lines: 27, statements: 27 }
-    },
-    include: ['tests/**/*.test.ts']
+      thresholds       : { branches: 17, functions: 44, lines: 23, statements: 22 }
+    }
   }
 })

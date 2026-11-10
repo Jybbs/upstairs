@@ -4,3 +4,4 @@
 
 mise outdated --bump
 bun outdated
+cargo update --dry-run --manifest-path rust/Cargo.toml --verbose

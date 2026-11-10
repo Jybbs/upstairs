@@ -1,0 +1,5 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "answers"
+#MISE description = "Run the orbit crate's tests, passing any further arguments to Cargo"
+
+cargo test --locked --manifest-path rust/Cargo.toml "$@"

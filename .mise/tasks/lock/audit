@@ -1,5 +1,6 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "advisories"
-#MISE description = "Report every advisory against a package `bun.lock` resolves, failing on any"
+#MISE description = "Report every advisory against a package `bun.lock` or `rust/Cargo.lock` resolves, failing on any"
 
 bun audit "$@"
+osv-scanner scan source --lockfile rust/Cargo.lock

@@ -22,7 +22,8 @@ mise press
 ## How it fits together
 
 - `tools/catalog.ts` trims CelesTrak's active catalog to the fields the site reads, and the other scripts under `tools/` audit and sync the repository's declarations.
-- `src/orbit/` holds the orbit scan and the web worker that runs it.
+- `rust/` holds the orbit crate, which places each satellite with SGP4 and finds its passes, compiled to WebAssembly.
+- `src/orbit/` holds the catalog's fields, the satellite kinds, and the web worker that runs the crate's scan.
 - `src/map/` holds the terrain style and the canvases drawn above it.
 - `src/state/` holds the page's shared state and the traced passes.
 - `src/ui/` holds the components.

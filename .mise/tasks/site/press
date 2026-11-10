@@ -1,6 +1,6 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "press"
-#MISE depends     = ["site:install"]
+#MISE depends     = ["crate:compile", "site:install"]
 #MISE description = "Build the site into `dist/`, passing any further arguments to Vite"
 
 bun run --bun vite build "$@"

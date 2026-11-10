@@ -22,7 +22,6 @@
     "@fontsource/young-serif": "5.3.0",
     "maplibre-contour": "0.1.1",
     "maplibre-gl": "6.16.0",
-    "satellite.js": "7.1.0",
     "vue": "3.5.45"
   },
   "devDependencies": {
