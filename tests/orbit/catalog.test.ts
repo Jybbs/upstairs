@@ -1,15 +1,16 @@
 import { readFile } from 'node:fs/promises'
 
-import { json2satrec, propagate } from 'satellite.js'
-import { describe, expect, it }   from 'vitest'
+import { json2satrec, propagate, type OMMJsonObject } from 'satellite.js'
+import { describe, expect, it }                       from 'vitest'
 
-import { encode }      from '../../catalog/encode.ts'
-import type { Record } from '../../src/orbit/catalog.ts'
-import * as catalog    from '../../src/orbit/catalog.ts'
-import { kindOf }      from '../../src/orbit/kinds.ts'
-import full            from '../fixtures/records.json'
+import { encode }       from '../../catalog/encode.ts'
+import type { Record }  from '../../src/orbit/catalog.ts'
+import * as catalog     from '../../src/orbit/catalog.ts'
+import { kindOf }       from '../../src/orbit/kinds.ts'
+import { satellitesOf } from '../../src/orbit/scan.ts'
+import full             from '../fixtures/records.json'
 
-const records = full as unknown as Record[]
+const records = full as unknown as (Record & OMMJsonObject)[]
 const fetched = Date.parse('2026-11-06T18:53:57.264Z')
 const LIMIT   = 450_000
 
@@ -32,8 +33,8 @@ describe('the catalog file', () => {
 
   it.each(cases)('places %s where the full record does', (_, record) => {
     const date = new Date(fetched)
-    const kept = json2satrec(byId.get(record.NORAD_CAT_ID)!)
-    expect(propagate(kept, date)?.position).toEqual(propagate(json2satrec(record), date)?.position)
+    const [kept] = satellitesOf([byId.get(record.NORAD_CAT_ID)!])
+    expect(propagate(kept.record, date)?.position).toEqual(propagate(json2satrec(record), date)?.position)
   })
 
   it.each([
@@ -54,6 +55,15 @@ describe('the catalog file', () => {
     const [first, second] = segments.map(segment => kindsOf(segment.records))
     expect(first.has('starlink')).toBe(false)
     expect(second).toEqual(new Set(['starlink']))
+  })
+
+  it('reads the records before Starlink’s while the rest of the file is still missing', async () => {
+    const { gunzipSync, gzipSync } = await import('node:zlib')
+    const others = records.filter(record => kindOf(record.OBJECT_NAME) !== 'starlink')
+    const cut    = gunzipSync(encode(fetched, others)).length
+    const stream = new Blob([gzipSync(gunzipSync(encode(fetched, records)).subarray(0, cut))]).stream()
+    const { value } = await catalog.segmentsOf(stream).next()
+    expect(value?.records).toHaveLength(others.length)
   })
 
   it.each([
@@ -84,10 +94,10 @@ describe('the catalog file', () => {
 describe('the catalog age', () => {
   it.each([
     [0, 'fresh'],
-    [catalog.AGES.warn, 'fresh'],
-    [catalog.AGES.warn + 0.1, 'aging'],
-    [catalog.AGES.limit, 'aging'],
-    [catalog.AGES.limit + 0.1, 'expired']
+    [3, 'fresh'],
+    [3.1, 'aging'],
+    [14, 'aging'],
+    [14.1, 'expired']
   ] as const)('reads %f days as %s', (days, freshness) => {
     expect(catalog.freshnessOf(catalog.ageOf(fetched, fetched + days * catalog.DAY))).toBe(freshness)
   })

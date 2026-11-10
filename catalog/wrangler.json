@@ -2,7 +2,6 @@
   "name": "upstairs-catalog",
   "main": "service.ts",
   "compatibility_date": "2026-11-01",
-  "compatibility_flags": ["nodejs_compat"],
   "routes": [
     { "pattern": "upstairs.fyi/catalog.bin", "zone_name": "upstairs.fyi" },
     { "pattern": "upstairs.fyi/catalog/resume", "zone_name": "upstairs.fyi" }

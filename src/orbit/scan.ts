@@ -15,6 +15,8 @@ export const TRACK_WIDTH = 3
 
 const DEGREES = 180 / Math.PI
 const STATIONARY = 0.05
+/** The fields `json2satrec` requires and SGP4 never reads, which a catalog record leaves out. */
+const UNREAD = { ELEMENT_SET_NO: 0, MEAN_MOTION_DOT: 0, MEAN_MOTION_DDOT: 0, OBJECT_ID: '' }
 
 export interface Spot { latitude: number, longitude: number }
 
@@ -60,7 +62,7 @@ export const satellitesOf = (records: readonly Record[]): Satellite[] =>
     id     : record.NORAD_CAT_ID,
     name   : record.OBJECT_NAME,
     kind   : kindOf(record.OBJECT_NAME),
-    record : json2satrec(record),
+    record : json2satrec({ ...UNREAD, ...record }),
   }))
 
 /**

@@ -2,7 +2,7 @@
 
 Pick a spot on the map and watch every satellite passing over it.
 
-The site lists the active satellites above the horizon at that spot, plays their passes through a window of time, and shows where each one is headed. Everything is calculated in the browser from published orbital data, which a Cloudflare service downloads from CelesTrak every two hours and serves beside the site.
+The site lists the active satellites above the horizon at that spot, plays their passes through a window of time, and shows where each one is headed. Everything is calculated in the browser from published orbital data, which the Cloudflare service under `catalog/`, once deployed, downloads from CelesTrak at most once every two hours.
 
 ## Run it
 

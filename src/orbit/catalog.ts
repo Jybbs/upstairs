@@ -2,9 +2,9 @@
  * Reads the compressed catalog file, a head followed by segments of records
  * stored as columns of 32-bit integers, and judges how old a catalog is.
  */
-import type { OMMJsonObject } from 'satellite.js'
-
-export type Record = OMMJsonObject & { NORAD_CAT_ID: number, OBJECT_NAME: string }
+export type Record = {
+  readonly [Field in typeof FIELDS[number]]: Field extends 'OBJECT_NAME' | 'EPOCH' ? string : number
+}
 
 /**
  * Days old past which positions may drift, and past which none are drawn.
@@ -23,9 +23,7 @@ export const DECIMALS = {
   RA_OF_ASC_NODE    : true,
   ARG_OF_PERICENTER : false,
   MEAN_ANOMALY      : false,
-  BSTAR             : false,
-  MEAN_MOTION_DOT   : true,
-  MEAN_MOTION_DDOT  : false
+  BSTAR             : false
 } as const
 /**
  * The name of the catalog file, both where the site requests it and where
@@ -54,7 +52,7 @@ export const TICK = 864
 /**
  * Every field a catalog record keeps.
  */
-export const FIELDS = ['OBJECT_NAME', 'NORAD_CAT_ID', 'EPOCH', ...Object.keys(DECIMALS)] as (keyof Record)[]
+export const FIELDS = ['OBJECT_NAME', 'NORAD_CAT_ID', 'EPOCH', ...Object.keys(DECIMALS) as (keyof typeof DECIMALS)[]] as const
 /**
  * Bytes per record before the name tails, for the id, the epoch, the decimals,
  * and the shared prefix.

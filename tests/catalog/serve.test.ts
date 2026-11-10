@@ -36,6 +36,7 @@ describe('serving the catalog', () => {
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(file)
     const headers = Object.fromEntries(Object.keys(HEADERS).map(name => [name, response.headers.get(name)]))
     expect(headers).toEqual(HEADERS)
+    expect(response.headers.get('cache-control')).toMatch(/stale-while-revalidate=\d+/)
     expect(put).toHaveBeenCalledOnce()
     expect(later).toHaveBeenCalledOnce()
   })

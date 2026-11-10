@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { SOURCE } from '../../catalog/celestrak.ts'
 import { Cycle, EVERY } from '../../catalog/cycle.ts'
-import { FILE } from '../../src/orbit/catalog.ts'
+import { FILE, segmentsOf } from '../../src/orbit/catalog.ts'
 import type { Record } from '../../src/orbit/catalog.ts'
 import full from '../fixtures/records.json'
 
@@ -16,7 +16,7 @@ const start   = Date.parse('2026-11-10T00:00:00Z')
 const SPACINGS = [[EVERY - 1, 'early'], [EVERY, 'stored']] as const
 const REFUSALS = [301, 403, 404, 500, 503]
 
-const cycleOf = (answer: () => Response) => {
+const cycleOf = (answer: () => Response, failedSends = 0) => {
   const state   = new Map<string, unknown>()
   const stored  = new Map<string, unknown>()
   const sent: { subject: string, text: string }[] = []
@@ -27,6 +27,7 @@ const cycleOf = (answer: () => Response) => {
     put    : (key: string, value: unknown) => { state.set(key, value) }
   }
   const send = async (message: { subject: string, text: string }) => {
+    if (failedSends-- > 0) throw new Error('E_RECIPIENT_NOT_ALLOWED')
     sent.push(message)
     return { messageId: '' }
   }
@@ -47,6 +48,13 @@ describe('a download cycle', () => {
     expect(await cycle.run(start)).toBe('stored')
     expect(stored.get(FILE)).toBeInstanceOf(Uint8Array)
     expect(fetcher).toHaveBeenCalledExactlyOnceWith(SOURCE, expect.objectContaining({ redirect: 'manual' }))
+  })
+
+  it('dates the stored file by the time the cycle ran', async () => {
+    const { cycle, stored } = cycleOf(good)
+    await cycle.run(start)
+    const { value } = await segmentsOf(new Blob([stored.get(FILE) as Uint8Array<ArrayBuffer>]).stream()).next()
+    expect(value?.fetched).toBe(start)
   })
 
   it.each(SPACINGS)('answers a run %i ms after the last as %s', async (after, outcome) => {
@@ -83,5 +91,24 @@ describe('a download cycle', () => {
     answer = good
     cycle.resume()
     expect(await cycle.run(start + 3 * EVERY)).toBe('stored')
+  })
+  it('sends the alert again on each halted run until a send succeeds, asking CelesTrak nothing more', async () => {
+    const { cycle, sent, fetcher } = cycleOf(() => new Response(null, { status: 403 }), 2)
+    await expect(cycle.run(start)).rejects.toThrow('E_RECIPIENT_NOT_ALLOWED')
+    await expect(cycle.run(start + EVERY)).rejects.toThrow('E_RECIPIENT_NOT_ALLOWED')
+    expect(sent).toHaveLength(0)
+    expect(await cycle.run(start + 2 * EVERY)).toBe('halted')
+    expect(sent).toEqual([expect.objectContaining({ text: expect.stringContaining('403') })])
+    expect(await cycle.run(start + 3 * EVERY)).toBe('halted')
+    expect(sent).toHaveLength(1)
+    expect(fetcher).toHaveBeenCalledOnce()
+  })
+
+  it('alerts again on a failure after a resume', async () => {
+    const { cycle, sent } = cycleOf(() => new Response(null, { status: 403 }))
+    await cycle.run(start)
+    cycle.resume()
+    expect(await cycle.run(start + EVERY)).toBe('halted')
+    expect(sent).toHaveLength(2)
   })
 })

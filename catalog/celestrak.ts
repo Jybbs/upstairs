@@ -1,6 +1,6 @@
 /**
  * Downloads the active catalog from CelesTrak and checks that what came back
- * is a list of records as long as the active catalog.
+ * is a list of at least `AT_LEAST` records.
  */
 import type { Record } from '../src/orbit/catalog.ts'
 
@@ -10,8 +10,8 @@ const AGENT    = 'upstairs-catalog'
 const AT_LEAST = 5000
 
 /**
- * Returns the records of a catalog, failing on anything but a list as long as
- * the active catalog.
+ * Returns the records of a catalog, failing on anything but a list of
+ * `AT_LEAST` records or more.
  */
 export const checked = (records: unknown) => {
   if (Array.isArray(records) && records.length >= AT_LEAST) return records as Record[]
