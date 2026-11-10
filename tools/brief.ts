@@ -7,11 +7,21 @@ interface Brief {
   summary : string
 }
 
+interface Context {
+  jobs     : string
+  needs    : Needs
+  run      : string
+  summary  : string
+  template : string
+}
+
 interface Job {
   conclusion : string | null
   name       : string
   status     : string
 }
+
+type Needs = Record<string, { result: string }>
 
 /**
  * Fills a workflow's summary template from the jobs of its run, writing one row
@@ -27,7 +37,7 @@ interface Job {
  */
 export const briefOf = (
   jobs     : Job[],
-  needs    : Record<string, { result: string }>,
+  needs    : Needs,
   run      : string,
   template : string
 ): Brief => {
@@ -41,17 +51,28 @@ export const briefOf = (
   }
 }
 
+/**
+ * Reads the summary file, the jobs endpoint, the `needs` context, the run's
+ * address, and the summary template from the variables GitHub Actions sets for
+ * a step, where a run outside a workflow writes to standard output with no jobs
+ * in `needs`.
+ */
+export const contextOf = (env: Record<string, string | undefined>): Context => {
+  const run  = `${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`
+  const file = basename(env.GITHUB_WORKFLOW_REF?.split('@')[0] ?? '', '.yml')
+  return {
+    jobs     : `repos/${run}/jobs?per_page=100`,
+    needs    : JSON.parse(env.NEEDS ?? '{}'),
+    run      : `${env.GITHUB_SERVER_URL}/${run}`,
+    summary  : env.GITHUB_STEP_SUMMARY ?? '/dev/stdout',
+    template : `.github/scripts/summaries/${file}.md`
+  }
+}
+
 if (import.meta.main) {
-  const env      = process.env
-  const file     = basename(env.GITHUB_WORKFLOW_REF?.split('@')[0] ?? '', '.yml')
-  const path     = `repos/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}/jobs?per_page=100`
-  const { jobs } = await $`gh api ${path}`.json()
-  const brief    = briefOf(
-    jobs,
-    JSON.parse(env.NEEDS ?? '{}'),
-    `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`,
-    await Bun.file(`.github/scripts/summaries/${file}.md`).text()
-  )
-  await appendFile(env.GITHUB_STEP_SUMMARY ?? '/dev/stdout', brief.summary)
+  const context  = contextOf(process.env)
+  const { jobs } = await $`gh api ${context.jobs}`.json()
+  const brief    = briefOf(jobs, context.needs, context.run, await Bun.file(context.template).text())
+  await appendFile(context.summary, brief.summary)
   process.exit(brief.passed ? 0 : 1)
 }

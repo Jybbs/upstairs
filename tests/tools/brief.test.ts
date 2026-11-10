@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { briefOf } from '../../tools/brief.ts'
+import { briefOf, contextOf } from '../../tools/brief.ts'
 
 const RUN      = 'https://github.com/Jybbs/upstairs/actions/runs/1'
 const TEMPLATE = '| **Job** | **Result** |\n|---|---|\n{{jobs}}\n\n[The workflow run]({{run}})'
@@ -12,7 +12,8 @@ describe('briefOf', () => {
     ['every job succeeded', { check: { result: 'success' } }, true],
     ['a job failed', { check: { result: 'failure' } }, false],
     ['a job was skipped', { check: { result: 'skipped' } }, false],
-    ['a job was cancelled', { check: { result: 'cancelled' } }, false]
+    ['a job was cancelled', { check: { result: 'cancelled' } }, false],
+    ['one job of two failed', { check: { result: 'failure' }, prune: { result: 'success' } }, false]
   ])('passes only where %s', (_, needs, passed) =>
     expect(briefOf([], needs, RUN, TEMPLATE).passed).toBe(passed))
 
@@ -27,4 +28,25 @@ describe('briefOf', () => {
       + `[The workflow run](${RUN})`
     )
   })
+})
+
+describe('contextOf', () => {
+  it('reads every path and the needs context from the variables of a workflow step', () =>
+    expect(contextOf({
+      GITHUB_REPOSITORY   : 'Jybbs/upstairs',
+      GITHUB_RUN_ID       : '1',
+      GITHUB_SERVER_URL   : 'https://github.com',
+      GITHUB_STEP_SUMMARY : '/tmp/summary.md',
+      GITHUB_WORKFLOW_REF : 'Jybbs/upstairs/.github/workflows/warm.yml@refs/heads/main',
+      NEEDS               : '{"save":{"result":"success"}}'
+    })).toEqual({
+      jobs     : 'repos/Jybbs/upstairs/actions/runs/1/jobs?per_page=100',
+      needs    : { save: { result: 'success' } },
+      run      : RUN,
+      summary  : '/tmp/summary.md',
+      template : '.github/scripts/summaries/warm.md'
+    }))
+
+  it('writes to standard output with no jobs in needs outside a workflow', () =>
+    expect(contextOf({})).toMatchObject({ needs: {}, summary: '/dev/stdout' }))
 })
