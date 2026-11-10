@@ -2,4 +2,4 @@
 #MISE alias       = "advisories"
 #MISE description = "Report every advisory against a package `bun.lock` resolves, failing on any"
 
-bun audit "$@"
+bun audit --cwd docs "$@"

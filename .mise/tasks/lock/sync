@@ -3,4 +3,4 @@
 #MISE description = "Re-resolve each lockfile against its manifest"
 
 mise lock
-bun install
+bun install --cwd docs

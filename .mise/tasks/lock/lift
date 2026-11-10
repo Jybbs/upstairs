@@ -3,4 +3,4 @@
 #MISE description = "List the newer version of each pinned tool and package, changing nothing"
 
 mise outdated --bump
-bun outdated
+bun outdated --cwd docs
