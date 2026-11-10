@@ -2,5 +2,6 @@
 #MISE alias       = "lint"
 #MISE depends     = ["site:install"]
 #MISE description = "Lint the TypeScript with Oxlint, failing on any warning and passing any further arguments to it"
+#MISE dir         = "{{config_root}}/docs"
 
-bun run oxlint --deny-warnings "$@"
+bun run oxlint --deny-warnings "$@" .vitepress

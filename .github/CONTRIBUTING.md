@@ -6,23 +6,23 @@
 
 1. Install [mise](https://mise.jdx.dev/getting-started.html)
 2. Run `mise install` from the repository, which installs the tools at the versions `.mise/mise.lock` pins
-3. Run `mise run site:install`, which installs the packages `bun.lock` resolves with their install scripts off
+3. Run `mise run site:install`, which installs the packages `docs/bun.lock` resolves with their install scripts off
 4. Run `mise serve` to serve the site locally
 
-The site reads the satellite catalog from `public/catalog.json`, which `mise run catalog` downloads from [CelesTrak](https://celestrak.org/). CelesTrak publishes new orbital data every two hours and asks for one download per update, so the task runs only when the catalog itself has to move.
+The site reads the satellite catalog from `docs/public/catalog.json`, which `mise run catalog` downloads from [CelesTrak](https://celestrak.org/). CelesTrak publishes new orbital data every two hours and asks for one download per update, so the task runs only when the catalog itself has to move.
 
 ## Tasks
 
 | **Command** | **Runs** |
 |---|---|
-| `mise serve` | *Vite's dev server, reloading a page as it is edited* |
-| `mise press` | *Vite's build of the site into `dist/`* |
-| `mise test` | *The site's suite under `tests/`* |
+| `mise serve` | *VitePress's dev server, reloading a page as it is edited* |
+| `mise press` | *VitePress's build of the site into `docs/.vitepress/dist/`* |
+| `mise test` | *The site's suite under `docs/.vitepress/tests/`* |
 | `mise ci` | *Every check a pull request runs, listed under Checks below* |
 | `mise relock` | *`mise lock` and `bun install`, re-resolving each lockfile after its manifest changes* |
 | `mise lift` | *A list of the newer version of each pinned tool and package* |
 | `mise labels` | *The labels in `.github/labels.toml`, sent to GitHub once approved* |
-| `mise rulesets` | *The settings in `.github/settings.toml`, the About box in `package.json`, and the rulesets under `.github/rulesets/`, sent to GitHub once approved* |
+| `mise rulesets` | *The settings in `.github/settings.toml`, the About box in `docs/package.json`, and the rulesets under `.github/rulesets/`, sent to GitHub once approved* |
 
 `mise tasks` lists every task with its description. `mise labels` and `mise rulesets` each prompt for confirmation before they write to GitHub.
 
@@ -32,11 +32,11 @@ Each pull request runs `🛰️ CI`, one row per check below, and the `🔭 Brie
 
 | **Row** | **Local Command** | **Fails When** |
 |---|---|---|
-| `🩺 Advisories` | `mise run lock:audit` | *`bun audit` finds an advisory for a package `bun.lock` resolves, or cannot reach its advisory database* |
-| `🔐 Lockfiles` | `mise run lock:check` | *`.mise/mise.lock` or `bun.lock` drifts from its manifest* |
+| `🩺 Advisories` | `mise run lock:audit` | *`bun audit` finds an advisory for a package `docs/bun.lock` resolves, or cannot reach its advisory database* |
+| `🔐 Lockfiles` | `mise run lock:check` | *`.mise/mise.lock` or `docs/bun.lock` drifts from its manifest* |
 | `📋 Audit` | `mise run repo:audit` | *The registries, the templates, this guide, the workflows, and the rulesets disagree with one another* |
 | `🔦 Workflows` | `mise run repo:lint` | *zizmor reports a finding in a workflow or an action manifest* |
-| `🎯 Site Coverage` | `mise run site:coverage` | *A test fails, or the coverage falls below the thresholds `vite.config.ts` declares* |
+| `🎯 Site Coverage` | `mise run site:coverage` | *A test fails, or the coverage falls below the thresholds `docs/.vitepress/vitest.config.ts` declares* |
 | `✂️ Knip` | `mise run site:cruft` | *knip reports an unused file, export, or dependency* |
 | `🔗 Links` | `mise run site:links` | *A link, an asset, or a heading fragment in the pressed site names nothing the build wrote* |
 | `⚓ Oxlint` | `mise run site:lint` | *Oxlint reports a finding in the TypeScript* |

@@ -2,4 +2,4 @@
 .cache/
 dist/
 node_modules/
-public/catalog.json
+docs/public/catalog.json
