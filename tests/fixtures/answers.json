@@ -1,5 +1,17 @@
 {
  "start": "2026-11-06T18:37:00Z",
+ "fields": [
+  "OBJECT_NAME",
+  "NORAD_CAT_ID",
+  "EPOCH",
+  "MEAN_MOTION",
+  "ECCENTRICITY",
+  "INCLINATION",
+  "RA_OF_ASC_NODE",
+  "ARG_OF_PERICENTER",
+  "MEAN_ANOMALY",
+  "BSTAR"
+ ],
  "spot": {
   "latitude": 42.36,
   "longitude": -71.06
@@ -3837,7 +3849,19 @@
     "placed": true
    },
    {
+    "minutes": 418,
+    "placed": true
+   },
+   {
+    "minutes": 419,
+    "placed": false
+   },
+   {
     "minutes": 600,
+    "placed": false
+   },
+   {
+    "minutes": 1312,
     "placed": false
    },
    {

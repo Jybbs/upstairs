@@ -33,6 +33,11 @@ export interface Satellite {
 export interface Spot { latitude: number, longitude: number }
 
 /**
+ * A pass as the WebAssembly module traces it, before it is joined to its satellite.
+ */
+export type Traced = Omit<Pass, keyof Satellite | 'heading'> & { heading: number | undefined }
+
+/**
  * Seconds between samples of the rough scan that finds what rises at all.
  */
 export const GRID_STEP = 120
@@ -44,6 +49,25 @@ export const TRACK_STEP = 30
  * Values stored per track sample: latitude, longitude, elevation.
  */
 export const TRACK_WIDTH = 3
+
+/**
+ * Joins a pass the WebAssembly module traced to the satellite it belongs to,
+ * reading a missing heading as one the satellite holds its place without.
+ */
+export const passOf = (satellite: Satellite, traced: Traced): Pass => ({
+  ...satellite,
+  earlier : traced.earlier,
+  heading : traced.heading ?? null,
+  height  : traced.height,
+  later   : traced.later,
+  peak    : traced.peak,
+  peakAt  : traced.peakAt,
+  range   : traced.range,
+  riseAt  : traced.riseAt,
+  riseAz  : traced.riseAz,
+  setAt   : traced.setAt,
+  setAz   : traced.setAz
+})
 
 /**
  * Counts the samples a window of `minutes` takes at `step` seconds apart, both

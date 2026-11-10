@@ -35,7 +35,7 @@ Each pull request runs `🛰️ CI`, one row per check below, and the `🔭 Brie
 | **Row** | **Local Command** | **Fails When** |
 |---|---|---|
 | `📎 Clippy` | `mise run crate:lint` | *Clippy reports a warning in the orbit crate under `rust/`, or rustfmt would reformat it* |
-| `🦀 Crate Tests` | `mise run crate:test` | *A position, a sighting, or a pass the crate computes for the records under `tests/fixtures/` strays past 10 meters or a thousandth of a degree from the known answers* |
+| `🦀 Crate Tests` | `mise run crate:test` | *A position, a sighting, or a pass the crate computes for the records under `tests/fixtures/` strays past 10 meters or a thousandth of a degree from the known answers, a position's azimuth taking that thousandth divided by the cosine of its elevation* |
 | `🩺 Advisories` | `mise run lock:audit` | *`bun audit` finds an advisory for a package `bun.lock` resolves, `osv-scanner` finds one for a crate `rust/Cargo.lock` resolves, or either cannot reach its advisory database* |
 | `🔐 Lockfiles` | `mise run lock:check` | *`.mise/mise.lock`, `bun.lock`, or `rust/Cargo.lock` drifts from its manifest* |
 | `📋 Audit` | `mise run repo:audit` | *The registries, the templates, this guide, the workflows, and the rulesets disagree with one another* |

@@ -32,13 +32,21 @@ const CHUNK   = 400
 const channel = new MessageChannel()
 const ready   = init()
 
+const waiting: (() => void)[] = []
+
 let held: { grid: orbit.Grid, key: string } | null = null
 let latest                                         = 0
 let orbits: orbit.Orbits | null                    = null
 let satellites: scan.Satellite[]                   = []
 
-const breathe = () => new Promise(resolve => {
-  channel.port1.onmessage = resolve
+channel.port1.onmessage = () => waiting.shift()?.()
+
+/**
+ * Yields to the worker's queue once, resolving each yield in the order it was
+ * posted, so a scan a newer one replaced still resumes and frees what it holds.
+ */
+const breathe = () => new Promise<void>(resolve => {
+  waiting.push(resolve)
   channel.port2.postMessage(null)
 })
 
@@ -69,20 +77,7 @@ const gridOf = async (orbits: orbit.Orbits, id: number, minutes: number, start: 
  * belongs to, freeing the copy the module holds.
  */
 const passOf = (traced: orbit.Traced): scan.Pass => {
-  const pass = {
-    ...satellites[traced.row],
-    earlier : traced.earlier,
-    heading : traced.heading ?? null,
-    height  : traced.height,
-    later   : traced.later,
-    peak    : traced.peak,
-    peakAt  : traced.peakAt,
-    range   : traced.range,
-    riseAt  : traced.riseAt,
-    riseAz  : traced.riseAz,
-    setAt   : traced.setAt,
-    setAz   : traced.setAz
-  }
+  const pass = scan.passOf(satellites[traced.row], traced)
   traced.free()
   return pass
 }

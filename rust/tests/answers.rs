@@ -1,8 +1,9 @@
 //! Holds the crate to the positions, the grid, and the passes `satellite.js`
 //! computed for the records under `tests/fixtures/`, within 10 meters and a
-//! thousandth of a degree. Those answers take each epoch cut to the millisecond,
-//! which moves a low satellite by up to 7 meters, so the tolerance sits above
-//! that shift.
+//! thousandth of a degree, which a position's azimuth divides by the cosine of
+//! its elevation. Those answers take each epoch cut to the millisecond, which
+//! moves a low satellite by up to 8 meters, so the tolerance sits above that
+//! shift.
 
 use std::sync::LazyLock;
 
@@ -15,6 +16,7 @@ use sgp4::chrono::DateTime;
 #[derive(Deserialize)]
 struct Answers {
     decayed: Decayed,
+    fields: Vec<String>,
     grid: Window,
     passes: Vec<Option<Pass>>,
     positions: Vec<Position>,
@@ -110,6 +112,9 @@ static RECORDS: LazyLock<Vec<Map<String, Value>>> = LazyLock::new(|| read("recor
 
 const ANGLE: f64 = 1e-3;
 const DISTANCE: f64 = 1e-2;
+/// The equatorial radius of the WGS84 ellipsoid, in kilometers, turning a
+/// difference in latitude or longitude into a distance on the ground.
+const EARTH: f64 = 6378.137;
 
 fn read<T: DeserializeOwned>(name: &str) -> T {
     let path = format!("{}/../tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
@@ -123,7 +128,7 @@ fn start() -> f64 {
 }
 
 fn orbits(records: &[Map<String, Value>]) -> Orbits {
-    let fields: Vec<&String> = records[0].keys().collect();
+    let fields = &ANSWERS.fields;
     let rows: Vec<Vec<&Value>> = records
         .iter()
         .map(|record| fields.iter().map(|field| &record[field.as_str()]).collect())
@@ -168,8 +173,9 @@ fn places_each_record_where_the_answers_do() {
         let near = ANGLE / answer.elevation.to_radians().cos();
         let azimuth = turned(look.azimuth, answer.azimuth);
         let longitude = turned(point.longitude, answer.longitude);
-        close(&what("latitude"), point.latitude, answer.latitude, ANGLE);
-        close(&what("longitude"), longitude, answer.longitude, ANGLE);
+        let north = (point.latitude - answer.latitude).to_radians();
+        let east = (longitude - answer.longitude).to_radians() * answer.latitude.to_radians().cos();
+        close(&what("ground"), EARTH * north.hypot(east), 0.0, DISTANCE);
         close(&what("height"), point.height, answer.height, DISTANCE);
         close(&what("azimuth"), azimuth, answer.azimuth, near);
         close(&what("elevation"), look.elevation, answer.elevation, ANGLE);

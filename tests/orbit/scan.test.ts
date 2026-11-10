@@ -21,6 +21,10 @@ describe('the trimmed catalog', () => {
       expect(trimmed[index]).toEqual(Object.fromEntries(fields))
     }
   )
+
+  it('keeps the fields the known answers place each record from', () => {
+    expect(catalog.FIELDS).toEqual(answers.fields)
+  })
 })
 
 describe('the satellites of a catalog', () => {
@@ -47,5 +51,31 @@ describe('the windows of a scan', () => {
 
   it('takes one grid sample per count the known answers hold, both ends included', () => {
     expect(scan.samplesFor(answers.grid.minutes, scan.GRID_STEP)).toBe(answers.grid.counts.length)
+  })
+})
+
+describe('a traced pass', () => {
+  const satellite = scan.satellitesOf(trimmed).find(({ name }) => name === 'GOES 19')!
+  const traced    = {
+    earlier : true,
+    heading : undefined,
+    height  : 35786,
+    later   : false,
+    peak    : 40.9,
+    peakAt  : 0,
+    range   : 37500,
+    riseAt  : 0,
+    riseAz  : 203.5,
+    setAt   : 7170,
+    setAz   : 204.1
+  }
+
+  it('joins the satellite it belongs to, keeping each time, angle, and distance', () => {
+    const joined = { ...satellite, ...traced, heading: 12 }
+    expect(scan.passOf(satellite, { ...traced, heading: 12 })).toEqual(joined)
+  })
+
+  it('marks a satellite the WebAssembly module gives no heading as holding its place', () => {
+    expect(scan.passOf(satellite, traced).heading).toBeNull()
   })
 })
