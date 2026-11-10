@@ -1,0 +1,6 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "lift"
+#MISE description = "List the newer version of each pinned tool and package, changing nothing"
+
+mise outdated --bump
+bun outdated

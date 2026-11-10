@@ -1,0 +1,7 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "labels"
+#MISE confirm     = "Create or update every label `.github/labels.toml` declares on GitHub?"
+#MISE depends     = ["site:install"]
+#MISE description = "Send every label the registry declares to GitHub and list each live label it omits"
+
+bun run tools/sync.ts labels

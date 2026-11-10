@@ -1,0 +1,29 @@
+[[labels]]
+color       = "ae977e"
+description = "A defect, filed beside the label of the domain where it breaks"
+name        = "🐞 bug"
+
+[[labels]]
+color       = "0a1213"
+description = "The package, the toolchain, the workflows, and the release path"
+name        = "🗜️ build"
+
+[[labels]]
+color       = "fbeec5"
+description = "The README, the docs site, and the contributor guide"
+name        = "📚 docs"
+
+[[labels]]
+color       = "90d3c7"
+description = "The mark, the faces, and the palette"
+name        = "🎨 identity"
+
+[[labels]]
+color       = "303d32"
+description = "The terrain map, its layers, and the controls drawn on it"
+name        = "🗺️ map"
+
+[[labels]]
+color       = "617692"
+description = "The orbit calculation, the pass scan, and the catalog they read"
+name        = "🛰️ orbit"

@@ -1,0 +1,5 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "advisories"
+#MISE description = "Report every advisory against a package `bun.lock` resolves, failing on any"
+
+bun audit "$@"

@@ -1,0 +1,6 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "coverage"
+#MISE depends     = ["site:install"]
+#MISE description = "Run the site's suite under coverage, failing below the thresholds `vite.config.ts` declares"
+
+bun run --bun vitest run --coverage "$@"
