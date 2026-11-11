@@ -25,6 +25,7 @@
     "vue": "3.5.45"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20261110.1",
     "@resvg/resvg-js": "2.6.2",
     "@tailwindcss/vite": "4.3.5",
     "@types/bun": "1.4.4",
@@ -54,6 +55,8 @@
   },
   "knip": {
     "entry": [
+      ".vitepress/catalog/fetch.ts",
+      ".vitepress/catalog/service.ts",
       ".vitepress/tools/*.ts"
     ],
     "ignoreDependencies": [
@@ -62,6 +65,7 @@
     ],
     "typescript": {
       "config": [
+        ".vitepress/catalog/tsconfig.json",
         ".vitepress/tsconfig.json"
       ]
     },

@@ -9,6 +9,7 @@ import { h }                                from 'vue'
 import NotFound from './NotFound.vue'
 import SiteMark from './SiteMark.vue'
 import './style.css'
+import './credit.css'
 
 export default {
   extends: DefaultTheme,

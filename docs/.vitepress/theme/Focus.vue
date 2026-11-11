@@ -19,7 +19,11 @@ const heading = computed(() => {
   const { arrow, label } = BOUNDS[boundOf(pass.value)]
   return `${arrow} ${label}`
 })
-const pass = sky.focus
+const empty = computed(() => {
+  if (sky.expired.value) return 'The orbits are too old to draw'
+  return sky.done.value ? 'No satellite matches these filters' : 'Tracing passes'
+})
+const pass  = sky.focus
 
 const distance = (kilometers: number) => `${Math.round(kilometers).toLocaleString()} km`
 </script>
@@ -49,9 +53,6 @@ const distance = (kilometers: number) => `${Math.round(kilometers).toLocaleStrin
         </div>
       </dl>
     </template>
-    <p
-      v-else
-      class="caps text-soft"
-    >{{ sky.done.value ? 'No satellite matches these filters' : 'Tracing passes' }}</p>
+    <p v-else class="caps text-soft">{{ empty }}</p>
   </section>
 </template>

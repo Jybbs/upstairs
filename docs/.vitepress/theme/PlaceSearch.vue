@@ -24,8 +24,8 @@ const choose = ({ label, latitude, longitude }: Found) => {
   found.value = []
 }
 
-const locate = () => navigator.geolocation.getCurrentPosition(
-  ({ coords }) => sky.pick({ latitude: coords.latitude, longitude: coords.longitude }, 'your location'),
+const nearMe = () => navigator.geolocation.getCurrentPosition(
+  ({ coords }) => sky.locate({ latitude: coords.latitude, longitude: coords.longitude }),
   () => { trouble.value = 'The browser did not share a location.' }
 )
 
@@ -77,7 +77,7 @@ watch(words, value => {
     <button
       type="button"
       class="caps h-9 shrink-0 cursor-pointer rounded-sm border border-rule bg-lift px-2.5 text-soft hover:border-soft hover:text-ink"
-      @click="locate"
+      @click="nearMe"
     >
       Near me
     </button>

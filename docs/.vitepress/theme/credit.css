@@ -1,0 +1,154 @@
+.maplibregl-map {
+  --credit-veil : color-mix(in srgb, var(--color-panel) 90%, transparent);
+  --credit-ring : 36px;
+
+  container-type: inline-size;
+}
+
+.maplibregl-map .maplibregl-ctrl-bottom-right {
+  left: 0;
+}
+
+.maplibregl-map .maplibregl-ctrl-attrib.maplibregl-compact {
+  min-height       : var(--credit-ring);
+  margin           : 12px;
+  padding          : 0 var(--credit-ring) 0 0;
+  border-radius    : calc(var(--credit-ring) / 2);
+  background-color : transparent;
+  color            : var(--color-ink);
+  font             : 400 16px / 24px var(--font-book);
+
+  a,
+  a:hover {
+    color                     : var(--color-ink);
+    text-decoration           : underline;
+    text-decoration-thickness : 1px;
+    text-underline-offset     : 3px;
+  }
+
+  .maplibregl-ctrl-attrib-button {
+    inset            : auto 0 0 auto;
+    z-index          : 2;
+    width            : var(--credit-ring);
+    height           : var(--credit-ring);
+    border-radius    : 50%;
+    background-color : var(--credit-veil);
+    background-image : none;
+    box-shadow       : var(--shadow-lift);
+    color            : var(--color-u);
+
+    &::before {
+      position   : absolute;
+      inset      : 0;
+      width      : 16px;
+      height     : 16px;
+      margin     : auto;
+      background : currentColor;
+      content    : '';
+      mask       : url('./credit-i.svg') center / contain no-repeat;
+    }
+
+    &::after {
+      position      : absolute;
+      inset         : 0;
+      border-radius : 50%;
+      box-shadow    : inset 0 0 0 1.5px var(--color-u);
+      content       : '';
+    }
+
+    &:focus {
+      box-shadow: var(--shadow-lift);
+    }
+
+    &:focus-visible {
+      outline        : 2px solid var(--color-ink);
+      outline-offset : 3px;
+    }
+
+    @media (forced-colors: active) {
+      border: 1px solid CanvasText;
+
+      &::before {
+        background          : CanvasText;
+        forced-color-adjust : none;
+      }
+    }
+  }
+}
+
+.maplibregl-map .maplibregl-ctrl-attrib:is(.maplibregl-compact-show, .credit-moving) {
+  width     : max-content;
+  max-width : calc(100% - 24px);
+  padding   : 12px 16px;
+
+  &::before {
+    position      : absolute;
+    inset         : 0;
+    z-index       : 0;
+    border        : 1px solid var(--color-rule);
+    border-radius : calc(var(--credit-ring) / 2);
+    background    : var(--credit-veil);
+    box-shadow    : var(--shadow-lift);
+    content       : '';
+  }
+
+  .maplibregl-ctrl-attrib-button,
+  .maplibregl-ctrl-attrib-button:focus {
+    background-color : transparent;
+    box-shadow       : none;
+  }
+
+  .maplibregl-ctrl-attrib-inner {
+    position       : relative;
+    z-index        : 1;
+    display        : flex;
+    flex-direction : column;
+    gap            : 8px;
+    align-items    : flex-start;
+
+    @container (width >= 640px) {
+      display               : grid;
+      grid-template-columns : auto auto;
+      column-gap            : 40px;
+      align-items           : start;
+      justify-items         : start;
+    }
+  }
+}
+
+.maplibregl-map .maplibregl-ctrl-attrib-inner {
+  .credit-group {
+    display        : flex;
+    flex-direction : column;
+    align-items    : flex-start;
+  }
+
+  .credit-heading {
+    margin         : 0;
+    color          : var(--color-soft);
+    font           : 500 16px / 24px var(--font-mono);
+    letter-spacing : 0.1em;
+    text-transform : uppercase;
+  }
+
+  a {
+    max-width: 100%;
+  }
+
+  a[href*='openstreetmap.org']::before {
+    display         : inline-block;
+    content         : 'Map data from ';
+    text-decoration : none;
+    white-space     : pre;
+  }
+
+  .credit-group:last-child > :last-child {
+    padding-right: calc(var(--credit-ring) - 8px);
+  }
+
+  @container (width >= 640px) {
+    .credit-group + .credit-group > :last-child {
+      padding-right: 0;
+    }
+  }
+}

@@ -1,8 +1,10 @@
 import { computed, reactive, ref, shallowRef } from 'vue'
 
+import * as catalog           from '../orbit/catalog.ts'
 import * as kinds             from '../orbit/kinds.ts'
 import type { Pass, Spot }    from '../orbit/scan.ts'
 import type { Answer, Asked } from '../orbit/worker.ts'
+import { fragmentOf, spotIn } from './address.ts'
 import { Tracks }             from './tracks.ts'
 
 export const HEIGHTS = [0, 30, 60, 80] as const
@@ -12,16 +14,13 @@ const ROWS           = 200
 export const SPEEDS  = [1, 60, 240] as const
 export const WINDOWS = [30, 60, 120] as const
 const WORTH          = 20
+const shared         = spotIn(location.hash)
+const opening        = shared ? { place: null, spot: shared } : HOME
 
 const highestOf = (list: Pass[]) =>
   list.reduce<Pass | null>((best, pass) => !best || pass.peak > best.peak ? pass : best, null)
 
 const minuteOf = (time: number) => Math.floor(time / 60_000) * 60_000
-
-const spotFromHash = (): Spot => {
-  const [latitude, longitude] = location.hash.slice(1).split(',').map(Number)
-  return Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : HOME.spot
-}
 
 const tracedOf = () => {
   const entries = Object.entries(kinds.KINDS).map(([kind, { traced }]) => [kind, traced])
@@ -34,8 +33,8 @@ const tracedOf = () => {
  */
 class Sky {
   readonly tracks   = new Tracks()
-  readonly spot     = shallowRef<Spot>(spotFromHash())
-  readonly place    = ref<string | null>(location.hash ? null : HOME.place)
+  readonly spot     = shallowRef<Spot>(opening.spot)
+  readonly place    = ref<string | null>(opening.place)
   readonly start    = ref(minuteOf(Date.now()))
   readonly minutes  = ref<number>(60)
   readonly speed    = ref<number>(60)
@@ -52,7 +51,7 @@ class Sky {
   seconds     = 0
   readonly at = ref(0)
 
-  readonly loaded   = ref<{ count: number, fetched: string } | null>(null)
+  readonly loaded   = ref<{ count: number, fetched: number } | null>(null)
   readonly failed   = ref<string | null>(null)
   readonly done     = ref(false)
   readonly share    = ref(0)
@@ -87,6 +86,17 @@ class Sky {
     return { list: list.slice(0, ROWS), more: Math.max(list.length - ROWS, 0) }
   })
 
+  /**
+   * The catalog's age in days at the start of the window, and what that age
+   * allows.
+   */
+  readonly age       = computed(() => {
+    const loaded = this.loaded.value
+    return loaded ? catalog.ageOf(loaded.fetched, this.start.value) : 0
+  })
+  readonly freshness = computed(() => catalog.freshnessOf(this.age.value))
+  readonly expired   = computed(() => this.freshness.value === 'expired')
+
   readonly focus = computed<Pass | null>(() => {
     void this.version.value
     return this.tracks.passes.find(pass => pass.id === this.selected.value) ?? null
@@ -94,7 +104,7 @@ class Sky {
 
   constructor() {
     this.worker.onmessage = ({ data }: MessageEvent<Answer>) => this.hear(data)
-    this.ask({ type: 'load', url: `${import.meta.env.BASE_URL}catalog.json` })
+    this.ask({ type: 'load', url: `${import.meta.env.BASE_URL}${catalog.FILE}` })
   }
 
   private ask(asked: Asked) { this.worker.postMessage(asked) }
@@ -124,7 +134,8 @@ class Sky {
   }
 
   /**
-   * Starts over for the current spot and window.
+   * Starts over for the current spot and window, placing nothing once the
+   * catalog has expired.
    */
   scan() {
     this.scanId++
@@ -134,6 +145,7 @@ class Sky {
     this.counts        = null
     this.inFrame.value = new Uint8Array()
     this.version.value++
+    if (this.expired.value) return
     this.ask({
       id      : this.scanId,
       minutes : this.minutes.value,
@@ -157,10 +169,26 @@ class Sky {
     this.selected.value = best?.id ?? null
   }
 
+  /**
+   * Moves to a spot the reader chose, writing it into the page's address.
+   */
   pick(spot: Spot, place: string | null) {
+    this.moveTo(spot, place)
+    history.replaceState(null, '', fragmentOf(spot))
+  }
+
+  /**
+   * Moves to the spot the browser located, clearing the page's address of any
+   * spot so a link copied from it carries none.
+   */
+  locate(spot: Spot) {
+    this.moveTo(spot, 'your location')
+    history.replaceState(null, '', location.pathname + location.search)
+  }
+
+  private moveTo(spot: Spot, place: string | null) {
     this.spot.value  = spot
     this.place.value = place
-    history.replaceState(null, '', `#${spot.latitude.toFixed(3)},${spot.longitude.toFixed(3)}`)
     this.scan()
   }
 
