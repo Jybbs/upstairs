@@ -31,11 +31,11 @@ describe('the drawings read from the catalog', () => {
     served.mockResolvedValueOnce(new Response(null, { status: 503 }))
     expect(await mounted()).toBeUndefined()
     expect(await mounted()).toBeDefined()
-    served.mockClear()
   })
 
   it('reads the ages, the color, and the passes once for every drawing on the page', async () => {
     const drawings = (await mounted())!
+    served.mockClear()
     expect(drawings.ages.toSorted()).toEqual(agesOf(listed, fetched).toSorted())
     expect(drawings.color).toBe(expected.color)
     expect(drawings.highest.pass).toEqual(expected.highest.pass)

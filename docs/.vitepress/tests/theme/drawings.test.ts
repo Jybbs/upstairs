@@ -147,7 +147,7 @@ describe('the peak search', () => {
     await flushPromises()
     const svg = wrapper.get('svg')
     const x   = (stop: number) => 16 + stop / 9 * (640 - 32)
-    await svg.trigger('pointerdown', { clientX: x(5), pointerId: 1 })
+    await svg.trigger('pointerdown', { clientX: x(1), pointerId: 1 })
     await svg.trigger('pointermove', { clientX: x(3.3), pointerId: 1 })
     vi.advanceTimersByTime(100)
     await svg.trigger('pointerup', { pointerId: 1 })
@@ -204,8 +204,13 @@ describe('the catalog ages', () => {
     ['an element set past the end of the axis', AGES.limit * 3]
   ])('counts %s in the last column, which reads every age from its lower bound on', async (_, age) => {
     aged.ages = Float64Array.of(0.5, age)
-    const readings = await readingsOf(OrbitAges, ['End'])
-    aged.ages      = undefined
-    expect(readings).toEqual([expect.stringMatching(/^\d+\.\d D OR MORE$/), '50%'])
+    const wrapper = mount(OrbitAges)
+    await flushPromises()
+    const svg = wrapper.get('svg')
+    await svg.trigger('keydown', { key: 'End' })
+    const readings = [...wrapper.findAll('dd').map(dd => dd.text()), svg.attributes('aria-valuetext')]
+    wrapper.unmount()
+    aged.ages = undefined
+    expect(readings).toEqual(['25.0 D OR MORE', '50%', '25.00 days or more, 50%'])
   })
 })

@@ -13,7 +13,7 @@ import { DECIMALS } from '../.vitepress/lib/state/address.ts'
 
 ## Orbits
 
-The orbital elements come from [CelesTrak](https://celestrak.org/), which redistributes data from the US Space Force through [Space-Track](https://www.space-track.org/). The list covers active satellites only, leaving out debris, spent rockets, and anything outside the public catalog. CelesTrak publishes no license for the elements and makes them freely available to all users, updating them every two hours and asking each client to download them only once per update[^celestrak2026], so the site's catalog service downloads the list from CelesTrak at most once every two hours and every reader's browser reads that copy from `upstairs.fyi`.
+The orbital elements come from [CelesTrak](https://celestrak.org/), which redistributes data from the US Space Force through [Space-Track](https://www.space-track.org/). The list covers active satellites only, leaving out debris, spent rockets, and anything outside the public catalog. CelesTrak publishes no license for the elements and makes them freely available to all users, updating them every two hours and asking each client to download them only once per update[^kelso2026], so the site's catalog service downloads the list from CelesTrak at most once every two hours and every reader's browser reads that copy from `upstairs.fyi`.
 
 ## The Map
 
