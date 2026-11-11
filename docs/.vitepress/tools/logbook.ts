@@ -1,3 +1,7 @@
+/**
+ * Writes a workflow run's summary from the jobs of the run and the `needs`
+ * context of its gate, and reads the variables a step of a workflow sets.
+ */
 import { $ }          from 'bun'
 import { appendFile } from 'node:fs/promises'
 import { basename }   from 'node:path'
@@ -21,9 +25,40 @@ interface Logbook {
   summary : string
 }
 
-type Needs = Record<string, { result: string }>
+export type Needs = Record<string, { outputs?: Record<string, string>, result: string }>
 
+const OUTPUT  = /\{\{([\w-]+)\.([\w-]+)\}\}/g
 const PASSING = new Set(['skipped', 'success'])
+
+const outputOf = (needs: Needs, job: string, key: string) => needs[job]?.outputs?.[key] ?? ''
+
+/**
+ * Reads the summary file, the jobs endpoint, the `needs` context, the run's
+ * address, and the summary template from the variables GitHub Actions sets for
+ * a step, where a run outside a workflow writes to standard output with no jobs
+ * in `needs`.
+ */
+export const contextOf = (env: NodeJS.ProcessEnv): Context => {
+  const run = `${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`
+  return {
+    jobs     : `repos/${run}/jobs?per_page=100`,
+    needs    : needsOf(env),
+    run      : `${env.GITHUB_SERVER_URL}/${run}`,
+    summary  : env.GITHUB_STEP_SUMMARY ?? '/dev/stdout',
+    template : templateOf(env, 'summaries')
+  }
+}
+
+/**
+ * Fills each `{{job.output}}` in `template` with that output of the job the
+ * `needs` context holds, leaving out each line naming an output the job did not
+ * set, such as one a skipped job would have set.
+ */
+export const filledOf = (template: string, needs: Needs) => template
+  .split('\n')
+  .filter(line => [...line.matchAll(OUTPUT)].every(([, job, key]) => outputOf(needs, job, key)))
+  .map(line => line.replace(OUTPUT, (_, job, key) => outputOf(needs, job, key)))
+  .join('\n')
 
 /**
  * Fills a workflow's summary template from the jobs of its run, writing one row
@@ -36,7 +71,8 @@ const PASSING = new Set(['skipped', 'success'])
  *   jobs     : The jobs of the run, in the order the run lists them.
  *   needs    : The `needs` context, keyed by job id.
  *   run      : The address of the workflow run.
- *   template : The Markdown holding `{{jobs}}` and `{{run}}`.
+ *   template : The Markdown holding `{{jobs}}`, `{{run}}`, and each
+ *     `{{job.output}}`.
  */
 export const logbookOf = (jobs: Job[], needs: Needs, run: string, template: string): Logbook => {
   const rows = jobs
@@ -45,27 +81,20 @@ export const logbookOf = (jobs: Job[], needs: Needs, run: string, template: stri
     .join('\n')
   return {
     passed  : Object.values(needs).every(({ result }) => PASSING.has(result)),
-    summary : template.replace('{{jobs}}', rows).replace('{{run}}', run)
+    summary : filledOf(template, needs).replace('{{jobs}}', rows).replace('{{run}}', run)
   }
 }
 
 /**
- * Reads the summary file, the jobs endpoint, the `needs` context, the run's
- * address, and the summary template from the variables GitHub Actions sets for
- * a step, where a run outside a workflow writes to standard output with no jobs
- * in `needs`.
+ * The `needs` context a step passes in `NEEDS`, empty outside a workflow.
  */
-export const contextOf = (env: Record<string, string | undefined>): Context => {
-  const run  = `${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`
-  const file = basename(env.GITHUB_WORKFLOW_REF?.split('@')[0] ?? '', '.yml')
-  return {
-    jobs     : `repos/${run}/jobs?per_page=100`,
-    needs    : JSON.parse(env.NEEDS ?? '{}'),
-    run      : `${env.GITHUB_SERVER_URL}/${run}`,
-    summary  : env.GITHUB_STEP_SUMMARY ?? '/dev/stdout',
-    template : `.github/scripts/summaries/${file}.md`
-  }
-}
+export const needsOf = (env: NodeJS.ProcessEnv): Needs => JSON.parse(env.NEEDS ?? '{}')
+
+/**
+ * The template under `folder` named for the workflow a step runs in.
+ */
+export const templateOf = (env: NodeJS.ProcessEnv, folder: 'comments' | 'summaries') =>
+  `.github/scripts/${folder}/${basename(env.GITHUB_WORKFLOW_REF?.split('@')[0] ?? '', '.yml')}.md`
 
 if (import.meta.main) {
   const context  = contextOf(process.env)

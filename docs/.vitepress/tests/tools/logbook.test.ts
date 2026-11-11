@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { contextOf, logbookOf } from '../../tools/logbook.ts'
+import { contextOf, filledOf, logbookOf } from '../../tools/logbook.ts'
 
 const RUN      = 'https://github.com/Jybbs/upstairs/actions/runs/1'
 const TEMPLATE = '| **Job** | **Result** |\n|---|---|\n{{jobs}}\n\n[The workflow run]({{run}})'
@@ -29,6 +29,32 @@ describe('logbookOf', () => {
       + `[The workflow run](${RUN})`
     )
   })
+
+  it('fills each job output the template names in the summary', () => {
+    const needs = { preview: { outputs: { url: 'u' }, result: 'success' } }
+    expect(logbookOf([], needs, RUN, `${TEMPLATE}\n\nAt {{preview.url}}.`).summary)
+      .toBe(`| **Job** | **Result** |\n|---|---|\n\n\n[The workflow run](${RUN})\n\nAt u.`)
+  })
+})
+
+describe('filledOf', () => {
+  const template = 'Jobs\n\nPublished at {{preview.alias}} and {{preview.url}}.\nDone'
+  const dropped  = 'Jobs\n\nDone'
+
+  it.each([
+    ['fills each output the job set', { alias: 'a', url: 'u' }, 'Jobs\n\nPublished at a and u.\nDone'],
+    ['leaves out a line naming an output the job left unset', { alias: 'a' }, dropped],
+    ['leaves out a line naming a job that set no outputs, as a skipped job does', {}, dropped]
+  ])('%s', (_, outputs, filled) =>
+    expect(filledOf(template, { preview: { outputs, result: 'success' } })).toBe(filled))
+
+  it('fills an output whose job id and name carry a hyphen', () => {
+    const needs = { 'pull-preview': { outputs: { 'page-url': 'u' }, result: 'success' } }
+    expect(filledOf('At {{pull-preview.page-url}}', needs)).toBe('At u')
+  })
+
+  it('leaves out a line naming a job the run lacks', () =>
+    expect(filledOf(template, {})).toBe(dropped))
 })
 
 describe('contextOf', () => {
