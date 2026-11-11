@@ -109,3 +109,24 @@ it.each([
   const [fresh, aged] = moving.gaps
   expect(aged / fresh).toBeCloseTo(spread, 0)
 })
+
+it.each([
+  ['a path crossing the view between two samples outside it', -1, 1, 1],
+  ['a path whose samples and the line between them stay east of the view', 1, 2, 0],
+  ['a path stepping across the far side of the world', 179.5, 180.5, 0]
+])('marks %s as crossing: %i', (_, west, east, crossing) => {
+  const tracks = new Tracks()
+  const track  = new Float32Array(2 * TRACK_WIDTH)
+  track.set([BOSTON.latitude, BOSTON.longitude + west, 45], 0)
+  track.set([BOSTON.latitude, BOSTON.longitude + east, 45], TRACK_WIDTH)
+  tracks.add([passOf(25544, { riseAt: 0, setAt: 30 })], track, Uint32Array.of(0), 2)
+  const overlay = new Overlay(canvasOf().canvas, canvasOf().canvas, () => ({
+    selected : null,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => true,
+    tracks   : tracks
+  }))
+  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
+  expect(Array.from(overlay.crossing(tracks))).toEqual([crossing])
+})

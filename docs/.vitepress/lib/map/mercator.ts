@@ -61,4 +61,23 @@ export class View {
   inside(x: number, y: number, margin = 0): boolean {
     return x >= -margin && y >= -margin && x <= this.width + margin && y <= this.height + margin
   }
+
+  /**
+   * Whether the straight line from one pixel to another passes through the
+   * view, as the overlap of the stretches of the line within its columns and
+   * within its rows.
+   */
+  crosses(fromX: number, fromY: number, toX: number, toY: number): boolean {
+    const dx = toX - fromX
+    const dy = toY - fromY
+    if (dx === 0 && (fromX < 0 || fromX > this.width)) return false
+    if (dy === 0 && (fromY < 0 || fromY > this.height)) return false
+    const left   = dx ? -fromX / dx : -Infinity
+    const right  = dx ? (this.width - fromX) / dx : Infinity
+    const top    = dy ? -fromY / dy : -Infinity
+    const bottom = dy ? (this.height - fromY) / dy : Infinity
+    const enter  = Math.max(0, Math.min(left, right), Math.min(top, bottom))
+    const leave  = Math.min(1, Math.max(left, right), Math.max(top, bottom))
+    return enter <= leave
+  }
 }

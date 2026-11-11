@@ -103,18 +103,26 @@ export class Overlay {
   }
 
   /**
-   * Marks every pass whose path above the horizon crosses the view.
+   * Marks every pass whose path above the horizon crosses the view, between
+   * its samples as well as at them.
    */
   crossing(tracks: Tracks): Uint8Array {
     const flags    = new Uint8Array(tracks.passes.length)
     const { view } = this
     tracks.passes.forEach((pass, index) => {
+      let previousX = NaN
+      let previousY = NaN
       for (let at = pass.riseAt; at <= pass.setAt; at += TRACK_STEP) {
         if (!tracks.sample(index, at / TRACK_STEP)) continue
-        if (view.inside(view.column(tracks.longitude), view.row(tracks.latitude))) {
+        const x    = view.column(tracks.longitude)
+        const y    = view.row(tracks.latitude)
+        const jump = Number.isNaN(previousX) || Math.abs(x - previousX) > view.world / 2
+        if (view.crosses(jump ? x : previousX, jump ? y : previousY, x, y)) {
           flags[index] = 1
           return
         }
+        previousX = x
+        previousY = y
       }
     })
     return flags
