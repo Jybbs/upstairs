@@ -23,11 +23,14 @@ interface Job {
 
 type Needs = Record<string, { result: string }>
 
+const PASSING = new Set(['skipped', 'success'])
+
 /**
  * Fills a workflow's summary template from the jobs of its run, writing one row
  * per finished job beside its conclusion and the link to the workflow run, and
- * passes only where every job in the `needs` context its gate reads succeeded.
- * A matrix job takes one row per leg, each under the name its leg expands to.
+ * passes only where every job in the `needs` context its gate reads succeeded
+ * or was skipped. A matrix job takes one row per leg, each under the name its
+ * leg expands to.
  *
  * Args:
  *   jobs     : The jobs of the run, in the order the run lists them.
@@ -41,7 +44,7 @@ export const briefOf = (jobs: Job[], needs: Needs, run: string, template: string
     .map(job => `| \`${job.name}\` | ${job.conclusion} |`)
     .join('\n')
   return {
-    passed  : Object.values(needs).every(({ result }) => result === 'success'),
+    passed  : Object.values(needs).every(({ result }) => PASSING.has(result)),
     summary : template.replace('{{jobs}}', rows).replace('{{run}}', run)
   }
 }

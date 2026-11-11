@@ -48,6 +48,20 @@ Each pull request runs `🛰️ CI`, one row per check below, and the `🔭 Brie
 | `📰 Press` | `mise run site:press` | *The site fails to build* |
 | `🧷 Types` | `mise run site:typecheck` | *`vue-tsc` reports a type error in the TypeScript or a single-file component* |
 
+## Deploying
+
+Each push to `main` that changes what the site is built from runs `🛰️ Deploy`, which also runs by hand through `workflow_dispatch`. `📰 Press` presses the site, checks its links, and attaches the pressed site to the workflow run. Once it passes, `🌐 Site` downloads it and sends it to the [Cloudflare Pages](https://developers.cloudflare.com/pages/) project `upstairs` through a [Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/), and `📡 Catalog Service` deploys the Worker under `docs/.vitepress/catalog/`, so a failed press publishes neither. Both jobs run the [`wrangler`](https://developers.cloudflare.com/workers/wrangler/) that `docs/bun.lock` resolves, and neither runs on a branch other than `main`, so a run started there presses and checks the site without publishing it, and no step downloads anything from CelesTrak.
+
+`docs/public/_headers` sets the [headers](https://developers.cloudflare.com/pages/configuration/headers/) the site is served with, giving the files under `/assets/`, each named by its content hash, a year's cache lifetime and limiting geolocation to the site's own origin.
+
+The first deploy creates the Workers KV namespace the service stores the catalog in, and each later deploy reuses it. Setting up the deploy takes these steps by hand, once:
+
+1. Add a Cloudflare API token allowed to edit Cloudflare Pages, Workers Scripts, Workers KV Storage, and the Workers Routes of the `upstairs.fyi` zone to the repository's secrets as `CLOUDFLARE_TOKEN`, beside the account's ID as `CLOUDFLARE_ACCOUNT_ID`
+2. Onboard `upstairs.fyi` to [Email Routing](https://developers.cloudflare.com/email-service/get-started/route-emails/), which lets the Worker send from the address in `ALERT_FROM`, and add the address the service alerts as a [verified destination address](https://developers.cloudflare.com/email-service/configuration/email-routing-addresses/#destination-addresses) on the account, since sending to a verified destination is [free on every plan](https://developers.cloudflare.com/email-service/platform/pricing/) whereas sending to any other address takes the Workers Paid plan
+3. Once the first deploy runs, set `ALERT_TO` to that address and `RESUME_TOKEN` to a random string as the Worker's [secrets](https://developers.cloudflare.com/workers/configuration/secrets/), by running `mise x -- bun x --no-install wrangler secret put ALERT_TO --config .vitepress/catalog/wrangler.json` from `docs/`, and then the same with `RESUME_TOKEN`, which runs the `wrangler` the deploy runs
+4. Confirm that a request for `upstairs.fyi/catalog.bin` reaches the Worker rather than the Pages project
+5. Confirm that the `upstairs` project names `main` as its production branch and has `upstairs.fyi` attached as a custom domain, since a deploy to any other branch makes a [preview](https://developers.cloudflare.com/pages/configuration/preview-deployments/) the custom domain never serves, and a Direct Upload project changes that branch only through the [Update Project](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/edit/) endpoint
+
 ## Labels
 
 An issue and a pull request each carry the label of every domain the change lands in, and a defect takes `🐞 bug` beside them. `.github/labels.toml` declares each label, and `.github/release.yml` files it under one category of the release notes.
