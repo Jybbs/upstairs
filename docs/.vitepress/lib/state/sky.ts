@@ -1,9 +1,11 @@
 import { computed, reactive, ref, shallowRef } from 'vue'
 
+import type { Room }                      from '../map/numeral.ts'
 import * as catalog                       from '../orbit/catalog.ts'
 import * as kinds                         from '../orbit/kinds.ts'
 import { minuteOf, type Pass, type Spot } from '../orbit/scan.ts'
 import type { Answer, Asked }             from '../orbit/worker.ts'
+import { clamp }                          from '../site/motion.ts'
 import * as address                       from './address.ts'
 import { Tracks }                         from './tracks.ts'
 
@@ -47,8 +49,8 @@ const resting: Clock = reduced ? 'held' : 'live'
 const shared         = address.spotIn(location.hash)
 const opening        = shared ? { place: null, spot: shared } : address.HOME
 /**
- * Writes a count of minutes as a figure beside the unit spelled out, as in
- * `5 minutes`.
+ * Writes a count of minutes as a figure beside the unit spelled out, as in `5
+ * minutes`.
  */
 export const minuteFormat = new Intl.NumberFormat([], { style: 'unit', unit: 'minute', unitDisplay: 'long' })
 /**
@@ -98,6 +100,40 @@ class Sky {
   readonly lowest   = ref<number>(0)
   readonly scope    = ref<'map' | 'sky'>('map')
   readonly selected = shallowRef<Pass | null>(null)
+  /**
+   * The pass whose peak the pointer rests on in the strip, its track drawn on
+   * the map until the pointer leaves.
+   */
+  readonly held     = shallowRef<Pass | null>(null)
+  /**
+   * The pass a press on its peak, its row, or its satellite pinned, which the
+   * readout shows while the pointer rests on no other.
+   */
+  readonly pinned   = shallowRef<Pass | null>(null)
+  /**
+   * How many pixels of the map's foot a phone's sheet covers, which the map
+   * frames a pinned pass above.
+   */
+  readonly covered  = ref(0)
+  /**
+   * Where the spot chooser stands: shut, open over the map, or landing while
+   * the map flies to the spot it set.
+   */
+  readonly choosing = ref<'landing' | 'open' | 'shut'>('shut')
+  /**
+   * The spot under the chooser's pin, beside the town it stands on.
+   */
+  readonly aim      = shallowRef<{ place: string | null, spot: Spot } | null>(null)
+  /**
+   * How many pixels of the map's foot the chooser's sheet covers on a phone,
+   * which the pin stands centered above.
+   */
+  readonly raised   = ref(0)
+  /**
+   * The room of the map the sky gathers into the numeral 404 over, while the
+   * not-found page holds it gathered.
+   */
+  readonly gather   = shallowRef<Room | null>(null)
   /**
    * The kind the tally names, every other kind drawing dimmed while it is set.
    */
@@ -165,11 +201,13 @@ class Sky {
   })
   readonly expired = computed(() => this.age.value > catalog.AGES.limit)
 
-  readonly focus = computed<Pass | null>(() => {
-    void this.version.value
-    const selected = this.selected.value
-    return selected && this.tracks.passes.includes(selected) ? selected : null
-  })
+  readonly focus = computed<Pass | null>(() => this.kept(this.selected.value))
+
+  /**
+   * The pass the readout shows, the one the pointer rests on before the one a
+   * press pinned, while the scan still holds it.
+   */
+  readonly shown = computed<Pass | null>(() => this.kept(this.held.value ?? this.pinned.value))
 
   /**
    * Whole minutes from the present to the moment `at` reads, negative while
@@ -312,8 +350,64 @@ class Sky {
    * Selects a pass and moves the clock to its highest point.
    */
   focusOn(pass: Pass) {
-    this.selected.value = pass
+    this.pin(pass)
     this.seek(pass.peakAt)
+  }
+
+  /**
+   * Chooses and pins `pass`, leaving the clock where it stands.
+   */
+  pin(pass: Pass) {
+    this.selected.value = pass
+    this.pinned.value   = pass
+  }
+
+  /**
+   * Pins the listed pass peaking `by` places after the pinned one, or where
+   * the list holds none pinned the nearest to peak that way from the time
+   * read, and moves the clock to its peak.
+   */
+  step(by: 1 | -1) {
+    const { list } = this.rows.value
+    const index    = this.pinned.value ? list.indexOf(this.pinned.value) : -1
+    const at       = this.at.value
+    const next     = index >= 0 ? list[index + by]
+      : by > 0 ? list.find(pass => pass.peakAt >= at) : list.findLast(pass => pass.peakAt < at)
+    if (next) this.focusOn(next)
+  }
+
+  /**
+   * Opens the spot chooser, its pin over the map where the spot stands.
+   */
+  choose() {
+    this.aim.value      = { place: this.place.value, spot: this.spot.value }
+    this.choosing.value = 'open'
+  }
+
+  /**
+   * Moves to the spot under the chooser's pin, the chooser landing there
+   * before it shuts.
+   */
+  land() {
+    const aim = this.aim.value
+    if (this.choosing.value !== 'open' || !aim) return
+    this.pick(aim.spot, aim.place)
+    this.choosing.value = 'landing'
+  }
+
+  /**
+   * Shuts the open spot chooser, leaving the spot where it stood.
+   */
+  shut() {
+    if (this.choosing.value === 'open') this.choosing.value = 'shut'
+  }
+
+  /**
+   * Lets the pinned pass go, returning the readout to the count.
+   */
+  release() {
+    this.held.value   = null
+    this.pinned.value = null
   }
 
   /**
@@ -324,8 +418,16 @@ class Sky {
     this.moveClock(seconds)
   }
 
+  /**
+   * Returns `pass` while the scan still holds it, and null otherwise.
+   */
+  private kept(pass: Pass | null) {
+    void this.version.value
+    return pass && this.tracks.passes.includes(pass) ? pass : null
+  }
+
   private moveClock(seconds: number) {
-    this.seconds = Math.max(Math.min(seconds, this.span), 0)
+    this.seconds = clamp(seconds, 0, this.span)
     this.unlatch()
     this.tally()
   }
@@ -421,14 +523,24 @@ class Sky {
   clockOf(seconds: number, format = clockFormat): string { return format.format(this.dateOf(seconds)) }
 
   /**
+   * Returns the clock times of two moments in the window as one range, the
+   * half of the day they share written once where both fall on one day.
+   */
+  rangeOf(from: number, to: number): string {
+    const [start, end] = [this.dateOf(from), this.dateOf(to)]
+    if (start.toDateString() === end.toDateString()) return clockFormat.formatRange(start, end)
+    return `${clockFormat.format(start)} – ${clockFormat.format(end)}`
+  }
+
+  /**
    * Returns the date of a moment in the window in the viewer's own time zone,
    * written as `format` sets.
    */
   dayOf(seconds: number, format = dayFormat): string { return format.format(this.dateOf(seconds)) }
 
   /**
-   * Returns whether a moment in the window falls on a later day than the window
-   * opens on, in the viewer's own time zone.
+   * Returns whether a moment in the window falls on a later day than the
+   * window opens on, in the viewer's own time zone.
    */
   laterDay(seconds: number): boolean {
     return this.dateOf(seconds).toDateString() !== this.dateOf(0).toDateString()

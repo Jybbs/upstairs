@@ -30,9 +30,9 @@ mise press
 - `docs/.vitepress/tools/` holds the scripts that audit and sync the repository's declarations.
 - `rust/` holds the orbit crate, which places each satellite with SGP4 and finds its passes, compiled to WebAssembly.
 - `docs/.vitepress/lib/orbit/` holds the catalog reader, the satellite kinds, the web worker that runs the crate's scan, and the look angles the Method page draws a pass from.
-- `docs/.vitepress/lib/map/` holds the terrain style, the canvases drawn above it, and the map's credit.
+- `docs/.vitepress/lib/map/` holds the terrain style, the canvases drawn above it, the zoom stops of a chosen pass, the layout of the numeral the 404 page gathers the sky into, and the map's credit.
 - `docs/.vitepress/lib/state/` holds the map's shared state, the spot the page's address carries, the traced passes, and the catalog read the Method page's drawings share.
-- `docs/.vitepress/lib/site/` holds the palette, the mark, the link-preview cards drawn at build time and the head tags pointing at them, the sections the navigation bar links, the preload of the map's chunk, the plugin adding the crates' license notices to the site's build, the Markdown extension that sets math, cites `docs/references.bib`, and draws the footnotes, the script marking the footnote a reader lands on, the stylesheets a page links on its own, and the springs, paths, and slider the drawings move with.
+- `docs/.vitepress/lib/site/` holds the palette, the mark, the link-preview cards drawn at build time and the head tags pointing at them, the sections the navigation bar links, the preload of the map's chunk, the plugin adding the crates' license notices to the site's build, the Markdown extension that sets math, cites `docs/references.bib`, and draws the footnotes, the script marking the footnote a reader lands on, the stylesheets a page links on its own, the icons, the split of a satellite's name into its base word and the rest, the entries under the map, the phone-width query, drag threshold, and tap columns the touch controls share, and the springs, paths, and slider the drawings move with.
 - `docs/.vitepress/theme/` holds the components, the map's layout, and the stylesheet.
 - `docs/.vitepress/tests/` holds the suite, one folder per folder it covers.
 - `.mise/` pins the tools and holds the tasks, one folder per domain.

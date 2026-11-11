@@ -29,6 +29,6 @@ it('follows the footnotes of the document once the app mounts', () => {
 
 it('fills the not-found slot of the layout with the page sending a reader back to the map', () => {
   const wrapper = slotOf('not-found')
-  expect(wrapper.get('h1').text()).toBe('Nothing is at this address.')
+  expect(wrapper.get('h1').text()).toBe('No page at this address')
   expect(wrapper.get('a').attributes('href')).toBe('/')
 })

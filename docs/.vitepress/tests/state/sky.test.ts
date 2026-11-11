@@ -130,6 +130,18 @@ describe('the window', () => {
   })
 })
 
+describe('the clock times of a range', () => {
+  it.each([
+    ['writes the half of the day once within one day', [21, 5], [21, 20], '9:05 – 9:20 PM'],
+    ['writes both clock times in full across midnight', [23, 52], [24, 2], '11:52 PM – 12:02 AM']
+  ])('%s', async (_, [riseHour, riseMinute], [setHour, setMinute], range) => {
+    const sky      = await loaded()
+    const secondOf = (hour: number, minute: number) =>
+      (new Date(sky.start.value).setHours(hour, minute, 0, 0) - sky.start.value) / 1000
+    expect(sky.rangeOf(secondOf(riseHour, riseMinute), secondOf(setHour, setMinute))).toBe(range)
+  })
+})
+
 describe('the spot in the address', () => {
   it.each([
     ['#-33.87,151.21', { latitude: -33.87, longitude: 151.21 }, null],
@@ -153,6 +165,67 @@ describe('the spot in the address', () => {
     expect(location.href).toBe(`${location.origin}/somewhere?at=1`)
     expect(sky.spot.value).toEqual({ latitude: 51.50073, longitude: -0.12463 })
     expect(sky.place.value).toBe('your location')
+  })
+})
+
+describe('the spot chooser', () => {
+  it('opens on the spot, its pin naming the place', async () => {
+    const sky = await loaded()
+    sky.choose()
+    expect([sky.choosing.value, sky.aim.value])
+      .toEqual(['open', { place: sky.place.value, spot: sky.spot.value }])
+  })
+
+  it.each([
+    ['moves to the spot under the pin and lands there once set', 'land', 'landing',
+      { latitude: 48.86, longitude: 2.29 }],
+    ['shuts with the spot unchanged once left', 'shut', 'shut', null]
+  ] as const)('%s', async (_, leave, choosing, moved) => {
+    const sky   = await loaded()
+    const spot  = sky.spot.value
+    sky.choose()
+    sky.aim.value = { place: 'Paris', spot: { latitude: 48.86, longitude: 2.29 } }
+    sky[leave]()
+    expect([sky.choosing.value, sky.spot.value]).toEqual([choosing, moved ?? spot])
+  })
+
+  it('moves nowhere from a chooser already shut', async () => {
+    const sky  = await loaded()
+    const pick = vi.spyOn(sky, 'pick')
+    sky.land()
+    expect([sky.choosing.value, pick.mock.calls.length]).toEqual(['shut', 0])
+  })
+})
+
+describe('the pinned pass', () => {
+  it.each([
+    ['pins the next pass to peak where none is pinned', null, 1, 1],
+    ['pins the pass peaking after the pinned one', 1, 1, 2],
+    ['pins the pass peaking before the pinned one', 1, -1, 0],
+    ['keeps the last pass pinned at the end of the list', 2, 1, 2],
+    ['pins the pass peaking before the time read where none is pinned', null, -1, 0]
+  ] as const)('%s', async (_, from, by, to) => {
+    const sky    = await loaded()
+    const passes = [passAt(0, 30), passAt(400, 40, OTHER), passAt(900, 50)]
+    traced(passes)
+    sky.scope.value = 'sky'
+    sky.seek(500)
+    expect(sky.rows.value.list).toHaveLength(3)
+    if (from !== null) sky.pinned.value = sky.rows.value.list[from]
+    sky.step(by)
+    expect(sky.pinned.value).toBe(sky.rows.value.list[to])
+  })
+
+  it('shows the held pass over the pinned one, and neither once released', async () => {
+    const sky        = await loaded()
+    const passes     = [passAt(0, 30), passAt(400, 40, OTHER)]
+    traced(passes)
+    const [one, two] = sky.tracks.passes
+    sky.pinned.value = one
+    sky.held.value   = two
+    const shown      = [sky.shown.value]
+    sky.release()
+    expect([...shown, sky.shown.value]).toEqual([two, null])
   })
 })
 

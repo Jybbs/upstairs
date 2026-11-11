@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { KINDS, type Kind } from '../lib/orbit/kinds.ts'
-import { kindColor }        from '../lib/site/palette.ts'
 import { HEIGHTS, sky }     from '../lib/state/sky.ts'
 import Chip                 from './Chip.vue'
 
@@ -16,7 +15,7 @@ const kinds = Object.entries(KINDS) as [Kind, (typeof KINDS)[Kind]][]
           v-for="[kind, { label }] in kinds"
           :key="kind"
           :on="sky.traced[kind]"
-          :color="kindColor(kind)"
+          :kind="kind"
           @press="sky.traced[kind] = !sky.traced[kind]; sky.version.value++"
         >{{ label }}</Chip>
       </div>

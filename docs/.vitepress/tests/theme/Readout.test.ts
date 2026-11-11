@@ -8,8 +8,8 @@ import { kindOrder } from '../../lib/orbit/kinds.ts'
  * Mounts the readout over a fresh copy of the shared state and a stand-in
  * worker, with the scan finished, a count announced, and the window opening at
  * 11:47 PM on Tuesday, November 10, 2026 in New York's time zone, read at
- * `seconds` into it, the device asking for reduced motion where `reduced`
- * is set.
+ * `seconds` into it, the device asking for reduced motion where `reduced` is
+ * set.
  */
 const mounted = async (seconds: number, reduced = false) => {
   vi.stubEnv('TZ', 'America/New_York')
@@ -57,14 +57,14 @@ it('tags a held frame by how far it stands from the present, and draws the prese
   sky.now.value          = 0
   sky.at.value           = 600
   await wrapper.vm.$nextTick()
-  const tag = wrapper.get('button[aria-label]')
+  const tag = wrapper.get('button[aria-disabled]')
   expect([tag.text(), tag.attributes('aria-disabled')]).toEqual(['In 10 min', 'false'])
   const back = vi.spyOn(sky, 'back').mockImplementation(() => {})
   await tag.trigger('click')
   expect(back).toHaveBeenCalledOnce()
 })
 
-it('names the kind the tally holds on the last line, with how many the map draws of how many are up', async () => {
+it('names the kind the tally holds last, with how many the map draws of how many are up', async () => {
   const { sky, wrapper } = await mounted(0)
   sky.reading.value      = {
     above      : 9,
@@ -95,4 +95,11 @@ it.each([
   sky.clock.value        = clock
   await wrapper.vm.$nextTick()
   expect(wrapper.get('p.truncate').text().replace(/\s+/g, ' ')).toBe(`Above Boston · ${time}`)
+})
+
+it('opens the spot chooser from the place it reads', async () => {
+  const { sky, wrapper } = await mounted(0)
+  await wrapper.get('button[aria-expanded]').trigger('click')
+  expect([sky.choosing.value, wrapper.get('button[aria-expanded]').attributes('aria-expanded')])
+    .toEqual(['open', 'true'])
 })
