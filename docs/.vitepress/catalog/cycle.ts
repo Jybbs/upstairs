@@ -22,8 +22,8 @@ export type Region = typeof REGIONS[number]
  */
 export const EVERY = 2 * 3_600_000
 /**
- * The locations the request leaves from, in the order a cycle tries them after
- * the one that last reached CelesTrak.
+ * The location hints of the relays sending the request, in the order a cycle
+ * tries them after the one that last reached CelesTrak.
  */
 export const REGIONS = ['weur', 'apac', 'enam', 'wnam', 'eeur'] as const satisfies DurableObjectLocationHint[]
 

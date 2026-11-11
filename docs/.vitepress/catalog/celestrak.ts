@@ -1,24 +1,26 @@
 /**
  * Requests the active catalog from CelesTrak and checks that what came back is
  * a list of at least `AT_LEAST` records, telling a connection Cloudflare could
- * not open apart from an answer CelesTrak sent.
+ * not open apart from a request that reached CelesTrak.
  */
 import type { Record } from '../lib/orbit/catalog.ts'
 
 const AGENT    = 'upstairs-catalog'
 const AT_LEAST = 5000
 /**
- * The longest wait for the headers of an answer, in milliseconds.
+ * The longest wait for the headers of an answer, in milliseconds, which runs
+ * past the 19 seconds Cloudflare waits for a connection before answering 522.
  */
-export const CONNECT = 10_000
-export const SOURCE  = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json'
+export const HEADER_WAIT = 30_000
+export const SOURCE      = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json'
 /**
- * The statuses Cloudflare answers with when it cannot connect to CelesTrak.
+ * The statuses Cloudflare answers with when it cannot open a connection to
+ * CelesTrak.
  */
-const UNCONNECTED = [522, 523]
+const UNCONNECTED = [521, 522, 523]
 
 /**
- * Marks a request that never reached CelesTrak, which the cycle then sends from
+ * Marks a connection Cloudflare could not open, which the cycle then opens from
  * the next region.
  */
 export class Unreachable extends Error {}
@@ -35,11 +37,14 @@ export const checked = (records: unknown) => {
 
 /**
  * Reads the catalog from `answer`, failing with `Unreachable` where it rejects
- * or Cloudflare could not connect, and with a plain error on any other answer
- * but 200, a redirect included.
+ * or Cloudflare could not connect, and with a plain error where no headers
+ * arrived within `HEADER_WAIT` milliseconds or on any other answer but 200, a
+ * redirect included.
  */
 export const download = async (answer: Promise<Response>): Promise<Record[]> => {
-  const response = await answer.catch((error: unknown) => { throw new Unreachable(String(error)) })
+  const response = await answer.catch((error: Error) => {
+    throw error.name === 'TimeoutError' ? error : new Unreachable(String(error))
+  })
   if (UNCONNECTED.includes(response.status)) {
     await response.body?.cancel()
     throw new Unreachable(`Cloudflare answered ${response.status}`)
@@ -50,14 +55,18 @@ export const download = async (answer: Promise<Response>): Promise<Record[]> => 
 
 /**
  * Sends the catalog request through `fetcher` with redirects left unfollowed,
- * aborting it where no headers arrive within `CONNECT` milliseconds.
+ * aborting it with a `TimeoutError` where no headers arrive within
+ * `HEADER_WAIT` milliseconds.
  */
 export const fetchCatalog = async (fetcher: typeof fetch) => {
-  const bound = new AbortController()
-  const timer = setTimeout(() => bound.abort(new Error(`No answer within ${CONNECT} ms`)), CONNECT)
-  const init  = { headers: { 'user-agent': AGENT }, redirect: 'manual', signal: bound.signal } as const
+  const bound   = new AbortController()
+  const timeout = new DOMException(`No answer within ${HEADER_WAIT} ms`, 'TimeoutError')
+  const timer   = setTimeout(() => bound.abort(timeout), HEADER_WAIT)
+  const init    = { headers: { 'user-agent': AGENT }, redirect: 'manual', signal: bound.signal } as const
   try {
     return await fetcher(SOURCE, init)
+  } catch (error) {
+    throw bound.signal.aborted ? timeout : error
   } finally {
     clearTimeout(timer)
   }

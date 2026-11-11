@@ -28,8 +28,8 @@ export class Refresher extends DurableObject<Env> {
 }
 
 /**
- * The Durable Object sending the catalog request from the region its location
- * hint placed it in when it was first created.
+ * The Durable Object sending the catalog request from the data center Cloudflare
+ * chose near its location hint when the object was first created.
  */
 export class Relay extends DurableObject {
   fetchCatalog() { return fetchCatalog(fetch) }
