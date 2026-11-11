@@ -1,39 +1,61 @@
-# <picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/wordmark-night.svg"><img src="../docs/public/wordmark-day.svg" alt="Upstairs" width="292" height="72"></picture>
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/public/wordmark-night.svg">
+  <img src="../docs/public/wordmark-day.svg" alt="upstairs" width="292" height="72">
+</picture>
 
-Pick a spot on the map and watch every satellite passing over it.
+*Every active satellite above a spot you choose.*
 
-The site lists the active satellites above the horizon at that spot, plays their passes through a window of time, and shows where each one is headed. Everything is calculated in the browser from published orbital data, which the Cloudflare service under `docs/.vitepress/catalog/` downloads from CelesTrak. A push to `main` that changes the site or the service publishes both to [upstairs.fyi](https://upstairs.fyi), as [the contributor guide](CONTRIBUTING.md#deploying) describes.
+[![Rust](../docs/public/badges/rust.svg)![version](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FJybbs%2Fupstairs%2Fmain%2F.mise%2Fconfig.toml&query=%24.tools.rust.version&style=for-the-badge&label=&color=0a4a47)](https://www.rust-lang.org/)
+[![Coverage](../docs/public/badges/coverage.svg)![percent](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fupstairs.fyi%2Fcoverage.json&query=%24&suffix=%25&style=for-the-badge&label=&color=0a4a47)](https://github.com/Jybbs/upstairs/actions/workflows/deploy.yml?query=branch%3Amain)
+[![Docs](../docs/public/badges/docs.svg)![Docs](https://img.shields.io/badge/Docs-0a4a47?style=for-the-badge)](https://upstairs.fyi/)
 
-- [Guide](https://upstairs.fyi/guide/): what the map shows and how to read a pass
-- [Method](https://upstairs.fyi/method/): the orbit model, the pass scan, and how far a position can be trusted
-- [Data](https://upstairs.fyi/data/): each source with its refresh and its license, and what each request sends
+</div>
 
-## Run it
+---
 
-[mise](https://mise.jdx.dev/) installs the tools.
+## 🛰️ About
 
-```sh
-mise install
-mise run site:install
+***Upstairs*** counts every active satellite above a spot chosen on a terrain map, lists the passes crossing its sky, and plays them through a window of time. The reader's browser calculates each position from the orbital elements [CelesTrak](https://celestrak.org/) publishes, running the SGP4 orbit model through the [`sgp4`](https://docs.rs/sgp4) crate compiled to [WebAssembly](https://webassembly.org/), and [MapLibre](https://maplibre.org/) draws the terrain map beneath the satellites. A catalog service on [Cloudflare Workers](https://developers.cloudflare.com/workers/) downloads the elements from CelesTrak at most once every two hours, as CelesTrak asks, and every reader's browser reads that copy from `upstairs.fyi`.
+
+---
+
+## 🌌 The Site
+
+Each page of the [site](https://upstairs.fyi/) answers the question beside it.
+
+| **Page** | **What It Answers** |
+|---|---|
+| [Map](https://upstairs.fyi/) | *Which satellites stand above a spot at the time the strip shows, and where each one is headed* |
+| [Guide](https://upstairs.fyi/guide/) | *How to read the map, the pass list, and the time strip* |
+| [Method](https://upstairs.fyi/method/) | *How the site calculates where each satellite stands, how it finds each pass, and how far a position can be trusted* |
+| [Data](https://upstairs.fyi/data/) | *Where the orbits, the map, and the place search come from, and what each request sends* |
+
+[CONTRIBUTING.md](CONTRIBUTING.md) lists the tasks, the checks a pull request passes, how a push to `main` deploys, and the labels an issue carries.
+
+---
+
+## 🚀 Quickstart
+
+[mise](https://mise.jdx.dev/) installs every tool `.mise/config.toml` pins, so once [mise itself is installed](https://mise.jdx.dev/getting-started.html), these commands clone the repository, install its tools and packages, download the catalog, and serve the site locally:
+
+```bash
+git clone https://github.com/Jybbs/upstairs.git
+mise trust upstairs
+mise -C upstairs install
+cd upstairs
 mise run catalog
 mise serve
-mise test
-mise press
 ```
 
-`mise run catalog` downloads the catalog into `docs/public/catalog.bin`, or encodes a CelesTrak file given as its argument. CelesTrak publishes new orbital data every two hours and asks for one download per update, so run it sparingly. `mise tasks` lists every task, and [the contributor guide](CONTRIBUTING.md) lists the checks a pull request runs.
+`mise run catalog` downloads the satellite catalog into `docs/public/catalog.bin`. CelesTrak publishes new orbital data every two hours and asks for one download per update, so the task runs only when the catalog itself has to move.
 
-## How it fits together
+---
 
-- `docs/` holds the pages of the site, which [VitePress](https://vitepress.dev/) builds, with the map as its home page, beside the manifest and the lockfile.
-- `docs/.vitepress/catalog/` holds the Cloudflare Worker and its Durable Objects, which download CelesTrak's active catalog once a cycle from the first of several regions that reaches CelesTrak, encode the fields the orbit model reads as compressed binary columns, and serve the file from Workers KV through the edge cache.
-- `docs/.vitepress/tools/` holds the scripts that audit and sync the repository's declarations.
-- `rust/` holds the orbit crate, which places each satellite with SGP4 and finds its passes, compiled to WebAssembly.
-- `docs/.vitepress/lib/orbit/` holds the catalog reader, the satellite kinds, the web worker that runs the crate's scan, and the look angles the Method page draws a pass from.
-- `docs/.vitepress/lib/map/` holds the terrain style, the canvases drawn above it, and the map's credit.
-- `docs/.vitepress/lib/state/` holds the map's shared state, the spot the page's address carries, the traced passes, and the catalog read the Method page's drawings share.
-- `docs/.vitepress/lib/site/` holds the palette, the mark, the link-preview cards drawn at build time and the head tags pointing at them, the sections the navigation bar links, the preload of the map's chunk, the plugin adding the crates' license notices to the site's build, the Markdown extension that sets math, cites `docs/references.bib`, and draws the footnotes, the script marking the footnote a reader lands on, the stylesheets a page links on its own, and the springs, paths, and slider the drawings move with.
-- `docs/.vitepress/theme/` holds the components, the map's layout, and the stylesheet.
-- `docs/.vitepress/tests/` holds the suite, one folder per folder it covers.
-- `.mise/` pins the tools and holds the tasks, one folder per domain.
-- `.github/` holds the workflows, the label registry, the rulesets, and the repository's settings.
+## 🌠 Attribution
+
+*Upstairs* is released under the MIT License, which [`LICENSE`](../LICENSE) carries. The map draws the data below, and [Data](https://upstairs.fyi/data/) credits each source in full.
+
+- The orbital elements come from [CelesTrak](https://celestrak.org/), which publishes no license for them and makes them freely available to all users
+- The map data comes from [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) under the [Open Database License](https://opendatacommons.org/licenses/odbl/) and reaches the map through [OpenFreeMap](https://openfreemap.org/) in the [OpenMapTiles](https://openmaptiles.org/) schema, whose design is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset, whose sources each carry their own license, with 3DEP, GMTED2010, and ETOPO1 in the public domain, SRTM in the public domain within the United States, and ArcticDEM free to use without permission
