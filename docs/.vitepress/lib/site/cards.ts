@@ -191,9 +191,7 @@ const linesOf = (
 
 /**
  * Draws a section's card in `scheme`, a star chart ruled in the section's
- * color with the capital cut out of it and the mark drawn in the clearing,
- * throwing where the page's line wraps past the card's baselines at every size
- * the layout allows.
+ * color with the capital cut out of it and the mark drawn in the clearing.
  */
 const netOf = (
   faces   : Faces,
@@ -203,7 +201,6 @@ const netOf = (
   layout  = NET_LAYOUT
 ) => {
   const { address, chart, mark, name } = layout
-  const { bases, least, right, width } = layout.line
   const [x0, y0, box]                  = boxOf(MARK.master.box)
   const [px, py]                       = chart.pole
 
@@ -223,14 +220,9 @@ const netOf = (
     return `${circleOf(x, y, r)}Z`
   }).join('')
   const nameD  = faces.display.outline({ size: name.size, text: section }, name.x, name.base)
-  let size     = layout.line.size
-  let lines    = linesOf(faces.book, { size }, line, width)
-  while (lines.length > bases.length && size > least)
-    lines = linesOf(faces.book, { size: --size }, line, width)
-  if (lines.length > bases.length)
-    throw new Error(
-      `The line on the ${section} card runs to ${lines.length} lines at ${size} px, past its ${bases.length}`)
-  const lineD  = lines.map((each, i) => faces.book.outlineTo({ size, text: each }, right, bases[i])).join('')
+  const set    = sectionLineOf(faces, line, section, layout)
+  const lineD  = set.lines.map((each, i) =>
+    faces.book.outlineTo({ size: set.size, text: each }, layout.line.right, set.bases[i])).join('')
   const site    = { size: address.size, text: ADDRESS, tracking: address.tracking }
   const folder  = { size: address.size, text: `/${section.toUpperCase()}`, tracking: address.tracking }
   const siteD   = faces.mono.outlineTo(site, address.right - faces.mono.widthOf(folder), address.base)
@@ -315,6 +307,25 @@ export const fileOf = (section?: sections.Section) =>
  */
 export const sectionColorOf = (scheme: SchemeName, section: sections.Section, layout = NET_LAYOUT) =>
   heldOn(SCHEMES.day.kinds[sections.SECTIONS[section]], [SCHEMES[scheme].page], layout.contrast[scheme])
+
+/**
+ * Sets a section's line at the largest size from `size` down to `least` that
+ * keeps it to the card's baselines, the last baseline held and each one above
+ * it moved toward it in step with the size, throwing where the line runs past
+ * the baselines at every size the layout allows.
+ */
+export const sectionLineOf = (faces: Faces, line: string, section: sections.Section, layout = NET_LAYOUT) => {
+  const { bases, least, width } = layout.line
+  const last = bases.at(-1)!
+  let size   = layout.line.size
+  let lines  = linesOf(faces.book, { size }, line, width)
+  while (lines.length > bases.length && size > least)
+    lines = linesOf(faces.book, { size: --size }, line, width)
+  if (lines.length > bases.length)
+    throw new Error(
+      `The line on the ${section} card runs to ${lines.length} lines at ${size} px, past its ${bases.length}`)
+  return { bases: lines.map((_, i) => last - (last - bases[i]) * size / layout.line.size), lines, size }
+}
 
 /**
  * Renders every card as a PNG into the built site under `outDir`, reading

@@ -5,11 +5,11 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import { Resvg } from '@resvg/resvg-js'
 
-import { CARD, NET_LAYOUT, cardsOf, fileOf, sectionColorOf } from '../../lib/site/cards.ts'
-import type { Card, Lines }                                  from '../../lib/site/cards.ts'
-import { Face, type Faces }                                  from '../../lib/site/faces.ts'
-import { SCHEMES, type SchemeName }                          from '../../lib/site/palette.ts'
-import { folderOf, sectionsOf }                              from '../../lib/site/sections.ts'
+import { CARD, NET_LAYOUT, cardsOf, fileOf, sectionColorOf, sectionLineOf } from '../../lib/site/cards.ts'
+import type { Card, Lines }                                                 from '../../lib/site/cards.ts'
+import { Face, type Faces }                                                 from '../../lib/site/faces.ts'
+import { SCHEMES, type SchemeName }                                         from '../../lib/site/palette.ts'
+import { folderOf, sectionsOf }                                             from '../../lib/site/sections.ts'
 
 const LINES: Lines = {
   home     : 'Every active satellite above a spot you choose.',
@@ -26,7 +26,14 @@ const PAGES: Lines = {
   home     : lineOf(''),
   sections : Object.fromEntries(sectionsOf().map(section => [section, lineOf(`${folderOf(section)}/`)]))
 } as Lines
+const FILES = [fileOf(), CARD.repository.file, ...sectionsOf().map(section => fileOf(section))]
 const LONG: Lines = { ...LINES, sections: { ...LINES.sections, Data: LINES.sections.Data.repeat(6) } }
+const SETS = [
+  { bases: [469.4, 510], section: 'Data',   size: 35, text: PAGES.sections.Data },
+  { bases: [452, 510],   section: 'Guide',  size: 50, text: PAGES.sections.Guide },
+  { bases: [452, 510],   section: 'Method', size: 50, text: PAGES.sections.Method },
+  { bases: [452],        section: 'Data',   size: 50, text: LINES.sections.Data }
+] as const
 const RATIOS = (Object.keys(SCHEMES) as SchemeName[])
   .map(scheme => ({ ratio: NET_LAYOUT.contrast[scheme], scheme }))
 
@@ -46,14 +53,14 @@ beforeAll(async () => {
 
 describe('the cards', () => {
   it('writes the home card, the repository’s preview, and one card per section', () =>
-    expect(cards.map(({ file }) => file))
-      .toEqual([fileOf(), CARD.repository.file, ...sectionsOf().map(section => fileOf(section))]))
+    expect(cards.map(({ file }) => file)).toEqual(FILES))
   it('sizes the repository’s preview apart from every page’s card', () =>
     expect(cards.map(({ height, width }) => [width, height])).toEqual(cards.map(({ file }) => sizeOf(file))))
-  it('renders each card at the size it declares', () => cards.forEach(({ height, svg, width }) => {
-    const image = new Resvg(svg, { font: { loadSystemFonts: false } }).render()
+  it.each(FILES)('renders %s at the size it declares', file => {
+    const { height, svg, width } = cards.find(card => card.file === file)!
+    const image                  = new Resvg(svg, { font: { loadSystemFonts: false } }).render()
     expect([image.width, image.height]).toEqual([width, height])
-  }))
+  })
   it('sets every word as an outline', () => cards.forEach(({ svg }) => expect(svg).not.toContain('<text')))
   it('draws every card on the night page', () =>
     cards.forEach(({ svg }) => expect(svg).toContain(`fill="${SCHEMES.night.page}"/>`)))
@@ -84,6 +91,11 @@ describe('a section’s card', () => {
 
 describe('a section’s line', () => {
   it('fits every page’s own line on its card', () => expect(() => cardsOf(faces, PAGES)).not.toThrow())
+  it.each(SETS)('sets “$text” at $size px on the baselines $bases', ({ bases, section, size, text }) => {
+    const set = sectionLineOf(faces, text, section)
+    expect([set.size, set.bases.length]).toEqual([size, bases.length])
+    set.bases.forEach((base, i) => expect(base).toBeCloseTo(bases[i]))
+  })
   it('stops the build where a line runs past the card', () =>
     expect(() => cardsOf(faces, LONG)).toThrow('The line on the Data card'))
 })
