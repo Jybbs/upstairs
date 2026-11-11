@@ -48,12 +48,17 @@ export const threadOf = (env: NodeJS.ProcessEnv): Thread => {
   }
 }
 
+/**
+ * The arguments to `gh api` that edit `posted` to read `body`, or else post
+ * `body` as a new comment on the pull request.
+ */
+export const requestOf = (thread: Thread, body: string, posted?: Comment) => posted
+  ? ['--method', 'PATCH', `${thread.edits}/${posted.id}`, '--raw-field', `body=${body}`]
+  : [thread.comments, '--raw-field', `body=${body}`]
+
 if (import.meta.main) {
   const thread   = threadOf(process.env)
   const body     = filledOf(await Bun.file(thread.template).text(), thread.needs)
   const comments = (await $`gh api --paginate --slurp ${thread.comments}`.json()).flat()
-  const posted   = postedOf(body, comments)
-  await (posted
-    ? $`gh api --method PATCH ${thread.edits}/${posted.id} --raw-field body=${body}`
-    : $`gh api ${thread.comments} --raw-field body=${body}`)
+  await $`gh api ${requestOf(thread, body, postedOf(body, comments))}`
 }

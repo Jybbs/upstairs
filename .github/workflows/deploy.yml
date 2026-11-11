@@ -167,6 +167,8 @@ on:
   pull_request:
     paths: &sources
       - .github/actions/provision/**
+      - .github/scripts/comments/deploy.md
+      - .github/scripts/summaries/deploy.md
       - .github/workflows/deploy.yml
       - .mise/**
       - docs/**

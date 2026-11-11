@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { postedOf, threadOf } from '../../tools/notice.ts'
+import { postedOf, requestOf, threadOf } from '../../tools/notice.ts'
 
 const HEADING = '## 🔍 Preview'
 const BODY    = `${HEADING}\n\nThe site is published at https://20-previews.upstairs-7as.pages.dev.`
@@ -30,4 +30,22 @@ describe('threadOf', () => {
       needs    : { preview: { outputs: { alias: 'https://a.pages.dev' }, result: 'success' } },
       template : '.github/scripts/comments/deploy.md'
     }))
+})
+
+describe('requestOf', () => {
+  const thread = threadOf({ GITHUB_REF: 'refs/pull/20/merge', GITHUB_REPOSITORY: 'Jybbs/upstairs' })
+
+  it.each([
+    [
+      'edits the notice an earlier run posted',
+      comment(7, BODY),
+      ['--method', 'PATCH', 'repos/Jybbs/upstairs/issues/comments/7', '--raw-field', `body=${BODY}`]
+    ],
+    [
+      'posts a notice where no run posted one',
+      undefined,
+      ['repos/Jybbs/upstairs/issues/20/comments', '--raw-field', `body=${BODY}`]
+    ]
+  ])('%s', (_, posted, request) =>
+    expect(requestOf(thread, BODY, posted)).toEqual(request))
 })
