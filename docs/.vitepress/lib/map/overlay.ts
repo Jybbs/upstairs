@@ -47,6 +47,9 @@ const FONTS = {
  */
 const spreadOf = (age: number) => age > AGES.warn ? 3 : age > 1 ? 2 : 1
 
+/** The fewest dots a ring takes, indexed by the spread `spreadOf` returns. */
+const FEWEST_DOTS = [0, 8, 6, 4]
+
 /**
  * The two canvases above the map. The lower one holds what stays put between
  * map moves: place names, the spot, the paths. The upper one holds what moves
@@ -322,8 +325,8 @@ export class Overlay {
     const radius         = DRIFT_KM * view.scale(tracks.latitude)
     if (radius < DRIFT_PX) return
     const around = 2 * Math.PI * radius
-    const gap    = DOT_GAP * spreadOf((time - tracks.passes[pass].epoch) / DAY)
-    dots[1]      = around / Math.max(8, Math.round(around / gap))
+    const spread = spreadOf((time - tracks.passes[pass].epoch) / DAY)
+    dots[1]      = around / Math.max(FEWEST_DOTS[spread], Math.round(around / (DOT_GAP * spread)))
     context.save()
     context.setLineDash(dots)
     context.beginPath()
