@@ -181,4 +181,22 @@ describe.each([true, false])('the map credit with reduced motion %s', reduced =>
     await Promise.resolve()
     expect(order()).toEqual([...GROUPS.flatMap(group => [group.heading, ...group.links]), 'Example'])
   })
+  it('keeps a credit a source writes as text, dropping only the separators', async () => {
+    inner.innerHTML = `© Example Survey | ${TILES} | ${CREDITS.join(' | ')}`
+    await Promise.resolve()
+    expect([inner.lastChild!.textContent, inner.textContent])
+      .toEqual(['© Example Survey', expect.not.stringMatching(/\||Data from/)])
+  })
+  it('keeps a link a source wraps in a span', async () => {
+    const wrapped   = '<span><a href="https://example.org">Wrapped</a></span>'
+    inner.innerHTML = `${TILES} | ${wrapped} | ${CREDITS.join(' | ')}`
+    await Promise.resolve()
+    expect(order()).toEqual([...GROUPS.flatMap(group => [group.heading, ...group.links]), 'Wrapped'])
+  })
+  it('folds each heading with the lines under it', async () => {
+    await tiles()
+    summary.click()
+    expect([...inner.querySelectorAll('.credit-heading')].map(heading => heading.getAnimations().length))
+      .toEqual(GROUPS.map(() => reduced ? 0 : 1))
+  })
 })

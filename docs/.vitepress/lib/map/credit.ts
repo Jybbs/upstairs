@@ -113,9 +113,10 @@ class Credit {
   }
 
   /**
-   * Moves each link into its group under the group's heading, drops the text
-   * between the links, and leaves out a group with no link shown. A link no
-   * group names follows the groups.
+   * Moves each link into its group under the group's heading, and leaves out a
+   * group with no link shown. The separators and the `Data from` text drop
+   * out, and every other line, whether a link no group names or a credit a
+   * source writes as text, follows the groups.
    */
   private arrange() {
     const { inner } = this
@@ -131,7 +132,12 @@ class Credit {
       group.append(title, ...shown)
       return [group]
     })
-    inner.replaceChildren(...groups, ...links.filter(link => link.parentElement === inner))
+    const rest      = [...inner.childNodes].flatMap((node): (Node | string)[] => {
+      if (node instanceof Element) return node.matches('.credit-group') ? [] : [node]
+      const text = node.textContent!.replace(/\||Data from/g, '').trim()
+      return text ? [text] : []
+    })
+    inner.replaceChildren(...groups, ...rest)
     this.lines.takeRecords()
   }
 
