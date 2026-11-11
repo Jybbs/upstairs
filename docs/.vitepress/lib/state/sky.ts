@@ -1,4 +1,4 @@
-import { computed, reactive, ref, shallowRef } from 'vue'
+import { computed, reactive, ref, shallowRef, type Ref, type ShallowRef } from 'vue'
 
 import * as catalog                       from '../orbit/catalog.ts'
 import * as kinds                         from '../orbit/kinds.ts'
@@ -16,8 +16,6 @@ export const WINDOWS = [30, 60, 120] as const
 const WORTH          = 20
 const clockFormat    = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' })
 const dayFormat      = new Intl.DateTimeFormat([], { day: 'numeric', month: 'short', weekday: 'short' })
-const shared         = address.spotIn(location.hash)
-const opening        = shared ? { place: null, spot: shared } : address.HOME
 
 const highestOf = (list: Pass[]) =>
   list.reduce<Pass | null>((best, pass) => !best || pass.peak > best.peak ? pass : best, null)
@@ -31,10 +29,10 @@ const tracedOf = () => {
  * The one shared state of the page: the spot, the window, the clock, the
  * filters, and what the worker has found so far.
  */
-class Sky {
+export class Sky {
   readonly tracks   = new Tracks()
-  readonly spot     = shallowRef<Spot>(opening.spot)
-  readonly place    = ref<string | null>(opening.place)
+  readonly spot     : ShallowRef<Spot>
+  readonly place    : Ref<string | null>
   readonly start    = ref(minuteOf(Date.now()))
   readonly minutes  = ref<number>(60)
   readonly speed    = ref<number>(60)
@@ -112,7 +110,14 @@ class Sky {
     return selected && this.tracks.passes.includes(selected) ? selected : null
   })
 
+  /**
+   * Opens on the spot the page's address holds, or else on `address.HOME`.
+   */
   constructor() {
+    const shared = address.spotIn(location.hash)
+    this.spot    = shallowRef(shared ?? address.HOME.spot)
+    this.place   = ref(shared ? null : address.HOME.place)
+
     this.worker.onmessage = ({ data }: MessageEvent<Answer>) => this.hear(data)
     this.ask({ type: 'load', url: `${import.meta.env.BASE_URL}${catalog.FILE}` })
   }

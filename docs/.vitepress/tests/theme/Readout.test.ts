@@ -3,15 +3,13 @@ import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
 /**
- * Mounts the readout over a fresh copy of the shared state and a stand-in
- * worker, with the scan finished, a count announced, and the window opening at
- * 11:47 PM on Tuesday, November 10, 2026 in New York's time zone, read at
- * `seconds` into it.
+ * Mounts the readout over the shared state and a stand-in worker, with the scan
+ * finished, a count announced, and the window opening at 11:47 PM on Tuesday,
+ * November 10, 2026 in New York's time zone, read at `seconds` into it.
  */
 const mounted = async (seconds: number) => {
   vi.stubEnv('TZ', 'America/New_York')
   vi.stubGlobal('Worker', class { postMessage() {} })
-  vi.resetModules()
   const { sky }              = await import('../../lib/state/sky.ts')
   const { default: Readout } = await import('../../theme/Readout.vue')
   sky.done.value   = true

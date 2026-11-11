@@ -30,8 +30,8 @@ const passAt = (riseAt: number, peak: number, satellite: scan.Satellite = SATELL
   })
 
 /**
- * Loads a fresh copy of the shared state over a stand-in worker on a page
- * addressed by `fragment`, with the catalog loaded and the first scan asked for.
+ * Opens a fresh state over a stand-in worker on a page addressed by `fragment`,
+ * with the catalog loaded and the first scan asked for.
  */
 const loaded = async (fragment = '') => {
   history.replaceState(null, '', `/somewhere?at=1${fragment}`)
@@ -40,8 +40,8 @@ const loaded = async (fragment = '') => {
     set onmessage(listener: typeof listen) { listen = listener }
     postMessage(asked: Asked) { posted.push(asked) }
   })
-  vi.resetModules()
-  const { sky } = await import('../../lib/state/sky.ts')
+  const { Sky } = await import('../../lib/state/sky.ts')
+  const sky     = new Sky()
   hear({ count: 1, fetched: NOW, type: 'loaded' })
   return sky
 }

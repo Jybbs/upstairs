@@ -1,4 +1,4 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE description = "Write the share of lines the site's suite covered, rounded down to a whole number, into `coverage.json` in the folder given, which the published site serves"
 
-bun --print 'Math.floor((await Bun.file(".cache/coverage/coverage-summary.json").json()).total.lines.pct)' > "$1/coverage.json"
+bun run docs/.vitepress/tools/total.ts "$1"
