@@ -9,5 +9,5 @@ mod tracer;
 
 pub use frame::{Moment, Point, Site};
 pub use grid::Grid;
-pub use orbits::{Orbits, Propagator};
-pub use tracer::{TRACK_WIDTH, Traced, Tracer};
+pub use orbits::{ELEMENTS, Orbits, Propagator, Uneven};
+pub use tracer::{TRACK_WIDTH, Trace, Traced, Tracer};

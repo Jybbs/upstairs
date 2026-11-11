@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { BANDS, reliefRamp } from '../../lib/map/style.ts'
-import * as mercator         from '../../lib/map/mercator.ts'
+import * as mercator           from '../../lib/map/mercator.ts'
+import { FLOORS, reliefRamp } from '../../lib/map/style.ts'
+import { SCHEMES }            from '../../lib/site/palette.ts'
 
 describe('the view', () => {
   const view = new mercator.View()
@@ -27,6 +28,22 @@ describe('the view', () => {
     'reads the point at %f, %f with a margin of %f as inside: %s',
     (x, y, margin, inside) => expect(view.inside(x, y, margin)).toBe(inside)
   )
+  it.each([
+    ['a line from left to right of the view', -50, 300, 1050, 310, true],
+    ['a line from corner to corner past the view', -50, 650, 1050, -50, true],
+    ['a line ending inside the view', 500, 300, 2000, 300, true],
+    ['a point inside the view', 500, 300, 500, 300, true],
+    ['a line along the left edge', 0, -50, 0, 650, true],
+    ['a line touching a corner', 900, -100, 1100, 100, true],
+    ['a line stopping short of the view', -500, 300, -1, 300, false],
+    ['a line passing beyond a corner', 900, -200, 1200, 100, false],
+    ['a point outside the view', 1001, 300, 1001, 300, false],
+    ['an upright line beside the view', 1001, -50, 1001, 650, false],
+    ['a level line below the view', -50, 700, 1050, 700, false],
+    ['an upright line below the view', 500, 700, 500, 900, false]
+  ])('reads %s as crossing it: %s', (_, fromX, fromY, toX, toY, crosses) => {
+    expect(view.crosses(fromX, fromY, toX, toY)).toBe(crosses)
+  })
   it('maps the world edges', () => {
     expect(mercator.xOf(-180)).toBe(0)
     expect(mercator.yOf(0)).toBeCloseTo(0.5)
@@ -35,8 +52,9 @@ describe('the view', () => {
 
 describe('the relief ramp', () => {
   it('rises strictly, as an interpolation requires', () => {
-    const stops = (reliefRamp() as unknown[]).slice(3).filter(value => typeof value === 'number') as number[]
-    expect(stops.length).toBe(BANDS.length * 2)
+    const ramp  = reliefRamp(SCHEMES.day.bands) as unknown[]
+    const stops = ramp.slice(3).filter(value => typeof value === 'number')
+    expect(stops.length).toBe(FLOORS.length * 2)
     stops.slice(1).forEach((stop, index) => expect(stop).toBeGreaterThan(stops[index]))
   })
 })

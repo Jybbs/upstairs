@@ -9,7 +9,7 @@
 3. Run `mise run site:install`, which installs the packages `docs/bun.lock` resolves with their install scripts off
 4. Run `mise serve` to serve the site locally
 
-The site reads the satellite catalog from `docs/public/catalog.json`, which `mise run catalog` downloads from [CelesTrak](https://celestrak.org/). CelesTrak publishes new orbital data every two hours and asks for one download per update, so the task runs only when the catalog itself has to move.
+The site reads the satellite catalog from `docs/public/catalog.bin`, which `mise run catalog` downloads from [CelesTrak](https://celestrak.org/). CelesTrak publishes new orbital data every two hours and asks for one download per update, so the task runs only when the catalog itself has to move.
 
 ## Tasks
 
@@ -34,6 +34,7 @@ Each pull request runs `🛰️ CI`, one row per check below, and the `🔭 Brie
 
 | **Row** | **Local Command** | **Fails When** |
 |---|---|---|
+| `🧷 Catalog Types` | `mise run catalog:typecheck` | *`tsc` reports a type error in the catalog service under the Workers runtime types* |
 | `📎 Clippy` | `mise run crate:lint` | *Clippy reports a warning in the orbit crate under `rust/`, or rustfmt would reformat it* |
 | `🦀 Crate Tests` | `mise run crate:test` | *A position, a sighting, or a pass the crate computes for the records under `docs/.vitepress/tests/fixtures/` strays past 10 meters or a thousandth of a degree from the known answers, a position's azimuth taking that thousandth divided by the cosine of its elevation* |
 | `🩺 Advisories` | `mise run lock:audit` | *`bun audit` finds an advisory for a package `docs/bun.lock` resolves, `osv-scanner` finds one for a crate `rust/Cargo.lock` resolves, or either cannot reach its advisory database* |

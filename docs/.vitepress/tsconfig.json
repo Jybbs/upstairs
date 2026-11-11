@@ -7,5 +7,6 @@
     "resolveJsonModule": true,
     "types": ["bun", "node", "vite/client"]
   },
-  "include": ["config.ts", "lib", "tests", "theme", "tools", "vitest.config.ts"]
+  "include": ["config.ts", "lib", "tests", "theme", "tools", "vitest.config.ts"],
+  "exclude": ["tests/catalog"]
 }
