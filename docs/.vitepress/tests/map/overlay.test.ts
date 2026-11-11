@@ -87,9 +87,10 @@ it.each([
 })
 
 /**
- * Chooses a pass standing over Boston at `zoom`, returning the ring's radius
- * and a function that draws the ring 7200 s into a window opening `age` days
- * past the pass's epoch less those 7200 s, returning the gap between its dots.
+ * Chooses a pass standing over Boston with the view at `zoom`, returning the
+ * ring's radius in px beside `gapAt`, which draws the ring 7200 s into a window
+ * placed so the frame falls `age` days past the pass's epoch and returns the
+ * gap between its dots.
  */
 const ringAt = (zoom: number) => {
   const tracks = new Tracks()
