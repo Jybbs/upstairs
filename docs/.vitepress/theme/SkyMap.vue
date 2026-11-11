@@ -5,23 +5,21 @@ import mapStyle                                   from 'maplibre-gl/dist/maplibr
 import mapWorker                                  from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { Hosts }              from '../lib/map/hosts.ts'
-import { namesOn, placeNear } from '../lib/map/places.ts'
-import { Overlay }            from '../lib/map/overlay.ts'
-import { styleOf }            from '../lib/map/style.ts'
-import { sky }                from '../lib/state/sky.ts'
+import { CREDITS, holdCredit } from '../lib/map/credit.ts'
+import { Hosts }               from '../lib/map/hosts.ts'
+import { namesOn, placeNear }  from '../lib/map/places.ts'
+import { Overlay }             from '../lib/map/overlay.ts'
+import { styleOf }             from '../lib/map/style.ts'
+import { sky }                 from '../lib/state/sky.ts'
 
-const CREDIT = 'Terrain: <a '
-             + 'href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md">Mapzen and its '
-             + 'sources</a>'
-const DEM      = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
-const SYNC_MS  = 250
-const ZOOM     = 5
-const cursor   = ref('crosshair')
-const frame    = ref<HTMLElement>()
-const hosts    = new Hosts()
-const lower    = ref<HTMLCanvasElement>()
-const upper    = ref<HTMLCanvasElement>()
+const DEM     = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
+const SYNC_MS = 250
+const ZOOM    = 5
+const cursor  = ref('crosshair')
+const frame   = ref<HTMLElement>()
+const hosts   = new Hosts()
+const lower   = ref<HTMLCanvasElement>()
+const upper   = ref<HTMLCanvasElement>()
 
 let map: maplibregl.Map
 let overlay: Overlay
@@ -80,7 +78,7 @@ onMounted(async () => {
   })
   const { latitude, longitude } = sky.spot.value
   map                           = new maplibregl.Map({
-    attributionControl : { compact: true, customAttribution: CREDIT },
+    attributionControl : { compact: true, customAttribution: CREDITS },
     center             : [longitude, latitude],
     container          : frame.value!,
     dragRotate         : false,
@@ -94,6 +92,7 @@ onMounted(async () => {
   })
   map.touchZoomRotate.disableRotation()
   map.keyboard.disableRotation()
+  holdCredit(map)
 
   overlay = new Overlay(lower.value!, upper.value!, () => ({
     selected : sky.selected.value,
@@ -104,11 +103,6 @@ onMounted(async () => {
   }))
   fit()
 
-  map.once('load', () => {
-    const credit = map.getContainer().querySelector('.maplibregl-ctrl-attrib')
-    credit?.classList.remove('maplibregl-compact-show')
-    credit?.removeAttribute('open')
-  })
   map.on('error', ({ sourceId }: maplibregl.ErrorEvent & { sourceId?: string }) => hosts.fail(sourceId))
   map.on('sourcedata', ({ sourceId, tile }) => tile && hosts.load(sourceId))
   map.on('move', placed)

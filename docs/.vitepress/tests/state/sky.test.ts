@@ -30,10 +30,11 @@ const passAt = (riseAt: number, peak: number, satellite: scan.Satellite = SATELL
   })
 
 /**
- * Loads a fresh copy of the shared state over a stand-in worker, with the
- * catalog loaded and the first scan asked for.
+ * Loads a fresh copy of the shared state over a stand-in worker on a page
+ * addressed by `fragment`, with the catalog loaded and the first scan asked for.
  */
-const loaded = async () => {
+const loaded = async (fragment = '') => {
+  history.replaceState(null, '', `/somewhere?at=1${fragment}`)
   posted = []
   vi.stubGlobal('Worker', class {
     set onmessage(listener: typeof listen) { listen = listener }
@@ -121,5 +122,31 @@ describe('the window', () => {
     sky.tally()
     expect(sky.start.value).toBe(moved ? now : start)
     expect(posted.at(-1)).toMatchObject({ start: sky.start.value, type: 'scan' })
+  })
+})
+
+describe('the spot in the address', () => {
+  it.each([
+    ['#-33.87,151.21', { latitude: -33.87, longitude: 151.21 }, null],
+    ['#boston', { latitude: 42.36, longitude: -71.06 }, 'Boston'],
+    ['', { latitude: 42.36, longitude: -71.06 }, 'Boston']
+  ])('opens a page addressed %j on %o over %j', async (fragment, spot, place) => {
+    const sky = await loaded(fragment)
+    expect(sky.spot.value).toEqual(spot)
+    expect(sky.place.value).toBe(place)
+  })
+
+  it('writes a chosen spot into the address rounded', async () => {
+    const sky = await loaded()
+    sky.pick({ latitude: 48.85837, longitude: 2.29448 }, 'Paris')
+    expect(location.hash).toBe('#48.86,2.29')
+  })
+
+  it('clears the address of any spot once the browser locates the reader', async () => {
+    const sky = await loaded('#48.86,2.29')
+    sky.locate({ latitude: 51.50073, longitude: -0.12463 })
+    expect(location.href).toBe(`${location.origin}/somewhere?at=1`)
+    expect(sky.spot.value).toEqual({ latitude: 51.50073, longitude: -0.12463 })
+    expect(sky.place.value).toBe('your location')
   })
 })

@@ -1,0 +1,10 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE description = "Write into `rust/pkg/licenses.txt` the license notice of each crate compiled into the WebAssembly module"
+
+mkdir -p rust/pkg
+cargo about generate \
+  --fail \
+  --locked \
+  --manifest-path rust/Cargo.toml \
+  --output-file rust/pkg/licenses.txt \
+  rust/about.hbs
