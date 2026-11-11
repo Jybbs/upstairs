@@ -1,5 +1,5 @@
 .maplibregl-map {
-  --credit-veil : color-mix(in srgb, var(--color-paper) 90%, transparent);
+  --credit-veil : color-mix(in srgb, var(--color-panel) 90%, transparent);
   --credit-ring : 36px;
 
   container-type: inline-size;

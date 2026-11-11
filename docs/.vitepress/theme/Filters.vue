@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { HEIGHTS, sky }     from '../lib/state/sky.ts'
 import { KINDS, type Kind } from '../lib/orbit/kinds.ts'
+import { kindColor }        from '../lib/site/palette.ts'
+import { HEIGHTS, sky }     from '../lib/state/sky.ts'
 import Chip                 from './Chip.vue'
 
 const kinds = Object.entries(KINDS) as [Kind, (typeof KINDS)[Kind]][]
@@ -11,14 +12,25 @@ const kinds = Object.entries(KINDS) as [Kind, (typeof KINDS)[Kind]][]
     <div>
       <h3 class="caps mb-1.5 text-soft">Trace paths for</h3>
       <div class="flex flex-wrap gap-1">
-        <Chip v-for="[kind, { label, color }] in kinds" :key="kind" :on="sky.traced[kind]" :color="color" @press="sky.traced[kind] = !sky.traced[kind]; sky.version.value++">{{ label }}</Chip>
+        <Chip
+          v-for="[kind, { label }] in kinds"
+          :key="kind"
+          :on="sky.traced[kind]"
+          :color="kindColor(kind)"
+          @press="sky.traced[kind] = !sky.traced[kind]; sky.version.value++"
+        >{{ label }}</Chip>
       </div>
     </div>
     <div class="flex flex-wrap gap-x-5 gap-y-2.5">
       <div>
         <h3 class="caps mb-1.5 text-soft">Reaching at least</h3>
         <div class="flex gap-1">
-          <Chip v-for="height in HEIGHTS" :key="height" :on="sky.lowest.value === height" @press="sky.lowest.value = height">{{ height }}°</Chip>
+          <Chip
+            v-for="height in HEIGHTS"
+            :key="height"
+            :on="sky.lowest.value === height"
+            @press="sky.lowest.value = height"
+          >{{ height }}°</Chip>
         </div>
       </div>
       <div>

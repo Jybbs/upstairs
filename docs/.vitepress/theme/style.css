@@ -4,29 +4,38 @@
 @import 'tailwindcss/utilities.css' layer(utilities);
 
 @theme {
-  --font-display : 'Young Serif', serif;
-  --font-book    : 'Literata Variable', serif;
+  --font-display : 'Averia Serif Libre', serif;
+  --font-book    : 'Newsreader Variable', serif;
   --font-mono    : 'JetBrains Mono Variable', monospace;
 
-  --color-paper : #f3f1ea;
-  --color-lift  : #faf9f4;
-  --color-ink   : #1d2430;
-  --color-soft  : #4d5563;
-  --color-rule  : #d8d4c7;
-  --color-sea   : #27365e;
-  --color-mark  : #c2452d;
-  --color-u     : #0a4a47;
+  --color-dim   : var(--dim);
+  --color-ink   : var(--ink);
+  --color-lift  : var(--lift);
+  --color-page  : var(--page);
+  --color-panel : var(--panel);
+  --color-rule  : var(--rule);
+  --color-soft  : var(--soft);
+  --color-u     : var(--u);
 
   --shadow-lift : 0 1px 2px rgb(0 0 0 / 0.12), 0 4px 14px rgb(0 0 0 / 0.12);
 
   --spacing-readout : 360px;
 }
 
-:root {
-  --vp-c-bg             : var(--color-paper);
-  --vp-c-text-1         : var(--color-ink);
+:root, html.dark {
+  --vp-c-bg             : var(--page);
+  --vp-c-bg-alt         : var(--panel);
+  --vp-c-bg-elv         : var(--panel);
+  --vp-c-bg-soft        : var(--lift);
+  --vp-c-brand-1        : var(--u);
+  --vp-c-brand-2        : var(--u);
+  --vp-c-divider        : var(--rule);
+  --vp-c-gutter         : var(--rule);
+  --vp-c-text-1         : var(--ink);
+  --vp-c-text-2         : var(--soft);
   --vp-font-family-base : var(--font-book);
   --vp-font-family-mono : var(--font-mono);
+  --vp-nav-bg-color     : var(--page);
 }
 
 @utility caps {
@@ -38,3 +47,42 @@
 }
 
 .VPNavBar.home .divider-line { background-color: var(--vp-nav-divider-color); }
+
+.vp-doc { font-size: 19px; }
+
+.vp-doc h1, .vp-doc h2, .vp-doc h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.vp-doc a:not(.header-anchor) {
+  --key-ease : cubic-bezier(0.45, 0, 0.2, 1);
+  --key-run  : 620ms;
+  --key-wait : 200ms;
+
+  padding-bottom              : 3px;
+  background-image            :
+    repeating-linear-gradient(90deg,
+      var(--u) 0 2px, transparent 2px 5px,
+      var(--u) 5px 7px, transparent 7px 10px,
+      var(--u) 10px 19px, transparent 19px 26px),
+    linear-gradient(var(--u) 0 0);
+  background-position         : 0 calc(100% - 2.5px), 100% calc(100% - 3px);
+  background-repeat           : no-repeat;
+  background-size             : 0 2px, 100% 1px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break        : clone;
+  text-decoration             : none;
+  transition                  : color 0.25s, background-size var(--key-run) var(--key-ease);
+}
+
+.vp-doc a:not(.header-anchor):is(:hover, :focus-visible) {
+  background-size  : 100% 2px, 0 1px;
+  transition-delay : var(--key-wait);
+}
+
+.vp-doc a:not(.header-anchor):focus-visible { transition-delay: 0s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vp-doc a:not(.header-anchor) { transition: none; }
+}

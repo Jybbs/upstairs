@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import { HOSTS, Hosts } from '../../lib/map/hosts.ts'
 import { styleOf }      from '../../lib/map/style.ts'
+import { SCHEMES }      from '../../lib/site/palette.ts'
 
 describe('the hosts the map reads from', () => {
   it('names a host for every source the style declares', () => {
-    expect(Object.keys(styleOf('', '').sources)).toEqual(Object.keys(HOSTS))
+    expect(Object.keys(styleOf('', '', SCHEMES.day).sources)).toEqual(Object.keys(HOSTS))
   })
 
   it.each(Object.entries(HOSTS))('names %s as down when it fails before loading a tile', (source, host) => {

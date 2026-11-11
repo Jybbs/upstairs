@@ -61,7 +61,12 @@ watch(words, value => {
 </script>
 
 <template>
-  <form class="relative flex gap-1.5" role="search" @submit.prevent="found[0] && choose(found[0])" @keydown.esc="words = ''">
+  <form
+    class="relative flex gap-1.5"
+    role="search"
+    @submit.prevent="found[0] && choose(found[0])"
+    @keydown.esc="words = ''"
+  >
     <input
       v-model="words"
       type="search"
@@ -69,13 +74,24 @@ watch(words, value => {
       placeholder="Search for a place"
       class="h-9 min-w-0 flex-1 rounded-sm border border-rule bg-lift px-2.5 text-sm outline-none placeholder:text-soft focus:border-ink"
     >
-    <button type="button" class="caps h-9 shrink-0 cursor-pointer rounded-sm border border-rule bg-lift px-2.5 text-soft hover:border-soft hover:text-ink" @click="nearMe">
+    <button
+      type="button"
+      class="caps h-9 shrink-0 cursor-pointer rounded-sm border border-rule bg-lift px-2.5 text-soft hover:border-soft hover:text-ink"
+      @click="nearMe"
+    >
       Near me
     </button>
-    <ul v-if="found.length || trouble" class="absolute inset-x-0 top-full z-20 mt-1 rounded-sm border border-rule bg-lift py-1 text-sm shadow-md">
+    <ul
+      v-if="found.length || trouble"
+      class="absolute inset-x-0 top-full z-20 mt-1 rounded-sm border border-rule bg-lift py-1 text-sm shadow-md"
+    >
       <li v-if="trouble && !found.length" class="px-2.5 py-1.5 text-soft">{{ trouble }}</li>
       <li v-for="item in found" :key="item.label">
-        <button type="button" class="w-full cursor-pointer truncate px-2.5 py-1.5 text-left hover:bg-paper" @click="choose(item)">{{ item.label }}</button>
+        <button
+          type="button"
+          class="w-full cursor-pointer truncate px-2.5 py-1.5 text-left hover:bg-panel"
+          @click="choose(item)"
+        >{{ item.label }}</button>
       </li>
     </ul>
   </form>

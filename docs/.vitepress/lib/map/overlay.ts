@@ -1,6 +1,6 @@
 import { AGES, DAY }                        from '../orbit/catalog.ts'
-import { KINDS }                            from '../orbit/kinds.ts'
 import { TRACK_STEP, type Pass, type Spot } from '../orbit/scan.ts'
+import { SCHEMES, type Scheme }             from '../site/palette.ts'
 import type { Tracks }                      from '../state/tracks.ts'
 import { View }                             from './mercator.ts'
 
@@ -19,17 +19,13 @@ export interface Label {
   tier      : 'region' | 'city' | 'water'
 }
 
-const BOOK        = '"Literata Variable", serif'
+const BOOK        = '"Newsreader Variable", serif'
 const DOT_GAP     = 4.5
 const DRIFT_KM    = 5
 const DRIFT_PX    = 10
-const FAINT       = 'rgba(39, 54, 94, 0.5)'
-const INK         = '#1d2430'
-const MARK        = '#c2452d'
 const MONO        = '"JetBrains Mono Variable", monospace'
 const OVERHEAD_KM = 290
 const PADDING     = 24
-const PAPER       = '#faf9f4'
 const REACH       = 16
 const SHOWN       = 5
 const FONTS = {
@@ -55,6 +51,7 @@ const spreadOf = (age: number) => age > AGES.warn ? 3 : age > 1 ? 2 : 1
 export class Overlay {
   readonly view            = new View()
   labels: readonly Label[] = []
+  scheme: Scheme           = SCHEMES.day
 
   private still: CanvasRenderingContext2D
   private moving: CanvasRenderingContext2D
@@ -166,8 +163,8 @@ export class Overlay {
       const text            = label.tier === 'city' ? label.name : label.name.toUpperCase()
       context.letterSpacing = label.tier === 'region' ? '1.1px' : '0px'
       context.font          = FONTS[label.tier]
-      context.strokeStyle   = PAPER
-      context.fillStyle     = label.tier === 'water' ? '#27365e' : '#3a4150'
+      context.strokeStyle   = this.scheme.halo
+      context.fillStyle     = label.tier === 'water' ? this.scheme.soft : this.scheme.ink
       context.strokeText(text, x, y)
       context.fillText(text, x, y)
     }
@@ -177,7 +174,7 @@ export class Overlay {
   private drawPath(context: CanvasRenderingContext2D, tracks: Tracks, pass: number, selected: boolean) {
     const { view }                = this
     const { kind, riseAt, setAt } = tracks.passes[pass]
-    context.strokeStyle           = KINDS[kind].color
+    context.strokeStyle           = this.scheme.kinds[kind]
     context.globalAlpha           = selected ? 1 : 0.42
     context.lineWidth             = selected ? 2.4 : 1
     context.beginPath()
@@ -242,7 +239,7 @@ export class Overlay {
     const x             = view.column(spot.longitude)
     const y             = view.row(spot.latitude)
     const radius        = OVERHEAD_KM * view.scale(spot.latitude)
-    context.strokeStyle = INK
+    context.strokeStyle = this.scheme.ink
     context.globalAlpha = 0.55
     context.lineWidth   = 1
     context.setLineDash([3, 4])
@@ -256,14 +253,14 @@ export class Overlay {
       context.letterSpacing = '1px'
       context.textAlign     = 'center'
       context.lineWidth     = 3
-      context.strokeStyle   = PAPER
-      context.fillStyle     = INK
+      context.strokeStyle   = this.scheme.halo
+      context.fillStyle     = this.scheme.ink
       context.strokeText('60° UP AT 550 KM', x, y - radius - 8)
       context.fillText('60° UP AT 550 KM', x, y - radius - 8)
       context.letterSpacing = '0px'
     }
-    context.fillStyle   = MARK
-    context.strokeStyle = PAPER
+    context.fillStyle   = this.scheme.spot
+    context.strokeStyle = this.scheme.halo
     context.lineWidth   = 2
     context.beginPath()
     context.arc(x, y, 5.5, 0, Math.PI * 2)
@@ -282,7 +279,8 @@ export class Overlay {
     this.hits  = 0
     let chosen = -1
 
-    context.fillStyle = FAINT
+    context.fillStyle   = this.scheme.dim
+    context.globalAlpha = 0.5
     for (let pass = 0; pass < tracks.passes.length; pass++) {
       if (!tracks.up(pass, seconds)) continue
       const x = view.column(tracks.longitude)
@@ -297,6 +295,7 @@ export class Overlay {
         context.fillRect(x - 1.25, y - 1.25, 2.5, 2.5)
       }
     }
+    context.globalAlpha = 1
 
     if (chosen >= 0 && tracks.up(chosen, seconds)) {
       this.drawRing(context, tracks, chosen, state.start + seconds * 1000)
@@ -330,11 +329,11 @@ export class Overlay {
     context.arc(view.column(tracks.longitude), view.row(tracks.latitude), radius, 0, Math.PI * 2)
     context.lineCap     = 'round'
     context.globalAlpha = 0.7
-    context.strokeStyle = PAPER
+    context.strokeStyle = this.scheme.halo
     context.lineWidth   = 5.25
     context.stroke()
     context.globalAlpha = 1
-    context.strokeStyle = KINDS[tracks.passes[pass].kind].color
+    context.strokeStyle = this.scheme.kinds[tracks.passes[pass].kind]
     context.lineWidth   = 2.25
     context.stroke()
     context.restore()
@@ -385,8 +384,8 @@ export class Overlay {
     }
     const length        = Math.hypot(dx, dy)
     const size          = selected ? 8 : 5.5
-    context.fillStyle   = KINDS[tracks.passes[pass].kind].color
-    context.strokeStyle = PAPER
+    context.fillStyle   = this.scheme.kinds[tracks.passes[pass].kind]
+    context.strokeStyle = this.scheme.halo
     context.lineWidth   = selected ? 1.6 : 1
     context.beginPath()
     if (length < 0.5) {
@@ -421,8 +420,8 @@ export class Overlay {
     context.textBaseline  = 'middle'
     context.lineJoin      = 'round'
     context.lineWidth     = 3
-    context.strokeStyle   = PAPER
-    context.fillStyle     = INK
+    context.strokeStyle   = this.scheme.halo
+    context.fillStyle     = this.scheme.ink
     const textX           = x + (x > view.width - 130 ? -11 : 11)
     context.strokeText(tracks.passes[pass].name, textX, y)
     context.fillText(tracks.passes[pass].name, textX, y)

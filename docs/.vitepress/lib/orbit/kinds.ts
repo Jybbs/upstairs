@@ -4,14 +4,14 @@ export type Kind = keyof typeof KINDS
  * What a satellite is for, in the order the filters list them.
  */
 export const KINDS = {
-  crewed     : { label: 'Crewed',     color: '#2f7d5b', traced: true,  about: 'A crewed station.' },
-  science    : { label: 'Science',    color: '#c2452d', traced: true,  about: 'A space science mission.' },
-  earth      : { label: 'Earth',      color: '#b5651d', traced: true,  about: 'It observes the Earth.' },
-  weather    : { label: 'Weather',    color: '#7d4fa8', traced: true,  about: 'A weather satellite.' },
-  navigation : { label: 'Navigation', color: '#8f7a12', traced: true,  about: 'A navigation satellite.' },
-  comms      : { label: 'Comms',      color: '#14788c', traced: false, about: 'A communications satellite.' },
-  starlink   : { label: 'Starlink',   color: '#46536b', traced: false, about: 'A SpaceX Starlink internet satellite.' },
-  other      : { label: 'Other',      color: '#6b6459', traced: false, about: 'Listed in the catalog without a role this site recognizes.' }
+  crewed     : { label: 'Crewed',     traced: true,  about: 'A crewed station.' },
+  science    : { label: 'Science',    traced: true,  about: 'A space science mission.' },
+  earth      : { label: 'Earth',      traced: true,  about: 'It observes the Earth.' },
+  weather    : { label: 'Weather',    traced: true,  about: 'A weather satellite.' },
+  navigation : { label: 'Navigation', traced: true,  about: 'A navigation satellite.' },
+  comms      : { label: 'Comms',      traced: false, about: 'A communications satellite.' },
+  starlink   : { label: 'Starlink',   traced: false, about: 'A SpaceX Starlink internet satellite.' },
+  other      : { label: 'Other',      traced: false, about: 'Listed in the catalog without a role this site recognizes.' }
 } as const
 /**
  * Plain notes on well-known missions by catalog number.
