@@ -310,9 +310,10 @@ export const sectionColorOf = (scheme: SchemeName, section: sections.Section, la
 
 /**
  * Sets a section's line at the largest size from `size` down to `least` that
- * keeps it to the card's baselines, the last baseline held and each one above
- * it moved toward it in step with the size, throwing where the line runs past
- * the baselines at every size the layout allows.
+ * keeps it to the card's baselines, setting its lines on the last of them,
+ * the last baseline held and each one above it moved toward it in step with
+ * the size, throwing where the line runs past the baselines at every size the
+ * layout allows.
  */
 export const sectionLineOf = (faces: Faces, line: string, section: sections.Section, layout = NET_LAYOUT) => {
   const { bases, least, width } = layout.line
@@ -324,7 +325,8 @@ export const sectionLineOf = (faces: Faces, line: string, section: sections.Sect
   if (lines.length > bases.length)
     throw new Error(
       `The line on the ${section} card runs to ${lines.length} lines at ${size} px, past its ${bases.length}`)
-  return { bases: lines.map((_, i) => last - (last - bases[i]) * size / layout.line.size), lines, size }
+  const held = bases.slice(-lines.length).map(base => last - (last - base) * size / layout.line.size)
+  return { bases: held, lines, size }
 }
 
 /**

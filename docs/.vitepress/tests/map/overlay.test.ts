@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 
 import { Overlay }     from '../../lib/map/overlay.ts'
 import { DAY }         from '../../lib/orbit/catalog.ts'
+import { SCHEMES }     from '../../lib/site/palette.ts'
 import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
 import { Tracks }      from '../../lib/state/tracks.ts'
 import { passOf }      from '../fixtures/passes.ts'
@@ -14,12 +15,14 @@ const NORTH  = { latitude: 60, longitude: -71.06 }
  * Builds a canvas whose 2D context ignores every call but `arc`, `beginPath`,
  * `lineTo`, `restore`, `save`, `setLineDash`, and `stroke`, recording the
  * center and radius of each arc drawn while a line dash is set, the gap of
- * each dash set, and the count of lines each stroke draws.
+ * each dash set, the stroke style of each stroke while a dash is set, and the
+ * count of lines each stroke draws.
  */
 const canvasOf = () => {
   const dashed: number[][] = []
   const gaps: number[]     = []
   const saved: number[]    = []
+  const strokes: unknown[] = []
   let dash                 = 0
   let lines                = 0
   let pending              = 0
@@ -34,13 +37,16 @@ const canvasOf = () => {
       dash = segments.length
       if (dash) gaps.push(segments[1])
     },
-    stroke      : () => { lines += pending }
+    stroke      : () => {
+      lines += pending
+      if (dash) strokes.push(context.strokeStyle)
+    }
   }
   const context = new Proxy<Record<string | symbol, unknown>>(calls, {
     get: (target, key) => target[key] ?? (() => {})
   })
   const canvas  = { getContext: () => context } as unknown as HTMLCanvasElement
-  return { canvas, dashed, gaps, lines: () => lines }
+  return { canvas, dashed, gaps, lines: () => lines, strokes }
 }
 
 /**
@@ -137,6 +143,27 @@ it.each([
   const { gapAt, radius } = ringAt(6.87)
   expect(radius).toBeCloseTo(10, 0)
   expect(Math.round(2 * Math.PI * radius / gapAt(age))).toBe(dots)
+})
+
+it.each(Object.entries(SCHEMES))('strokes the %s ring in its halo and the kind’s color', (_, scheme) => {
+  const tracks = new Tracks()
+  const pass   = passOf(25544, { kind: 'weather', riseAt: 0, setAt: 60 })
+  const track  = new Float32Array(3 * TRACK_WIDTH)
+  trackAt(track, BOSTON, 0)
+  tracks.add([pass], track, Uint32Array.of(0), 3)
+  const moving  = canvasOf()
+  const overlay = new Overlay(canvasOf().canvas, moving.canvas, () => ({
+    selected : pass,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => true,
+    tracks   : tracks
+  }))
+  overlay.scheme = scheme
+  overlay.resize(400, 400, 1)
+  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(30)
+  expect(moving.strokes).toEqual([scheme.halo, scheme.kinds.weather])
 })
 
 it.each([

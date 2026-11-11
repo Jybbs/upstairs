@@ -32,7 +32,7 @@ const SETS = [
   { bases: [469.4, 510], section: 'Data',   size: 35, text: PAGES.sections.Data },
   { bases: [452, 510],   section: 'Guide',  size: 50, text: PAGES.sections.Guide },
   { bases: [452, 510],   section: 'Method', size: 50, text: PAGES.sections.Method },
-  { bases: [452],        section: 'Data',   size: 50, text: LINES.sections.Data }
+  { bases: [510],        section: 'Data',   size: 50, text: LINES.sections.Data }
 ] as const
 const RATIOS = (Object.keys(SCHEMES) as SchemeName[])
   .map(scheme => ({ ratio: NET_LAYOUT.contrast[scheme], scheme }))
@@ -102,6 +102,11 @@ describe('a section’s line', () => {
     set.lines.forEach((text, i) =>
       expect(svg)
         .toContain(faces.book.outlineTo({ size: set.size, text }, NET_LAYOUT.line.right, set.bases[i])))
+  })
+  it('draws a line that fits on one line on the card’s last baseline', () => {
+    const { svg }                = cards.find(({ file }) => file === fileOf('Data'))!
+    const { bases, right, size } = NET_LAYOUT.line
+    expect(svg).toContain(faces.book.outlineTo({ size, text: LINES.sections.Data }, right, bases.at(-1)!))
   })
   it('stops the build where a line runs past the card', () =>
     expect(() => cardsOf(faces, LONG)).toThrow('The line on the Data card'))
