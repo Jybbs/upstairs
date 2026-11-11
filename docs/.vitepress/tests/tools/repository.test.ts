@@ -136,6 +136,16 @@ describe('Repository', () => {
       'A ruleset requires 🔭 Gate, which no pull-request workflow ends on'
     ],
     [
+      'a workflow whose gate leaves a job out of its needs',
+      ({ workflows }) => ({
+        workflows: [
+          ...workflows,
+          { jobs: { a: {}, b: {}, gate: { needs: ['a'] } }, on: {}, path: 'deploy.yml' }
+        ]
+      }),
+      'deploy.yml ends on no job whose needs list every other job'
+    ],
+    [
       'an action pinned to a tag',
       () => action('octo/unpinned@v1'),
       'action.yml uses octo/unpinned@v1, which names no full commit'
