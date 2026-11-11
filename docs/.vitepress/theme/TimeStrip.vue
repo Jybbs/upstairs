@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { BOUNDS, boundOf }      from '../lib/orbit/compass.ts'
-import { KINDS }                from '../lib/orbit/kinds.ts'
+import { kindColor }            from '../lib/site/palette.ts'
 import { SPEEDS, WINDOWS, sky } from '../lib/state/sky.ts'
 import Chip                     from './Chip.vue'
 
@@ -82,19 +82,32 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="shrink-0 border-t border-rule bg-paper" aria-label="Time">
+  <section class="shrink-0 border-t border-rule bg-panel" aria-label="Time">
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 pt-2.5">
       <div class="flex gap-1">
-        <Chip :on="sky.playing.value" @press="sky.playing.value = !sky.playing.value">{{ sky.playing.value ? 'Pause' : 'Play' }}</Chip>
+        <Chip
+          :on="sky.playing.value"
+          @press="sky.playing.value = !sky.playing.value"
+        >{{ sky.playing.value ? 'Pause' : 'Play' }}</Chip>
         <Chip :on="false" @press="sky.toNow()">Now</Chip>
       </div>
       <div class="flex items-center gap-1">
         <span class="caps text-soft">Speed</span>
-        <Chip v-for="speed in SPEEDS" :key="speed" :on="sky.speed.value === speed" @press="sky.speed.value = speed">{{ speed }}×</Chip>
+        <Chip
+          v-for="speed in SPEEDS"
+          :key="speed"
+          :on="sky.speed.value === speed"
+          @press="sky.speed.value = speed"
+        >{{ speed }}×</Chip>
       </div>
       <div class="flex items-center gap-1">
         <span class="caps text-soft">Window</span>
-        <Chip v-for="minutes in WINDOWS" :key="minutes" :on="sky.minutes.value === minutes" @press="sky.setWindow(minutes)">{{ minutes }} min</Chip>
+        <Chip
+          v-for="minutes in WINDOWS"
+          :key="minutes"
+          :on="sky.minutes.value === minutes"
+          @press="sky.setWindow(minutes)"
+        >{{ minutes }} min</Chip>
       </div>
       <p class="caps ml-auto hidden text-soft sm:block">{{ legend }}</p>
     </div>
@@ -113,18 +126,41 @@ onBeforeUnmount(() => {
       @pointermove="drag"
       @keydown="nudge"
     >
-      <line :x1="INSET" :x2="width - INSET" :y1="AXIS" :y2="AXIS" stroke="#6b6459" />
+      <line :x1="INSET" :x2="width - INSET" :y1="AXIS" :y2="AXIS" class="stroke-dim" />
       <g v-for="tick in ticks" :key="tick.seconds">
-        <line :x1="tick.x" :x2="tick.x" :y1="AXIS - 3" :y2="AXIS + 3" stroke="#6b6459" />
-        <text :x="tick.x" :y="HEIGHT - 5" :text-anchor="tick.anchor" class="caps fill-soft">{{ tick.clock }}</text>
+        <line :x1="tick.x" :x2="tick.x" :y1="AXIS - 3" :y2="AXIS + 3" class="stroke-dim" />
+        <text
+          :x="tick.x"
+          :y="HEIGHT - 5"
+          :text-anchor="tick.anchor"
+          class="caps fill-soft"
+        >{{ tick.clock }}</text>
       </g>
-      <g v-for="{ pass, x, tip } in pins" :key="pass.id" class="cursor-pointer" @pointerdown.stop="sky.focusOn(pass)">
-        <line :x1="x" :x2="x" :y1="AXIS" :y2="tip" :stroke="KINDS[pass.kind].color" stroke-opacity="0.6" />
-        <circle :cx="x" :cy="tip" :r="pass.id === sky.selected.value ? 5 : 2.6" :fill="KINDS[pass.kind].color" :class="{ 'stroke-ink': pass.id === sky.selected.value }" />
+      <g
+        v-for="{ pass, x, tip } in pins"
+        :key="pass.id"
+        class="cursor-pointer"
+        @pointerdown.stop="sky.focusOn(pass)"
+      >
+        <line
+          :x1="x"
+          :x2="x"
+          :y1="AXIS"
+          :y2="tip"
+          :style="{ stroke: kindColor(pass.kind) }"
+          stroke-opacity="0.6"
+        />
+        <circle
+          :cx="x"
+          :cy="tip"
+          :r="pass.id === sky.selected.value ? 5 : 2.6"
+          :style="{ fill: kindColor(pass.kind) }"
+          :class="{ 'stroke-ink': pass.id === sky.selected.value }"
+        />
       </g>
       <g ref="cursor" class="pointer-events-none">
-        <line :y1="4" :y2="HEIGHT - 20" class="stroke-mark" stroke-width="1.5" />
-        <path d="M-5 2 L5 2 L0 9 Z" class="fill-mark" />
+        <line :y1="4" :y2="HEIGHT - 20" class="stroke-u" stroke-width="1.5" />
+        <path d="M-5 2 L5 2 L0 9 Z" class="fill-u" />
       </g>
     </svg>
   </section>

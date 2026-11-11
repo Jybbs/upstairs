@@ -16,7 +16,11 @@ const BUNDLE = {
 it('preloads the map chunk from the head of the home page', () => {
   const plugin = (config.vite!.plugins as Plugin[]).find(({ name }) => name === 'upstairs:preload')!
   ;(plugin.generateBundle as Generate).call({}, {}, BUNDLE)
-  const context = { page: 'index.md', siteData: { base: '/' } } as TransformContext
+  const context = {
+    page     : 'index.md',
+    pageData : { frontmatter: { isHome: true } },
+    siteData : { base: '/', lang: 'en-US', title: 'Upstairs' }
+  } as unknown as TransformContext
   expect(config.transformHead!(context))
-    .toEqual([['link', { href: '/assets/chunks/HomeMap.abc.js', rel: 'modulepreload' }]])
+    .toContainEqual(['link', { href: '/assets/chunks/HomeMap.abc.js', rel: 'modulepreload' }])
 })

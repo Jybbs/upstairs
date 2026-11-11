@@ -1,4 +1,4 @@
-# Upstairs
+# <picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/wordmark-night.svg"><img src="../docs/public/wordmark-day.svg" alt="Upstairs" width="292" height="72"></picture>
 
 Pick a spot on the map and watch every satellite passing over it.
 

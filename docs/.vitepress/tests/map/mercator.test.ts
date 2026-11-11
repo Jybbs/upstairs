@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { BANDS, reliefRamp } from '../../lib/map/style.ts'
-import * as mercator         from '../../lib/map/mercator.ts'
+import * as mercator           from '../../lib/map/mercator.ts'
+import { FLOORS, reliefRamp } from '../../lib/map/style.ts'
+import { SCHEMES }            from '../../lib/site/palette.ts'
 
 describe('the view', () => {
   const view = new mercator.View()
@@ -35,8 +36,9 @@ describe('the view', () => {
 
 describe('the relief ramp', () => {
   it('rises strictly, as an interpolation requires', () => {
-    const stops = (reliefRamp() as unknown[]).slice(3).filter(value => typeof value === 'number') as number[]
-    expect(stops.length).toBe(BANDS.length * 2)
+    const ramp  = reliefRamp(SCHEMES.day.bands) as unknown[]
+    const stops = ramp.slice(3).filter(value => typeof value === 'number')
+    expect(stops.length).toBe(FLOORS.length * 2)
     stops.slice(1).forEach((stop, index) => expect(stop).toBeGreaterThan(stops[index]))
   })
 })

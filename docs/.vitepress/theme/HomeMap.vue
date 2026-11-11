@@ -16,7 +16,7 @@ import TimeStrip from './TimeStrip.vue'
       <div class="relative h-[56vh] min-h-[320px] xl:h-auto xl:min-h-0 xl:flex-1"><SkyMap /></div>
       <TimeStrip />
     </main>
-    <aside class="flex w-full shrink-0 flex-col border-l border-rule bg-paper xl:h-full xl:w-[400px]">
+    <aside class="flex w-full shrink-0 flex-col border-l border-rule bg-panel xl:h-full xl:w-[400px]">
       <Focus />
       <Filters />
       <PassList />

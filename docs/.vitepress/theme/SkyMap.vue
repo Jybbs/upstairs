@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import mlcontour                                  from 'maplibre-contour'
-import * as maplibregl                            from 'maplibre-gl'
-import mapStyle                                   from 'maplibre-gl/dist/maplibre-gl.css?url'
-import mapWorker                                  from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import mlcontour                                            from 'maplibre-contour'
+import * as maplibregl                                      from 'maplibre-gl'
+import mapStyle                                             from 'maplibre-gl/dist/maplibre-gl.css?url'
+import mapWorker                                            from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
+import { useData }                                          from 'vitepress'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { namesOn, placeNear } from '../lib/map/places.ts'
 import { Overlay }            from '../lib/map/overlay.ts'
 import { styleOf }            from '../lib/map/style.ts'
+import { SCHEMES }            from '../lib/site/palette.ts'
 import { sky }                from '../lib/state/sky.ts'
 
 const CREDIT = 'Terrain: <a '
@@ -21,6 +23,11 @@ const frame   = ref<HTMLElement>()
 const lower   = ref<HTMLCanvasElement>()
 const upper   = ref<HTMLCanvasElement>()
 
+const { isDark } = useData()
+const scheme     = computed(() => SCHEMES[isDark.value ? 'night' : 'day'])
+
+let contourTiles: string
+let demTiles: string
 let map: maplibregl.Map
 let overlay: Overlay
 let request = 0
@@ -61,7 +68,8 @@ onMounted(async () => {
   maplibregl.setWorkerUrl(mapWorker)
   const demSource = new mlcontour.DemSource({ encoding: 'terrarium', maxzoom: 13, url: DEM, worker: true })
   demSource.setupMaplibre(maplibregl)
-  const contourTiles = demSource.contourProtocolUrl({
+  demTiles     = demSource.sharedDemProtocolUrl
+  contourTiles = demSource.contourProtocolUrl({
     contourLayer : 'contours',
     elevationKey : 'ele',
     levelKey     : 'level',
@@ -85,7 +93,7 @@ onMounted(async () => {
     maxZoom            : 12,
     minZoom            : 1.5,
     pitchWithRotate    : false,
-    style              : styleOf(contourTiles, demSource.sharedDemProtocolUrl),
+    style              : styleOf(contourTiles, demTiles, scheme.value),
     zoom               : ZOOM
   })
   map.touchZoomRotate.disableRotation()
@@ -97,6 +105,7 @@ onMounted(async () => {
     traced   : sky.traces,
     tracks   : sky.tracks
   }))
+  overlay.scheme = scheme.value
   fit()
 
   map.once('load', () => {
@@ -145,6 +154,12 @@ watch(sky.version, () => {
   if (sky.done.value) sky.inFrame.value = overlay.crossing(sky.tracks)
 })
 watch([sky.selected, sky.lowest, () => ({ ...sky.traced })], () => overlay?.invalidate())
+watch(scheme, value => {
+  if (!overlay) return
+  map.setStyle(styleOf(contourTiles, demTiles, value))
+  overlay.scheme = value
+  overlay.invalidate()
+})
 watch(sky.spot, ({ latitude, longitude }) => {
   const center = map.getCenter()
   if (Math.abs(center.lat - latitude) + Math.abs(center.lng - longitude) > 0.001) {
@@ -159,7 +174,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="absolute inset-0 overflow-hidden bg-[#dbe1ee]" :style="{ cursor }">
+  <div class="absolute inset-0 overflow-hidden bg-page" :style="{ cursor }">
     <div ref="frame" class="size-full [&_.maplibregl-canvas]:cursor-[inherit]!" />
     <canvas ref="lower" class="pointer-events-none absolute inset-0 size-full" />
     <canvas ref="upper" class="pointer-events-none absolute inset-0 size-full" />

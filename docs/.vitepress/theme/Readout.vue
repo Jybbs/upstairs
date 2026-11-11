@@ -13,7 +13,7 @@ const over = computed(() => sky.place.value ?? coordinates.value)
 </script>
 
 <template>
-  <section class="flex flex-col gap-3 rounded-sm border border-rule bg-paper/95 p-4 backdrop-blur-sm">
+  <section class="flex flex-col gap-3 rounded-sm border border-rule bg-panel/95 p-4 backdrop-blur-sm">
     <PlaceSearch />
     <div>
       <p class="flex items-baseline gap-2">

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-import { navOf } from '../../lib/site/sections.ts'
+import { navOf, sectionOf, sectionsOf } from '../../lib/site/sections.ts'
 
 const PATHS  = ['/', ...navOf().map(({ link }) => link)]
 const pageOf = (link: string) => readFileSync(new URL(`../../..${link}index.md`, import.meta.url), 'utf8')
@@ -14,4 +14,8 @@ describe('the sections', () => {
     expect(new RegExp(activeMatch).test(`${link}page`)).toBe(true))
   it.each(navOf())('leaves $text inactive on the home page and the other sections', ({ activeMatch, link }) =>
     expect(PATHS.filter(path => path !== link && new RegExp(activeMatch).test(path))).toEqual([]))
+  it.each(sectionsOf())('places every page under the folder of %s in it', section =>
+    expect(sectionOf(`${section.toLowerCase()}/index.html`)).toBe(section))
+  it.each(['index.html', '404.html', 'guidebook.html'])('places %s in no section', page =>
+    expect(sectionOf(page)).toBeUndefined())
 })
