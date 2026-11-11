@@ -22,7 +22,7 @@ mise press
 ## How it fits together
 
 - `docs/` holds the pages of the site, which [VitePress](https://vitepress.dev/) builds, with the map as its home page, beside the manifest and the lockfile.
-- `docs/.vitepress/catalog/` holds the Cloudflare Worker and its Durable Object, which download CelesTrak's active catalog once a cycle, encode the fields the orbit model reads as compressed binary columns, and serve the file from Workers KV through the edge cache.
+- `docs/.vitepress/catalog/` holds the Cloudflare Worker and its Durable Objects, which download CelesTrak's active catalog once a cycle from the first of several regions that reaches CelesTrak, encode the fields the orbit model reads as compressed binary columns, and serve the file from Workers KV through the edge cache.
 - `docs/.vitepress/tools/` holds the scripts that audit and sync the repository's declarations.
 - `rust/` holds the orbit crate, which places each satellite with SGP4 and finds its passes, compiled to WebAssembly.
 - `docs/.vitepress/lib/orbit/` holds the catalog reader, the satellite kinds, and the web worker that runs the crate's scan.
