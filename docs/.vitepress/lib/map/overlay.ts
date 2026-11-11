@@ -1,10 +1,12 @@
 import { AGES, ageOf }                      from '../orbit/catalog.ts'
+import { kindOrder, kindSlots, type Kind }  from '../orbit/kinds.ts'
 import { TRACK_STEP, type Pass, type Spot } from '../orbit/scan.ts'
 import { SCHEMES, type Scheme }             from '../site/palette.ts'
 import type { Tracks }                      from '../state/tracks.ts'
 import { View }                             from './mercator.ts'
 
 export interface Drawn {
+  named    : Kind | null
   selected : Pass | null
   spot     : Spot
   start    : number
@@ -20,6 +22,10 @@ export interface Label {
 }
 
 const BOOK        = '"Newsreader Variable", serif'
+/**
+ * The alpha each kind draws at while the tally names another.
+ */
+const DIM         = 0.16
 const DOT_GAP     = 4.5
 const DRIFT_KM    = 5
 const DRIFT_PX    = 10
@@ -66,20 +72,26 @@ export const spreadOf = (age: number) => age > SPREADS[1] ? 3 : age > SPREADS[0]
  */
 export class Overlay {
   readonly view            = new View()
+  /**
+   * How many satellites the last frame drew inside the view, by kind in the
+   * order of `KINDS`.
+   */
+  readonly onMap           = new Uint16Array(kindOrder.length)
   labels: readonly Label[] = []
   scheme: Scheme           = SCHEMES.day
 
   private still: CanvasRenderingContext2D
   private moving: CanvasRenderingContext2D
-  private ratio      = 1
-  private hitX       = new Float32Array(8192)
-  private hitY       = new Float32Array(8192)
-  private hitPass    = new Int32Array(8192)
-  private hits       = 0
-  private topPass    = new Int32Array(SHOWN)
-  private topHeight  = new Float32Array(SHOWN)
-  private dots       = [0, 0]
-  private staleStill = true
+  private ratio              = 1
+  private hitX               = new Float32Array(8192)
+  private hitY               = new Float32Array(8192)
+  private hitPass            = new Int32Array(8192)
+  private hits               = 0
+  private topPass            = new Int32Array(SHOWN)
+  private topHeight          = new Float32Array(SHOWN)
+  private dots               = [0, 0]
+  private named: Kind | null = null
+  private staleStill         = true
 
   constructor(stillCanvas: HTMLCanvasElement, movingCanvas: HTMLCanvasElement, private drawn: () => Drawn) {
     this.still  = stillCanvas.getContext('2d')!
@@ -152,6 +164,7 @@ export class Overlay {
   private drawStill() {
     const { ratio, still: context, view } = this
     const state                           = this.drawn()
+    this.named                            = state.named
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     context.clearRect(0, 0, view.width, view.height)
     this.drawLabels(context)
@@ -191,7 +204,7 @@ export class Overlay {
     const { view }                = this
     const { kind, riseAt, setAt } = tracks.passes[pass]
     context.strokeStyle           = this.scheme.kinds[kind]
-    context.globalAlpha           = selected ? 1 : 0.42
+    context.globalAlpha           = (selected ? 1 : 0.42) * this.strength(kind)
     context.lineWidth             = selected ? 2.4 : 1
     context.beginPath()
     let previousX = NaN
@@ -246,7 +259,7 @@ export class Overlay {
     context.moveTo(x - ux * size - uy * size * 0.7, y - uy * size + ux * size * 0.7)
     context.lineTo(x, y)
     context.lineTo(x - ux * size + uy * size * 0.7, y - uy * size - ux * size * 0.7)
-    context.globalAlpha = selected ? 1 : 0.8
+    context.globalAlpha = (selected ? 1 : 0.8) * this.strength(tracks.passes[pass].kind)
     context.stroke()
   }
 
@@ -288,26 +301,30 @@ export class Overlay {
     const { moving: context, ratio, topHeight, topPass, view } = this
     const state                                                = this.drawn()
     const { tracks }                                           = state
+    this.named                                                 = state.named
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     context.clearRect(0, 0, view.width, view.height)
     topPass.fill(-1)
     topHeight.fill(-1)
+    this.onMap.fill(0)
     this.hits  = 0
     let chosen = -1
 
-    context.fillStyle   = this.scheme.dim
-    context.globalAlpha = 0.5
+    context.fillStyle = this.scheme.dim
     for (let pass = 0; pass < tracks.passes.length; pass++) {
       if (!tracks.up(pass, seconds)) continue
       const x = view.column(tracks.longitude)
       const y = view.row(tracks.latitude)
       if (!view.inside(x, y, PADDING)) continue
+      const { kind } = tracks.passes[pass]
+      if (view.inside(x, y)) this.onMap[kindSlots[kind]]++
       this.remember(x, y, pass)
       if (state.traced(pass)) {
         const height = tracks.elevation
         if (tracks.passes[pass] === state.selected) chosen = pass
         else this.rank(pass, height)
       } else {
+        context.globalAlpha = 0.5 * this.strength(kind)
         context.fillRect(x - 1.25, y - 1.25, 2.5, 2.5)
       }
     }
@@ -325,7 +342,13 @@ export class Overlay {
       if (topPass[index] >= 0) this.drawName(context, tracks, topPass[index], seconds, false)
     }
     if (chosen >= 0) this.drawName(context, tracks, chosen, seconds, true)
+    context.globalAlpha = 1
   }
+
+  /**
+   * Returns the alpha a kind draws at, full unless the tally names another.
+   */
+  private strength(kind: Kind): number { return this.named === null || this.named === kind ? 1 : DIM }
 
   /**
    * Draws a dotted ring `DRIFT_KM` out round the chosen satellite in its kind's
@@ -399,7 +422,9 @@ export class Overlay {
     }
     const length        = Math.hypot(dx, dy)
     const size          = selected ? 8 : 5.5
-    context.fillStyle   = this.scheme.kinds[tracks.passes[pass].kind]
+    const { kind }      = tracks.passes[pass]
+    context.globalAlpha = this.strength(kind)
+    context.fillStyle   = this.scheme.kinds[kind]
     context.strokeStyle = this.scheme.halo
     context.lineWidth   = selected ? 1.6 : 1
     context.beginPath()
@@ -437,6 +462,7 @@ export class Overlay {
     context.lineWidth     = 3
     context.strokeStyle   = this.scheme.halo
     context.fillStyle     = this.scheme.ink
+    context.globalAlpha   = this.strength(tracks.passes[pass].kind)
     const textX           = x + (x > view.width - 130 ? -11 : 11)
     context.strokeText(tracks.passes[pass].name, textX, y)
     context.fillText(tracks.passes[pass].name, textX, y)

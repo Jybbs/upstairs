@@ -1,11 +1,12 @@
 import { expect, it } from 'vitest'
 
-import { Overlay }     from '../../lib/map/overlay.ts'
-import { DAY }         from '../../lib/orbit/catalog.ts'
-import { SCHEMES }     from '../../lib/site/palette.ts'
-import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
-import { Tracks }      from '../../lib/state/tracks.ts'
-import { passOf }      from '../fixtures/passes.ts'
+import { Overlay }              from '../../lib/map/overlay.ts'
+import { DAY }                  from '../../lib/orbit/catalog.ts'
+import { kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
+import { SCHEMES }              from '../../lib/site/palette.ts'
+import { TRACK_WIDTH }          from '../../lib/orbit/scan.ts'
+import { Tracks }               from '../../lib/state/tracks.ts'
+import { passOf }               from '../fixtures/passes.ts'
 
 const BOSTON = { latitude: 42.36, longitude: -71.06 }
 const CRAFT  = { latitude: 41.86, longitude: -70.56 }
@@ -13,12 +14,13 @@ const NORTH  = { latitude: 60, longitude: -71.06 }
 
 /**
  * Builds a canvas whose 2D context ignores every call but `arc`, `beginPath`,
- * `lineTo`, `restore`, `save`, `setLineDash`, and `stroke`, recording the
- * center and radius of each arc drawn while a line dash is set, the gap of
- * each dash set, the stroke style of each stroke while a dash is set, and the
- * count of lines each stroke draws.
+ * `fillRect`, `lineTo`, `restore`, `save`, `setLineDash`, and `stroke`,
+ * recording the center and radius of each arc drawn while a line dash is set,
+ * the gap of each dash set, the stroke style of each stroke while a dash is
+ * set, the count of lines each stroke draws, and the alpha of each square.
  */
 const canvasOf = () => {
+  const alphas: number[]   = []
   const dashed: number[][] = []
   const gaps: number[]     = []
   const saved: number[]    = []
@@ -30,6 +32,7 @@ const canvasOf = () => {
     arc         : (x: number, y: number, radius: number) => dash && dashed.push([x, y, radius]),
     beginPath   : () => { pending = 0 },
     canvas      : { height: 0, width: 0 },
+    fillRect    : () => alphas.push(context.globalAlpha as number),
     lineTo      : () => { pending++ },
     restore     : () => { dash = saved.pop() ?? 0 },
     save        : () => { saved.push(dash) },
@@ -46,7 +49,7 @@ const canvasOf = () => {
     get: (target, key) => target[key] ?? (() => {})
   })
   const canvas  = { getContext: () => context } as unknown as HTMLCanvasElement
-  return { canvas, dashed, gaps, lines: () => lines, strokes }
+  return { alphas, canvas, dashed, gaps, lines: () => lines, strokes }
 }
 
 /**
@@ -75,6 +78,7 @@ it.each([
   const still   = canvasOf()
   const moving  = canvasOf()
   const overlay = new Overlay(still.canvas, moving.canvas, () => ({
+    named    : null,
     selected : chosen ? pass : null,
     spot     : BOSTON,
     start    : 0,
@@ -93,6 +97,49 @@ it.each([
 })
 
 /**
+ * Draws a crewed pass over Plymouth and an Earth-observing one over Boston
+ * at `zoom` with `named` set on the tally, returning the overlay and the
+ * moving canvas.
+ */
+const pairAt = (zoom: number, named: Kind | null, traced: boolean) => {
+  const tracks = new Tracks()
+  const track  = new Float32Array(6 * TRACK_WIDTH)
+  trackAt(track, CRAFT, 0)
+  trackAt(track, BOSTON, 3 * TRACK_WIDTH)
+  const passes = [passOf(25544, { riseAt: 0, setAt: 60 }), passOf(43013, { kind: 'earth', riseAt: 0, setAt: 60 })]
+  tracks.add(passes, track, Uint32Array.of(0, 3 * TRACK_WIDTH), 3)
+  const moving  = canvasOf()
+  const overlay = new Overlay(canvasOf().canvas, moving.canvas, () => ({
+    named    : named,
+    selected : null,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => traced,
+    tracks   : tracks
+  }))
+  overlay.resize(400, 400, 1)
+  overlay.view.set(400, 400, zoom, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(30)
+  return { moving, overlay }
+}
+
+it.each([
+  ['draws every kind at full strength with no kind named', null, [0.5, 0.5]],
+  ['dims each kind but the one the tally names', 'earth', [0.5 * 0.16, 0.5]]
+] as const)('%s', (_, named, alphas) => {
+  expect(pairAt(7, named, false).moving.alphas).toEqual(alphas.map(alpha => expect.closeTo(alpha)))
+})
+
+it.each([
+  ['counts each kind standing inside the view', 7, { crewed: 1, earth: 1 }],
+  ['leaves out a satellite past the edge of the view', 9, { earth: 1 }]
+])('%s', (_, zoom, counts) => {
+  const { onMap } = pairAt(zoom, null, true).overlay
+  expect(Object.fromEntries(kindOrder.flatMap((kind, index) => onMap[index] ? [[kind, onMap[index]]] : [])))
+    .toEqual(counts)
+})
+
+/**
  * Chooses a pass standing over Boston with the view at `zoom`, returning the
  * ring's radius in px beside `gapAt`, which draws the ring 7200 s into a window
  * placed so the frame falls `age` days past the pass's epoch and returns the
@@ -107,6 +154,7 @@ const ringAt = (zoom: number) => {
   const moving  = canvasOf()
   let start     = 0
   const overlay = new Overlay(canvasOf().canvas, moving.canvas, () => ({
+    named    : null,
     selected : pass,
     spot     : BOSTON,
     start    : start,
@@ -153,6 +201,7 @@ it.each(Object.entries(SCHEMES))('strokes the %s ring in its halo and the kindâ€
   tracks.add([pass], track, Uint32Array.of(0), 3)
   const moving  = canvasOf()
   const overlay = new Overlay(canvasOf().canvas, moving.canvas, () => ({
+    named    : null,
     selected : pass,
     spot     : BOSTON,
     start    : 0,
@@ -178,6 +227,7 @@ it.each([
   tracks.add([passOf(25544, { riseAt: 0, setAt: 30 })], track, Uint32Array.of(0), 2)
   const still   = canvasOf()
   const overlay = new Overlay(still.canvas, canvasOf().canvas, () => ({
+    named    : null,
     selected : null,
     spot     : BOSTON,
     start    : 0,

@@ -46,8 +46,9 @@ const placed = () => {
 }
 
 const refreshFrame = () => {
-  overlay.labels = namesOn(map, overlay.view)
+  overlay.labels    = namesOn(map, overlay.view)
   sky.inFrame.value = overlay.crossing(sky.tracks)
+  sky.unlatch()
   overlay.invalidate()
 }
 
@@ -104,6 +105,7 @@ onMounted(async () => {
   holdCredit(map)
 
   overlay = new Overlay(lower.value!, upper.value!, () => ({
+    named    : sky.named.value,
     selected : sky.selected.value,
     spot     : sky.spot.value,
     start    : sky.start.value,
@@ -143,6 +145,7 @@ onMounted(async () => {
     if (now - synced > SYNC_MS) {
       synced = now
       sky.tally()
+      sky.latch(overlay.onMap)
     }
     request = requestAnimationFrame(loop)
   }
@@ -155,7 +158,7 @@ watch(sky.version, () => {
   overlay.invalidate()
   if (sky.done.value) sky.inFrame.value = overlay.crossing(sky.tracks)
 })
-watch([sky.selected, sky.lowest, () => ({ ...sky.traced })], () => overlay?.invalidate())
+watch([sky.named, sky.selected, sky.lowest, () => ({ ...sky.traced })], () => overlay?.invalidate())
 watch(scheme, value => {
   if (!overlay) return
   map.setStyle(styleOf(contourTiles, demTiles, value))
