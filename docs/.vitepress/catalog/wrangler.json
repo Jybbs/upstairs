@@ -7,8 +7,16 @@
     { "pattern": "upstairs.fyi/catalog/resume", "zone_name": "upstairs.fyi" }
   ],
   "triggers": { "crons": ["0 */2 * * *"] },
-  "durable_objects": { "bindings": [{ "name": "REFRESHER", "class_name": "Refresher" }] },
-  "exports": { "Refresher": { "type": "durable-object", "storage": "sqlite" } },
+  "durable_objects": {
+    "bindings": [
+      { "name": "REFRESHER", "class_name": "Refresher" },
+      { "name": "RELAYS", "class_name": "Relay" }
+    ]
+  },
+  "exports": {
+    "Refresher": { "type": "durable-object", "storage": "sqlite" },
+    "Relay": { "type": "durable-object", "storage": "sqlite" }
+  },
   "kv_namespaces": [{ "binding": "CATALOG" }],
   "send_email": [{ "name": "EMAIL" }],
   "vars": { "ALERT_FROM": "catalog@upstairs.fyi" }

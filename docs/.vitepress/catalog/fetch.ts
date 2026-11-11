@@ -5,14 +5,16 @@
 import { readFile, stat, writeFile } from 'node:fs/promises'
 import { join }                      from 'node:path'
 
-import { FILE }              from '../lib/orbit/catalog.ts'
-import { checked, download } from './celestrak.ts'
-import { encode }            from './encode.ts'
+import { FILE }       from '../lib/orbit/catalog.ts'
+import * as celestrak from './celestrak.ts'
+import { encode }     from './encode.ts'
 
 const TARGET = join(import.meta.dirname, '../../public', FILE)
 
 const path    = process.argv[2]
-const records = path ? checked(JSON.parse(await readFile(path, 'utf8'))) : await download(fetch)
+const records = path
+  ? celestrak.checked(JSON.parse(await readFile(path, 'utf8')))
+  : await celestrak.download(celestrak.fetchCatalog(fetch))
 const fetched = path ? (await stat(path)).mtimeMs : Date.now()
 
 await writeFile(TARGET, encode(fetched, records))

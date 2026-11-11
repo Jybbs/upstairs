@@ -1,16 +1,12 @@
 /**
- * Runs the download cycle, storing each catalog in Workers KV and halting with
- * an alert on any failure until the cycle is resumed.
+ * Runs the download cycle, sending the request from each region in turn until
+ * one reaches CelesTrak, storing each catalog in Workers KV, and halting with
+ * an alert on any other failure until the cycle is resumed.
  */
-import { FILE }     from '../lib/orbit/catalog.ts'
-import { download } from './celestrak.ts'
-import { encode }   from './encode.ts'
-import { RESUME }   from './serve.ts'
-
-/**
- * The shortest time between two downloads, in milliseconds.
- */
-export const EVERY = 2 * 3_600_000
+import { FILE, type Record }     from '../lib/orbit/catalog.ts'
+import { download, Unreachable } from './celestrak.ts'
+import { encode }                from './encode.ts'
+import { RESUME }                from './serve.ts'
 
 export interface Bindings {
   ALERT_FROM : string
@@ -19,16 +15,28 @@ export interface Bindings {
   EMAIL      : Pick<SendEmail, 'send'>
 }
 
+export type Region = typeof REGIONS[number]
+
+/**
+ * The shortest time between two downloads, in milliseconds.
+ */
+export const EVERY = 2 * 3_600_000
+/**
+ * The location hints of the relays sending the request, in the order a cycle
+ * tries them after the one that last reached CelesTrak.
+ */
+export const REGIONS = ['weur', 'apac', 'enam', 'wnam', 'eeur'] as const satisfies DurableObjectLocationHint[]
+
 /**
  * Runs one download each cycle, keeping the time of the last attempt, the
- * reason it halted, and whether the alert went out in the storage of the
- * Durable Object.
+ * region that last reached CelesTrak, the reason it halted, and whether the
+ * alert went out in the storage of the Durable Object.
  */
 export class Cycle {
   constructor(
-    private readonly state   : Pick<SyncKvStorage, 'delete' | 'get' | 'put'>,
-    private readonly env     : Bindings,
-    private readonly fetcher : typeof fetch
+    private readonly state : Pick<SyncKvStorage, 'delete' | 'get' | 'put'>,
+    private readonly env   : Bindings,
+    private readonly send  : (region: Region) => Promise<Response>
   ) {}
 
   /**
@@ -46,7 +54,7 @@ export class Cycle {
     if (time - (this.state.get<number>('attempted') ?? -Infinity) < EVERY) return 'early'
     this.state.put('attempted', time)
     try {
-      await this.env.CATALOG.put(FILE, encode(time, await download(this.fetcher)))
+      await this.env.CATALOG.put(FILE, encode(time, await this.downloadFromRegions()))
       return 'stored'
     } catch (error) {
       const reason = String(error)
@@ -78,5 +86,26 @@ export class Cycle {
       to      : this.env.ALERT_TO
     })
     this.state.put('alerted', true)
+  }
+
+  /**
+   * Downloads the catalog from the first region that reaches CelesTrak,
+   * starting from the one that last did, and fails with the result of every
+   * region where none does.
+   */
+  private async downloadFromRegions(): Promise<Record[]> {
+    const reached          = this.state.get<Region>('reached')
+    const misses: string[] = []
+    for (const region of REGIONS.toSorted((a, b) => Number(b === reached) - Number(a === reached))) {
+      try {
+        const records = await download(this.send(region))
+        this.state.put('reached', region)
+        return records
+      } catch (error) {
+        if (!(error instanceof Unreachable)) throw error
+        misses.push(`${region}: ${error.message}`)
+      }
+    }
+    throw new Error(`No region reached CelesTrak\n${misses.join('\n')}`)
   }
 }
