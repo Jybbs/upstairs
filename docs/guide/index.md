@@ -8,7 +8,7 @@ The home page opens on the map around a spot, counting every active satellite ab
 
 ## The Readout
 
-The readout counts the satellites above the horizon, with the spot, the time, and the date beneath the count, then how many of them stand nearly straight up and how many belong to Starlink. While the passes are still being traced, its last line shows how far the scan has reached, and once the map is zoomed in close, that line links to how far off a position can be. Orbits more than three days old take that line first, giving their age. A screen reader announces the count at most once every 20 seconds.
+The readout counts the satellites above the horizon, with the spot and the time beneath the count, then how many of them stand nearly straight up and how many belong to Starlink. Once the time moves past midnight into the next day, the weekday stands before it and a screen reader hears the full date. While the passes are still being traced, its last line shows how far the scan has reached, and orbits more than three days old take that line to give their age. A screen reader announces the count at most once every 20 seconds.
 
 ## The Filters
 
@@ -24,4 +24,4 @@ The strip covers the window chosen beside it, with a pin at the highest point of
 
 ## The Map
 
-The map draws on tiles from the hosts [Data](/data/) names. Where a host cannot be reached before any of its tiles load, a message over the map names that host.
+The map draws on tiles from the hosts [Data](/data/) names. Where a host cannot be reached before any of its tiles load, the map dims under a caption naming that host, leaving the paths, the satellites, and the spot as they stand. Once the map is zoomed in far enough for 5 kilometers to span 10 pixels, a dotted ring 5 kilometers out circles the chosen satellite, since its position can be kilometers off, as [Accuracy](/method/#accuracy) on the Method page sets out.

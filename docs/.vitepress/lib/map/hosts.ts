@@ -8,7 +8,7 @@ export const HOSTS: Readonly<Record<string, string>> = {
   contours : 'Terrain Tiles',
   dem      : 'Terrain Tiles'
 }
-const LIST = new Intl.ListFormat('en', { type: 'conjunction' })
+const listFormat = new Intl.ListFormat('en', { type: 'conjunction' })
 
 /**
  * Records which hosts the map cannot reach, counting a source as down once it
@@ -16,7 +16,7 @@ const LIST = new Intl.ListFormat('en', { type: 'conjunction' })
  */
 export class Hosts {
   /**
-   * The sentence naming each host that is down, or an empty string while every
+   * The caption naming each host that is down, or an empty string while every
    * host answers.
    */
   readonly message = ref('')
@@ -37,6 +37,6 @@ export class Hosts {
 
   private write() {
     const hosts        = new Set([...this.down].map(source => HOSTS[source]))
-    this.message.value = hosts.size ? `The map could not reach ${LIST.format(hosts)}.` : ''
+    this.message.value = hosts.size ? `Could not reach ${listFormat.format(hosts)}` : ''
   }
 }

@@ -14,6 +14,8 @@ const SPOKEN         = 20_000
 export const SPEEDS  = [1, 60, 240] as const
 export const WINDOWS = [30, 60, 120] as const
 const WORTH          = 20
+const clockFormat    = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' })
+const dayFormat      = new Intl.DateTimeFormat([], { day: 'numeric', month: 'short', weekday: 'short' })
 
 const highestOf = (list: Pass[]) =>
   list.reduce<Pass | null>((best, pass) => !best || pass.peak > best.peak ? pass : best, null)
@@ -46,7 +48,6 @@ class Sky {
   readonly lowest   = ref<number>(0)
   readonly scope    = ref<'map' | 'sky'>('map')
   readonly selected = shallowRef<Pass | null>(null)
-  readonly closeUp  = ref(false)
   /**
    * The length of the window in seconds.
    */
@@ -286,15 +287,20 @@ class Sky {
    * Returns the clock time of a moment in the window, in the viewer's own time
    * zone.
    */
-  clockOf(seconds: number): string {
-    return this.dateOf(seconds).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  }
+  clockOf(seconds: number): string { return clockFormat.format(this.dateOf(seconds)) }
 
   /**
-   * Returns the date of a moment in the window, in the viewer's own time zone.
+   * Returns the date of a moment in the window in the viewer's own time zone,
+   * written as `format` sets.
    */
-  dayOf(seconds: number): string {
-    return this.dateOf(seconds).toLocaleDateString([], { day: 'numeric', month: 'short', weekday: 'short' })
+  dayOf(seconds: number, format = dayFormat): string { return format.format(this.dateOf(seconds)) }
+
+  /**
+   * Returns whether a moment in the window falls on a later day than the window
+   * opens on, in the viewer's own time zone.
+   */
+  laterDay(seconds: number): boolean {
+    return this.dateOf(seconds).toDateString() !== this.dateOf(0).toDateString()
   }
 
   private dateOf(seconds: number): Date { return new Date(this.start.value + seconds * 1000) }

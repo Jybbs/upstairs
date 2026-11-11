@@ -15,6 +15,8 @@
   --color-rule  : #d8d4c7;
   --color-sea   : #27365e;
   --color-mark  : #c2452d;
+
+  --spacing-readout : 360px;
 }
 
 :root {

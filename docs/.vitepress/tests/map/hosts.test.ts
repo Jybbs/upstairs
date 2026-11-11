@@ -11,13 +11,13 @@ describe('the hosts the map reads from', () => {
   it.each(Object.entries(HOSTS))('names %s as down when it fails before loading a tile', (source, host) => {
     const hosts = new Hosts()
     hosts.fail(source)
-    expect(hosts.message.value).toBe(`The map could not reach ${host}.`)
+    expect(hosts.message.value).toBe(`Could not reach ${host}`)
   })
 
   it('names each host once, however many of its sources fail', () => {
     const hosts = new Hosts()
     Object.keys(HOSTS).forEach(source => hosts.fail(source))
-    expect(hosts.message.value).toBe('The map could not reach OpenFreeMap and Terrain Tiles.')
+    expect(hosts.message.value).toBe('Could not reach OpenFreeMap and Terrain Tiles')
   })
 
   it('clears a host once one of its tiles loads', () => {

@@ -18,6 +18,9 @@ export interface Label {
 }
 
 const BOOK        = '"Literata Variable", serif'
+const DOT_GAP     = 4.5
+const DRIFT_KM    = 5
+const DRIFT_PX    = 10
 const FAINT       = 'rgba(39, 54, 94, 0.5)'
 const INK         = '#1d2430'
 const MARK        = '#c2452d'
@@ -53,6 +56,7 @@ export class Overlay {
   private hits       = 0
   private topPass    = new Int32Array(SHOWN)
   private topHeight  = new Float32Array(SHOWN)
+  private dots       = [0, 0]
   private staleStill = true
 
   constructor(stillCanvas: HTMLCanvasElement, movingCanvas: HTMLCanvasElement, private drawn: () => Drawn) {
@@ -277,6 +281,7 @@ export class Overlay {
       }
     }
 
+    if (chosen >= 0 && tracks.up(chosen, seconds)) this.drawRing(context, tracks, chosen)
     for (let pass = 0; pass < tracks.passes.length; pass++) {
       if (!state.traced(pass) || !tracks.up(pass, seconds)) continue
       this.drawMark(context, tracks, pass, seconds, tracks.passes[pass] === state.selected)
@@ -286,6 +291,32 @@ export class Overlay {
       if (topPass[index] >= 0) this.drawName(context, tracks, topPass[index], seconds, false)
     }
     if (chosen >= 0) this.drawName(context, tracks, chosen, seconds, true)
+  }
+
+  /**
+   * Draws a dotted ring `DRIFT_KM` out round the chosen satellite in its kind's
+   * color, once that distance spans `DRIFT_PX` at its latitude.
+   */
+  private drawRing(context: CanvasRenderingContext2D, tracks: Tracks, pass: number) {
+    const { dots, view } = this
+    const radius         = DRIFT_KM * view.scale(tracks.latitude)
+    if (radius < DRIFT_PX) return
+    const around = 2 * Math.PI * radius
+    dots[1]      = around / Math.max(8, Math.round(around / DOT_GAP))
+    context.save()
+    context.setLineDash(dots)
+    context.beginPath()
+    context.arc(view.column(tracks.longitude), view.row(tracks.latitude), radius, 0, Math.PI * 2)
+    context.lineCap     = 'round'
+    context.globalAlpha = 0.7
+    context.strokeStyle = PAPER
+    context.lineWidth   = 5.25
+    context.stroke()
+    context.globalAlpha = 1
+    context.strokeStyle = KINDS[tracks.passes[pass].kind].color
+    context.lineWidth   = 2.25
+    context.stroke()
+    context.restore()
   }
 
   private remember(x: number, y: number, pass: number) {

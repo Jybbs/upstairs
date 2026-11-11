@@ -15,8 +15,6 @@ const CREDIT = 'Terrain: <a '
              + 'href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md">Mapzen and its '
              + 'sources</a>'
 const DEM      = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
-const DRIFT_KM = 5
-const DRIFT_PX = 10
 const SYNC_MS  = 250
 const ZOOM     = 5
 const cursor   = ref('crosshair')
@@ -39,7 +37,6 @@ const placed = () => {
   const center                      = map.getCenter()
   const { clientWidth, clientHeight } = map.getContainer()
   overlay.view.set(clientWidth, clientHeight, map.getZoom(), center.lng, center.lat)
-  sky.closeUp.value = overlay.view.scale(center.lat) * DRIFT_KM >= DRIFT_PX
   overlay.invalidate()
 }
 
@@ -170,14 +167,21 @@ onBeforeUnmount(() => {
 <template>
   <div class="absolute inset-0 overflow-hidden bg-[#dbe1ee]" :style="{ cursor }">
     <div ref="frame" class="size-full [&_.maplibregl-canvas]:cursor-[inherit]!" />
+    <div v-if="hosts.message.value" class="pointer-events-none absolute inset-0 bg-paper/62" />
     <canvas ref="lower" class="pointer-events-none absolute inset-0 size-full" />
     <canvas ref="upper" class="pointer-events-none absolute inset-0 size-full" />
-    <p
+    <div
       v-if="hosts.message.value"
-      class="absolute inset-x-4 top-1/3 mx-auto max-w-sm rounded-sm border border-rule bg-paper/95 p-4 text-center text-sm"
-      role="alert"
+      class="pointer-events-none absolute inset-0 grid items-end justify-items-center p-6 pb-[8%]
+             xl:pl-[calc(var(--spacing-readout)+--spacing(8))]"
     >
-      {{ hosts.message.value }}
-    </p>
+      <p
+        class="caps max-w-[24ch] border-y-[1.5px] border-ink bg-paper/88 px-3 py-2.5 text-center text-sm!
+               text-ink"
+        role="alert"
+      >
+        {{ hosts.message.value }}
+      </p>
+    </div>
   </div>
 </template>
