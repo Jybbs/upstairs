@@ -2,13 +2,17 @@
 description: How to read the map, the pass list, and the time strip.
 ---
 
+<script setup lang="ts">
+import { AGES } from '../.vitepress/lib/orbit/catalog.ts'
+</script>
+
 # Guide
 
 The home page opens on the map around a spot, counting every active satellite above its horizon at the time the strip shows. Search a place by name or click the map to move the spot, and the count, the pass list, and the strip all follow it.
 
 ## The Readout
 
-The readout counts the satellites above the horizon, with the spot and the time beneath the count, then how many of them stand nearly straight up and how many belong to Starlink. Once the time moves past midnight into the next day, the weekday stands before it and a screen reader hears the full date. While the passes are still being traced, its last line shows how far the scan has reached, and a catalog fetched more than three days earlier takes that line to give its age. A screen reader announces the count at most once every 20 seconds.
+The readout counts the satellites above the horizon, with the spot and the time beneath the count, then how many of them stand nearly straight up and how many belong to Starlink. Once the time moves past midnight into the next day, the weekday stands before it and a screen reader hears the full date. While the passes are still being traced, its last line shows how far the scan has reached, and a catalog fetched more than {{ AGES.warn }} days earlier takes that line to give its age, while one more than {{ AGES.limit }} days old draws no satellite at all. A screen reader announces the count at most once every 20 seconds.
 
 ## The Filters
 
@@ -24,4 +28,4 @@ The strip covers the window chosen beside it, with a pin at the highest point of
 
 ## The Map
 
-The map draws on tiles from the hosts [Data](/data/) names. Where a host cannot be reached before any of its tiles load, the map dims under a caption naming that host, leaving the paths, the satellites, and the spot as they stand. Once the map is zoomed in far enough for 5 kilometers to span 10 pixels, a dotted ring 5 kilometers out circles the chosen satellite, since its position can be kilometers off, as [Accuracy](/method/#accuracy) on the Method page sets out. The ring's dots stand twice as far apart once the satellite's orbit is more than a day old, and three times as far once it is more than three days old.
+The map draws on tiles from the hosts [Data](/data/) names. Where a host cannot be reached before any of its tiles load, the map dims under a caption naming that host, leaving the paths, the satellites, and the spot as they stand. Once the map is zoomed in far enough for 5 kilometers to span 10 pixels, a dotted ring 5 kilometers out circles the chosen satellite, since its position can be kilometers off, as [Accuracy](/method/#accuracy) on the Method page sets out. The ring's dots stand twice as far apart once the satellite's orbit is more than a day old, and three times as far once it is more than {{ AGES.warn }} days old.

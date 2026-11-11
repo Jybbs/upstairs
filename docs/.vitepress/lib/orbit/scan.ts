@@ -55,6 +55,12 @@ export const TRACK_STEP = 30
 export const TRACK_WIDTH = 3
 
 /**
+ * Returns the whole minute a window opening at `time` starts on, which every
+ * scan's samples are counted from.
+ */
+export const minuteOf = (time: number) => Math.floor(time / 60_000) * 60_000
+
+/**
  * Joins a pass the WebAssembly module traced to the satellite it belongs to,
  * reading a missing heading as one the satellite holds its place without.
  */

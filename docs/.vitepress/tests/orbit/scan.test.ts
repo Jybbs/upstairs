@@ -31,6 +31,13 @@ describe('the windows of a scan', () => {
     expect(scan.TRACK_WIDTH).toBe(answers.track.width)
   })
 
+  it.each([
+    ['on a minute', '2026-11-06T18:37:00.000Z', '2026-11-06T18:37:00.000Z'],
+    ['a millisecond short of the next minute', '2026-11-06T18:37:59.999Z', '2026-11-06T18:37:00.000Z']
+  ])('opens a window on the minute a time %s falls in', (_, time, minute) => {
+    expect(scan.minuteOf(Date.parse(time))).toBe(Date.parse(minute))
+  })
+
   it('takes one grid sample per count the known answers hold, both ends included', () => {
     expect(scan.samplesFor(answers.grid.minutes, scan.GRID_STEP)).toBe(answers.grid.counts.length)
   })
