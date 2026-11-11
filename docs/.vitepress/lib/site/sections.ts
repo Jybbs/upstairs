@@ -30,7 +30,7 @@ export const navOf = () => sectionsOf().map(text => {
 })
 
 /**
- * Returns the section a built page sits under, or nothing for a page outside
+ * Returns the section a page's source file sits under, or nothing for a page outside
  * every section's folder.
  */
 export const sectionOf = (page: string) =>

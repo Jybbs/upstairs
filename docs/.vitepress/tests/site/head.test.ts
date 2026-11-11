@@ -10,7 +10,7 @@ const PAGES    = [
   { alt: 'Upstairs', card: 'home',  folder: '',       home: true,  type: 'website' },
   { alt: 'Guide',    card: 'guide', folder: 'guide/', home: false, type: 'article' },
   { alt: 'Data',     card: 'data',  folder: 'data/',  home: false, type: 'article' }
-].map(page => ({ ...page, address: `${HOMEPAGE}/${page.folder}`, page: `${page.folder}index.html` }))
+].map(page => ({ ...page, address: `${HOMEPAGE}/${page.folder}`, page: `${page.folder}index.md` }))
 const contextOf = (page: string, frontmatter: object, isNotFound = false) => ({
   description : LINE,
   page        : page,
@@ -27,7 +27,7 @@ const tagsOf = (head: ReturnType<typeof headOf>) =>
 describe.each(PAGES)('the head of $page', ({ address, alt, card, home, page, type }) => {
   const tags = tagsOf(headOf(contextOf(page, { isHome: home }), HOMEPAGE))
 
-  it('points its canonical link and its card at that address', () => {
+  it('points its canonical link and its og:url at its address', () => {
     expect(tags.canonical).toBe(address)
     expect(tags['og:url']).toBe(address)
   })
@@ -55,8 +55,14 @@ describe.each(PAGES)('the head of $page', ({ address, alt, card, home, page, typ
     }))
 })
 
-it('leaves the canonical link, the address, and the JSON-LD off the not-found page', () =>
-  expect(Object.keys(tagsOf(headOf(contextOf('404.html', {}, true), HOMEPAGE))))
-    .toEqual(['og:title', 'og:description', 'og:type', 'og:locale', 'og:site_name', 'og:image',
-              'og:image:width', 'og:image:height', 'og:image:type', 'og:image:alt', 'twitter:card',
-              'twitter:image']))
+describe('the head of the not-found page', () => {
+  const tags = tagsOf(headOf(contextOf('404.md', {}, true), HOMEPAGE))
+
+  it('leaves the canonical link, the address, and the JSON-LD off', () =>
+    expect(Object.keys(tags))
+      .toEqual(['og:title', 'og:description', 'og:type', 'og:locale', 'og:site_name', 'og:image',
+                'og:image:width', 'og:image:height', 'og:image:type', 'og:image:alt', 'twitter:card',
+                'twitter:image']))
+  it('describes the home card it shows by the site’s name alone', () =>
+    expect(tags['og:image:alt']).toBe('Upstairs'))
+})

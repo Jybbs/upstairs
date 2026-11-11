@@ -4,11 +4,11 @@ import { CARD, fileOf } from './cards.ts'
 import { sectionOf }    from './sections.ts'
 
 /**
- * Returns the address a built page is served at, its `index.html` dropped so a
- * section reads as its folder.
+ * Returns the address a page is served at from its source file, its `index.md`
+ * dropped so a section reads as its folder and any other page taking `.html`.
  */
 const addressOf = (homepage: string, page: string) =>
-  new URL(page.replace(/(^|\/)index\.html$/, '$1'), `${homepage}/`).href
+  new URL(page.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '.html'), `${homepage}/`).href
 
 /**
  * Builds the tags a link preview reads from a page's head, its card the one
@@ -22,6 +22,9 @@ export const headOf = (context: TransformContext, homepage: string): HeadConfig[
   const section            = sectionOf(page)
   const card               = addressOf(homepage, fileOf(section))
   const home               = pageData.frontmatter.isHome === true
+  const alt                = pageData.isNotFound
+    ? siteData.title
+    : `${section ?? siteData.title}, ${description}`
   const tags: HeadConfig[] = [
     ['meta', { content: title, property: 'og:title' }],
     ['meta', { content: description, property: 'og:description' }],
@@ -32,7 +35,7 @@ export const headOf = (context: TransformContext, homepage: string): HeadConfig[
     ['meta', { content: String(CARD.width), property: 'og:image:width' }],
     ['meta', { content: String(CARD.height), property: 'og:image:height' }],
     ['meta', { content: 'image/png', property: 'og:image:type' }],
-    ['meta', { content: `${section ?? siteData.title}, ${description}`, property: 'og:image:alt' }],
+    ['meta', { content: alt, property: 'og:image:alt' }],
     ['meta', { content: 'summary_large_image', name: 'twitter:card' }],
     ['meta', { content: card, name: 'twitter:image' }]
   ]

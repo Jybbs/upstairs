@@ -26,6 +26,8 @@ describe.each(schemes)('the %s scheme', (_, scheme) => {
     const grounds = [scheme.ground, ...scheme.bands, scheme.panel]
     expect(Math.min(...grounds.map(ground => wcagContrast(color, ground)))).toBeGreaterThanOrEqual(3)
   })
+  it('gives each kind a color of its own', () =>
+    expect(new Set(Object.values(scheme.kinds)).size).toBe(kinds.length))
   it('gives one color to each elevation band', () => expect(scheme.bands).toHaveLength(FLOORS.length))
 })
 

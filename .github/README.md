@@ -28,7 +28,7 @@ mise press
 - `docs/.vitepress/lib/orbit/` holds the catalog reader, the satellite kinds, and the web worker that runs the crate's scan.
 - `docs/.vitepress/lib/map/` holds the terrain style, the canvases drawn above it, and the map's credit.
 - `docs/.vitepress/lib/state/` holds the map's shared state, the spot the page's address carries, and the traced passes.
-- `docs/.vitepress/lib/site/` holds the sections the navigation bar links, the preload of the map's chunk, and the plugin adding the crates' license notices to the site's build.
+- `docs/.vitepress/lib/site/` holds the palette, the mark, the link-preview cards drawn at build time and the head tags pointing at them, the sections the navigation bar links, the preload of the map's chunk, and the plugin adding the crates' license notices to the site's build.
 - `docs/.vitepress/theme/` holds the components, the map's layout, and the stylesheet.
 - `docs/.vitepress/tests/` holds the suite, one folder per folder it covers.
 - `.mise/` pins the tools and holds the tasks, one folder per domain.

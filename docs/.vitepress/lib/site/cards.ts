@@ -64,7 +64,9 @@ const CLIMB_LAYOUT = {
 }
 /**
  * A section's card, the capital cut out of a star chart ruled in the section's
- * color, with the page's name, line, and address at fixed places on the card.
+ * color, with the page's name, line, and address at fixed places on the card,
+ * the line set at the largest size from `size` down to `least` that keeps it
+ * to its baselines.
  */
 export const NET_LAYOUT = {
   clearing : 26,
@@ -73,7 +75,7 @@ export const NET_LAYOUT = {
   address  : { base: 578, right: 1148, size: 42, tracking: 0.1 },
   chart    : { hours: [10, 90, 10], pole: [-180, -420], reach: 2400, rings: [520, 1800, 110], stars: 380 },
   contrast : { day: 4.5, night: 6.5 },
-  line     : { bases: [452, 510], right: 1144, size: 50, width: 700 },
+  line     : { bases: [452, 510], least: 30, right: 1144, size: 50, width: 700 },
   mark     : { height: 342, x: 36, y: 263 },
   name     : { base: 209, size: 240, x: 53 },
   rules    : { opacity: 0.6, width: 1.8 },
@@ -189,7 +191,9 @@ const linesOf = (
 
 /**
  * Draws a section's card in `scheme`, a star chart ruled in the section's
- * color with the capital cut out of it and the mark drawn in the clearing.
+ * color with the capital cut out of it and the mark drawn in the clearing,
+ * throwing where the page's line wraps past the card's baselines at every size
+ * the layout allows.
  */
 const netOf = (
   faces   : Faces,
@@ -199,12 +203,13 @@ const netOf = (
   layout  = NET_LAYOUT
 ) => {
   const { address, chart, mark, name } = layout
-  const [x0, y0, size]                 = boxOf(MARK.master.box)
+  const { bases, least, right, width } = layout.line
+  const [x0, y0, box]                  = boxOf(MARK.master.box)
   const [px, py]                       = chart.pole
 
   const colors = SCHEMES[scheme]
   const color  = sectionColorOf(scheme, section, layout)
-  const placed = `translate(${mark.x} ${mark.y}) scale(${mark.height / size}) translate(${-x0} ${-y0})`
+  const placed = `translate(${mark.x} ${mark.y}) scale(${mark.height / box}) translate(${-x0} ${-y0})`
   const rings  = []
   for (let r = chart.rings[0]; r < chart.rings[1]; r += chart.rings[2])
     rings.push(circleOf(px, py, r))
@@ -218,10 +223,14 @@ const netOf = (
     return `${circleOf(x, y, r)}Z`
   }).join('')
   const nameD  = faces.display.outline({ size: name.size, text: section }, name.x, name.base)
-  const lineD  = linesOf(faces.book, { size: layout.line.size }, line, layout.line.width)
-    .map((each, i) => faces.book.outlineTo({ size: layout.line.size, text: each }, layout.line.right,
-                                           layout.line.bases[i]))
-    .join('')
+  let size     = layout.line.size
+  let lines    = linesOf(faces.book, { size }, line, width)
+  while (lines.length > bases.length && size > least)
+    lines = linesOf(faces.book, { size: --size }, line, width)
+  if (lines.length > bases.length)
+    throw new Error(
+      `The line on the ${section} card runs to ${lines.length} lines at ${size} px, past its ${bases.length}`)
+  const lineD  = lines.map((each, i) => faces.book.outlineTo({ size, text: each }, right, bases[i])).join('')
   const site    = { size: address.size, text: ADDRESS, tracking: address.tracking }
   const folder  = { size: address.size, text: `/${section.toUpperCase()}`, tracking: address.tracking }
   const siteD   = faces.mono.outlineTo(site, address.right - faces.mono.widthOf(folder), address.base)

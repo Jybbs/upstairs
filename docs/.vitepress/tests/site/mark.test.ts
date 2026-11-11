@@ -7,9 +7,10 @@ import { drawnWordOf, fadedWordOf, faviconOf, wordmarkOf } from '../../lib/site/
 import { SCHEMES, type SchemeName }                        from '../../lib/site/palette.ts'
 
 const DRAWINGS = [
-  { drawing: 'the word’s drawing alone',            height: 72, outlined: false, u: MARK.word },
-  { drawing: 'the word’s drawing over the outline', height: 60, outlined: true,  u: MARK.word },
-  { drawing: 'the 16 px drawing over the outline',  height: 28, outlined: true,  u: MARK.s16.d }
+  { drawing: 'the word’s drawing alone',            height: 69.7, outlined: false, u: MARK.word },
+  { drawing: 'the word’s drawing over the outline', height: 69.6, outlined: true,  u: MARK.word },
+  { drawing: 'the word’s drawing over the outline', height: 29.1, outlined: true,  u: MARK.word },
+  { drawing: 'the 16 px drawing over the outline',  height: 29,   outlined: true,  u: MARK.s16.d }
 ]
 const NAMES    = Object.keys(SCHEMES) as SchemeName[]
 const WORDS    = [

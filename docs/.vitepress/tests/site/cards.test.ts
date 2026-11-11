@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { wcagContrast }                    from 'culori'
 import { beforeAll, describe, expect, it } from 'vitest'
 
@@ -5,7 +7,7 @@ import { Resvg } from '@resvg/resvg-js'
 
 import { CARD, NET_LAYOUT, cardsOf, fileOf, sectionColorOf } from '../../lib/site/cards.ts'
 import type { Card, Lines }                                  from '../../lib/site/cards.ts'
-import { Face }                                              from '../../lib/site/faces.ts'
+import { Face, type Faces }                                  from '../../lib/site/faces.ts'
 import { SCHEMES, type SchemeName }                          from '../../lib/site/palette.ts'
 import { folderOf, sectionsOf }                              from '../../lib/site/sections.ts'
 
@@ -17,6 +19,14 @@ const LINES: Lines = {
     Method : 'How a pass is found.'
   }
 }
+const pageOf = (folder: string) =>
+  readFileSync(new URL(`../../../${folder}index.md`, import.meta.url), 'utf8')
+const lineOf = (folder: string) => pageOf(folder).match(/^description: (.+)$/m)![1]
+const PAGES: Lines = {
+  home     : lineOf(''),
+  sections : Object.fromEntries(sectionsOf().map(section => [section, lineOf(`${folderOf(section)}/`)]))
+} as Lines
+const LONG: Lines = { ...LINES, sections: { ...LINES.sections, Data: LINES.sections.Data.repeat(6) } }
 const RATIOS = (Object.keys(SCHEMES) as SchemeName[])
   .map(scheme => ({ ratio: NET_LAYOUT.contrast[scheme], scheme }))
 
@@ -27,9 +37,11 @@ const sizeOf   = (file: string) => file === CARD.repository.file
   : [CARD.width, CARD.height]
 
 let cards: Card[]
+let faces: Faces
 
 beforeAll(async () => {
-  cards = cardsOf(await Face.faces(), LINES)
+  faces = await Face.faces()
+  cards = cardsOf(faces, LINES)
 })
 
 describe('the cards', () => {
@@ -59,6 +71,21 @@ describe('a page’s card', () => {
   it('reads the home card for a page outside every section', () => expect(fileOf()).toBe('cards/home.png'))
   it.each(sectionsOf())('reads the %s card under its folder', section =>
     expect(fileOf(section)).toBe(`cards/${folderOf(section)}.png`))
+})
+
+describe('a section’s card', () => {
+  it.each(sectionsOf())('rules the %s card’s net, folder, and mark in its color', section => {
+    const { svg } = cards.find(({ file }) => file === fileOf(section))!
+    const color   = sectionColorOf(CARD.scheme, section)
+    expect(svg).toContain('<g mask="url(#cut)"><path d="')
+    expect(svg.match(new RegExp(`(?:fill|stroke)="${color}"`, 'g'))).toHaveLength(3)
+  })
+})
+
+describe('a section’s line', () => {
+  it('fits every page’s own line on its card', () => expect(() => cardsOf(faces, PAGES)).not.toThrow())
+  it('stops the build where a line runs past the card', () =>
+    expect(() => cardsOf(faces, LONG)).toThrow('The line on the Data card'))
 })
 
 describe('a section’s color', () => {

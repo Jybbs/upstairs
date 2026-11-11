@@ -15,7 +15,7 @@ describe('the sections', () => {
   it.each(navOf())('leaves $text inactive on the home page and the other sections', ({ activeMatch, link }) =>
     expect(PATHS.filter(path => path !== link && new RegExp(activeMatch).test(path))).toEqual([]))
   it.each(sectionsOf())('places every page under the folder of %s in it', section =>
-    expect(sectionOf(`${section.toLowerCase()}/index.html`)).toBe(section))
-  it.each(['index.html', '404.html', 'guidebook.html'])('places %s in no section', page =>
+    expect(sectionOf(`${section.toLowerCase()}/index.md`)).toBe(section))
+  it.each(['index.md', '404.md', 'guidebook.md'])('places %s in no section', page =>
     expect(sectionOf(page)).toBeUndefined())
 })
