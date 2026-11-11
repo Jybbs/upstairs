@@ -2,7 +2,7 @@
 
 Pick a spot on the map and watch every satellite passing over it.
 
-The site lists the active satellites above the horizon at that spot, plays their passes through a window of time, and shows where each one is headed. Everything is calculated in the browser from published orbital data, which the Cloudflare service under `docs/.vitepress/catalog/`, once deployed, downloads from CelesTrak at most once every two hours.
+The site lists the active satellites above the horizon at that spot, plays their passes through a window of time, and shows where each one is headed. Everything is calculated in the browser from published orbital data, which the Cloudflare service under `docs/.vitepress/catalog/` downloads from CelesTrak at most once every two hours. A push to `main` that changes the site or the service publishes both to [upstairs.fyi](https://upstairs.fyi), as [the contributor guide](CONTRIBUTING.md#deploying) describes.
 
 ## Run it
 

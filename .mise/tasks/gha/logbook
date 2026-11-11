@@ -1,5 +1,5 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE depends     = ["site:install"]
-#MISE description = "Write the workflow run's summary with one row per finished job, failing unless every job in `NEEDS` succeeded"
+#MISE description = "Write the workflow run's summary with one row per finished job, failing unless every job in `NEEDS` succeeded or was skipped"
 
 bun run docs/.vitepress/tools/logbook.ts

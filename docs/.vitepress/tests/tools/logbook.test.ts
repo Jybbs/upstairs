@@ -11,9 +11,10 @@ describe('logbookOf', () => {
   it.each([
     ['every job succeeded', { check: { result: 'success' } }, true],
     ['a job failed', { check: { result: 'failure' } }, false],
-    ['a job was skipped', { check: { result: 'skipped' } }, false],
+    ['a job was skipped', { site: { result: 'skipped' } }, true],
     ['a job was cancelled', { check: { result: 'cancelled' } }, false],
-    ['one job of two failed', { check: { result: 'failure' }, prune: { result: 'success' } }, false]
+    ['one job of two failed', { check: { result: 'failure' }, prune: { result: 'success' } }, false],
+    ['the need of a skipped job failed', { press: { result: 'failure' }, site: { result: 'skipped' } }, false]
   ])('passes only where %s', (_, needs, passed) =>
     expect(logbookOf([], needs, RUN, TEMPLATE).passed).toBe(passed))
 

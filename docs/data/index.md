@@ -41,11 +41,12 @@ The search box finds places through [Photon](https://photon.komoot.io/), run by 
 
 ## Requests
 
-Each service below receives requests from the reader's browser, and none of them receives the page's address beyond its origin.
+Each service below receives requests from the reader's browser. The spot stays in the fragment of the page's address, which the browser sends to none of them, and every service other than Cloudflare receives the page's address only as far as its origin.
 
 | **Service** | **Receives** |
 |---|---|
 | [Amazon Web Services](https://aws.amazon.com/), hosting the Terrain Tiles | *A request for each elevation tile the map draws, naming the stretch of the map in view* |
+| [Cloudflare](https://www.cloudflare.com/), hosting the site and the catalog | *A request for each page and file of the site, the catalog included* |
 | [OpenFreeMap](https://openfreemap.org/) | *A request for each tile of map data the map draws, naming the stretch of the map in view* |
 | [Photon](https://photon.komoot.io/) | *The text typed in the search box* |
 

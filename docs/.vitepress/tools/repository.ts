@@ -74,6 +74,11 @@ const PARSERS = {
   '.yml'  : YAML.parse
 }
 
+const gatesOf = (workflow: Workflow) => Object.entries(workflow.jobs)
+  .filter(([id, job]) => Object.keys(workflow.jobs)
+    .every(other => other === id || [job.needs].flat().includes(other)))
+  .map(([id, job]) => job.name ?? id)
+
 const pathsOf = async (root: string, pattern: string) =>
   (await Array.fromAsync(new Glob(pattern).scan(root))).sort().map(path => join(root, path))
 
@@ -133,10 +138,7 @@ export class Repository {
    * whose `needs` lists every other job of its workflow.
    */
   get gates(): string[] {
-    return this.checks.flatMap(workflow => Object.entries(workflow.jobs)
-      .filter(([id, job]) => Object.keys(workflow.jobs)
-        .every(other => other === id || [job.needs].flat().includes(other)))
-      .map(([id, job]) => job.name ?? id))
+    return this.checks.flatMap(gatesOf)
   }
 
   /**
@@ -151,8 +153,8 @@ export class Repository {
    */
   get problems(): string[] {
     return [
-      ...this.categoryProblems, ...this.gateProblems, ...this.guideProblems, ...this.labelProblems,
-      ...this.pinProblems, ...this.sweepProblems, ...this.templateProblems
+      ...this.categoryProblems, ...this.endingProblems, ...this.gateProblems, ...this.guideProblems,
+      ...this.labelProblems, ...this.pinProblems, ...this.sweepProblems, ...this.templateProblems
     ]
   }
 
@@ -180,6 +182,12 @@ export class Repository {
 
   private get checks(): Workflow[] {
     return this.workflows.filter(workflow => 'pull_request' in workflow.on)
+  }
+
+  private get endingProblems(): string[] {
+    return this.workflows
+      .filter(workflow => gatesOf(workflow).length === 0)
+      .map(workflow => `${workflow.path} ends on no job whose needs list every other job`)
   }
 
   private get gateProblems(): string[] {

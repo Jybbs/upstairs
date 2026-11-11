@@ -53,7 +53,8 @@
     "vitepress": "2.0.0-alpha.21",
     "vitest": "5.1.0",
     "vue-tsc": "3.3.14",
-    "woff2-encoder": "2.0.0"
+    "woff2-encoder": "2.0.0",
+    "wrangler": "4.160.0"
   },
   "overrides": {
     "glob": "14.0.4",
@@ -68,7 +69,8 @@
     ],
     "ignoreDependencies": [
       "oxlint",
-      "vue-tsc"
+      "vue-tsc",
+      "wrangler"
     ],
     "typescript": {
       "config": [

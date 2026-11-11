@@ -8,7 +8,7 @@
   ],
   "triggers": { "crons": ["0 */2 * * *"] },
   "durable_objects": { "bindings": [{ "name": "REFRESHER", "class_name": "Refresher" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Refresher"] }],
+  "exports": { "Refresher": { "type": "durable-object", "storage": "sqlite" } },
   "kv_namespaces": [{ "binding": "CATALOG" }],
   "send_email": [{ "name": "EMAIL" }],
   "vars": { "ALERT_FROM": "catalog@upstairs.fyi" }

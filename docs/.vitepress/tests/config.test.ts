@@ -64,3 +64,10 @@ it('writes the cards into the built site', async () => {
   await config.buildEnd!({ outDir: '/site/dist' } as SiteConfig)
   expect(writeCards).toHaveBeenCalledWith('/site/dist')
 })
+
+it.each([
+  ['/*', 'Permissions-Policy: geolocation=(self)'],
+  [`/${config.assetsDir ?? 'assets'}/*`, 'Cache-Control: public, max-age=31536000, immutable']
+])('serves the files under %s with their headers', (rule, headers) =>
+  expect(readFileSync(new URL('../../public/_headers', import.meta.url), 'utf8'))
+    .toContain(`${rule}\n  ${headers}\n`))
