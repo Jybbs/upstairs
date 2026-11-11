@@ -66,6 +66,7 @@
     "entry": [
       ".vitepress/catalog/fetch.ts",
       ".vitepress/catalog/service.ts",
+      ".vitepress/preview/functions/*.ts",
       ".vitepress/tools/*.ts"
     ],
     "ignoreDependencies": [

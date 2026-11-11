@@ -12,5 +12,5 @@
     "types": ["@cloudflare/workers-types", "node"],
     "verbatimModuleSyntax": true
   },
-  "include": [".", "../tests/catalog"]
+  "include": [".", "../preview", "../tests/catalog", "../tests/preview"]
 }
