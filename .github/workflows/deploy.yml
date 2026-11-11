@@ -2,6 +2,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
 env:
+  REF: ${{ github.head_ref || github.ref_name }}
+  SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   WRANGLER_SEND_METRICS: 'false'
 jobs:
   catalog:
@@ -28,32 +30,10 @@ jobs:
         run: mise x -- bun x --no-install wrangler deploy --config .vitepress/catalog/wrangler.json
         working-directory: docs
     timeout-minutes: 10
-  comment:
-    name: 💬 Comment
-    needs: [preview]
-    permissions:
-      pull-requests: write
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Check out
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Provision
-        uses: $/.github/actions/provision
-        with:
-          cache: 'false'
-          tools: bun
-      - name: Post the preview's addresses
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NEEDS: ${{ toJSON(needs) }}
-        run: mise run gha:notice
-    timeout-minutes: 10
   logbook:
     if: always()
     name: 📓 Logbook
-    needs: [catalog, comment, press, preview, site]
+    needs: [catalog, press, site]
     permissions:
       actions: read
     runs-on: ubuntu-26.04
@@ -94,49 +74,15 @@ jobs:
           path: docs/.vitepress/dist
           retention-days: 1
     timeout-minutes: 15
-  preview:
-    if: >-
-      github.event_name == 'pull_request' && github.head_ref != 'main'
-      && github.event.pull_request.head.repo.full_name == github.repository
-    name: 🔍 Preview
-    needs: [press]
-    outputs:
-      alias: ${{ steps.deploy.outputs.alias }}
-      url: ${{ steps.deploy.outputs.url }}
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Check out
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Provision
-        uses: $/.github/actions/provision
-        with:
-          cache: 'false'
-          tools: bun
-      - name: Install the packages
-        run: mise run site:install
-      - name: Download the pressed site
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: site
-          path: docs/.vitepress/dist
-      - name: Deploy the preview
-        env:
-          BRANCH: ${{ github.head_ref }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
-          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler.ndjson
-        id: deploy
-        working-directory: docs
-        run: |
-          mise x -- bun x --no-install wrangler pages deploy ../dist --branch="$BRANCH" --cwd=.vitepress/preview --project-name=upstairs
-          jq -r 'select(.type == "pages-deploy-detailed") | "alias=\(.alias // error("The upload reported no alias"))", "url=\(.url)"' "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
-    timeout-minutes: 10
   site:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main'
+      || (github.event_name == 'pull_request' && github.head_ref != 'main'
+      && github.event.pull_request.head.repo.full_name == github.repository)
     name: 🌐 Site
     needs: [press]
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
     runs-on: ubuntu-26.04
     steps:
       - name: Check out
@@ -159,15 +105,19 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
-        run: mise x -- bun x --no-install wrangler pages deploy .vitepress/dist --branch=main --project-name=upstairs
+          FUNCTIONS: ${{ github.ref == 'refs/heads/main' && '.' || '.vitepress/preview' }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler.ndjson
+        id: deploy
         working-directory: docs
+        run: |
+          mise x -- bun x --no-install wrangler pages deploy "$PWD/.vitepress/dist" --branch="$REF" --cwd="$FUNCTIONS" --project-name=upstairs
+          jq -r 'select(.type == "pages-deploy-detailed") | "url=\(.url)"' "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
     timeout-minutes: 10
 name: 🛰️ Deploy
 on:
   pull_request:
     paths: &sources
       - .github/actions/provision/**
-      - .github/scripts/comments/deploy.md
       - .github/scripts/summaries/deploy.md
       - .github/workflows/deploy.yml
       - .mise/**

@@ -1,15 +1,15 @@
 /**
  * Writes a workflow run's summary from the jobs of the run and the `needs`
- * context of its gate, and reads the variables a step of a workflow sets.
+ * context of its gate.
  */
 import { $ }          from 'bun'
 import { appendFile } from 'node:fs/promises'
 import { basename }   from 'node:path'
 
 interface Context {
+  fields   : Fields
   jobs     : string
   needs    : Needs
-  run      : string
   summary  : string
   template : string
 }
@@ -25,81 +25,88 @@ interface Logbook {
   summary : string
 }
 
-export type Needs = Record<string, { outputs?: Record<string, string>, result: string }>
+type Fields = Record<string, string>
 
-const OUTPUT  = /\{\{([\w-]+)\.([\w-]+)\}\}/g
+type Needs = Record<string, { outputs?: Fields, result: string }>
+
+const FIELD   = /\{\{([\w.-]+)\}\}/g
+const LIST    = new Intl.ListFormat('en')
 const PASSING = new Set(['skipped', 'success'])
 
-const outputOf = (needs: Needs, job: string, key: string) => needs[job]?.outputs?.[key] ?? ''
+/**
+ * Fills each `{{field}}` in `template` from `fields`, leaving out each line
+ * naming a field that is unset or empty.
+ */
+const filledOf = (template: string, fields: Fields) => template
+  .split('\n')
+  .filter(line => [...line.matchAll(FIELD)].every(([, key]) => fields[key]))
+  .map(line => line.replace(FIELD, (_, key) => fields[key]))
+  .join('\n')
 
 /**
- * Reads the summary file, the jobs endpoint, the `needs` context, the run's
- * address, and the summary template from the variables GitHub Actions sets for
- * a step, where a run outside a workflow writes to standard output with no jobs
- * in `needs`.
+ * Keys each output of each job in `needs` as `job.output`.
  */
-export const contextOf = (env: NodeJS.ProcessEnv): Context => {
-  const run = `${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`
+const outputsOf = (needs: Needs): Fields => Object.fromEntries(
+  Object.entries(needs).flatMap(([job, { outputs = {} }]) =>
+    Object.entries(outputs).map(([key, value]) => [`${job}.${key}`, value]))
+)
+
+/**
+ * Reads the summary file, the jobs endpoint, the `needs` context, the summary
+ * template, and the run's address, its commit, and its branch from the
+ * variables GitHub Actions sets for a step, where a run outside a workflow
+ * writes to standard output with no jobs in `needs`. The commit and the branch
+ * come from the `SHA` and `REF` a workflow sets, and stay unset where it sets
+ * neither.
+ */
+export const contextOf = (env: Record<string, string | undefined>): Context => {
+  const repository = `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}`
+  const file       = basename(env.GITHUB_WORKFLOW_REF?.split('@')[0] ?? '', '.yml')
   return {
-    jobs     : `repos/${run}/jobs?per_page=100`,
-    needs    : needsOf(env),
-    run      : `${env.GITHUB_SERVER_URL}/${run}`,
+    fields   : {
+      commit : env.SHA ? `[\`${env.SHA.slice(0, 7)}\`](${repository}/commit/${env.SHA})` : '',
+      ref    : env.REF ?? '',
+      run    : `${repository}/actions/runs/${env.GITHUB_RUN_ID}`
+    },
+    jobs     : `repos/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}/jobs?per_page=100`,
+    needs    : JSON.parse(env.NEEDS ?? '{}'),
     summary  : env.GITHUB_STEP_SUMMARY ?? '/dev/stdout',
-    template : templateOf(env, 'summaries')
+    template : `.github/scripts/summaries/${file}.md`
   }
 }
 
 /**
- * Fills each `{{job.output}}` in `template` with that output of the job the
- * `needs` context holds, leaving out each line naming an output the job did not
- * set, such as one a skipped job would have set.
- */
-export const filledOf = (template: string, needs: Needs) => template
-  .split('\n')
-  .filter(line => [...line.matchAll(OUTPUT)].every(([, job, key]) => outputOf(needs, job, key)))
-  .map(line => line.replace(OUTPUT, (_, job, key) => outputOf(needs, job, key)))
-  .join('\n')
-
-/**
  * Fills a workflow's summary template from the jobs of its run, writing one row
- * per finished job beside its conclusion and the link to the workflow run, and
- * passes only where every job in the `needs` context its gate reads succeeded
- * or was skipped. A matrix job takes one row per leg, each under the name its
- * leg expands to.
+ * per finished job beside its conclusion, and passes only where every job in
+ * the `needs` context its gate reads succeeded or was skipped. A matrix job
+ * takes one row per leg, each under the name its leg expands to.
  *
  * Args:
  *   jobs     : The jobs of the run, in the order the run lists them.
  *   needs    : The `needs` context, keyed by job id.
- *   run      : The address of the workflow run.
- *   template : The Markdown holding `{{jobs}}`, `{{run}}`, and each
- *     `{{job.output}}`.
+ *   template : The Markdown holding `{{jobs}}` and any other `{{field}}`, where
+ *     `{{failed}}` lists the jobs that failed and `{{job.output}}` names an
+ *     output of a job in `needs`.
+ *   fields   : The run's own fields, such as `run`, `commit`, and `ref`.
  */
-export const logbookOf = (jobs: Job[], needs: Needs, run: string, template: string): Logbook => {
-  const rows = jobs
-    .filter(job => job.status === 'completed')
-    .map(job => `| \`${job.name}\` | ${job.conclusion} |`)
-    .join('\n')
+export const logbookOf = (jobs: Job[], needs: Needs, template: string, fields: Fields): Logbook => {
+  const finished = jobs.filter(job => job.status === 'completed')
+  const rows     = finished.map(job => `| \`${job.name}\` | ${job.conclusion} |`).join('\n')
+  const failed   = finished.filter(job => job.conclusion === 'failure').map(job => `\`${job.name}\``)
   return {
     passed  : Object.values(needs).every(({ result }) => PASSING.has(result)),
-    summary : filledOf(template, needs).replace('{{jobs}}', rows).replace('{{run}}', run)
+    summary : filledOf(template.replace('{{jobs}}', rows), {
+      ...fields,
+      ...outputsOf(needs),
+      failed : LIST.format(failed)
+    })
   }
 }
-
-/**
- * The `needs` context a step passes in `NEEDS`, empty outside a workflow.
- */
-export const needsOf = (env: NodeJS.ProcessEnv): Needs => JSON.parse(env.NEEDS ?? '{}')
-
-/**
- * The template under `folder` named for the workflow a step runs in.
- */
-export const templateOf = (env: NodeJS.ProcessEnv, folder: 'comments' | 'summaries') =>
-  `.github/scripts/${folder}/${basename(env.GITHUB_WORKFLOW_REF?.split('@')[0] ?? '', '.yml')}.md`
 
 if (import.meta.main) {
   const context  = contextOf(process.env)
   const { jobs } = await $`gh api ${context.jobs}`.json()
-  const logbook  = logbookOf(jobs, context.needs, context.run, await Bun.file(context.template).text())
+  const logbook  = logbookOf(jobs, context.needs, await Bun.file(context.template).text(), context.fields)
   await appendFile(context.summary, logbook.summary)
   process.exit(logbook.passed ? 0 : 1)
 }

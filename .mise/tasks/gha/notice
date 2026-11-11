@@ -1,5 +1,0 @@
-#!/usr/bin/env -S bash -euo pipefail
-#MISE depends     = ["site:install"]
-#MISE description = "Post the outputs `NEEDS` holds on the pull request the run checks, editing the comment an earlier run posted"
-
-bun run docs/.vitepress/tools/notice.ts
