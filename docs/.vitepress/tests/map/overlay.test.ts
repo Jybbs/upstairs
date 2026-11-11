@@ -14,10 +14,10 @@ const NORTH  = { latitude: 60, longitude: -71.06 }
 
 /**
  * Builds a canvas whose 2D context ignores every call but `arc`, `beginPath`,
- * `fillRect`, `lineTo`, `restore`, `save`, `setLineDash`, and `stroke`,
+ * `fill`, `fillRect`, `lineTo`, `restore`, `save`, `setLineDash`, and `stroke`,
  * recording the center and radius of each arc drawn while a line dash is set,
  * the gap of each dash set, the stroke style of each stroke while a dash is
- * set, the count of lines each stroke draws, and the alpha of each square.
+ * set, the count of lines each stroke draws, and the alpha of each fill.
  */
 const canvasOf = () => {
   const alphas: number[]   = []
@@ -32,6 +32,7 @@ const canvasOf = () => {
     arc         : (x: number, y: number, radius: number) => dash && dashed.push([x, y, radius]),
     beginPath   : () => { pending = 0 },
     canvas      : { height: 0, width: 0 },
+    fill        : () => alphas.push(context.globalAlpha as number),
     fillRect    : () => alphas.push(context.globalAlpha as number),
     lineTo      : () => { pending++ },
     restore     : () => { dash = saved.pop() ?? 0 },
@@ -124,15 +125,16 @@ const pairAt = (zoom: number, named: Kind | null, traced: boolean) => {
 }
 
 it.each([
-  ['draws every kind at full strength with no kind named', null, [0.5, 0.5]],
-  ['dims each kind but the one the tally names', 'earth', [0.5 * 0.16, 0.5]]
-] as const)('%s', (_, named, alphas) => {
-  expect(pairAt(7, named, false).moving.alphas).toEqual(alphas.map(alpha => expect.closeTo(alpha)))
+  ['draws every kind at full strength with no kind named', null, false, [0.5, 0.5]],
+  ['dims each kind but the one the tally names', 'earth', false, [0.5 * 0.16, 0.5]],
+  ['dims the mark of each traced kind but the one the tally names', 'earth', true, [0.16, 1]]
+] as const)('%s', (_, named, traced, alphas) => {
+  expect(pairAt(7, named, traced).moving.alphas).toEqual(alphas.map(alpha => expect.closeTo(alpha)))
 })
 
 it.each([
   ['counts each kind standing inside the view', 7, { crewed: 1, earth: 1 }],
-  ['leaves out a satellite past the edge of the view', 9, { earth: 1 }]
+  ['leaves out a satellite inside the drawing margin but past the edge of the view', 7.8, { earth: 1 }]
 ])('%s', (_, zoom, counts) => {
   const { onMap } = pairAt(zoom, null, true).overlay
   expect(Object.fromEntries(kindOrder.flatMap((kind, index) => onMap[index] ? [[kind, onMap[index]]] : [])))

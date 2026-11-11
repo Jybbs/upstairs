@@ -26,10 +26,10 @@ interface Reading {
 }
 
 /**
- * The clock's tuning in seconds, except `latch` in milliseconds: how far into
- * the window the present stands as it opens, how far a press moves a held
- * frame on under reduced motion, the fast-forward's speed, and how long the
- * readout holds a reading.
+ * The clock's tuning in seconds, except `lapse` as a multiple of real speed
+ * and `latch` in milliseconds: how far into the window the present stands as
+ * it opens, how far a press moves a held frame on under reduced motion, the
+ * fast-forward's speed, and how long the readout holds a reading.
  */
 export const CLOCK   = { ahead: 300, lapse: 60, latch: 30_000, lead: 300 } as const
 export const HEIGHTS = [0, 30, 60, 80] as const
@@ -47,7 +47,8 @@ const resting: Clock = reduced ? 'held' : 'live'
 const shared         = address.spotIn(location.hash)
 const opening        = shared ? { place: null, spot: shared } : address.HOME
 /**
- * Writes a count of minutes out in words.
+ * Writes a count of minutes as a figure beside the unit spelled out, as in
+ * `5 minutes`.
  */
 export const minuteFormat = new Intl.NumberFormat([], { style: 'unit', unit: 'minute', unitDisplay: 'long' })
 /**
@@ -162,7 +163,7 @@ class Sky {
     const loaded = this.loaded.value
     return loaded ? catalog.ageOf(loaded.fetched, this.start.value) : 0
   })
-  readonly expired = computed(() => catalog.freshnessOf(this.age.value) === 'expired')
+  readonly expired = computed(() => this.age.value > catalog.AGES.limit)
 
   readonly focus = computed<Pass | null>(() => {
     void this.version.value
@@ -225,7 +226,6 @@ class Sky {
     this.counts        = null
     this.inFrame.value = new Uint8Array()
     this.version.value++
-    this.unlatch()
     if (this.expired.value) return
     this.ask({
       id      : this.scanId,
@@ -277,8 +277,8 @@ class Sky {
   }
 
   /**
-   * Opens the window `CLOCK.lead` seconds before the present and moves the
-   * clock to the present.
+   * Opens the window `CLOCK.lead` seconds before the present's minute and
+   * moves the clock to the present.
    */
   toNow() {
     this.start.value = openingOf(Date.now())
@@ -332,13 +332,16 @@ class Sky {
 
   /**
    * Moves the clock on by a frame's real time, following the present while
-   * live and holding at the window's end once the fast-forward reaches it.
+   * live and holding at the window's end once the fast-forward reaches it,
+   * where the next `latch` reads the frame it stopped on.
    */
   advance(realSeconds: number) {
     if (this.clock.value === 'live') this.seconds = Math.min(this.present, this.span)
     else if (this.clock.value === 'running') {
       this.seconds = Math.min(this.seconds + realSeconds * CLOCK.lapse, this.span)
-      if (this.seconds === this.span) this.clock.value = 'held'
+      if (this.seconds < this.span) return
+      this.clock.value = 'held'
+      this.unlatch()
     }
   }
 
@@ -385,12 +388,13 @@ class Sky {
 
   /**
    * Takes a reading from what the map draws by kind, `onMap` in the order of
-   * `KINDS`, on every call while the passes are traced and otherwise once
-   * the last reading is `CLOCK.latch` milliseconds old.
+   * `KINDS`, on every call while the passes are traced or the fast-forward
+   * runs, and otherwise once the last reading is `CLOCK.latch` milliseconds
+   * old.
    */
   latch(onMap: Uint16Array) {
     const now = Date.now()
-    if (this.done.value && now - this.latchedAt < CLOCK.latch) return
+    if (this.done.value && this.clock.value !== 'running' && now - this.latchedAt < CLOCK.latch) return
     this.latchedAt     = now
     this.reading.value = {
       above      : this.up.value,

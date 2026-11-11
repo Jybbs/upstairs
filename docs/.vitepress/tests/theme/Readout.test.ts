@@ -76,3 +76,23 @@ it('names the kind the tally holds on the last line, with how many the map draws
   await wrapper.get('[aria-label="Earth, 5 on this map"]').trigger('click')
   expect(wrapper.findAll('p.caps').at(-1)!.text()).toBe('Earth · 5 of 7 up')
 })
+
+it('sets the figure to what the map draws and the last line to what stands above the horizon', async () => {
+  const { sky, wrapper } = await mounted(0)
+  sky.loaded.value       = { count: 9, fetched: sky.start.value }
+  sky.up.value           = 12
+  sky.reading.value      = { ...sky.reading.value, above: 9, onMap: 5 }
+  await wrapper.vm.$nextTick()
+  expect([wrapper.get('output').text(), wrapper.findAll('p.caps').at(-1)!.text()])
+    .toEqual(['5', 'Of 9 above the horizon'])
+})
+
+it.each([
+  ['live', '11:47 PM'],
+  ['running', '11:47:30 PM']
+] as const)('reads the %s clock as %s', async (clock, time) => {
+  const { sky, wrapper } = await mounted(30)
+  sky.clock.value        = clock
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('p.truncate').text().replace(/\s+/g, ' ')).toBe(`Above Boston · ${time}`)
+})

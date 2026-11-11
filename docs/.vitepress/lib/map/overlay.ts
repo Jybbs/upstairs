@@ -23,7 +23,7 @@ export interface Label {
 
 const BOOK        = '"Newsreader Variable", serif'
 /**
- * The alpha each kind draws at while the tally names another.
+ * The share of its own alpha each kind draws at while the tally names another.
  */
 const DIM         = 0.16
 const DOT_GAP     = 4.5
@@ -346,7 +346,8 @@ export class Overlay {
   }
 
   /**
-   * Returns the alpha a kind draws at, full unless the tally names another.
+   * Returns the share of its own alpha a kind draws at, all of it unless the
+   * tally names another.
    */
   private strength(kind: Kind): number { return this.named === null || this.named === kind ? 1 : DIM }
 

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import * as catalog           from '../../lib/orbit/catalog.ts'
 import * as scan              from '../../lib/orbit/scan.ts'
 import type { Answer, Asked } from '../../lib/orbit/worker.ts'
 
@@ -198,6 +199,15 @@ describe('the clock', () => {
     expect(sky.seconds).toBe(2000)
   })
 
+  it('holds a chosen moment in its window once the present passes the window’s end', async () => {
+    const sky   = await loaded()
+    const start = sky.start.value
+    sky.seek(2000)
+    vi.advanceTimersByTime(sky.span * 1000)
+    sky.tally()
+    expect([sky.start.value, sky.seconds]).toEqual([start, 2000])
+  })
+
   it('opens a new window once the present passes the end of this one on the way back', async () => {
     const sky = await loaded()
     sky.seek(2000)
@@ -205,6 +215,17 @@ describe('the clock', () => {
     sky.back()
     expect(sky.start.value).toBe(scan.minuteOf(Date.now()) - 300_000)
     expect(sky.clock.value).toBe('live')
+  })
+})
+
+describe('the catalog age', () => {
+  it.each([
+    ['places satellites from a catalog fetched 14 days before the window opens', 14, false],
+    ['places nothing from a catalog fetched more than 14 days before', 14.01, true]
+  ])('%s', async (_, days, expired) => {
+    const sky = await loaded()
+    hear({ count: 1, fetched: sky.start.value - days * catalog.DAY, type: 'loaded' })
+    expect(sky.expired.value).toBe(expired)
   })
 })
 
@@ -270,6 +291,31 @@ describe('the reading', () => {
     sky.seek(100)
     sky.latch(Uint16Array.of(9, 0, 0, 0, 0, 0, 0, 0))
     expect(sky.reading.value.onMap).toBe(9)
+  })
+
+  it('takes a reading at once as the traces finish', async () => {
+    const sky = await loaded()
+    sky.latch(ON_MAP)
+    traced([passAt(0, 30)])
+    sky.latch(Uint16Array.of(9, 0, 0, 0, 0, 0, 0, 0))
+    expect(sky.reading.value.onMap).toBe(9)
+  })
+
+  it('follows the map on every call while the fast-forward runs, and holds again once it stops', async () => {
+    const sky     = await loaded()
+    const onMapOf = (count: number) => Uint16Array.of(count, 0, 0, 0, 0, 0, 0, 0)
+    traced([passAt(0, 30)])
+    sky.latch(ON_MAP)
+    sky.turn()
+    sky.latch(onMapOf(9))
+    expect(sky.reading.value.onMap).toBe(9)
+    sky.advance(1)
+    sky.latch(onMapOf(4))
+    expect(sky.reading.value.onMap).toBe(4)
+    sky.advance(3600)
+    sky.latch(onMapOf(7))
+    sky.latch(onMapOf(8))
+    expect(sky.reading.value.onMap).toBe(7)
   })
 
   it('counts what stands above the horizon by kind', async () => {

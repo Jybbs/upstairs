@@ -43,12 +43,19 @@ it('dims every group but the one named', async () => {
   expect([crewed.classes('opacity-25'), earth.classes('opacity-25')]).toEqual([true, false])
 })
 
-it('lets a held kind go once its group leaves the tally', async () => {
+it.each([
+  ['keeps the group keyboard focus stands on, named, once none of its kind is on the map', true, 'earth', 2],
+  ['lets a group a pointer pressed leave the tally once none of its kind is on the map', false, null, 1]
+])('%s', async (_, keyboard, named, groups) => {
   const { sky, wrapper } = await mounted({ crewed: 2, earth: 5 })
-  await wrapper.findAll('button')[1].trigger('click')
+  const earth            = wrapper.findAll('button')[1]
+  vi.spyOn(earth.element, 'matches').mockReturnValue(keyboard)
+  await earth.trigger('focus')
+  if (!keyboard) await earth.trigger('click')
+  expect(sky.named.value).toBe('earth')
   sky.reading.value = { ...sky.reading.value, kinds: kindOrder.map(kind => kind === 'crewed' ? 2 : 0) }
   await wrapper.vm.$nextTick()
-  expect(sky.named.value).toBe(null)
+  expect([sky.named.value, wrapper.findAll('button').length]).toEqual([named, groups])
 })
 
 it.each([

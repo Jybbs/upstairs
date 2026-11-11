@@ -61,7 +61,7 @@ describe('the files the README and the browser read', () => {
     it('renders a tile the size iOS takes', () =>
       expect([touch.width, touch.height]).toEqual([mark.TOUCH.size, mark.TOUCH.size]))
 
-    it('fills every corner with the Daylight U, leaving no pixel for iOS to fill black', () => {
+    it('fills every corner with the Daylight U, leaving no pixel transparent', () => {
       const last = mark.TOUCH.size - 1
       expect([pixel(0, 0), pixel(last, 0), pixel(0, last), pixel(last, last)]).toEqual(Array(4).fill(SCHEMES.day.u))
     })

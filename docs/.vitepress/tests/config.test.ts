@@ -71,3 +71,6 @@ it.each([
 ])('serves the files under %s with their headers', (rule, headers) =>
   expect(readFileSync(new URL('../../public/_headers', import.meta.url), 'utf8'))
     .toContain(`${rule}\n  ${headers}\n`))
+
+it('links the touch icon from the head', () =>
+  expect(config.head).toContainEqual(['link', { href: '/apple-touch-icon.png', rel: 'apple-touch-icon' }]))

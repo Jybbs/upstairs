@@ -10,11 +10,12 @@ import { sky }                         from '../lib/state/sky.ts'
 const bar      = ref<HTMLElement>()
 const focused  = ref<Kind | null>(null)
 const held     = ref<Kind | null>(null)
+const keyed    = ref(false)
 const released = ref(false)
 const rested   = ref<Kind | null>(null)
 const shown    = computed(() => kindOrder
   .map((kind, index) => ({ count: sky.reading.value.kinds[index], kind }))
-  .filter(({ count, kind }) => count > 0 || focused.value === kind))
+  .filter(({ count, kind }) => count > 0 || (keyed.value && focused.value === kind)))
 const { width } = useElementSize(bar, { height: 16, width: 320 })
 const fitted    = computed(() => tallyOf(shown.value.map(({ count }) => count), width.value))
 
@@ -24,11 +25,13 @@ const fitted    = computed(() => tallyOf(shown.value.map(({ count }) => count), 
  */
 const enter = (event: FocusEvent, kind: Kind) => {
   focused.value  = kind
-  released.value = !(event.target as HTMLElement).matches(':focus-visible')
+  keyed.value    = (event.target as HTMLElement).matches(':focus-visible')
+  released.value = !keyed.value
 }
 
 const leave = () => {
   focused.value  = null
+  keyed.value    = false
   released.value = false
 }
 
