@@ -5,9 +5,11 @@ import { expect, it, vi } from 'vitest'
 /**
  * Mounts the readout over a fresh copy of the shared state and a stand-in
  * worker, with the scan finished, a count announced, and the window opening at
- * 11:47 PM on Tuesday, November 10, 2026, read at `seconds` into it.
+ * 11:47 PM on Tuesday, November 10, 2026 in New York's time zone, read at
+ * `seconds` into it.
  */
 const mounted = async (seconds: number) => {
+  vi.stubEnv('TZ', 'America/New_York')
   vi.stubGlobal('Worker', class { postMessage() {} })
   vi.resetModules()
   const { sky }              = await import('../../lib/state/sky.ts')
@@ -26,10 +28,12 @@ it('keeps the visible count silent and reads the spoken count from a polite regi
 })
 
 it.each([
-  ['11:58 PM', 660, [], ''],
-  ['12:03 AM', 960, ['Wed'], 'The time read is on Wednesday, November 11.']
-])('names the weekday before the time at %s only once the day turns', async (_, seconds, weekday, spoken) => {
-  const wrapper = await mounted(seconds)
+  ['11:59 PM', 779, [], ''],
+  ['12:00 AM', 780, ['Wed'], 'The time read is on Wednesday, November 11.']
+])('names the weekday before the time at %s only once the day turns', async (time, at, weekday, spoken) => {
+  const wrapper = await mounted(at)
+  const line    = wrapper.get('p.truncate').text().replace(/\s+/g, ' ')
   expect(wrapper.findAll('p.truncate span').map(span => span.text())).toEqual(weekday)
+  expect(line).toBe(`over Boston at ${[...weekday, time].join(' ')} your time`)
   expect(wrapper.findAll('[aria-live="polite"]')[1].text()).toBe(spoken)
 })

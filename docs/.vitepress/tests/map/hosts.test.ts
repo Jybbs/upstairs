@@ -27,6 +27,14 @@ describe('the hosts the map reads from', () => {
     expect(hosts.message.value).toBe('')
   })
 
+  it('names the host still down once the other host recovers', () => {
+    const hosts = new Hosts()
+    hosts.fail('base')
+    hosts.fail('dem')
+    hosts.load('base')
+    expect(hosts.message.value).toBe('Could not reach Terrain Tiles')
+  })
+
   it.each([
     ['a source that has loaded a tile', 'base', true],
     ['a source the style does not declare', 'elsewhere', false],
