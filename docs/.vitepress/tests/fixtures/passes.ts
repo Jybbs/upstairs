@@ -2,10 +2,12 @@ import type { Pass } from '../../lib/orbit/scan.ts'
 
 /**
  * Builds a crewed pass of satellite `id` from 300 to 900 seconds into the
- * window, with `changes` laid over it.
+ * window, its element set fitted at the Unix epoch, with `changes` laid over
+ * it.
  */
 export const passOf = (id: number, changes: Partial<Pass> = {}): Pass => ({
   earlier : false,
+  epoch   : 0,
   heading : 170,
   height  : 410,
   id      : id,

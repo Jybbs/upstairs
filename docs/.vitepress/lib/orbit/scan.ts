@@ -3,8 +3,8 @@
  * passes it reports, and the steps its samples are taken at.
  */
 
-import type { Record }       from './catalog.ts'
-import { kindOf, type Kind } from './kinds.ts'
+import { timeOf, type Record } from './catalog.ts'
+import { kindOf, type Kind }   from './kinds.ts'
 
 /**
  * One pass of a satellite over a spot within a window, with its times in
@@ -27,9 +27,10 @@ export interface Pass extends Satellite {
 }
 
 export interface Satellite {
-  id   : number
-  kind : Kind
-  name : string
+  epoch : number
+  id    : number
+  kind  : Kind
+  name  : string
 }
 
 export interface Spot { latitude: number, longitude: number }
@@ -84,4 +85,9 @@ export const samplesFor = (minutes: number, step: number): number => Math.floor(
  * rows.
  */
 export const satellitesOf = (records: readonly Record[]): Satellite[] =>
-  records.map(({ NORAD_CAT_ID: id, OBJECT_NAME: name }) => ({ id, kind: kindOf(name), name }))
+  records.map(({ EPOCH, NORAD_CAT_ID: id, OBJECT_NAME: name }) => ({
+    epoch : timeOf(EPOCH),
+    id    : id,
+    kind  : kindOf(name),
+    name  : name
+  }))

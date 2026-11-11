@@ -5,8 +5,8 @@ import * as scan              from '../../lib/orbit/scan.ts'
 import type { Answer, Asked } from '../../lib/orbit/worker.ts'
 
 const NOW       = Date.parse('2026-11-06T18:37:00Z')
-const OTHER     = { id: 2, kind: 'crewed', name: 'CRAFT 2' } as const
-const SATELLITE = { id: 1, kind: 'crewed', name: 'CRAFT 1' } as const
+const OTHER     = { epoch: 0, id: 2, kind: 'crewed', name: 'CRAFT 2' } as const
+const SATELLITE = { epoch: 0, id: 1, kind: 'crewed', name: 'CRAFT 1' } as const
 const SAMPLES   = scan.samplesFor(60, scan.TRACK_STEP)
 
 let listen: (event: MessageEvent<Answer>) => void

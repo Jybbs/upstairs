@@ -1,11 +1,13 @@
-import { KINDS }                             from '../orbit/kinds.ts'
+import { AGES, DAY }                        from '../orbit/catalog.ts'
+import { KINDS }                            from '../orbit/kinds.ts'
 import { TRACK_STEP, type Pass, type Spot } from '../orbit/scan.ts'
-import type { Tracks }                       from '../state/tracks.ts'
-import { View }                              from './mercator.ts'
+import type { Tracks }                      from '../state/tracks.ts'
+import { View }                             from './mercator.ts'
 
 export interface Drawn {
   selected : Pass | null
   spot     : Spot
+  start    : number
   traced   : (pass: number) => boolean
   tracks   : Tracks
 }
@@ -37,6 +39,13 @@ const FONTS = {
   region : `500 10.5px ${MONO}`,
   water  : `italic 13px ${BOOK}`
 }
+
+/**
+ * How many times `DOT_GAP` the ring's dots stand apart round a satellite whose
+ * element set is `age` days past its epoch, once within a day of it, twice
+ * until positions may drift, and three times after.
+ */
+const spreadOf = (age: number) => age > AGES.warn ? 3 : age > 1 ? 2 : 1
 
 /**
  * The two canvases above the map. The lower one holds what stays put between
@@ -281,7 +290,9 @@ export class Overlay {
       }
     }
 
-    if (chosen >= 0 && tracks.up(chosen, seconds)) this.drawRing(context, tracks, chosen)
+    if (chosen >= 0 && tracks.up(chosen, seconds)) {
+      this.drawRing(context, tracks, chosen, state.start + seconds * 1000)
+    }
     for (let pass = 0; pass < tracks.passes.length; pass++) {
       if (!state.traced(pass) || !tracks.up(pass, seconds)) continue
       this.drawMark(context, tracks, pass, seconds, tracks.passes[pass] === state.selected)
@@ -295,14 +306,16 @@ export class Overlay {
 
   /**
    * Draws a dotted ring `DRIFT_KM` out round the chosen satellite in its kind's
-   * color, once that distance spans `DRIFT_PX` at its latitude.
+   * color, once that distance spans `DRIFT_PX` at its latitude, its dots
+   * spread by `spreadOf` the age of the satellite's element set at `time`.
    */
-  private drawRing(context: CanvasRenderingContext2D, tracks: Tracks, pass: number) {
+  private drawRing(context: CanvasRenderingContext2D, tracks: Tracks, pass: number, time: number) {
     const { dots, view } = this
     const radius         = DRIFT_KM * view.scale(tracks.latitude)
     if (radius < DRIFT_PX) return
     const around = 2 * Math.PI * radius
-    dots[1]      = around / Math.max(8, Math.round(around / DOT_GAP))
+    const gap    = DOT_GAP * spreadOf((time - tracks.passes[pass].epoch) / DAY)
+    dots[1]      = around / Math.max(8, Math.round(around / gap))
     context.save()
     context.setLineDash(dots)
     context.beginPath()

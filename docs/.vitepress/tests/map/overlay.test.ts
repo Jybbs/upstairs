@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 
 import { Overlay }     from '../../lib/map/overlay.ts'
+import { DAY }         from '../../lib/orbit/catalog.ts'
 import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
 import { Tracks }      from '../../lib/state/tracks.ts'
 import { passOf }      from '../fixtures/passes.ts'
@@ -11,10 +12,12 @@ const NORTH  = { latitude: 60, longitude: -71.06 }
 
 /**
  * Builds a canvas whose 2D context ignores every call but `arc`, recording
- * the center and radius of each arc drawn while a line dash is set.
+ * the center and radius of each arc drawn while a line dash is set, and the
+ * gap of each dash set.
  */
 const canvasOf = () => {
   const dashed: number[][] = []
+  const gaps: number[]     = []
   const saved: number[]    = []
   let dash                 = 0
   const calls              = {
@@ -22,12 +25,15 @@ const canvasOf = () => {
     canvas      : { height: 0, width: 0 },
     restore     : () => { dash = saved.pop() ?? 0 },
     save        : () => { saved.push(dash) },
-    setLineDash : (segments: number[]) => { dash = segments.length }
+    setLineDash : (segments: number[]) => {
+      dash = segments.length
+      if (dash) gaps.push(segments[1])
+    }
   }
   const context = new Proxy<Record<string | symbol, unknown>>(calls, {
     get: (target, key) => target[key] ?? (() => {})
   })
-  return { canvas: { getContext: () => context } as unknown as HTMLCanvasElement, dashed }
+  return { canvas: { getContext: () => context } as unknown as HTMLCanvasElement, dashed, gaps }
 }
 
 /**
@@ -58,6 +64,7 @@ it.each([
   const overlay = new Overlay(still.canvas, moving.canvas, () => ({
     selected : chosen ? pass : null,
     spot     : BOSTON,
+    start    : 0,
     traced   : () => traced,
     tracks   : tracks
   }))
@@ -70,4 +77,35 @@ it.each([
     expect.closeTo(view.row(CRAFT.latitude)),
     expect.closeTo(5 * view.scale(CRAFT.latitude))
   ]))
+})
+
+it.each([
+  [0.5, 1],
+  [1, 1],
+  [1.01, 2],
+  [3, 2],
+  [3.01, 3],
+  [5, 3]
+])('spaces the ring\'s dots %f days past the epoch %i times as far apart as at it', (age, spread) => {
+  const tracks = new Tracks()
+  const pass   = passOf(25544, { riseAt: 0, setAt: 60 })
+  const track  = new Float32Array(3 * TRACK_WIDTH)
+  trackAt(track, BOSTON, 0)
+  tracks.add([pass], track, Uint32Array.of(0), 3)
+  const moving  = canvasOf()
+  let start     = 0
+  const overlay = new Overlay(canvasOf().canvas, moving.canvas, () => ({
+    selected : pass,
+    spot     : BOSTON,
+    start    : start,
+    traced   : () => true,
+    tracks   : tracks
+  }))
+  overlay.resize(400, 400, 1)
+  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(30)
+  start = age * DAY - 30_000
+  overlay.draw(30)
+  const [fresh, aged] = moving.gaps
+  expect(aged / fresh).toBeCloseTo(spread, 0)
 })

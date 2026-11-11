@@ -98,6 +98,7 @@ onMounted(async () => {
   overlay = new Overlay(lower.value!, upper.value!, () => ({
     selected : sky.selected.value,
     spot     : sky.spot.value,
+    start    : sky.start.value,
     traced   : sky.traces,
     tracks   : sky.tracks
   }))
