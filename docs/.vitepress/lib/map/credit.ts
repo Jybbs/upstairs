@@ -16,7 +16,6 @@ interface Row {
   left    : number
   top     : number
   width   : number
-  pseudo? : string
 }
 
 /**
@@ -26,6 +25,15 @@ interface Row {
 export const CREDITS = [
   `<a href="${import.meta.env.BASE_URL}data/#orbits">Orbits from CelesTrak and Space-Track</a>`,
   `<a href="${import.meta.env.BASE_URL}data/#terrain">Terrain from Mapzen and its sources</a>`
+]
+
+/**
+ * The groups of the open panel in reading order, each as its heading and the
+ * links under it in the order `links` gives.
+ */
+export const GROUPS = [
+  { heading: 'Sources', links: ['[href$="#orbits"]', '[href$="#terrain"]', '[href*="openstreetmap.org"]'] },
+  { heading: 'Tiles', links: ['[href*="openfreemap.org"]', '[href*="openmaptiles.org"]'] }
 ]
 
 /**
@@ -57,38 +65,36 @@ const MOTION = {
 }
 
 /**
- * Measures each line and heading of the open panel in reading order, placing
- * each heading on the line above the first link of its group.
+ * Measures each line and heading of the open panel, sorted top to bottom and
+ * then left to right.
  */
-const rowsOf = (inner: HTMLElement): Row[] => {
-  const rows = [...inner.querySelectorAll('a')].map((link): Row => ({
-    element : link,
-    height  : link.offsetHeight,
-    left    : inner.offsetLeft + link.offsetLeft,
-    top     : inner.offsetTop + link.offsetTop,
-    width   : link.offsetWidth
-  }))
-  const headings = [['::before', '[href$="#orbits"]'], ['::after', '[href*="openfreemap.org"]']]
-  for (const [pseudo, first] of headings) {
-    const under = rows.find(row => row.element.matches(first))
-    if (!under) continue
-    rows.push({ ...under, element: inner, pseudo, top: under.top - under.height })
-  }
-  return rows.sort((one, two) => one.top - two.top || one.left - two.left)
-}
+const rowsOf = (inner: HTMLElement): Row[] =>
+  [...inner.querySelectorAll<HTMLElement>('a, .credit-heading')]
+    .map(element => ({
+      element : element,
+      height  : element.offsetHeight,
+      left    : inner.offsetLeft + element.offsetLeft,
+      top     : inner.offsetTop + element.offsetTop,
+      width   : element.offsetWidth
+    }))
+    .sort((one, two) => one.top - two.top || one.left - two.left)
 
 /**
  * Folds the map's credit into the ring around its i and opens it back out,
  * playing the fold backward to open and swapping at once under reduced
  * motion, and reverses a motion from where it stands when the i is pressed
- * again partway through.
+ * again partway through. Each time the map rewrites the credit's lines, it
+ * moves them into the groups `GROUPS` sets.
  */
 class Credit {
   private heading: boolean | null = null
   private moving: Animation[]     = []
+  private readonly lines          = new MutationObserver(() => this.arrange())
 
   constructor(readonly details: HTMLElement, private readonly motion = MOTION) {
     details.addEventListener('click', this.pressed, { capture: true })
+    this.lines.observe(this.inner, { childList: true })
+    this.arrange()
   }
 
   get inner() {
@@ -104,6 +110,29 @@ class Credit {
    */
   get open() {
     return this.heading ?? this.details.classList.contains('maplibregl-compact-show')
+  }
+
+  /**
+   * Moves each link into its group under the group's heading, drops the text
+   * between the links, and leaves out a group with no link shown. A link no
+   * group names follows the groups.
+   */
+  private arrange() {
+    const { inner } = this
+    const links     = [...inner.querySelectorAll('a')]
+    const groups    = GROUPS.flatMap(({ heading, links: picks }) => {
+      const shown = picks.flatMap(pick => links.filter(link => link.matches(pick)))
+      if (!shown.length) return []
+      const group = document.createElement('div')
+      const title = document.createElement('p')
+      group.className   = 'credit-group'
+      title.className   = 'credit-heading'
+      title.textContent = heading
+      group.append(title, ...shown)
+      return [group]
+    })
+    inner.replaceChildren(...groups, ...links.filter(link => link.parentElement === inner))
+    this.lines.takeRecords()
   }
 
   /**
@@ -143,7 +172,7 @@ class Credit {
         { easing: 'cubic-bezier(.4,0,.8,.6)', offset: i * step * scale, opacity: 1, translate: '0 0' },
         { offset: gone(i), opacity: 0, translate: moved },
         { offset: 1, opacity: 0, translate: moved }
-      ], row.pseudo]
+      ]]
     })
     const edges = rows.slice(1).map((_, i) => {
       const kept = rows.slice(i + 1)
@@ -214,11 +243,11 @@ class Credit {
 /**
  * Keeps the map's credit open until the reader presses, scrolls, or types on
  * the map, or until `wait` milliseconds after the line `line` selects shows,
- * whichever comes first, and leaves it as the reader sets it once the reader
- * presses the credit itself.
+ * whichever comes first. Once the reader presses the credit itself, it stays as
+ * the reader sets it until a drag of the map folds it.
  */
-export const holdCredit = (map: Map, hold = HOLD) => {
-  const credit = new Credit(map.getContainer().querySelector('.maplibregl-ctrl-attrib')!)
+export const holdCredit = (map: Map, hold = HOLD, motion = MOTION) => {
+  const credit = new Credit(map.getContainer().querySelector('.maplibregl-ctrl-attrib')!, motion)
   const held   = new AbortController()
   const close  = () => {
     held.abort()
@@ -237,7 +266,11 @@ export const holdCredit = (map: Map, hold = HOLD) => {
   })
   lines.observe(credit.inner, { childList: true })
   start()
-  credit.details.addEventListener('pointerdown', () => held.abort(), { signal: held.signal })
+  map.on('dragstart', () => credit.toggle(false))
+  map.once('remove', () => held.abort())
+  for (const type of ['click', 'pointerdown']) {
+    credit.details.addEventListener(type, () => held.abort(), { capture: true, signal: held.signal })
+  }
   for (const type of hold.events) {
     map.getCanvasContainer().addEventListener(type, close, { signal: held.signal })
   }

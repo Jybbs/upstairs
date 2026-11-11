@@ -64,6 +64,15 @@
       outline        : 2px solid var(--color-ink);
       outline-offset : 3px;
     }
+
+    @media (forced-colors: active) {
+      border: 1px solid CanvasText;
+
+      &::before {
+        background          : CanvasText;
+        forced-color-adjust : none;
+      }
+    }
   }
 }
 
@@ -94,9 +103,8 @@
     z-index        : 1;
     display        : flex;
     flex-direction : column;
+    gap            : 8px;
     align-items    : flex-start;
-    font-size      : 0;
-    line-height    : 0;
 
     @container (width >= 640px) {
       display               : grid;
@@ -109,96 +117,38 @@
 }
 
 .maplibregl-map .maplibregl-ctrl-attrib-inner {
-  &::before,
-  &::after {
+  .credit-group {
+    display        : flex;
+    flex-direction : column;
+    align-items    : flex-start;
+  }
+
+  .credit-heading {
+    margin         : 0;
     color          : var(--color-soft);
     font           : 500 16px / 24px var(--font-mono);
     letter-spacing : 0.1em;
     text-transform : uppercase;
   }
 
-  &::before {
-    order   : 5;
-    content : 'Sources';
-  }
-
-  &::after {
-    order      : 35;
-    margin-top : 8px;
-    content    : 'Tiles';
-  }
-
-  &:not(:has(a[href*='openfreemap.org']))::after {
-    display: none;
-  }
-
   a {
-    max-width   : 100%;
-    font-size   : 16px;
-    line-height : 24px;
+    max-width: 100%;
   }
 
-  a[href$='#orbits'] {
-    order: 10;
+  a[href*='openstreetmap.org']::before {
+    display         : inline-block;
+    content         : 'Map data from ';
+    text-decoration : none;
+    white-space     : pre;
   }
 
-  a[href$='#terrain'] {
-    order: 20;
-  }
-
-  a[href*='openstreetmap.org'] {
-    order: 30;
-
-    &::before {
-      display         : inline-block;
-      content         : 'Map data from ';
-      text-decoration : none;
-      white-space     : pre;
-    }
-  }
-
-  a[href*='openfreemap.org'] {
-    order: 40;
-  }
-
-  a[href*='openmaptiles.org'] {
-    order: 50;
-  }
-
-  a[href*='openmaptiles.org'],
-  &:not(:has(a[href*='openfreemap.org'])) a[href$='#terrain'] {
+  .credit-group:last-child > :last-child {
     padding-right: calc(var(--credit-ring) - 8px);
   }
 
   @container (width >= 640px) {
-    &::before {
-      grid-area: 1 / 1;
-    }
-
-    &::after {
-      grid-area  : 1 / 2;
-      margin-top : 0;
-    }
-
-    a[href$='#orbits'] {
-      grid-area: 2 / 1;
-    }
-
-    a[href$='#terrain'] {
-      grid-area: 3 / 1;
-    }
-
-    a[href*='openstreetmap.org'] {
-      grid-area: 4 / 1;
-    }
-
-    a[href*='openfreemap.org'] {
-      grid-area: 2 / 2;
-    }
-
-    a[href*='openmaptiles.org'] {
-      grid-area     : 3 / 2;
-      padding-right : 0;
+    .credit-group + .credit-group > :last-child {
+      padding-right: 0;
     }
   }
 }

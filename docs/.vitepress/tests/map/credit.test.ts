@@ -5,7 +5,7 @@ import { resolve }      from 'node:path'
 import type { Map }                                        from 'maplibre-gl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { CREDITS, HOLD, holdCredit } from '../../lib/map/credit.ts'
+import { CREDITS, GROUPS, HOLD, holdCredit } from '../../lib/map/credit.ts'
 
 const DATA  = readFileSync(resolve(import.meta.dirname, '../../../data/index.md'), 'utf8')
 const TILES = '<a href="https://openfreemap.org">OpenFreeMap</a> '
@@ -20,9 +20,12 @@ it.each(CREDITS)('links %s to a section the Data page carries', credit => {
 describe.each([true, false])('the map credit with reduced motion %s', reduced => {
   let canvas: HTMLElement
   let credit: HTMLElement
+  let fired: Record<string, () => void>
   let inner: HTMLElement
   let summary: HTMLElement
   const shown = () => credit.classList.contains('maplibregl-compact-show')
+  const order = () => [...inner.querySelectorAll('a, .credit-heading')].map(element =>
+    GROUPS.flatMap(group => group.links).find(link => element.matches(link)) ?? element.textContent)
   const tiles = async () => {
     inner.insertAdjacentHTML('beforeend', TILES)
     await Promise.resolve()
@@ -45,7 +48,14 @@ describe.each([true, false])('the map credit with reduced motion %s', reduced =>
     credit          = container.firstElementChild as HTMLElement
     inner           = credit.lastElementChild as HTMLElement
     summary         = credit.firstElementChild as HTMLElement
-    holdCredit({ getCanvasContainer: () => canvas, getContainer: () => container } as unknown as Map)
+    fired           = {}
+    const map       = {
+      getCanvasContainer : () => canvas,
+      getContainer       : () => container,
+      on                 : (type: string, listener: () => void) => (fired[type] = listener, map),
+      once               : (type: string, listener: () => void) => (fired[type] = listener, map)
+    }
+    holdCredit(map as unknown as Map)
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -58,7 +68,7 @@ describe.each([true, false])('the map credit with reduced motion %s', reduced =>
   })
   it('stays open for five seconds after the OpenStreetMap line shows before it folds', async () => {
     await tiles()
-    vi.advanceTimersByTime(4_999)
+    vi.advanceTimersByTime(HOLD.wait - 1)
     expect(shown()).toBe(true)
     vi.advanceTimersByTime(1)
     await settle()
@@ -115,5 +125,60 @@ describe.each([true, false])('the map credit with reduced motion %s', reduced =>
     summary.click()
     await settle()
     expect(shown()).toBe(true)
+  })
+  it('ends the hold once the reader presses the i from the keyboard', async () => {
+    await tiles()
+    summary.click()
+    summary.click()
+    vi.advanceTimersByTime(HOLD.wait)
+    await settle()
+    expect(shown()).toBe(true)
+  })
+  it('ends the hold once the map is removed', async () => {
+    fired.remove!()
+    await tiles()
+    vi.advanceTimersByTime(HOLD.wait)
+    expect(shown()).toBe(true)
+  })
+  it('folds a credit the reader opened once the map is dragged', async () => {
+    summary.click()
+    await settle()
+    summary.click()
+    await settle()
+    fired.dragstart!()
+    await settle()
+    expect([shown(), credit.hasAttribute('open')]).toEqual([false, false])
+  })
+  it('swaps at once under reduced motion and plays the fold otherwise', () => {
+    const press = new MouseEvent('click', { bubbles: true, cancelable: true })
+    summary.dispatchEvent(press)
+    expect([shown(), credit.classList.contains('credit-moving'), press.defaultPrevented])
+      .toEqual([!reduced, !reduced, true])
+  })
+  it('plays the fold backward to open and clears the motion once it lands', async () => {
+    summary.click()
+    await settle()
+    summary.click()
+    const played = summary.getAnimations().map(animation => animation.effect!.getTiming().direction)
+    expect([shown(), played]).toEqual([true, reduced ? [] : ['reverse', 'reverse']])
+    await settle()
+    expect(credit.classList.contains('credit-moving')).toBe(false)
+  })
+  it('reverses the fold from where it stands when the i is pressed partway through', () => {
+    summary.click()
+    summary.click()
+    expect(summary.getAnimations().map(animation => animation.playbackRate))
+      .toEqual(reduced ? [] : [-1, -1])
+  })
+  it('lists the lines under their headings in the order the panel draws them', async () => {
+    expect(order()).toEqual([GROUPS[0]!.heading, ...GROUPS[0]!.links.slice(0, 2)])
+    await tiles()
+    expect(order()).toEqual(GROUPS.flatMap(group => [group.heading, ...group.links]))
+    expect(inner.textContent).not.toMatch(/\||Data from/)
+  })
+  it('lists the lines again in order each time the map rewrites them', async () => {
+    inner.innerHTML = `${TILES} | <a href="https://example.org">Example</a> | ${CREDITS.join(' | ')}`
+    await Promise.resolve()
+    expect(order()).toEqual([...GROUPS.flatMap(group => [group.heading, ...group.links]), 'Example'])
   })
 })
