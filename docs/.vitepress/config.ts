@@ -1,12 +1,15 @@
-import tailwindcss     from '@tailwindcss/vite'
-import { defineConfig } from 'vitepress'
+import tailwindcss        from '@tailwindcss/vite'
+import { viteStaticCopy } from 'vite-plugin-static-copy'
+import { defineConfig }   from 'vitepress'
 
 import manifest           from '../package.json' with { type: 'json' }
 import { writeCards }     from './lib/site/cards.ts'
 import { headOf }         from './lib/site/head.ts'
 import { licensesOf }     from './lib/site/licenses.ts'
+import { markdownOf }     from './lib/site/markdown.ts'
 import { SCHEMES, cssOf } from './lib/site/palette.ts'
 import { preloadOf }      from './lib/site/preload.ts'
+import { SHEETS }         from './lib/site/sheets.ts'
 import { navOf }          from './lib/site/sections.ts'
 
 const LICENSES = 'licenses.txt'
@@ -22,6 +25,7 @@ export default defineConfig({
   cacheDir      : '../.cache/vite',
   description   : manifest.description,
   lang          : 'en-US',
+  markdown      : { config: markdownOf() },
   themeConfig   : { nav: navOf(), siteTitle: false },
   title         : 'Upstairs',
   transformHead : context => [...home.head(context), ...headOf(context, manifest.homepage)],
@@ -36,8 +40,13 @@ export default defineConfig({
   vite: {
     build        : { license: { fileName: LICENSES } },
     optimizeDeps : { exclude: ['maplibre-gl'] },
-    plugins      : [tailwindcss(), home.plugin, notices],
     server       : { fs: { allow: ['../rust/pkg'] } },
-    worker       : { format: 'es' }
+    worker       : { format: 'es' },
+    plugins      : [
+      tailwindcss(),
+      home.plugin,
+      notices,
+      viteStaticCopy({ targets: Object.values(SHEETS).map(sheet => sheet.copy) })
+    ]
   }
 })

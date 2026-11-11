@@ -1,0 +1,265 @@
+.vp-doc {
+  --fn-hit : color-mix(in srgb, var(--page), var(--u) 20%);
+}
+
+.vp-doc sup.footnote-ref {
+  font-size      : inherit;
+  line-height    : 0;
+  vertical-align : baseline;
+}
+
+.vp-doc .footnote-ref a:first-child {
+  display         : inline-block;
+  position        : relative;
+  width           : 34px;
+  height          : 0;
+  margin          : 0 1px 0 2px;
+  color           : var(--u);
+  outline         : none;
+  text-decoration : none;
+  vertical-align  : baseline;
+}
+
+.vp-doc .footnote-ref a:first-child::after {
+  content  : "";
+  position : absolute;
+  right    : -3px;
+  bottom   : -4px;
+  left     : -3px;
+  height   : 28px;
+}
+
+.vp-doc .katex + sup.footnote-ref a:first-child { margin-left: 4px; }
+
+.vp-doc .fn-mark {
+  display       : block;
+  position      : absolute;
+  bottom        : 0;
+  left          : 0;
+  width         : 34px;
+  height        : 21px;
+  border-radius : 5px;
+  color         : var(--u);
+}
+
+.vp-doc .fn-mark svg {
+  display  : block;
+  position : absolute;
+  inset    : 0;
+}
+
+.vp-doc .fn-mark b {
+  position             : absolute;
+  bottom               : 3px;
+  left                 : 25px;
+  min-width            : 18px;
+  height               : 18px;
+  padding              : 0 4px;
+  border-radius        : 9px;
+  background           : var(--u);
+  color                : var(--page);
+  font                 : 600 16px/18px var(--font-mono);
+  font-variant-numeric : tabular-nums;
+  text-align           : center;
+  transform            : translateX(-50%);
+}
+
+.vp-doc .footnote-ref a:first-child:hover .fn-mark b {
+  box-shadow : 0 0 0 2px var(--page), 0 0 0 3.5px var(--u);
+}
+
+.vp-doc .footnote-ref a:first-child:focus-visible .fn-mark {
+  outline        : 2px solid var(--u);
+  outline-offset : 3px;
+}
+
+.vp-doc sup.is-target a:first-child .fn-mark {
+  background : var(--fn-hit);
+  box-shadow : 0 0 0 3px var(--fn-hit);
+}
+
+.vp-doc sup.is-target a:first-child .fn-mark b { box-shadow: 0 0 0 2px var(--fn-hit); }
+
+.vp-doc .footnotes {
+  --fn-gap : var(--page);
+
+  position     : relative;
+  padding-left : 16px;
+  font-size    : inherit;
+}
+
+.vp-doc .fn-head {
+  display     : flex;
+  position    : relative;
+  z-index     : 1;
+  align-items : flex-end;
+  gap         : 14px;
+  margin      : 56px 0 10px;
+}
+
+.vp-doc .fn-head .fn-emblem { margin-left: -14.6px; }
+
+.vp-doc .fn-emblem {
+  display  : block;
+  overflow : visible;
+  color    : var(--u);
+}
+
+.vp-doc .fn-emblem circle {
+  fill       : var(--fn-gap);
+  transition : fill 0.6s ease;
+}
+
+.vp-doc .footnotes:has(li.is-target) .fn-emblem circle { fill: var(--u); }
+
+.vp-doc h2.fn-title {
+  margin      : 0;
+  padding     : 0;
+  border      : 0;
+  color       : var(--ink);
+  font-size   : 26px;
+  line-height : 1.2;
+}
+
+.vp-doc .fn-spine {
+  position : absolute;
+  top      : 29.76px;
+  bottom   : 24px;
+  left     : 35px;
+  z-index  : 0;
+  width    : 16px;
+  overflow : hidden;
+  color    : var(--u);
+}
+
+.vp-doc .fn-spine svg {
+  display : block;
+  width   : 16px;
+  height  : 1600px;
+}
+
+.vp-doc .footnotes-list {
+  display    : grid;
+  position   : relative;
+  z-index    : 1;
+  gap        : 10px;
+  margin     : 0;
+  padding    : 0;
+  list-style : none;
+}
+
+.vp-doc .footnotes-list li {
+  display               : grid;
+  position              : relative;
+  grid-template-columns : 48px minmax(0, 1fr);
+  column-gap            : 12px;
+  margin                : 0;
+  padding               : 12px 12px 12px 0;
+  border-radius         : 6px;
+  font-size             : 17px;
+  line-height           : 1.55;
+}
+
+.vp-doc .footnotes-list li:focus { outline: none; }
+
+.vp-doc .footnotes-list li:focus-visible {
+  outline        : 2px solid var(--u);
+  outline-offset : 2px;
+}
+
+.vp-doc .footnotes-list li:last-child::after {
+  content    : "";
+  position   : absolute;
+  top        : 34px;
+  bottom     : 0;
+  left       : 0;
+  width      : 46px;
+  background : var(--page);
+}
+
+.vp-doc .footnotes-list li.is-target {
+  --fn-gap : var(--fn-hit);
+
+  background : linear-gradient(90deg, transparent 46px, var(--fn-hit) 46px);
+}
+
+.vp-doc .fn-lead {
+  display  : block;
+  position : relative;
+  grid-row : span 2;
+  width    : 34px;
+  height   : 22px;
+  margin   : 3px 0 0 2px;
+}
+
+.vp-doc .fn-lead .fn-mark {
+  top        : 0;
+  bottom     : auto;
+  background : var(--page);
+  box-shadow : 0 0 0 4px var(--page);
+}
+
+.vp-doc li.is-target .fn-lead .fn-mark b { box-shadow: 0 0 0 2px var(--page), 0 0 0 3.5px var(--u); }
+
+.vp-doc .fn-seg { white-space: nowrap; }
+
+.vp-doc .fn-backs {
+  display     : flex;
+  flex-wrap   : wrap;
+  grid-column : 2;
+  align-items : center;
+  gap         : 6px;
+  margin-top  : 8px;
+}
+
+.vp-doc .footnote-backref {
+  display         : inline-flex;
+  align-items     : center;
+  justify-content : center;
+  gap             : 8px;
+  min-width       : 28px;
+  height          : 30px;
+  padding         : 0 6px;
+  border-radius   : 4px;
+  color           : var(--u);
+  font            : 600 16px/1 var(--font-mono);
+  text-decoration : none;
+}
+
+.vp-doc .footnote-backref:focus-visible {
+  outline        : 2px solid var(--u);
+  outline-offset : 2px;
+}
+
+.vp-doc .footnote-backref .fn-mark {
+  position : relative;
+  bottom   : auto;
+  left     : auto;
+  flex     : none;
+}
+
+.vp-doc .footnote-backref .fn-mark b {
+  display     : grid;
+  place-items : center;
+  width       : 18px;
+  min-width   : 0;
+  padding     : 0;
+}
+
+.vp-doc .footnote-backref:hover .fn-mark b { box-shadow: 0 0 0 2px var(--fn-gap), 0 0 0 3.5px var(--u); }
+
+.vp-doc .footnote-backref[aria-current] { background: var(--fn-hit); }
+
+.vp-doc .footnote-backref[aria-current] .fn-mark b { box-shadow: 0 0 0 2px var(--fn-hit), 0 0 0 3.5px var(--u); }
+
+.vp-doc .fn-mark,
+.vp-doc .fn-mark *,
+.vp-doc .footnotes-list li,
+.vp-doc .footnote-backref {
+  transition : background-color 0.6s ease, box-shadow 0.6s ease, color 0.6s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vp-doc .footnotes *,
+  .vp-doc .footnote-ref * { transition: none; }
+}

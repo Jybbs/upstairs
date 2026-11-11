@@ -26,4 +26,4 @@ name        = "🗺️ map"
 [[labels]]
 color       = "617692"
 description = "The orbit calculation, the pass scan, and the catalog they read"
-name        = "🛰️ orbit"
+name        = "🌎 orbit"

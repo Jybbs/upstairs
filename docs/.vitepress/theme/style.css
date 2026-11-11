@@ -55,7 +55,7 @@
   font-weight: 700;
 }
 
-.vp-doc a:not(.header-anchor) {
+.vp-doc a:not(.header-anchor, .footnote-ref > a, .footnote-backref) {
   --key-ease : cubic-bezier(0.45, 0, 0.2, 1);
   --key-run  : 620ms;
   --key-wait : 200ms;
@@ -76,13 +76,13 @@
   transition                  : color 0.25s, background-size var(--key-run) var(--key-ease);
 }
 
-.vp-doc a:not(.header-anchor):is(:hover, :focus-visible) {
+.vp-doc a:not(.header-anchor, .footnote-ref > a, .footnote-backref):is(:hover, :focus-visible) {
   background-size  : 100% 2px, 0 1px;
   transition-delay : var(--key-wait);
 }
 
-.vp-doc a:not(.header-anchor):focus-visible { transition-delay: 0s; }
+.vp-doc a:not(.header-anchor, .footnote-ref > a, .footnote-backref):focus-visible { transition-delay: 0s; }
 
 @media (prefers-reduced-motion: reduce) {
-  .vp-doc a:not(.header-anchor) { transition: none; }
+  .vp-doc a:not(.header-anchor, .footnote-ref > a, .footnote-backref) { transition: none; }
 }

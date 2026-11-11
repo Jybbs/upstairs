@@ -2,11 +2,6 @@ import { $ }          from 'bun'
 import { appendFile } from 'node:fs/promises'
 import { basename }   from 'node:path'
 
-interface Brief {
-  passed  : boolean
-  summary : string
-}
-
 interface Context {
   jobs     : string
   needs    : Needs
@@ -19,6 +14,11 @@ interface Job {
   conclusion : string | null
   name       : string
   status     : string
+}
+
+interface Logbook {
+  passed  : boolean
+  summary : string
 }
 
 type Needs = Record<string, { result: string }>
@@ -35,7 +35,7 @@ type Needs = Record<string, { result: string }>
  *   run      : The address of the workflow run.
  *   template : The Markdown holding `{{jobs}}` and `{{run}}`.
  */
-export const briefOf = (jobs: Job[], needs: Needs, run: string, template: string): Brief => {
+export const logbookOf = (jobs: Job[], needs: Needs, run: string, template: string): Logbook => {
   const rows = jobs
     .filter(job => job.status === 'completed')
     .map(job => `| \`${job.name}\` | ${job.conclusion} |`)
@@ -67,7 +67,7 @@ export const contextOf = (env: Record<string, string | undefined>): Context => {
 if (import.meta.main) {
   const context  = contextOf(process.env)
   const { jobs } = await $`gh api ${context.jobs}`.json()
-  const brief    = briefOf(jobs, context.needs, context.run, await Bun.file(context.template).text())
-  await appendFile(context.summary, brief.summary)
-  process.exit(brief.passed ? 0 : 1)
+  const logbook  = logbookOf(jobs, context.needs, context.run, await Bun.file(context.template).text())
+  await appendFile(context.summary, logbook.summary)
+  process.exit(logbook.passed ? 0 : 1)
 }

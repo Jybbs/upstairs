@@ -2,9 +2,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
 jobs:
-  brief:
+  logbook:
     if: always()
-    name: 🔭 Brief
+    name: 📓 Logbook
     needs: [check]
     permissions:
       actions: read
@@ -22,7 +22,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NEEDS: ${{ toJSON(needs) }}
-        run: mise run gha:brief
+        run: mise run gha:logbook
     timeout-minutes: 10
   check:
     name: ${{ matrix.name }}

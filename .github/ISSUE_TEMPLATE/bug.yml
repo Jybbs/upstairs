@@ -1,20 +1,20 @@
 body:
   - attributes:
-      description: What the site shows or does, at which spot and time, and on which browser and screen width.
+      description: What the site or the task does, naming the spot, the time, the browser, and the screen width for the site, or the output for a task.
       label: Behavior
     id: happens
     type: textarea
     validations:
       required: true
   - attributes:
-      description: What the site shows or does instead, with the source a reader can check it against where one exists.
+      description: What it does instead, with the source a reader can check it against where one exists.
       label: Expected Behavior
     id: expected
     type: textarea
     validations:
       required: true
   - attributes:
-      description: The steps that reach the defect, starting from the address the site opens on.
+      description: The steps that reach the defect, starting from the address the site opens on or from the command that runs the task.
       label: Steps
       value: |
         1.
@@ -22,6 +22,6 @@ body:
     type: textarea
     validations:
       required: true
-description: Report a defect in what the site shows or does
+description: Report a defect in the site or in a task
 labels: ["🐞 bug"]
 name: Bug

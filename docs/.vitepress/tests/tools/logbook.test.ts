@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { briefOf, contextOf } from '../../tools/brief.ts'
+import { contextOf, logbookOf } from '../../tools/logbook.ts'
 
 const RUN      = 'https://github.com/Jybbs/upstairs/actions/runs/1'
 const TEMPLATE = '| **Job** | **Result** |\n|---|---|\n{{jobs}}\n\n[The workflow run]({{run}})'
 
 const job = (conclusion: string | null, name: string, status = 'completed') => ({ conclusion, name, status })
 
-describe('briefOf', () => {
+describe('logbookOf', () => {
   it.each([
     ['every job succeeded', { check: { result: 'success' } }, true],
     ['a job failed', { check: { result: 'failure' } }, false],
@@ -15,15 +15,15 @@ describe('briefOf', () => {
     ['a job was cancelled', { check: { result: 'cancelled' } }, false],
     ['one job of two failed', { check: { result: 'failure' }, prune: { result: 'success' } }, false]
   ])('passes only where %s', (_, needs, passed) =>
-    expect(briefOf([], needs, RUN, TEMPLATE).passed).toBe(passed))
+    expect(logbookOf([], needs, RUN, TEMPLATE).passed).toBe(passed))
 
   it('writes one row per finished job under its expanded name, leaving out the gate still running', () => {
     const jobs = [
       job('success', '🩺 Advisories'),
       job('failure', '🔗 Links'),
-      job(null, '🔭 Brief', 'in_progress')
+      job(null, '📓 Logbook', 'in_progress')
     ]
-    expect(briefOf(jobs, { check: { result: 'failure' } }, RUN, TEMPLATE).summary).toBe(
+    expect(logbookOf(jobs, { check: { result: 'failure' } }, RUN, TEMPLATE).summary).toBe(
         '| **Job** | **Result** |\n|---|---|\n| `🩺 Advisories` | success |\n| `🔗 Links` | failure |\n\n'
       + `[The workflow run](${RUN})`
     )

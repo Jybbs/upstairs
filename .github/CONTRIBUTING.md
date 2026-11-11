@@ -23,14 +23,14 @@ The site reads the satellite catalog from `docs/public/catalog.bin`, which `mise
 | `mise ci` | *Every check a pull request runs, listed under Checks below* |
 | `mise relock` | *`mise lock`, `bun install`, and `cargo update --workspace`, re-resolving each lockfile after its manifest changes* |
 | `mise lift` | *A list of the newer version of each pinned tool and package* |
-| `mise labels` | *The labels in `.github/labels.toml`, sent to GitHub once approved* |
-| `mise rulesets` | *The settings in `.github/settings.toml`, the About box in `docs/package.json`, and the rulesets under `.github/rulesets/`, sent to GitHub once approved* |
+| `mise labels` | *The labels in `.github/labels.toml`, sent to GitHub once approved, where a row renames the live label whose word it shares once no other row names that label* |
+| `mise rulesets` | *The settings in `.github/settings.toml`, the About box in `docs/package.json`, and the rulesets under `.github/rulesets/`, sent to GitHub once approved, with the GitHub Pages site created where `pages` turns on and none exists* |
 
 `mise tasks` lists every task with its description. `mise labels` and `mise rulesets` each prompt for confirmation before they write to GitHub.
 
 ## Checks
 
-Each pull request runs `🛰️ CI`, one row per check below, and the `🔭 Brief` gate that the `main` ruleset requires reads every row as one verdict.
+Each pull request runs `🛰️ CI`, one row per check below, and the `📓 Logbook` gate that the `main` ruleset requires writes each row's result into the run's summary and passes only where every row passed.
 
 | **Row** | **Local Command** | **Fails When** |
 |---|---|---|
@@ -59,12 +59,16 @@ An issue and a pull request each carry the label of every domain the change land
 | `📚 docs` | *The README, the docs site, and the contributor guide* |
 | `🎨 identity` | *The mark, the faces, and the palette* |
 | `🗺️ map` | *The terrain map, its layers, and the controls drawn on it* |
-| `🛰️ orbit` | *The orbit calculation, the pass scan, and the catalog they read* |
+| `🌎 orbit` | *The orbit calculation, the pass scan, and the catalog they read* |
+
+## Math and Citations
+
+A page sets a formula through [KaTeX](https://katex.org/docs/supported.html), between `$` inline and between `$$` on a line of its own, and loads KaTeX's stylesheet only where it sets one. An issue takes the same delimiters, which GitHub [renders itself](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/writing-mathematical-expressions). A study is cited through a footnote keyed `<surname><year>` to its entry in `docs/references.bib`, which holds each cited work with its DOI. A page writes only the marker, such as `[^vallado2006]`, and the site sets the entry at the page's foot, whereas an issue writes the footnote's text beside the marker.
 
 ## Commits and Pull Requests
 
 - A branch is named `<issue>/<slug>` for the issue it closes
 - A commit title reads `type(scope): description`, where the type is one of `feat`, `fix`, `refactor`, `chore`, `docs`, or `test` and the scope is the word of the label the change lands in
 - A pull request title reads `[N] Title`, taking the number and the title of the issue it closes, and its body follows the template GitHub opens it with
-- Every pull request squash-merges into `main` as one commit titled from the pull request, once `🔭 Brief` passes on a branch up to date with `main`
+- Every pull request squash-merges into `main` as one commit titled from the pull request, once `📓 Logbook` passes on a branch up to date with `main`
 - Every action a workflow uses is pinned to a full commit, and a pin moves by hand in a change of its own

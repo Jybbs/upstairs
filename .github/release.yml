@@ -2,8 +2,8 @@ changelog:
   categories:
     - labels: ["🐞 bug"]
       title: 🐞 Fixes
-    - labels: ["🛰️ orbit"]
-      title: 🛰️ Orbit
+    - labels: ["🌎 orbit"]
+      title: 🌎 Orbit
     - labels: ["🗺️ map"]
       title: 🗺️ Map
     - labels: ["🎨 identity"]

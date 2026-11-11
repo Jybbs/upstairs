@@ -4,7 +4,7 @@ import { join }         from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-const LINK  = '.vp-doc a:not(.header-anchor)'
+const LINK  = '.vp-doc a:not(.header-anchor, .footnote-ref > a, .footnote-backref)'
 const SHEET = new CSSStyleSheet()
 SHEET.replaceSync(readFileSync(join(import.meta.dirname, '../../theme/style.css'), 'utf8'))
 

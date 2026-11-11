@@ -1,12 +1,14 @@
-import { fileURLToPath } from 'node:url'
+import { basename, join } from 'node:path'
+import { fileURLToPath }  from 'node:url'
 
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { Repository } from '../../tools/repository.ts'
+import { FILES, Repository, parseFile } from '../../tools/repository.ts'
 
 type Change = (base: Repository) => Partial<Repository>
 
 const CHECKOUT_PIN = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+const ROOT         = fileURLToPath(new URL('../../../..', import.meta.url))
 
 let base: Repository
 
@@ -20,15 +22,19 @@ const variant = (change: Change): Repository =>
   Object.assign(Object.create(Repository.prototype), base, change(base))
 
 beforeAll(async () => {
-  base = await Repository.read(fileURLToPath(new URL('../../../..', import.meta.url)))
+  base = await Repository.read(ROOT)
 })
 
 describe('Repository', () => {
   it('reads the gate the ruleset requires and one row per check', () => {
-    expect(base.gates).toEqual(['🔭 Brief'])
+    expect(base.gates).toEqual(['📓 Logbook'])
     expect(base.problems).toEqual([])
     expect(base.rows.map(row => row.task).sort()).toEqual([...base.sweep].sort())
   })
+
+  it('reads the labels of each issue template, a Markdown one from its frontmatter', () =>
+    expect(base.templates.map(({ labels, path }) => [basename(path), labels]))
+      .toEqual([['bug.yml', ['🐞 bug']], ['spec.md', []]]))
 
   it.each<[string, string | string[]]>([['a string', 'a'], ['a list', ['a']]])(
     'names a gate with no name by its job id, reading needs as %s',
@@ -89,8 +95,8 @@ describe('Repository', () => {
     ],
     [
       'a guide leaving the gate out',
-      ({ guide }) => ({ guide: guide.replaceAll('`🔭 Brief`', '`🔭 Gate`') }),
-      '.github/CONTRIBUTING.md names no 🔭 Brief gate'
+      ({ guide }) => ({ guide: guide.replaceAll('`📓 Logbook`', '`🔭 Gate`') }),
+      '.github/CONTRIBUTING.md names no 📓 Logbook gate'
     ],
     [
       'a guide leaving a label out',
@@ -152,4 +158,15 @@ describe('Repository', () => {
     ]
   ])('reports %s', (_, change, problem) =>
     expect(variant(change).problems.filter(found => !base.problems.includes(found))).toEqual([problem]))
+})
+
+describe('parseFile', () => {
+  it.each([
+    [
+      'the frontmatter of a Markdown file',
+      '.github/ISSUE_TEMPLATE/spec.md', { about: expect.any(String), name: 'Spec' }
+    ],
+    ['a Markdown file with no frontmatter as empty', FILES.guide, {}]
+  ])('reads %s', async (_, path, parsed) =>
+    expect(await parseFile(join(ROOT, path))).toEqual(parsed))
 })
