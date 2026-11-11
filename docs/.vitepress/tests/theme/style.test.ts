@@ -17,8 +17,20 @@ const morseOf = (image: string) => [...image.matchAll(/var\(--u\) (\d+)(?:px)? (
   .join('')
 
 describe('a link in a page', () => {
-  it.each(['--vp-c-brand-1', '--vp-c-brand-2', '--vp-c-brand-3'])('keeps %s in the U', property =>
+  it.each(['--vp-c-brand-1', '--vp-c-brand-2'])('keeps %s in the U', property =>
     expect(styleOf(':root, html.dark', property)).toBe('var(--u)'))
+  it.each([
+    { property: 'text-decoration',      shows: 'drops the theme’s underline for its own',
+      value: 'none' },
+    { property: 'background-repeat',    shows: 'draws the Morse and the resting line once each',
+      value: 'no-repeat' },
+    { property: 'box-decoration-break', shows: 'keys each line of a wrapped link from its start',
+      value: 'clone' },
+    { property: 'background-position',  shows: 'retracts the resting line toward the link’s end',
+      value: '0px calc(100% - 2.5px), 100% calc(100% - 3px)' },
+    { property: 'transition',           shows: 'runs the keying over --key-run on --key-ease',
+      value: 'color 0.25s, background-size var(--key-run) var(--key-ease)' }
+  ])('$shows', ({ property, value }) => expect(styleOf(LINK, property)).toBe(value))
   it('keys out the U in Morse along its underline', () =>
     expect(morseOf(styleOf(LINK, 'background-image'))).toBe('..-'))
   it.each([

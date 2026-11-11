@@ -96,6 +96,13 @@ describe('a section’s line', () => {
     expect([set.size, set.bases.length]).toEqual([size, bases.length])
     set.bases.forEach((base, i) => expect(base).toBeCloseTo(bases[i]))
   })
+  it.each(sectionsOf())('draws the %s card’s line at the size and on the baselines it sets', section => {
+    const { svg } = cardsOf(faces, PAGES).find(({ file }) => file === fileOf(section))!
+    const set     = sectionLineOf(faces, PAGES.sections[section], section)
+    set.lines.forEach((text, i) =>
+      expect(svg)
+        .toContain(faces.book.outlineTo({ size: set.size, text }, NET_LAYOUT.line.right, set.bases[i])))
+  })
   it('stops the build where a line runs past the card', () =>
     expect(() => cardsOf(faces, LONG)).toThrow('The line on the Data card'))
 })
