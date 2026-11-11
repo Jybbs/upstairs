@@ -11,9 +11,12 @@ export const HEIGHTS = [0, 30, 60, 80] as const
 const HOME           = { place: 'Boston', spot: { latitude: 42.36, longitude: -71.06 } }
 const NEARLY         = 80
 const ROWS           = 200
+const SPOKEN         = 20_000
 export const SPEEDS  = [1, 60, 240] as const
 export const WINDOWS = [30, 60, 120] as const
 const WORTH          = 20
+const clockFormat    = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' })
+const dayFormat      = new Intl.DateTimeFormat([], { day: 'numeric', month: 'short', weekday: 'short' })
 const shared         = spotIn(location.hash)
 const opening        = shared ? { place: null, spot: shared } : HOME
 
@@ -42,7 +45,11 @@ class Sky {
   readonly traced   = reactive(tracedOf())
   readonly lowest   = ref<number>(0)
   readonly scope    = ref<'map' | 'sky'>('map')
-  readonly selected = ref<number | null>(null)
+  readonly selected = shallowRef<Pass | null>(null)
+  /**
+   * The length of the window in seconds.
+   */
+  readonly span     = computed(() => this.minutes.value * 60)
 
   /**
    * Seconds into the window, read every frame, written to `at` a few times a
@@ -60,10 +67,15 @@ class Sky {
   readonly up       = ref(0)
   readonly nearly   = ref(0)
   readonly starlink = ref(0)
+  /**
+   * The count of what is up as a screen reader last announced it.
+   */
+  readonly spoken   = ref('')
 
   private counts: Uint16Array | null = null
   private countStep                  = 120
   private scanId                     = 0
+  private spokenAt                   = 0
 
   private worker = new Worker(new URL('../orbit/worker.ts', import.meta.url), { type: 'module' })
 
@@ -99,7 +111,8 @@ class Sky {
 
   readonly focus = computed<Pass | null>(() => {
     void this.version.value
-    return this.tracks.passes.find(pass => pass.id === this.selected.value) ?? null
+    const selected = this.selected.value
+    return selected && this.tracks.passes.includes(selected) ? selected : null
   })
 
   constructor() {
@@ -122,7 +135,7 @@ class Sky {
       this.countStep = answer.step
       this.tally()
     } else if (answer.type === 'passes') {
-      this.tracks.add(answer.passes, answer.track, answer.samples)
+      this.tracks.add(answer.passes, answer.track, answer.offsets, answer.samples)
       this.share.value = answer.done / answer.total
       this.version.value++
     } else {
@@ -156,17 +169,20 @@ class Sky {
   }
 
   /**
-   * Keeps the chosen satellite when it is still found, and otherwise focuses on
-   * a known mission crossing the sky, or else the highest satellite that
-   * crosses.
+   * Keeps the chosen pass when the scan found it again, or else the highest
+   * pass of the chosen satellite, and otherwise focuses on a known mission
+   * crossing the sky, or else the highest satellite that crosses.
    */
   private chooseFocus() {
-    const passes = this.tracks.passes
-    if (passes.some(pass => pass.id === this.selected.value)) return
+    const passes        = this.tracks.passes
+    const chosen        = this.selected.value
     const crossing      = passes.filter(pass => this.traced[pass.kind] && !pass.earlier && !pass.later)
     const noted         = crossing.filter(pass => pass.id in kinds.NOTES && pass.peak >= WORTH)
-    const best          = highestOf(noted) ?? highestOf(crossing) ?? highestOf(passes)
-    this.selected.value = best?.id ?? null
+    this.selected.value = passes.find(pass => pass.key === chosen?.key)
+      ?? highestOf(passes.filter(pass => pass.id === chosen?.id))
+      ?? highestOf(noted)
+      ?? highestOf(crossing)
+      ?? highestOf(passes)
   }
 
   /**
@@ -194,7 +210,7 @@ class Sky {
 
   setWindow(minutes: number) {
     this.minutes.value = minutes
-    this.seconds       = Math.min(this.seconds, minutes * 60)
+    this.seconds       = Math.min(this.seconds, this.span.value)
     this.scan()
   }
 
@@ -212,12 +228,12 @@ class Sky {
    * Selects a pass and moves the clock to its highest point.
    */
   focusOn(pass: Pass) {
-    this.selected.value = pass.id
+    this.selected.value = pass
     this.seek(pass.peakAt)
   }
 
   seek(seconds: number) {
-    this.seconds  = Math.max(Math.min(seconds, this.minutes.value * 60), 0)
+    this.seconds  = Math.max(Math.min(seconds, this.span.value), 0)
     this.at.value = this.seconds
     this.tally()
   }
@@ -229,29 +245,38 @@ class Sky {
   advance(realSeconds: number) {
     if (!this.playing.value) return
     this.seconds += realSeconds * this.speed.value
-    if (this.seconds > this.minutes.value * 60) this.seconds = 0
+    if (this.seconds > this.span.value) this.seconds = 0
+  }
+
+  /**
+   * Moves the window to the present once the present passes its end, and
+   * otherwise counts what is up at the clock's time and announces the count.
+   */
+  tally() {
+    if (Date.now() >= this.start.value + this.span.value * 1000) return this.toNow()
+    this.at.value = this.seconds
+    if (this.count()) this.speak()
   }
 
   /**
    * Counts what is up at the clock's time, reading the rough grid until the
-   * traces finish.
+   * traces finish, and returns false while the grid has not arrived.
    */
-  tally() {
-    this.at.value = this.seconds
+  private count(): boolean {
     if (!this.done.value) {
       const counts = this.counts
-      if (!counts) return
+      if (!counts) return false
       const position = this.seconds / this.countStep
       const index    = Math.min(Math.floor(position), counts.length - 2)
       this.up.value  = Math.round(counts[index] + (counts[index + 1] - counts[index]) * (position - index))
-      return
+      return true
     }
     let up                    = 0
     let nearly                = 0
     let starlink              = 0
     const { seconds, tracks } = this
     for (let pass = 0; pass < tracks.passes.length; pass++) {
-      if (!tracks.at(pass, seconds) || tracks.elevation <= 0) continue
+      if (!tracks.up(pass, seconds)) continue
       up++
       if (tracks.elevation >= NEARLY) nearly++
       if (tracks.passes[pass].kind === 'starlink') starlink++
@@ -259,16 +284,40 @@ class Sky {
     this.up.value       = up
     this.nearly.value   = nearly
     this.starlink.value = starlink
+    return true
+  }
+
+  /**
+   * Writes the count to `spoken` at most once every `SPOKEN` milliseconds.
+   */
+  private speak() {
+    const now = Date.now()
+    if (now - this.spokenAt < SPOKEN) return
+    this.spokenAt     = now
+    this.spoken.value = `${this.up.value.toLocaleString()} satellites above the horizon`
   }
 
   /**
    * Returns the clock time of a moment in the window, in the viewer's own time
    * zone.
    */
-  clockOf(seconds: number): string {
-    const date = new Date(this.start.value + seconds * 1000)
-    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  clockOf(seconds: number): string { return clockFormat.format(this.dateOf(seconds)) }
+
+  /**
+   * Returns the date of a moment in the window in the viewer's own time zone,
+   * written as `format` sets.
+   */
+  dayOf(seconds: number, format = dayFormat): string { return format.format(this.dateOf(seconds)) }
+
+  /**
+   * Returns whether a moment in the window falls on a later day than the window
+   * opens on, in the viewer's own time zone.
+   */
+  laterDay(seconds: number): boolean {
+    return this.dateOf(seconds).toDateString() !== this.dateOf(0).toDateString()
   }
+
+  private dateOf(seconds: number): Date { return new Date(this.start.value + seconds * 1000) }
 }
 
 export const sky = new Sky()

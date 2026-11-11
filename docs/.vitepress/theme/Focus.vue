@@ -8,7 +8,7 @@ import { sky }                         from '../lib/state/sky.ts'
 
 const about = computed(() => {
   if (!pass.value) return ''
-  const docked = sky.tracks.attached.get(pass.value.id) ?? 0
+  const docked = sky.tracks.attached.get(pass.value) ?? 0
   const note   = NOTES[pass.value.id] ?? KINDS[pass.value.kind].about
   return docked
     ? `${note} Flying with ${docked} docked ${docked === 1 ? 'craft or module' : 'craft and modules'}.`

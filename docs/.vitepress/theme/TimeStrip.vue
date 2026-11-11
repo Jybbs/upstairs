@@ -24,12 +24,11 @@ const pins = computed(() => sky.rows.value.list
     tip  : AXIS + (boundOf(pass) === 'northbound' ? -1 : 1) * (5 + pass.peak / 90 * STEM),
     x    : xOf(pass.peakAt)
   })))
-const span  = computed(() => sky.minutes.value * 60)
 const strip = ref<SVGSVGElement>()
 const ticks = computed(() => {
   const every = Math.ceil(LABEL_WIDTH / (inner.value / TICKS))
   return Array.from({ length: TICKS + 1 }, (_, index) => {
-    const seconds = index * span.value / TICKS
+    const seconds = index * sky.span.value / TICKS
     return {
       anchor  : index === 0 ? 'start' : index === TICKS ? 'end' : 'middle',
       clock   : index % every === 0 ? sky.clockOf(seconds) : '',
@@ -61,10 +60,10 @@ const press = (event: PointerEvent) => {
 
 const secondsAt = (clientX: number) => {
   const { left } = strip.value!.getBoundingClientRect()
-  return (clientX - left - INSET) / inner.value * span.value
+  return (clientX - left - INSET) / inner.value * sky.span.value
 }
 
-const xOf = (seconds: number) => INSET + seconds / span.value * inner.value
+const xOf = (seconds: number) => INSET + seconds / sky.span.value * inner.value
 
 onMounted(() => {
   observer = new ResizeObserver(([entry]) => { width.value = entry.contentRect.width })
@@ -119,9 +118,9 @@ onBeforeUnmount(() => {
       tabindex="0"
       aria-label="Time within the window"
       :aria-valuemin="0"
-      :aria-valuemax="span"
+      :aria-valuemax="sky.span.value"
       :aria-valuenow="Math.round(sky.at.value)"
-      :aria-valuetext="sky.clockOf(sky.at.value)"
+      :aria-valuetext="`${sky.clockOf(sky.at.value)}, ${sky.dayOf(sky.at.value)}`"
       @pointerdown="press"
       @pointermove="drag"
       @keydown="nudge"
@@ -138,7 +137,7 @@ onBeforeUnmount(() => {
       </g>
       <g
         v-for="{ pass, x, tip } in pins"
-        :key="pass.id"
+        :key="pass.key"
         class="cursor-pointer"
         @pointerdown.stop="sky.focusOn(pass)"
       >
@@ -153,9 +152,9 @@ onBeforeUnmount(() => {
         <circle
           :cx="x"
           :cy="tip"
-          :r="pass.id === sky.selected.value ? 5 : 2.6"
+          :r="pass === sky.selected.value ? 5 : 2.6"
           :style="{ fill: kindColor(pass.kind) }"
-          :class="{ 'stroke-ink': pass.id === sky.selected.value }"
+          :class="{ 'stroke-ink': pass === sky.selected.value }"
         />
       </g>
       <g ref="cursor" class="pointer-events-none">

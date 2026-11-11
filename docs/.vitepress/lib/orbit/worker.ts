@@ -16,6 +16,7 @@ export type Answer =
   | {
       done    : number
       id      : number
+      offsets : Uint32Array
       passes  : scan.Pass[]
       samples : number
       total   : number
@@ -102,13 +103,16 @@ const run = async (orbits: orbit.Orbits, id: number, minutes: number, spot: scan
 
   try {
     for (let first = 0; first < order.length; first += BATCH) {
-      const batch             = order.subarray(first, first + BATCH)
-      const trace             = tracer.trace(orbits, batch)
-      const { passes, track } = trace
+      const batch                      = order.subarray(first, first + BATCH)
+      const trace                      = tracer.trace(orbits, batch)
+      const { offsets, passes, track } = trace
       trace.free()
       const done  = first + batch.length
       const total = order.length
-      post({ done, id, passes: passes.map(passOf), samples, total, track, type: 'passes' }, [track.buffer])
+      post(
+        { done, id, offsets, passes: passes.map(passOf), samples, total, track, type: 'passes' },
+        [offsets.buffer, track.buffer]
+      )
       await breathe()
       if (id !== latest) return
     }

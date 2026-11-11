@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import init, * as orbit from '../../../../rust/pkg/orbit.js'
 import { encode }       from '../../catalog/encode.ts'
@@ -114,5 +114,12 @@ describe('the catalog age', () => {
     [14.1, 'expired']
   ] as const)('reads %f days as %s', (days, freshness) => {
     expect(catalog.freshnessOf(catalog.ageOf(fetched, fetched + days * catalog.DAY))).toBe(freshness)
+  })
+})
+
+describe('the epoch of a record', () => {
+  it.each(['America/New_York', 'Asia/Tokyo'])('reads an epoch as UTC to the millisecond in %s', zone => {
+    vi.stubEnv('TZ', zone)
+    expect(catalog.timeOf('2026-11-06T11:57:30.504672')).toBe(Date.UTC(2026, 10, 6, 11, 57, 30, 504))
   })
 })

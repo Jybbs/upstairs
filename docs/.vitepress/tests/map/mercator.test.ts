@@ -28,6 +28,22 @@ describe('the view', () => {
     'reads the point at %f, %f with a margin of %f as inside: %s',
     (x, y, margin, inside) => expect(view.inside(x, y, margin)).toBe(inside)
   )
+  it.each([
+    ['a line from left to right of the view', -50, 300, 1050, 310, true],
+    ['a line from corner to corner past the view', -50, 650, 1050, -50, true],
+    ['a line ending inside the view', 500, 300, 2000, 300, true],
+    ['a point inside the view', 500, 300, 500, 300, true],
+    ['a line along the left edge', 0, -50, 0, 650, true],
+    ['a line touching a corner', 900, -100, 1100, 100, true],
+    ['a line stopping short of the view', -500, 300, -1, 300, false],
+    ['a line passing beyond a corner', 900, -200, 1200, 100, false],
+    ['a point outside the view', 1001, 300, 1001, 300, false],
+    ['an upright line beside the view', 1001, -50, 1001, 650, false],
+    ['a level line below the view', -50, 700, 1050, 700, false],
+    ['an upright line below the view', 500, 700, 500, 900, false]
+  ])('reads %s as crossing it: %s', (_, fromX, fromY, toX, toY, crosses) => {
+    expect(view.crosses(fromX, fromY, toX, toY)).toBe(crosses)
+  })
   it('maps the world edges', () => {
     expect(mercator.xOf(-180)).toBe(0)
     expect(mercator.yOf(0)).toBeCloseTo(0.5)

@@ -3,11 +3,13 @@
 //! meters and a thousandth of a degree, which a position's azimuth divides by
 //! the cosine of its elevation. Those answers take each epoch cut to the
 //! millisecond, which moves a low satellite by up to 8 meters, so the tolerance
-//! sits above that shift.
+//! sits above that shift. The answers place each pass's highest point at a
+//! sample, so a traced peak falls within one sample of theirs, stands no lower,
+//! and lies within a hundredth of a degree of a dense search.
 
 use std::sync::LazyLock;
 
-use orbit::{ELEMENTS, Grid, Moment, Orbits, Point, Propagator, Site, Traced, Tracer};
+use orbit::{ELEMENTS, Grid, Moment, Orbits, Point, Propagator, Site, Trace, Traced, Tracer};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
@@ -36,12 +38,10 @@ struct Decayed {
 struct Pass {
     earlier: bool,
     heading: Option<f64>,
-    height: f64,
     id: u64,
     later: bool,
     peak: f64,
     peak_at: f64,
-    range: f64,
     rise_at: f64,
     rise_az: f64,
     set_at: f64,
@@ -109,6 +109,11 @@ impl Window {
 
 static ANSWERS: LazyLock<Answers> = LazyLock::new(|| read("answers.json"));
 static RECORDS: LazyLock<Vec<Map<String, Value>>> = LazyLock::new(|| read("records.json"));
+static TRACE: LazyLock<Trace> = LazyLock::new(|| {
+    let orbits = orbits(&RECORDS);
+    let rows: Vec<u32> = (0..orbits.size() as u32).collect();
+    ANSWERS.track.tracer().trace(&orbits, &rows)
+});
 
 const ANGLE: f64 = 1e-3;
 const DISTANCE: f64 = 1e-2;
@@ -205,40 +210,38 @@ fn counts_the_satellites_above_the_spot() {
 }
 
 #[test]
-fn traces_the_highest_pass_of_each_satellite() {
-    let orbits = orbits(&RECORDS);
+fn traces_the_highest_pass_of_each_satellite_where_the_answers_do() {
     let window = &ANSWERS.track;
-    let samples = window.samples();
-    let tracer = window.tracer();
-    let rows: Vec<u32> = (0..orbits.size() as u32).collect();
-    let trace = tracer.trace(&orbits, &rows);
+    let trace = &*TRACE;
+    let mut traced: Vec<u64> = trace.passes.iter().map(|pass| id(pass.row)).collect();
+    traced.dedup();
     let expected: Vec<&Pass> = ANSWERS.passes.iter().flatten().collect();
     assert_eq!(
-        trace.track.len(),
-        trace.passes.len() * samples * window.width
+        traced,
+        expected.iter().map(|pass| pass.id).collect::<Vec<_>>()
     );
-    assert_eq!(trace.passes.len(), expected.len());
-    for (traced, answer) in trace.passes.iter().zip(expected) {
+    for answer in expected {
         let what = |field: &str| format!("{}, {field}", answer.id);
+        let traced = trace
+            .passes
+            .iter()
+            .filter(|pass| id(pass.row) == answer.id)
+            .max_by(|a, b| a.peak.total_cmp(&b.peak))
+            .unwrap();
         let Traced {
             earlier,
             later,
-            peak_at,
             rise_at,
             set_at,
             ..
         } = *traced;
-        assert_eq!(id(traced.row), answer.id);
         assert_eq!(
             (earlier, later),
             (answer.earlier, answer.later),
             "{}",
             what("ends")
         );
-        assert_eq!(
-            (rise_at, peak_at, set_at),
-            (answer.rise_at, answer.peak_at, answer.set_at)
-        );
+        assert_eq!((rise_at, set_at), (answer.rise_at, answer.set_at));
         assert_eq!(
             traced.heading.is_some(),
             answer.heading.is_some(),
@@ -248,7 +251,13 @@ fn traces_the_highest_pass_of_each_satellite() {
         if let (Some(heading), Some(expected)) = (traced.heading, answer.heading) {
             close(&what("heading"), turned(heading, expected), expected, ANGLE);
         }
-        close(&what("peak"), traced.peak, answer.peak, ANGLE);
+        close(
+            &what("highest moment"),
+            traced.peak_at,
+            answer.peak_at,
+            window.step,
+        );
+        assert!(traced.peak >= answer.peak - ANGLE, "{}", what("peak"));
         close(
             &what("rise azimuth"),
             turned(traced.rise_az, answer.rise_az),
@@ -261,8 +270,137 @@ fn traces_the_highest_pass_of_each_satellite() {
             answer.set_az,
             ANGLE,
         );
-        close(&what("height"), traced.height, answer.height, DISTANCE);
-        close(&what("range"), traced.range, answer.range, DISTANCE);
+    }
+}
+
+#[test]
+fn keeps_one_track_per_satellite_however_many_passes_it_makes() {
+    let window = &ANSWERS.track;
+    let trace = &*TRACE;
+    let mut offsets = trace.offsets.clone();
+    offsets.dedup();
+    let width = window.samples() * window.width;
+    assert_eq!(trace.offsets.len(), trace.passes.len());
+    assert_eq!(trace.track.len(), offsets.len() * width);
+    assert!(
+        offsets
+            .iter()
+            .enumerate()
+            .all(|(slot, &offset)| offset as usize == slot * width)
+    );
+}
+
+#[test]
+fn gives_each_rising_of_a_satellite_a_pass_of_its_own() {
+    let window = &ANSWERS.track;
+    let trace = &*TRACE;
+    let elevation =
+        |offset: u32, sample: usize| trace.track[offset as usize + sample * window.width + 2];
+    let mut twice = 0;
+    for (index, pass) in trace.passes.iter().enumerate() {
+        let offset = trace.offsets[index];
+        let (rise, set) = (
+            (pass.rise_at / window.step) as usize,
+            (pass.set_at / window.step) as usize,
+        );
+        assert!((rise..=set).all(|sample| elevation(offset, sample) > 0.0));
+        if !pass.earlier {
+            assert!(elevation(offset, rise - 1) <= 0.0);
+        }
+        if !pass.later {
+            assert!(elevation(offset, set + 1) <= 0.0);
+        }
+        if let Some(next) = trace
+            .passes
+            .get(index + 1)
+            .filter(|next| next.row == pass.row)
+        {
+            assert!(next.rise_at > pass.set_at + window.step);
+            assert_eq!(trace.offsets[index + 1], offset);
+            twice += 1;
+        }
+    }
+    assert!(twice > 0, "no satellite in the answers rises twice");
+}
+
+#[test]
+fn finds_each_highest_point_within_a_hundredth_of_a_degree() {
+    let window = &ANSWERS.track;
+    let trace = &*TRACE;
+    let site = Site::new(ANSWERS.spot.latitude, ANSWERS.spot.longitude);
+    let end = window.minutes * 60.0;
+    for pass in &trace.passes {
+        let propagator = propagator(&RECORDS[pass.row as usize]).unwrap();
+        let elevation = |seconds: f64| {
+            let time = start() + seconds * 1000.0;
+            site.look(Moment::at(time).fixed(propagator.at(time).unwrap()))
+                .elevation
+        };
+        let highest = |from: f64, to: f64, step: f64| {
+            let samples = ((to - from) / step).round() as usize;
+            (0..=samples)
+                .map(|sample| (from + sample as f64 * step).min(to))
+                .max_by(|&a, &b| elevation(a).total_cmp(&elevation(b)))
+                .unwrap()
+        };
+        let reach = 2.0 * window.step;
+        let rough = highest(
+            (pass.peak_at - reach).max(0.0),
+            (pass.peak_at + reach).min(end),
+            0.1,
+        );
+        let fine = highest((rough - 0.1).max(0.0), (rough + 0.1).min(end), 0.001);
+        close(
+            &format!("{}, peak", id(pass.row)),
+            pass.peak,
+            elevation(fine),
+            0.01,
+        );
+    }
+}
+
+#[test]
+fn finds_a_zenith_between_samples_within_a_hundredth_of_a_degree() {
+    let window = &ANSWERS.track;
+    let row = RECORDS
+        .iter()
+        .position(|record| record["NORAD_CAT_ID"] == 63848)
+        .unwrap();
+    let orbits = orbits(&RECORDS);
+    let time = start() + 1.37 * window.step * 1000.0;
+    let teme = propagator(&RECORDS[row]).unwrap().at(time).unwrap();
+    let below = Point::below(Moment::at(time).fixed(teme));
+    let tracer = Tracer::new(
+        below.latitude,
+        below.longitude,
+        start(),
+        window.samples(),
+        window.step,
+    );
+    let trace = tracer.trace(&orbits, &[row as u32]);
+    let pass = trace
+        .passes
+        .iter()
+        .max_by(|a, b| a.peak.total_cmp(&b.peak))
+        .unwrap();
+    close("zenith", pass.peak, 90.0, 0.01);
+}
+
+#[test]
+fn reads_each_height_and_range_at_the_highest_point() {
+    let site = Site::new(ANSWERS.spot.latitude, ANSWERS.spot.longitude);
+    for pass in &TRACE.passes {
+        let what = |field: &str| format!("{}, {field}", id(pass.row));
+        let time = start() + pass.peak_at * 1000.0;
+        let propagator = propagator(&RECORDS[pass.row as usize]).unwrap();
+        let fixed = Moment::at(time).fixed(propagator.at(time).unwrap());
+        close(
+            &what("height"),
+            pass.height,
+            Point::below(fixed).height,
+            DISTANCE,
+        );
+        close(&what("range"), pass.range, site.look(fixed).range, DISTANCE);
     }
 }
 
