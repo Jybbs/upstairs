@@ -1,19 +1,20 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Record } from '../../lib/orbit/catalog.ts'
-import { kindOf }      from '../../lib/orbit/kinds.ts'
-import * as scan       from '../../lib/orbit/scan.ts'
-import answers         from '../fixtures/answers.json' with { type: 'json' }
-import full            from '../fixtures/records.json' with { type: 'json' }
+import { timeOf, type Record } from '../../lib/orbit/catalog.ts'
+import { kindOf }              from '../../lib/orbit/kinds.ts'
+import * as scan               from '../../lib/orbit/scan.ts'
+import answers                 from '../fixtures/answers.json' with { type: 'json' }
+import full                    from '../fixtures/records.json' with { type: 'json' }
 
 const records = full as unknown as Record[]
 
 describe('the satellites of a catalog', () => {
-  it('names each record by its catalog number, its name, and the kind its name reads as', () => {
+  it('names each record by its epoch, its catalog number, its name, and the kind its name reads as', () => {
     expect(scan.satellitesOf(records)).toEqual(records.map(record => ({
-      id   : record.NORAD_CAT_ID,
-      kind : kindOf(record.OBJECT_NAME),
-      name : record.OBJECT_NAME
+      epoch : timeOf(record.EPOCH),
+      id    : record.NORAD_CAT_ID,
+      kind  : kindOf(record.OBJECT_NAME),
+      name  : record.OBJECT_NAME
     })))
   })
 })
@@ -52,7 +53,7 @@ describe('a traced pass', () => {
   }
 
   it('joins the satellite it belongs to, keeping each time, angle, and distance', () => {
-    const joined = { ...satellite, ...traced, heading: 12 }
+    const joined = { ...satellite, ...traced, heading: 12, key: `${satellite.id}/0` }
     expect(scan.passOf(satellite, { ...traced, heading: 12 })).toEqual(joined)
   })
 

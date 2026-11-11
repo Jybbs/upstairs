@@ -11,12 +11,12 @@ import { sky }                         from '../lib/state/sky.ts'
       <span>Highest</span>
     </p>
     <ul>
-      <li v-for="pass in sky.rows.value.list" :key="pass.id">
+      <li v-for="pass in sky.rows.value.list" :key="pass.key">
         <button
           type="button"
           class="grid h-12 w-full cursor-pointer grid-cols-[4.25rem_1fr_auto] items-center gap-2 border-b border-rule/60 px-4 text-left transition-colors hover:bg-lift"
-          :class="{ 'bg-lift': pass.id === sky.selected.value, 'opacity-55': pass.setAt < sky.at.value }"
-          :aria-current="pass.id === sky.selected.value"
+          :class="{ 'bg-lift': pass === sky.selected.value, 'opacity-55': pass.setAt < sky.at.value }"
+          :aria-current="pass === sky.selected.value"
           @click="sky.focusOn(pass)"
         >
           <span class="caps whitespace-nowrap text-soft">{{ sky.clockOf(pass.peakAt) }}</span>

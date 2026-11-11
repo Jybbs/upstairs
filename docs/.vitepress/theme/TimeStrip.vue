@@ -24,12 +24,11 @@ const pins = computed(() => sky.rows.value.list
     tip  : AXIS + (boundOf(pass) === 'northbound' ? -1 : 1) * (5 + pass.peak / 90 * STEM),
     x    : xOf(pass.peakAt)
   })))
-const span  = computed(() => sky.minutes.value * 60)
 const strip = ref<SVGSVGElement>()
 const ticks = computed(() => {
   const every = Math.ceil(LABEL_WIDTH / (inner.value / TICKS))
   return Array.from({ length: TICKS + 1 }, (_, index) => {
-    const seconds = index * span.value / TICKS
+    const seconds = index * sky.span.value / TICKS
     return {
       anchor  : index === 0 ? 'start' : index === TICKS ? 'end' : 'middle',
       clock   : index % every === 0 ? sky.clockOf(seconds) : '',
@@ -61,10 +60,10 @@ const press = (event: PointerEvent) => {
 
 const secondsAt = (clientX: number) => {
   const { left } = strip.value!.getBoundingClientRect()
-  return (clientX - left - INSET) / inner.value * span.value
+  return (clientX - left - INSET) / inner.value * sky.span.value
 }
 
-const xOf = (seconds: number) => INSET + seconds / span.value * inner.value
+const xOf = (seconds: number) => INSET + seconds / sky.span.value * inner.value
 
 onMounted(() => {
   observer = new ResizeObserver(([entry]) => { width.value = entry.contentRect.width })
@@ -106,9 +105,9 @@ onBeforeUnmount(() => {
       tabindex="0"
       aria-label="Time within the window"
       :aria-valuemin="0"
-      :aria-valuemax="span"
+      :aria-valuemax="sky.span.value"
       :aria-valuenow="Math.round(sky.at.value)"
-      :aria-valuetext="sky.clockOf(sky.at.value)"
+      :aria-valuetext="`${sky.clockOf(sky.at.value)}, ${sky.dayOf(sky.at.value)}`"
       @pointerdown="press"
       @pointermove="drag"
       @keydown="nudge"
@@ -118,9 +117,9 @@ onBeforeUnmount(() => {
         <line :x1="tick.x" :x2="tick.x" :y1="AXIS - 3" :y2="AXIS + 3" stroke="#6b6459" />
         <text :x="tick.x" :y="HEIGHT - 5" :text-anchor="tick.anchor" class="caps fill-soft">{{ tick.clock }}</text>
       </g>
-      <g v-for="{ pass, x, tip } in pins" :key="pass.id" class="cursor-pointer" @pointerdown.stop="sky.focusOn(pass)">
+      <g v-for="{ pass, x, tip } in pins" :key="pass.key" class="cursor-pointer" @pointerdown.stop="sky.focusOn(pass)">
         <line :x1="x" :x2="x" :y1="AXIS" :y2="tip" :stroke="KINDS[pass.kind].color" stroke-opacity="0.6" />
-        <circle :cx="x" :cy="tip" :r="pass.id === sky.selected.value ? 5 : 2.6" :fill="KINDS[pass.kind].color" :class="{ 'stroke-ink': pass.id === sky.selected.value }" />
+        <circle :cx="x" :cy="tip" :r="pass === sky.selected.value ? 5 : 2.6" :fill="KINDS[pass.kind].color" :class="{ 'stroke-ink': pass === sky.selected.value }" />
       </g>
       <g ref="cursor" class="pointer-events-none">
         <line :y1="4" :y2="HEIGHT - 20" class="stroke-mark" stroke-width="1.5" />

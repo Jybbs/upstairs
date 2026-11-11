@@ -21,9 +21,9 @@ export class Tracks {
    */
   readonly docked = new Set<number>()
   /**
-   * How many craft are docked to a pass, by catalog number.
+   * How many craft are docked to each pass.
    */
-  readonly attached = new Map<number, number>()
+  readonly attached = new Map<scan.Pass, number>()
 
   private buffers: Float32Array[] = []
   private offsets: number[]       = []
@@ -49,17 +49,21 @@ export class Tracks {
       && Math.abs(other.height - pass.height) <= DOCKED_KM)
   }
 
-  add(passes: readonly scan.Pass[], track: Float32Array, samples: number) {
+  /**
+   * Adds a batch of passes beside the track they were traced into, where
+   * `offsets` holds the index in `track` at which each pass's samples begin.
+   */
+  add(passes: readonly scan.Pass[], track: Float32Array, offsets: Uint32Array, samples: number) {
     this.samples = samples
     passes.forEach((pass, index) => {
       const host = this.hostOf(pass)
       if (host) {
         this.docked.add(this.passes.length)
-        this.attached.set(host.id, (this.attached.get(host.id) ?? 0) + 1)
+        this.attached.set(host, (this.attached.get(host) ?? 0) + 1)
       }
       this.passes.push(pass)
       this.buffers.push(track)
-      this.offsets.push(index * samples * scan.TRACK_WIDTH)
+      this.offsets.push(offsets[index])
     })
   }
 
@@ -96,5 +100,16 @@ export class Tracks {
     else if (this.longitude < -180) this.longitude += 360
     this.elevation = buffer[slot + 2] + (buffer[slot + scan.TRACK_WIDTH + 2] - buffer[slot + 2]) * part
     return !Number.isNaN(this.latitude + this.longitude)
+  }
+
+  /**
+   * Reads a pass into the fields at `seconds` into the window, returning true
+   * when the satellite stands above the horizon within the samples beside that
+   * pass, so two passes of one satellite never place it twice.
+   */
+  up(pass: number, seconds: number): boolean {
+    const { riseAt, setAt } = this.passes[pass]
+    return seconds >= riseAt - scan.TRACK_STEP && seconds < setAt + scan.TRACK_STEP
+      && this.at(pass, seconds) && this.elevation > 0
   }
 }

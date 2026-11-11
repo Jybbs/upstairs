@@ -6,7 +6,11 @@ export type Record = {
   readonly [Field in typeof FIELDS[number]]: Field extends 'OBJECT_NAME' | 'EPOCH' ? string : number
 }
 
-export const DAY = 86_400_000
+/**
+ * Days old past which positions may drift, and past which none are drawn.
+ */
+export const AGES = { limit: 14, warn: 3 } as const
+export const DAY  = 86_400_000
 /**
  * The decimal fields in file order, each a column of whole mantissas beside
  * their powers of ten, mapped to whether the column holds differences from the
@@ -51,10 +55,6 @@ export const TICK = 864
 export const FIELDS = [
   'OBJECT_NAME', 'NORAD_CAT_ID', 'EPOCH', ...Object.keys(DECIMALS) as (keyof typeof DECIMALS)[]
 ] as const
-/**
- * Days old past which positions may drift, and past which none are drawn.
- */
-const AGES = { limit: 14, warn: 3 } as const
 /**
  * Bytes per record before the name tails, for the id, the epoch, the decimals,
  * and the shared prefix.
@@ -123,6 +123,12 @@ export const elementsOf = (records: readonly Record[]) => {
  * they may drift.
  */
 export const freshnessOf = (age: number) => age > AGES.limit ? 'expired' : age > AGES.warn ? 'aging' : 'fresh'
+
+/**
+ * The Unix time in milliseconds of a record's epoch, a UTC time, to the
+ * millisecond.
+ */
+export const timeOf = (epoch: string) => Date.parse(`${epoch.slice(0, 23)}Z`)
 
 /**
  * Rebuilds the records of one segment from the bytes after its head.
