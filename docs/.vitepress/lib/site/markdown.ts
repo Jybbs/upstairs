@@ -11,16 +11,18 @@ import { drawFootnotes } from './footnotes.ts'
 import { SHEETS }        from './sheets.ts'
 
 const ADDRESS    = />(https:\/\/[^<]+)<\/a>/g
+const CODE       = /^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\S\n]*$|(`+)[\s\S]*?\2/gm
 const FOOTNOTE   = /\[\^(\w+)\](?!:)/g
 const REFERENCES = new URL('../../../references.bib', import.meta.url)
 
 /**
  * Appends a definition for each footnote a page keys to an entry of
- * `citations` and defines nowhere itself, failing on a key neither names.
+ * `citations` and defines nowhere itself, failing on a key neither names,
+ * and reads no key inside code.
  */
 const cite = (md: MarkdownRenderer, citations: Map<string, string>) =>
   md.core.ruler.after('normalize', 'upstairs:cite', state => {
-    const keys = new Set([...state.src.matchAll(FOOTNOTE)].map(([, key]) => key))
+    const keys = new Set([...state.src.replace(CODE, '').matchAll(FOOTNOTE)].map(([, key]) => key))
     for (const key of keys) {
       if (state.src.includes(`[^${key}]:`)) continue
       const citation = citations.get(key)
@@ -42,8 +44,8 @@ const styleMath = (md: MarkdownRenderer) =>
 
 /**
  * Sets each entry of `docs/references.bib` as one line of HTML in APA style
- * with its DOI linked, keyed by the entry's key, its address breaking only
- * after a slash.
+ * with its DOI or its publisher's page linked, keyed by the entry's key, its
+ * address breaking only after a slash.
  */
 export const citationsOf = () => new Map(
   (new Cite(readFileSync(REFERENCES, 'utf8')).format('bibliography', {

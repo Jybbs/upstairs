@@ -63,7 +63,7 @@ An issue and a pull request each carry the label of every domain the change land
 
 ## Math and Citations
 
-A page sets a formula through [KaTeX](https://katex.org/docs/supported.html), between `$` inline and between `$$` on a line of its own, and loads KaTeX's stylesheet only where it sets one. An issue takes the same delimiters, which GitHub [renders itself](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/writing-mathematical-expressions). A study is cited through a footnote keyed `<surname><year>` to its entry in `docs/references.bib`, which holds each cited work with its DOI. A page writes only the marker, such as `[^vallado2006]`, and the site sets the entry at the page's foot, whereas an issue writes the footnote's text beside the marker.
+A page sets a formula through [KaTeX](https://katex.org/docs/supported.html), between `$` inline and between `$$` on a line of its own, and loads KaTeX's stylesheet only where it sets one. An issue takes the same delimiters, which GitHub [renders itself](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/writing-mathematical-expressions). A study is cited through a footnote keyed `<surname><year>` to its entry in `docs/references.bib`, which holds each cited work with its DOI, or with its publisher's page where it has none. A page writes only the marker, such as `[^vallado2006]`, and the site sets the entry at the page's foot, whereas an issue writes the footnote's text beside the marker.
 
 ## Commits and Pull Requests
 

@@ -1,5 +1,4 @@
 import { Glob }          from 'bun'
-import { basename }      from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
@@ -12,6 +11,6 @@ describe('Sheet', () => {
   it.each(Object.entries(SHEETS))('copies a file that exists for each source of the %s sheet', (_, sheet) =>
     expect(sheet.copy.src.filter(pattern => !new Glob(pattern).scanSync(ROOT).next().value)).toEqual([]))
 
-  it.each(Object.entries(SHEETS))('serves the %s sheet from the copy of its first file', (_, sheet) =>
-    expect(`/${sheet.copy.dest}/${basename(sheet.copy.src[0])}`).toBe(sheet.href))
+  it.each(Object.entries(SHEETS))('serves the %s sheet from the copy of its first file', (_, { copy, href }) =>
+    expect(`/${copy.dest}/${copy.src[0].split('/').slice(copy.rename.stripBase).join('/')}`).toBe(href))
 })

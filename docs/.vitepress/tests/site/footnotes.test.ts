@@ -2,7 +2,7 @@ import { Window, type Document }  from 'happy-dom'
 import { createMarkdownRenderer } from 'vitepress'
 import { beforeAll, expect, it }  from 'vitest'
 
-import { drawFootnotes, nameOf } from '../../lib/site/footnotes.ts'
+import { drawFootnotes, morseOf, nameOf } from '../../lib/site/footnotes.ts'
 
 const PAGE = 'A model[^vallado2006], its revision[^vallado2006], and a check[^kelso2007].\n\n'
            + '[^vallado2006]: Vallado.\n\n[^kelso2007]: Kelso.'
@@ -43,7 +43,11 @@ it('letters the returns of a source cited twice and leaves a source cited once u
   expect(page.querySelector('#footnote2 .fn-of')).toBeNull()
 })
 
-it('points each return at the anchor beside the marker it came from', () =>
-  expect([...page.querySelectorAll('.footnote-backref')].map(link =>
-    page.getElementById(link.getAttribute('href')!.slice(1))?.matches('.footnote-ref > .footnote-anchor')))
-    .toEqual([true, true, true]))
+it('points each return at the anchor beside the marker it came from', () => {
+  const targets = [...page.querySelectorAll('.footnote-backref')].map(link => link.getAttribute('href')!.slice(1))
+  expect(targets).toEqual([...page.querySelectorAll('.footnote-ref > .footnote-anchor')].map(anchor => anchor.id))
+  expect(new Set(targets).size).toBe(targets.length)
+})
+
+it('spells SOURCES in Morse code down the column', () =>
+  expect(morseOf('SOURCES')).toBe('. . .   - - -   . . -   . - .   - . - .   .   . . .       '))

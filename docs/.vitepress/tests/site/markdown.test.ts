@@ -59,6 +59,13 @@ describe('markdownOf', () => {
       .rejects.toThrow('The footnote nobody1999 names no entry in docs/references.bib'))
 
   it.each([
+    ['a code span', 'Write `[^surname2024]` after the claim.', []],
+    ['a fenced block', '```md\nA claim[^surname2024].\n```\n\nA check[^kelso2007].', ['kelso2007']]
+  ])('reads no footnote key inside %s', async (_, src, keys) =>
+    expect([...(await render(src)).html.matchAll(/data-csl-entry-id="(\w+)"/g)].map(([, key]) => key))
+      .toEqual(keys))
+
+  it.each([
     ['inline between single dollars', 'An angle $\\theta$ rises.'],
     ['on its own line between double dollars', '$$\n\\theta = 90^\\circ\n$$']
   ])('sets a formula %s and links the stylesheet from the head', async (_, src) => {

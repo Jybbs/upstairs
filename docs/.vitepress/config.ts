@@ -17,7 +17,8 @@ const home     = preloadOf('/theme/HomeMap.vue', 'index.md')
 const notices  = licensesOf(
   LICENSES,
   new URL('../../rust/Cargo.toml', import.meta.url),
-  new URL('../../rust/pkg/licenses.txt', import.meta.url)
+  new URL('../../rust/pkg/licenses.txt', import.meta.url),
+  Object.values(SHEETS).map(sheet => sheet.name)
 )
 
 export default defineConfig({

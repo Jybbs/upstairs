@@ -21,7 +21,13 @@ beforeAll(() => {
   document.body.innerHTML = `<p>A${MARKER('')} and B${MARKER(':1')}.</p><section class="footnotes"><ol>`
                           + `<li id="footnote1" class="footnote-item" tabindex="-1">Entry.<span class="fn-backs">`
                           + `${RETURN('')}${RETURN(':1')}</span></li></ol></section>`
+  location.hash = '#footnote1'
   followFootnotes(document)
+})
+
+it('marks the entry the address lands on as the page loads', async () => {
+  await frame()
+  expect(marked()).toEqual(['footnote1'])
 })
 
 it('marks the entry a marker leads to and the return back to that marker', async () => {

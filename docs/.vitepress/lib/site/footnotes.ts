@@ -19,8 +19,8 @@ const NORTH = 'M7 14.32L7 6.32L7 6.32L7.02 6.19L7.1 6.03L7.21 5.88L7.35 5.73L7.5
             + '6.07L4.7 6.22L4.55 6.35L4.4 6.44L4.25 6.49L4.13 6.49L4.04 6.45L4 6.36L4.01 6.23L4.07 6.09L4.17 5.93z'
 
 /**
- * The marker's box, its disc centered `cx` from its left and `disc` over its
- * foot.
+ * The marker's box, its disc centered `cx` from its left and `disc` below its
+ * top.
  */
 const MARK = { cx: 25, disc: 9, h: 21, w: 34 }
 
@@ -55,13 +55,20 @@ const EMBLEM = `<svg class="fn-emblem" viewBox="-1 -1 ${MARK.w + 2} ${MARK.h + 2
              + `cy="${MARK.disc}" r="8.3" stroke="currentColor" stroke-width="1.24"/></svg>`
 
 /**
+ * Spells `word` in Morse code, one space between the marks of a letter, three
+ * between letters, and seven after the word.
+ */
+export const morseOf = (word: string) =>
+  [...word].map(letter => MORSE[letter].split('').join(' ')).join('   ') + '       '
+
+/**
  * One column of trails at 48 degrees, `w` wide and `h` tall and 6.5 apart,
  * carrying SOURCES in Morse code read trail by trail, each dot round and each
  * dash a flare three units long, over a hairline where the code is off.
  */
 const spineOf = (w: number, h: number) => {
   const unit   = 2.2
-  const code   = [...'SOURCES'].map(letter => MORSE[letter].split('').join(' ')).join('   ') + '       '
+  const code   = morseOf('SOURCES')
   const stream = [...code].flatMap(c => c === '.' ? ['dot'] : c === '-' ? ['dash', 'dash', 'dash'] : ['off'])
   const length = w / RISE.x
   const step   = 6.5 / RISE.x
