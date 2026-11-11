@@ -117,9 +117,32 @@ describe('the catalog age', () => {
   })
 })
 
+describe('the ages of a catalog', () => {
+  it('reads the age of each record in days, from its epoch to the time the catalog was fetched', () => {
+    expect([...catalog.agesOf(records, fetched)])
+      .toEqual(records.map(record => (fetched - catalog.timeOf(record.EPOCH)) / catalog.DAY))
+  })
+})
+
 describe('the epoch of a record', () => {
   it.each(['America/New_York', 'Asia/Tokyo'])('reads an epoch as UTC to the millisecond in %s', zone => {
     vi.stubEnv('TZ', zone)
     expect(catalog.timeOf('2026-11-06T11:57:30.504672')).toBe(Date.UTC(2026, 10, 6, 11, 57, 30, 504))
+  })
+})
+
+describe('the body of the catalog file', () => {
+  it('returns the body the server sends', async () => {
+    const response = new Response('catalog')
+    vi.stubGlobal('fetch', async () => response)
+    expect(await catalog.bodyOf(catalog.FILE)).toBe(response.body)
+  })
+
+  it.each([
+    ['an error', new Response('', { status: 503 }), 503],
+    ['an empty body', new Response(null, { status: 204 }), 204]
+  ])('throws where the server answers with %s', async (_, response, status) => {
+    vi.stubGlobal('fetch', async () => response)
+    await expect(catalog.bodyOf(catalog.FILE)).rejects.toThrow(`The catalog answered ${status}`)
   })
 })

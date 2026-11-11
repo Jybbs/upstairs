@@ -20,6 +20,14 @@
   --shadow-lift : 0 1px 2px rgb(0 0 0 / 0.12), 0 4px 14px rgb(0 0 0 / 0.12);
 
   --spacing-readout : 360px;
+
+  --animate-nudge : nudge 1200ms ease-in-out 300ms 1;
+
+  @keyframes nudge {
+    0%, 100% { transform: translateX(0); }
+    25%      { transform: translateX(7px); }
+    60%      { transform: translateX(-5px); }
+  }
 }
 
 :root, html.dark {
@@ -46,9 +54,31 @@
   text-transform: uppercase;
 }
 
+@utility axis {
+  @apply fill-none stroke-dim stroke-[1.5];
+}
+
+@utility drawing {
+  @apply block touch-none overflow-visible focus:outline-none;
+  @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-u;
+}
+
+@utility guide {
+  @apply fill-none stroke-rule stroke-[1.25] [stroke-dasharray:3_4];
+}
+
+@utility panel {
+  @apply mx-0 my-6 rounded-md border border-rule bg-panel p-4;
+}
+
 .VPNavBar.home .divider-line { background-color: var(--vp-nav-divider-color); }
 
 .vp-doc { font-size: 19px; }
+
+.vp-doc .katex-display {
+  overflow-x : auto;
+  overflow-y : hidden;
+}
 
 .vp-doc h1, .vp-doc h2, .vp-doc h3 {
   font-family: var(--font-display);

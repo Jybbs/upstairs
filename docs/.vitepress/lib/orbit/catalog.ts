@@ -105,9 +105,26 @@ const readerOf = (stream: ReadableStream<Uint8Array>) => {
 const viewOf = (bytes: Uint8Array) => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 
 /**
- * How old a catalog fetched at `fetched` is at `time`, in days.
+ * Returns the days from `from` to `to`, both Unix times in milliseconds.
  */
-export const ageOf = (fetched: number, time: number) => (time - fetched) / DAY
+export const ageOf = (from: number, to: number) => (to - from) / DAY
+
+/**
+ * The age in days of each record's element set at `fetched`, in the records'
+ * order.
+ */
+export const agesOf = (records: readonly Record[], fetched: number) =>
+  Float64Array.from(records, record => ageOf(timeOf(record.EPOCH), fetched))
+
+/**
+ * Returns the body of the catalog file at `url`, throwing where the server
+ * answers with an error or an empty body.
+ */
+export const bodyOf = async (url: string) => {
+  const response = await fetch(url)
+  if (!response.ok || !response.body) throw new Error(`The catalog answered ${response.status}`)
+  return response.body
+}
 
 /**
  * The decimal fields of each record in turn, in file order, which the
