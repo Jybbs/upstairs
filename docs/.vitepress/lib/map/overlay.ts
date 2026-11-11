@@ -190,7 +190,7 @@ export class Overlay {
       const y    = view.row(tracks.latitude)
       const jump = Math.abs(x - previousX) > view.world / 2
       if (Number.isNaN(previousX) || jump) context.moveTo(x, y)
-      else if (view.inside(x, y, 400) || view.inside(previousX, previousY, 400)) {
+      else if (view.crosses(previousX, previousY, x, y)) {
         context.lineTo(x, y)
         seen = true
       } else context.moveTo(x, y)

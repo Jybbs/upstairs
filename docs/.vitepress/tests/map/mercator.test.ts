@@ -37,7 +37,9 @@ describe('the view', () => {
     ['a line stopping short of the view', -500, 300, -1, 300, false],
     ['a line passing beyond a corner', 900, -200, 1200, 100, false],
     ['a point outside the view', 1001, 300, 1001, 300, false],
-    ['an upright line beside the view', 1001, -50, 1001, 650, false]
+    ['an upright line beside the view', 1001, -50, 1001, 650, false],
+    ['a level line below the view', -50, 700, 1050, 700, false],
+    ['an upright line below the view', 500, 700, 500, 900, false]
   ])('reads %s as crossing it: %s', (_, fromX, fromY, toX, toY, crosses) => {
     expect(view.crosses(fromX, fromY, toX, toY)).toBe(crosses)
   })

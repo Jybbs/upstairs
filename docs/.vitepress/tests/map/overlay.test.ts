@@ -11,18 +11,20 @@ const CRAFT  = { latitude: 41.86, longitude: -70.56 }
 const NORTH  = { latitude: 60, longitude: -71.06 }
 
 /**
- * Builds a canvas whose 2D context ignores every call but `arc`, recording
- * the center and radius of each arc drawn while a line dash is set, and the
- * gap of each dash set.
+ * Builds a canvas whose 2D context ignores every call but `arc`, `lineTo`,
+ * and `setLineDash`, recording the center and radius of each arc drawn while
+ * a line dash is set, the gap of each dash set, and the count of lines drawn.
  */
 const canvasOf = () => {
   const dashed: number[][] = []
   const gaps: number[]     = []
   const saved: number[]    = []
   let dash                 = 0
+  let lines                = 0
   const calls              = {
     arc         : (x: number, y: number, radius: number) => dash && dashed.push([x, y, radius]),
     canvas      : { height: 0, width: 0 },
+    lineTo      : () => { lines++ },
     restore     : () => { dash = saved.pop() ?? 0 },
     save        : () => { saved.push(dash) },
     setLineDash : (segments: number[]) => {
@@ -33,7 +35,8 @@ const canvasOf = () => {
   const context = new Proxy<Record<string | symbol, unknown>>(calls, {
     get: (target, key) => target[key] ?? (() => {})
   })
-  return { canvas: { getContext: () => context } as unknown as HTMLCanvasElement, dashed, gaps }
+  const canvas  = { getContext: () => context } as unknown as HTMLCanvasElement
+  return { canvas, dashed, gaps, lines: () => lines }
 }
 
 /**
@@ -88,12 +91,12 @@ it.each([
   [5, 3]
 ])('spaces the ring\'s dots %f days past the epoch %i times as far apart as at it', (age, spread) => {
   const tracks = new Tracks()
-  const pass   = passOf(25544, { riseAt: 0, setAt: 60 })
+  const pass   = passOf(25544, { epoch: 10 * DAY, riseAt: 0, setAt: 7200 })
   const track  = new Float32Array(3 * TRACK_WIDTH)
   trackAt(track, BOSTON, 0)
   tracks.add([pass], track, Uint32Array.of(0), 3)
   const moving  = canvasOf()
-  let start     = 0
+  let start     = pass.epoch
   const overlay = new Overlay(canvasOf().canvas, moving.canvas, () => ({
     selected : pass,
     spot     : BOSTON,
@@ -104,8 +107,8 @@ it.each([
   overlay.resize(400, 400, 1)
   overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
   overlay.draw(30)
-  start = age * DAY - 30_000
-  overlay.draw(30)
+  start = pass.epoch + age * DAY - 7_200_000
+  overlay.draw(7200)
   const [fresh, aged] = moving.gaps
   expect(aged / fresh).toBeCloseTo(spread, 0)
 })
@@ -114,13 +117,14 @@ it.each([
   ['a path crossing the view between two samples outside it', -1, 1, 1],
   ['a path whose samples and the line between them stay east of the view', 1, 2, 0],
   ['a path stepping across the far side of the world', 179.5, 180.5, 0]
-])('marks %s as crossing: %i', (_, west, east, crossing) => {
+])('marks and draws %s as crossing: %i', (_, west, east, crossing) => {
   const tracks = new Tracks()
   const track  = new Float32Array(2 * TRACK_WIDTH)
   track.set([BOSTON.latitude, BOSTON.longitude + west, 45], 0)
   track.set([BOSTON.latitude, BOSTON.longitude + east, 45], TRACK_WIDTH)
   tracks.add([passOf(25544, { riseAt: 0, setAt: 30 })], track, Uint32Array.of(0), 2)
-  const overlay = new Overlay(canvasOf().canvas, canvasOf().canvas, () => ({
+  const still   = canvasOf()
+  const overlay = new Overlay(still.canvas, canvasOf().canvas, () => ({
     selected : null,
     spot     : BOSTON,
     start    : 0,
@@ -128,5 +132,7 @@ it.each([
     tracks   : tracks
   }))
   overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(15)
   expect(Array.from(overlay.crossing(tracks))).toEqual([crossing])
+  expect(still.lines()).toBe(crossing)
 })
