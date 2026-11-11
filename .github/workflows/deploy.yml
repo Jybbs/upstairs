@@ -4,28 +4,6 @@ concurrency:
 env:
   WRANGLER_SEND_METRICS: 'false'
 jobs:
-  brief:
-    if: always()
-    name: 🔭 Brief
-    needs: [catalog, press, site]
-    permissions:
-      actions: read
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Check out
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Provision
-        uses: $/.github/actions/provision
-        with:
-          tools: bun
-      - name: Write the summary
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NEEDS: ${{ toJSON(needs) }}
-        run: mise run gha:brief
-    timeout-minutes: 10
   catalog:
     if: github.ref == 'refs/heads/main'
     name: 📡 Catalog Service
@@ -49,6 +27,28 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
         run: mise x -- bun x --no-install wrangler deploy --config .vitepress/catalog/wrangler.json
         working-directory: docs
+    timeout-minutes: 10
+  logbook:
+    if: always()
+    name: 📓 Logbook
+    needs: [catalog, press, site]
+    permissions:
+      actions: read
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Provision
+        uses: $/.github/actions/provision
+        with:
+          tools: bun
+      - name: Write the summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: mise run gha:logbook
     timeout-minutes: 10
   press:
     name: 📰 Press

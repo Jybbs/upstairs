@@ -4,7 +4,7 @@ description: How the site calculates where each satellite stands.
 
 # Method
 
-Your browser calculates each position with the SGP4 orbit model through the [`sgp4`](https://docs.rs/sgp4) crate compiled to WebAssembly, reading the orbital elements [Data](/data/) names and scanning each one over the window the time strip shows.
+Your browser calculates each position with the SGP4 orbit model[^vallado2006] through the [`sgp4`](https://docs.rs/sgp4) crate compiled to WebAssembly, reading the orbital elements [Data](/data/) names and scanning each one over the window the time strip shows.
 
 ## Passes
 
@@ -12,4 +12,4 @@ The scan samples each satellite every 30 seconds through the window, and a pass 
 
 ## Accuracy
 
-Each position comes from an orbit fitted hours or days earlier and shifts once a satellite maneuvers. [Kelso (2007)](https://celestrak.org/publications/AAS/07-127/) compared SGP4 against the precise orbits of the GPS satellites and found each one kilometers from where it was, mostly along its track. The error differed from one satellite to the next, was not smallest at the time the orbit was fitted, and grew as the prediction ran on from that time. Once the map is zoomed in far enough for 5 kilometers to span 10 pixels, a dotted ring 5 kilometers out circles the chosen satellite, its dots spaced twice as far apart once the orbit is more than a day past the time it was fitted and three times as far once it is more than three days past. The positions serve curiosity rather than safety or navigation.
+Each position comes from an orbit fitted hours or days earlier and shifts once a satellite maneuvers. Kelso (2007)[^kelso2007] compared SGP4 against the precise orbits of the GPS satellites and found each one kilometers from where it was, mostly along its track. The error differed from one satellite to the next, was not smallest at the time the orbit was fitted, and grew as the prediction ran on from that time. Once the map is zoomed in far enough for 5 kilometers to span 10 pixels, a dotted ring 5 kilometers out circles the chosen satellite, its dots spaced twice as far apart once the orbit is more than a day past the time it was fitted and three times as far once it is more than three days past. The positions serve curiosity rather than safety or navigation.

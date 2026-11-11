@@ -11,6 +11,8 @@ type Generate = (options: object, bundle: object) => void
 
 vi.mock('../lib/site/cards.ts', async original =>
   ({ ...await original<typeof import('../lib/site/cards.ts')>(), writeCards: vi.fn() }))
+vi.mock('../lib/site/licenses.ts', () =>
+  ({ licensesOf: (...args: unknown[]) => ({ copied: args[3], name: 'upstairs:licenses' }) }))
 
 const BUNDLE = {
   home: {
@@ -31,6 +33,10 @@ it('preloads the map chunk from the head of the home page', () => {
   expect(config.transformHead!(context))
     .toContainEqual(['link', { href: '/assets/chunks/HomeMap.abc.js', rel: 'modulepreload' }])
 })
+
+it('appends the notice of each package whose sheet the site copies', () =>
+  expect((config.vite!.plugins as Plugin[]).find(({ name }) => name === 'upstairs:licenses'))
+    .toHaveProperty('copied', ['katex', 'maplibre-gl']))
 
 it('writes the license notices to the file the Data page links', () => {
   const { fileName } = config.vite!.build!.license as { fileName: string }

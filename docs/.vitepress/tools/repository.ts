@@ -15,7 +15,7 @@ interface Job {
   strategy? : { matrix?: { include?: Row[] } }
 }
 
-interface RegistryLabel {
+export interface RegistryLabel {
   color       : string
   description : string
   name        : string
@@ -57,12 +57,22 @@ export const FILES = {
   settings : '.github/settings.toml',
   sweep    : '.mise/tasks/repo/ci.toml'
 }
+const FRONTMATTER   = /^---\n([\s\S]*?)\n---\n/
 const KEYS          = 'color, description, name'
 const LABEL_GAP     = 15
 const LABEL_LENGTH  = 100
-const PARSERS       = { '.json': JSON.parse, '.toml': TOML.parse, '.yml': YAML.parse }
 const PIN           = /^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/
 const colorDistance = differenceEuclidean('oklab')
+/**
+ * The parser for each extension `parseFile` reads, a Markdown file yielding
+ * its YAML frontmatter.
+ */
+const PARSERS = {
+  '.json' : JSON.parse,
+  '.md'   : (text: string) => YAML.parse(FRONTMATTER.exec(text)?.[1] ?? '{}'),
+  '.toml' : TOML.parse,
+  '.yml'  : YAML.parse
+}
 
 const gatesOf = (workflow: Workflow) => Object.entries(workflow.jobs)
   .filter(([id, job]) => Object.keys(workflow.jobs)
@@ -72,14 +82,17 @@ const gatesOf = (workflow: Workflow) => Object.entries(workflow.jobs)
 const pathsOf = async (root: string, pattern: string) =>
   (await Array.fromAsync(new Glob(pattern).scan(root))).sort().map(path => join(root, path))
 
-const wordOf = (label: RegistryLabel) => label.name.split(' ').at(-1) ?? ''
-
 /**
- * Parses the JSON, TOML, or YAML file at `path`, choosing the parser by its
- * extension.
+ * Parses the JSON, TOML, or YAML file at `path`, or the frontmatter of the
+ * Markdown file there, choosing the parser by its extension.
  */
 export const parseFile = async (path: string) =>
   PARSERS[extname(path) as keyof typeof PARSERS](await Bun.file(path).text())
+
+/**
+ * The word a label's name ends on, after its emoji.
+ */
+export const wordOf = (name: string) => name.split(' ').at(-1) ?? ''
 
 /**
  * Holds the declarations under `.github/` and `.mise/` that name one another,
@@ -112,7 +125,7 @@ export class Repository {
       (await parseFile(at(FILES.labels))).labels,
       await Promise.all((await pathsOf(root, '.github/rulesets/*.json')).map(parseFile)),
       (await parseFile(at(FILES.sweep)))['repo:ci'].depends,
-      await Promise.all((await pathsOf(root, '.github/ISSUE_TEMPLATE/*.yml'))
+      await Promise.all((await pathsOf(root, '.github/ISSUE_TEMPLATE/*.{md,yml}'))
         .filter(path => !path.endsWith('config.yml'))
         .map(async path => ({ labels: (await parseFile(path)).labels ?? [], path }))),
       await Promise.all((await pathsOf(root, '.github/workflows/*.yml'))
@@ -204,7 +217,7 @@ export class Repository {
   }
 
   private get labelProblems(): string[] {
-    const words = this.labels.map(wordOf)
+    const words = this.labels.map(label => wordOf(label.name))
     return [
       ...this.labels
         .map(label => ({ keys: Object.keys(label).sort().join(', '), name: label.name }))

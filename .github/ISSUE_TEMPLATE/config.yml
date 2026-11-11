@@ -1,1 +1,5 @@
 blank_issues_enabled: false
+contact_links:
+  - about: The site itself, showing every active satellite above a spot you choose
+    name: upstairs.fyi
+    url: https://upstairs.fyi/

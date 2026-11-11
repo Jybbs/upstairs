@@ -1,7 +1,7 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "labels"
-#MISE confirm     = "Create or update every label `.github/labels.toml` declares on GitHub?"
+#MISE confirm     = "Create, rename, or update every label `.github/labels.toml` declares on GitHub?"
 #MISE depends     = ["site:install"]
-#MISE description = "Send every label the registry declares to GitHub and list each live label it omits"
+#MISE description = "Send every label the registry declares to GitHub, renaming a live label whose word a row shares, and list each live label it omits"
 
 bun run docs/.vitepress/tools/sync.ts labels

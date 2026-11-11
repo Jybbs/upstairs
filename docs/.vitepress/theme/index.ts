@@ -4,12 +4,14 @@ import '@fontsource-variable/jetbrains-mono'
 
 import { defineClientComponent, type Theme } from 'vitepress'
 import DefaultTheme                         from 'vitepress/theme-without-fonts'
-import { h }                                from 'vue'
+import { h, onMounted }                     from 'vue'
 
-import NotFound from './NotFound.vue'
-import SiteMark from './SiteMark.vue'
+import { followFootnotes } from '../lib/site/landing.ts'
+import NotFound            from './NotFound.vue'
+import SiteMark            from './SiteMark.vue'
 import './style.css'
 import './credit.css'
+import './footnotes.css'
 
 export default {
   extends: DefaultTheme,
@@ -21,5 +23,7 @@ export default {
 
   enhanceApp: ({ app }) => {
     app.component('HomeMap', defineClientComponent(() => import('./HomeMap.vue')))
-  }
+  },
+
+  setup: () => onMounted(() => followFootnotes(document))
 } satisfies Theme

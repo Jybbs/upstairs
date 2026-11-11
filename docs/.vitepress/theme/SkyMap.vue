@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import mlcontour                                            from 'maplibre-contour'
 import * as maplibregl                                      from 'maplibre-gl'
-import mapStyle                                             from 'maplibre-gl/dist/maplibre-gl.css?url'
 import mapWorker                                            from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { useData }                                          from 'vitepress'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -12,6 +11,7 @@ import { namesOn, placeNear }  from '../lib/map/places.ts'
 import { Overlay }             from '../lib/map/overlay.ts'
 import { styleOf }             from '../lib/map/style.ts'
 import { SCHEMES }             from '../lib/site/palette.ts'
+import { SHEETS }              from '../lib/site/sheets.ts'
 import { sky }                 from '../lib/state/sky.ts'
 
 const DEM     = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
@@ -56,8 +56,9 @@ const refreshFrame = () => {
  * loaded.
  */
 const styled = () => new Promise(resolve => {
-  if (document.querySelector(`link[href="${mapStyle}"]`)) return resolve(null)
-  const link = Object.assign(document.createElement('link'), { href: mapStyle, rel: 'stylesheet' })
+  const { href } = SHEETS.map
+  if (document.querySelector(`link[href="${href}"]`)) return resolve(null)
+  const link = Object.assign(document.createElement('link'), { href, rel: 'stylesheet' })
   link.onload = resolve
   document.head.append(link)
 })
