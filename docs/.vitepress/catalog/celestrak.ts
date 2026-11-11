@@ -36,10 +36,10 @@ export const checked = (records: unknown) => {
 }
 
 /**
- * Reads the catalog from `answer`, failing with `Unreachable` where it rejects
- * or Cloudflare could not connect, and with a plain error where no headers
- * arrived within `HEADER_WAIT` milliseconds or on any other answer but 200, a
- * redirect included.
+ * Reads the catalog from `answer`, failing with `Unreachable` where Cloudflare
+ * could not connect or `answer` rejects with anything but a `TimeoutError`. A
+ * `TimeoutError` is thrown again unchanged, and any other answer but 200, a
+ * redirect included, fails with a plain error.
  */
 export const download = async (answer: Promise<Response>): Promise<Record[]> => {
   const response = await answer.catch((error: Error) => {

@@ -13,7 +13,7 @@ const records = Array.from({ length: 5000 }, (_, row) => ({
 const start = Date.parse('2026-11-10T00:00:00Z')
 
 const SPACINGS = [[EVERY - 1, 'early'], [EVERY, 'stored']] as const
-const REFUSALS = [301, 403, 404, 500, 503]
+const REFUSALS = [301, 403, 404, 500, 503, 520]
 const refused  = (status: number) => () => new Response(null, { status })
 const MISSES   = [
   ['Cloudflare answers 521', refused(521), '521'],
@@ -22,8 +22,10 @@ const MISSES   = [
   ['the request throws', () => { throw new TypeError('Network connection lost') }, 'Network connection lost']
 ] as const
 
-const cycleOf = (answer: (region: Region, init?: RequestInit) => Response | Promise<Response>,
-                 failedSends = 0) => {
+const cycleOf = (
+  answer      : (region: Region, init?: RequestInit) => Response | Promise<Response>,
+  failedSends = 0
+) => {
   const state   = new Map<string, unknown>()
   const stored  = new Map<string, unknown>()
   const sent: { subject: string, text: string }[] = []
