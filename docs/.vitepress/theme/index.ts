@@ -8,6 +8,7 @@ import { h }                                from 'vue'
 
 import NotFound from './NotFound.vue'
 import './style.css'
+import './credit.css'
 
 export default {
   Layout     : () => h(DefaultTheme.Layout, null, { 'not-found': () => h(NotFound) }),

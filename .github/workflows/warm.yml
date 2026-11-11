@@ -66,8 +66,9 @@ jobs:
           - { name: 🔥 Bun, tools: bun }
           - { name: 🔥 Bun and OSV-Scanner, tools: bun osv-scanner }
           - { name: 🔥 Bun and Rust, tools: bun rust }
-          - { name: 🔥 Bun, Lychee, Rust, and wasm-bindgen, tools: bun lychee rust github:wasm-bindgen/wasm-bindgen }
           - { name: 🔥 Bun, Rust, and wasm-bindgen, tools: bun rust github:wasm-bindgen/wasm-bindgen }
+          - { name: 🔥 Bun, cargo-about, Lychee, Rust, and wasm-bindgen, tools: bun github:EmbarkStudios/cargo-about lychee rust github:wasm-bindgen/wasm-bindgen }
+          - { name: 🔥 Bun, cargo-about, Rust, and wasm-bindgen, tools: bun github:EmbarkStudios/cargo-about rust github:wasm-bindgen/wasm-bindgen }
           - { name: 🔥 Rust, tools: rust }
           - { name: 🔥 Zizmor, tools: zizmor }
     timeout-minutes: 15

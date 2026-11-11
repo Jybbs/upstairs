@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import type { Plugin, TransformContext } from 'vitepress'
 import { expect, it }                     from 'vitest'
 
@@ -19,4 +21,9 @@ it('preloads the map chunk from the head of the home page', () => {
   const context = { page: 'index.md', siteData: { base: '/' } } as TransformContext
   expect(config.transformHead!(context))
     .toEqual([['link', { href: '/assets/chunks/HomeMap.abc.js', rel: 'modulepreload' }]])
+})
+
+it('writes the license notices to the file the Data page links', () => {
+  const { fileName } = config.vite!.build!.license as { fileName: string }
+  expect(readFileSync(new URL('../../data/index.md', import.meta.url), 'utf8')).toContain(`](/${fileName})`)
 })
