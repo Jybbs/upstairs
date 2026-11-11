@@ -23,6 +23,9 @@ export default {
 
   enhanceApp: ({ app }) => {
     app.component('HomeMap', defineClientComponent(() => import('./HomeMap.vue')))
+    app.component('LookAngles', defineClientComponent(() => import('./LookAngles.vue')))
+    app.component('OrbitAges', defineClientComponent(() => import('./OrbitAges.vue')))
+    app.component('PeakSearch', defineClientComponent(() => import('./PeakSearch.vue')))
   },
 
   setup: () => onMounted(() => followFootnotes(document))

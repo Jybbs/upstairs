@@ -25,6 +25,14 @@ const STATIONARY: f64 = 0.05;
 /// `None` where its propagator fails there.
 type Seen = Option<(Look, Point)>;
 
+/// The elevation and azimuth the spot sees of one satellite at every sample of
+/// a window, in degrees, NaN where its propagator fails.
+#[wasm_bindgen(getter_with_clone)]
+pub struct Looks {
+    pub azimuths: Vec<f64>,
+    pub elevations: Vec<f64>,
+}
+
 /// The tracks of the satellites in a batch that rise over the spot, one after
 /// another, beside every pass they make and, for each pass, the index in
 /// `track` where its satellite's samples begin.
@@ -78,6 +86,27 @@ impl Tracer {
             moments: Moment::table(start, samples, step),
             site: Site::new(latitude, longitude),
             step,
+        }
+    }
+
+    /// Returns what the spot sees of the satellite in `row` at every sample,
+    /// NaN throughout where the row holds no propagator.
+    pub fn looks(&self, orbits: &Orbits, row: u32) -> Looks {
+        let propagator = orbits.get(row as usize);
+        let (elevations, azimuths) = self
+            .moments
+            .iter()
+            .map(|moment| {
+                propagator
+                    .and_then(|propagator| self.look(propagator, moment))
+                    .map_or((f64::NAN, f64::NAN), |(look, _)| {
+                        (look.elevation, look.azimuth)
+                    })
+            })
+            .unzip();
+        Looks {
+            azimuths,
+            elevations,
         }
     }
 

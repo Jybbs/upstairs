@@ -1,14 +1,13 @@
 import { computed, reactive, ref, shallowRef } from 'vue'
 
-import * as catalog           from '../orbit/catalog.ts'
-import * as kinds             from '../orbit/kinds.ts'
-import type { Pass, Spot }    from '../orbit/scan.ts'
-import type { Answer, Asked } from '../orbit/worker.ts'
-import { fragmentOf, spotIn } from './address.ts'
-import { Tracks }             from './tracks.ts'
+import * as catalog                       from '../orbit/catalog.ts'
+import * as kinds                         from '../orbit/kinds.ts'
+import { minuteOf, type Pass, type Spot } from '../orbit/scan.ts'
+import type { Answer, Asked }             from '../orbit/worker.ts'
+import * as address                       from './address.ts'
+import { Tracks }                         from './tracks.ts'
 
 export const HEIGHTS = [0, 30, 60, 80] as const
-const HOME           = { place: 'Boston', spot: { latitude: 42.36, longitude: -71.06 } }
 const NEARLY         = 80
 const ROWS           = 200
 const SPOKEN         = 20_000
@@ -17,13 +16,11 @@ export const WINDOWS = [30, 60, 120] as const
 const WORTH          = 20
 const clockFormat    = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' })
 const dayFormat      = new Intl.DateTimeFormat([], { day: 'numeric', month: 'short', weekday: 'short' })
-const shared         = spotIn(location.hash)
-const opening        = shared ? { place: null, spot: shared } : HOME
+const shared         = address.spotIn(location.hash)
+const opening        = shared ? { place: null, spot: shared } : address.HOME
 
 const highestOf = (list: Pass[]) =>
   list.reduce<Pass | null>((best, pass) => !best || pass.peak > best.peak ? pass : best, null)
-
-const minuteOf = (time: number) => Math.floor(time / 60_000) * 60_000
 
 const tracedOf = () => {
   const entries = Object.entries(kinds.KINDS).map(([kind, { traced }]) => [kind, traced])
@@ -190,7 +187,7 @@ class Sky {
    */
   pick(spot: Spot, place: string | null) {
     this.moveTo(spot, place)
-    history.replaceState(null, '', fragmentOf(spot))
+    history.replaceState(null, '', address.fragmentOf(spot))
   }
 
   /**

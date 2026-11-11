@@ -6,7 +6,7 @@ env:
 jobs:
   catalog:
     if: github.ref == 'refs/heads/main'
-    name: 📡 Catalog Service
+    name: 📡 Catalog
     needs: [press]
     runs-on: ubuntu-26.04
     steps:

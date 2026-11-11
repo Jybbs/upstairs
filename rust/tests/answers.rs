@@ -199,6 +199,39 @@ fn places_each_record_where_the_answers_do() {
 }
 
 #[test]
+fn looks_at_each_satellite_as_its_traced_passes_do() {
+    let window = &ANSWERS.track;
+    let orbits = orbits(&RECORDS);
+    let tracer = window.tracer();
+    for (index, pass) in TRACE.passes.iter().enumerate() {
+        let looks = tracer.looks(&orbits, pass.row);
+        let rise = (pass.rise_at / window.step) as usize;
+        let set = (pass.set_at / window.step) as usize;
+        let tracked = TRACE.offsets[index] as usize + rise * window.width + 2;
+        let what = |field: &str| format!("{}, {field}", id(pass.row));
+        assert_eq!(
+            looks.elevations.len(),
+            window.samples(),
+            "{}",
+            what("samples")
+        );
+        close(
+            &what("rise azimuth"),
+            looks.azimuths[rise],
+            pass.rise_az,
+            0.0,
+        );
+        close(&what("set azimuth"), looks.azimuths[set], pass.set_az, 0.0);
+        close(
+            &what("elevation"),
+            looks.elevations[rise],
+            f64::from(TRACE.track[tracked]),
+            ANGLE,
+        );
+    }
+}
+
+#[test]
 fn counts_the_satellites_above_the_spot() {
     let orbits = orbits(&RECORDS);
     let window = &ANSWERS.grid;

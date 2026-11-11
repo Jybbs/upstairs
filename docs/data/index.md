@@ -13,15 +13,15 @@ import { DECIMALS } from '../.vitepress/lib/state/address.ts'
 
 ## Orbits
 
-The orbital elements come from [CelesTrak](https://celestrak.org/), which redistributes data from the US Space Force through [Space-Track](https://www.space-track.org/). The list covers active satellites only, leaving out debris, spent rockets, and anything outside the public catalog.
+The orbital elements come from [CelesTrak](https://celestrak.org/), which redistributes data from the US Space Force through [Space-Track](https://www.space-track.org/). The list covers active satellites only, leaving out debris, spent rockets, and anything outside the public catalog. CelesTrak publishes no license for the elements and makes them freely available to all users, updating them every two hours and asking each client to download them only once per update[^kelso2026], so the site's catalog service downloads the list from CelesTrak at most once every two hours and every reader's browser reads that copy from `upstairs.fyi`.
 
 ## The Map
 
-The map combines terrain from the sources under Terrain below with map data from [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) in the [OpenMapTiles](https://openmaptiles.org/) schema, served through [OpenFreeMap](https://openfreemap.org/) and drawn by [MapLibre](https://maplibre.org/). The map's credit opens in its lower-right corner, listing each source on its own line, and stays open until the reader presses, scrolls, or types on the map, or until {{ HOLD.wait / 1000 }} seconds after the OpenStreetMap line shows. It then folds into the button marked i, which opens it again.
+The map combines terrain from the sources under Terrain below with map data from [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) in the [OpenMapTiles](https://openmaptiles.org/) schema, served through [OpenFreeMap](https://openfreemap.org/) and drawn by [MapLibre](https://maplibre.org/). OpenStreetMap's data is licensed under the [Open Database License](https://opendatacommons.org/licenses/odbl/), the OpenMapTiles schema's design under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), and OpenFreeMap builds its tiles from a full run over the planet each week. The map's credit opens in its lower-right corner, listing each source on its own line, and stays open until the reader presses, scrolls, or types on the map, or until {{ HOLD.wait / 1000 }} seconds after the OpenStreetMap line shows. It then folds into the button marked i, which opens it again.
 
 ## Terrain
 
-The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset, which [Mapzen](https://github.com/tilezen/joerd) built from these sources:
+The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset, which [Mapzen](https://github.com/tilezen/joerd) built from the sources below and which takes in new data as its users ask for it. Each source carries its own license, set out in the attribution the dataset's registry page links, with 3DEP, GMTED2010, and ETOPO1 in the public domain, SRTM in the public domain within the United States, and ArcticDEM free to use without permission:
 
 - ArcticDEM terrain data DEM(s) were created from DigitalGlobe, Inc., imagery and funded under National Science Foundation awards 1043681, 1559691, and 1542736
 - Australia terrain data © Commonwealth of Australia (Geoscience Australia) 2017
@@ -37,7 +37,7 @@ The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terra
 
 ## Place Search
 
-The search box finds places through [Photon](https://photon.komoot.io/), run by komoot.
+The search box finds places through [Photon](https://photon.komoot.io/), run by komoot, which searches OpenStreetMap's data under the same [Open Database License](https://opendatacommons.org/licenses/odbl/) and keeps it up to date by the minute.
 
 ## Requests
 

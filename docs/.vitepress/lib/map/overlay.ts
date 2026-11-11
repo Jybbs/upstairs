@@ -1,4 +1,4 @@
-import { AGES, DAY }                        from '../orbit/catalog.ts'
+import { AGES, ageOf }                      from '../orbit/catalog.ts'
 import { TRACK_STEP, type Pass, type Spot } from '../orbit/scan.ts'
 import { SCHEMES, type Scheme }             from '../site/palette.ts'
 import type { Tracks }                      from '../state/tracks.ts'
@@ -27,7 +27,17 @@ const MONO        = '"JetBrains Mono Variable", monospace'
 const OVERHEAD_KM = 290
 const PADDING     = 24
 const REACH       = 16
+/**
+ * The ring's halo, `halo` pixels wide at `alpha`, under its dots, `width`
+ * pixels wide.
+ */
+export const RING = { alpha: 0.7, halo: 5.25, width: 2.25 } as const
 const SHOWN       = 5
+/**
+ * The days past its epoch after which a satellite's ring spreads its dots to
+ * twice and then three times `DOT_GAP`.
+ */
+export const SPREADS = [1, AGES.warn] as const
 const FONTS = {
   chosen : `600 11.5px ${MONO}`,
   city   : `13px ${BOOK}`,
@@ -37,11 +47,17 @@ const FONTS = {
 }
 
 /**
- * How many times `DOT_GAP` the ring's dots stand apart round a satellite whose
- * element set is `age` days past its epoch, once within a day of it, twice
- * until positions may drift, and three times after.
+ * Returns the gap in pixels between the ring's dots round a circle `around`
+ * pixels long, for a satellite whose element set is `age` days past its epoch.
  */
-const spreadOf = (age: number) => age > AGES.warn ? 3 : age > 1 ? 2 : 1
+export const ringGapOf = (around: number, age: number) =>
+  around / Math.round(around / (DOT_GAP * spreadOf(age)))
+
+/**
+ * How many times `DOT_GAP` the ring's dots stand apart round a satellite whose
+ * element set is `age` days past its epoch, one more past each of `SPREADS`.
+ */
+export const spreadOf = (age: number) => age > SPREADS[1] ? 3 : age > SPREADS[0] ? 2 : 1
 
 /**
  * The two canvases above the map. The lower one holds what stays put between
@@ -321,20 +337,19 @@ export class Overlay {
     const radius         = DRIFT_KM * view.scale(tracks.latitude)
     if (radius < DRIFT_PX) return
     const around = 2 * Math.PI * radius
-    const spread = spreadOf((time - tracks.passes[pass].epoch) / DAY)
-    dots[1]      = around / Math.round(around / (DOT_GAP * spread))
+    dots[1]      = ringGapOf(around, ageOf(tracks.passes[pass].epoch, time))
     context.save()
     context.setLineDash(dots)
     context.beginPath()
     context.arc(view.column(tracks.longitude), view.row(tracks.latitude), radius, 0, Math.PI * 2)
     context.lineCap     = 'round'
-    context.globalAlpha = 0.7
+    context.globalAlpha = RING.alpha
     context.strokeStyle = this.scheme.halo
-    context.lineWidth   = 5.25
+    context.lineWidth   = RING.halo
     context.stroke()
     context.globalAlpha = 1
     context.strokeStyle = this.scheme.kinds[tracks.passes[pass].kind]
-    context.lineWidth   = 2.25
+    context.lineWidth   = RING.width
     context.stroke()
     context.restore()
   }

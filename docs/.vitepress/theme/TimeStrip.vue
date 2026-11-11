@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useElementSize }                             from '@vueuse/core'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { BOUNDS, boundOf }      from '../lib/orbit/compass.ts'
@@ -37,9 +38,8 @@ const ticks = computed(() => {
     }
   })
 })
-const width = ref(800)
+const { width } = useElementSize(strip, { height: 0, width: 800 })
 
-let observer: ResizeObserver
 let request = 0
 
 const drag = (event: PointerEvent) => {
@@ -66,18 +66,13 @@ const secondsAt = (clientX: number) => {
 const xOf = (seconds: number) => INSET + seconds / sky.span.value * inner.value
 
 onMounted(() => {
-  observer = new ResizeObserver(([entry]) => { width.value = entry.contentRect.width })
-  observer.observe(strip.value!)
   const loop = () => {
     cursor.value?.setAttribute('transform', `translate(${xOf(sky.seconds)} 0)`)
     request = requestAnimationFrame(loop)
   }
   request = requestAnimationFrame(loop)
 })
-onBeforeUnmount(() => {
-  observer.disconnect()
-  cancelAnimationFrame(request)
-})
+onBeforeUnmount(() => cancelAnimationFrame(request))
 </script>
 
 <template>

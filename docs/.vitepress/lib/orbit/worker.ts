@@ -5,9 +5,9 @@
  * stops once a newer scan arrives.
  */
 
-import init, * as orbit              from '../../../../rust/pkg/orbit.js'
-import { elementsOf, segmentsOf } from './catalog.ts'
-import * as scan                     from './scan.ts'
+import init, * as orbit                   from '../../../../rust/pkg/orbit.js'
+import { bodyOf, elementsOf, segmentsOf } from './catalog.ts'
+import * as scan                          from './scan.ts'
 
 export type Answer =
   | { type: 'loaded', count: number, fetched: number }
@@ -125,11 +125,10 @@ const run = async (orbits: orbit.Orbits, id: number, minutes: number, spot: scan
 self.onmessage = async ({ data }: MessageEvent<Asked>) => {
   if (data.type === 'load') {
     try {
-      const response = await fetch(data.url)
-      if (!response.ok || !response.body) throw new Error(`The catalog answered ${response.status}`)
+      const body = await bodyOf(data.url)
       await ready
       orbits = new orbit.Orbits()
-      for await (const { fetched, records } of segmentsOf(response.body)) {
+      for await (const { fetched, records } of segmentsOf(body)) {
         orbits.extend(records.map(record => record.EPOCH), elementsOf(records))
         satellites = [...satellites, ...scan.satellitesOf(records)]
         post({ count: satellites.length, fetched, type: 'loaded' })

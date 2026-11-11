@@ -4,6 +4,10 @@ import type { Spot } from '../orbit/scan.ts'
  * The decimals each coordinate of a spot keeps in the page's address.
  */
 export const DECIMALS = 2
+/**
+ * The place and spot the map opens on where the address names no spot.
+ */
+export const HOME = { place: 'Boston', spot: { latitude: 42.36, longitude: -71.06 } }
 
 /**
  * Writes a spot as the fragment of the page's address, each coordinate rounded
