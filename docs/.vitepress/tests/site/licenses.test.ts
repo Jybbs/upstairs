@@ -27,8 +27,16 @@ describe('the licenses', () => {
   it('appends the notice of each copied package the packages\' notices leave out', () => {
     const bundle = bundleOf(PACKAGES)
     generate('notices.txt', bundle, ['katex', 'vue'])
-    const katex = `\n## katex - ${KATEX.version} (MIT)\n\n${readFileSync('node_modules/katex/LICENSE', 'utf8')}`
-    expect(bundle['licenses.txt'].source).toBe(PACKAGES + katex + readFileSync(fixture('notices.txt'), 'utf8'))
+    const katex = `\n## katex - ${KATEX.version} (MIT)\n\n`
+                + readFileSync('node_modules/katex/LICENSE', 'utf8')
+    expect(bundle['licenses.txt'].source)
+      .toBe(PACKAGES + katex + readFileSync(fixture('notices.txt'), 'utf8'))
+  })
+  it('reads the notice of a copied package from a license file with an extension', () => {
+    const bundle = bundleOf(PACKAGES)
+    generate('notices.txt', bundle, ['maplibre-gl'])
+    expect(bundle['licenses.txt'].source)
+      .toContain(readFileSync('node_modules/maplibre-gl/LICENSE.txt', 'utf8'))
   })
   it('fails the build where the notices hold none for sgp4', () =>
     expect(() => generate('notices-without-sgp4.txt', bundleOf(''))).toThrow(/holds no notice for sgp4$/))

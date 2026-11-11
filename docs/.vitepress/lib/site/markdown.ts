@@ -11,20 +11,21 @@ import { drawFootnotes } from './footnotes.ts'
 import { SHEETS }        from './sheets.ts'
 
 const ADDRESS    = />(https:\/\/[^<]+)<\/a>/g
-const CODE       = /^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\S\n]*$|(`+)[\s\S]*?\2/gm
+const CODE       = /^((`|~)\2{2,})[^\n]*\n[\s\S]*?^\1\2*[^\S\n]*$|(`+)(?:.|\n(?![^\S\n]*$))*?\3/gm
 const FOOTNOTE   = /\[\^(\w+)\](?!:)/g
 const REFERENCES = new URL('../../../references.bib', import.meta.url)
 
 /**
  * Appends a definition for each footnote a page keys to an entry of
  * `citations` and defines nowhere itself, failing on a key neither names,
- * and reads no key inside code.
+ * and reads neither a key nor a definition inside code.
  */
 const cite = (md: MarkdownRenderer, citations: Map<string, string>) =>
   md.core.ruler.after('normalize', 'upstairs:cite', state => {
-    const keys = new Set([...state.src.replace(CODE, '').matchAll(FOOTNOTE)].map(([, key]) => key))
+    const prose = state.src.replace(CODE, '')
+    const keys  = new Set([...prose.matchAll(FOOTNOTE)].map(([, key]) => key))
     for (const key of keys) {
-      if (state.src.includes(`[^${key}]:`)) continue
+      if (prose.includes(`[^${key}]:`)) continue
       const citation = citations.get(key)
       if (!citation) throw new Error(`The footnote ${key} names no entry in docs/references.bib`)
       state.src += `\n\n[^${key}]: ${citation}`

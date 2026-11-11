@@ -1,4 +1,4 @@
-import { TOML }         from 'bun'
+import { TOML }                      from 'bun'
 import { readdirSync, readFileSync } from 'node:fs'
 
 import type { Plugin } from 'vitepress'
@@ -8,23 +8,21 @@ interface Manifest {
 }
 
 /**
- * The notice of the package `name` under `node_modules/`, headed as Vite
+ * Reads the notice of the package `name` under `node_modules/`, headed as Vite
  * heads each notice it writes.
  */
 const noticeOf = (name: string) => {
-  const root = `node_modules/${name}`
+  const root                 = `node_modules/${name}`
   const { license, version } = JSON.parse(readFileSync(`${root}/package.json`, 'utf8'))
-  const file = readdirSync(root).find(file => /^licen[cs]e/i.test(file))
+  const file                 = readdirSync(root).find(entry => /^licen[cs]e/i.test(entry))
   return `\n## ${name} - ${version} (${license})\n\n${readFileSync(`${root}/${file}`, 'utf8')}`
 }
 
 /**
- * Appends the crates' notices at `notices` to the file Vite's `build.license`
- * writes as `fileName`, once Vite has written the packages' notices into it,
- * after the notice of each package in `copied` whose files the site copies
- * rather than bundles and which Vite has not listed. The build fails where
- * `notices` holds no notice for a crate the manifest at `manifest` lists under
- * its dependencies.
+ * Appends the notice of each package in `copied` that Vite's `build.license`
+ * has not listed, then the crates' notices at `notices`, to the file it writes
+ * as `fileName`, failing where `notices` holds none for a crate the manifest at
+ * `manifest` lists under its dependencies.
  */
 export const licensesOf = (fileName: string, manifest: URL, notices: URL, copied: string[] = []): Plugin => ({
   applyToEnvironment : ({ name }) => name === 'client',

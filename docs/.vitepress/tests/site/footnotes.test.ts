@@ -44,10 +44,12 @@ it('letters the returns of a source cited twice and leaves a source cited once u
 })
 
 it('points each return at the anchor beside the marker it came from', () => {
-  const targets = [...page.querySelectorAll('.footnote-backref')].map(link => link.getAttribute('href')!.slice(1))
-  expect(targets).toEqual([...page.querySelectorAll('.footnote-ref > .footnote-anchor')].map(anchor => anchor.id))
+  const anchors = [...page.querySelectorAll('.footnote-ref > .footnote-anchor')].map(anchor => anchor.id)
+  const targets = [...page.querySelectorAll('.footnote-backref')]
+    .map(link => link.getAttribute('href')!.slice(1))
+  expect(targets).toEqual(anchors)
   expect(new Set(targets).size).toBe(targets.length)
 })
 
-it('spells SOURCES in Morse code down the column', () =>
+it('spells SOURCES in Morse code', () =>
   expect(morseOf('SOURCES')).toBe('. . .   - - -   . . -   . - .   - . - .   .   . . .       '))

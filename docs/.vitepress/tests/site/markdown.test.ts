@@ -60,10 +60,16 @@ describe('markdownOf', () => {
 
   it.each([
     ['a code span', 'Write `[^surname2024]` after the claim.', []],
-    ['a fenced block', '```md\nA claim[^surname2024].\n```\n\nA check[^kelso2007].', ['kelso2007']]
+    ['a code span between double backticks', 'Write ``[^surname2024]`` after the claim.', []],
+    ['a fenced block', '```md\nA claim[^surname2024].\n```\n\nA check[^kelso2007].', ['kelso2007']],
+    ['a block fenced by tildes', '~~~md\nA claim[^surname2024].\n~~~\n\nA check[^kelso2007].', ['kelso2007']]
   ])('reads no footnote key inside %s', async (_, src, keys) =>
     expect([...(await render(src)).html.matchAll(/data-csl-entry-id="(\w+)"/g)].map(([, key]) => key))
       .toEqual(keys))
+
+  it('sets the entry for a key whose only definition sits inside code', async () =>
+    expect((await render('A check[^kelso2007].\n\n```md\n[^kelso2007]: Kelso.\n```')).html)
+      .toContain('<div data-csl-entry-id="kelso2007"'))
 
   it.each([
     ['inline between single dollars', 'An angle $\\theta$ rises.'],
@@ -91,6 +97,6 @@ describe('markdownOf', () => {
   it.each(PAGES)('sets every formula and footnote on %s', async page => {
     const { html } = await render(readFileSync(join(ROOT, page), 'utf8'))
     expect(html).not.toContain('katex-error')
-    expect(html).not.toMatch(/\[\^\w+\]/)
+    expect(html.replace(/<code>[\s\S]*?<\/code>/g, '')).not.toMatch(/\[\^\w+\]/)
   })
 })
