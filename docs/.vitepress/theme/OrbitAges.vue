@@ -18,7 +18,7 @@ const BINS   = 48
 const BOTTOM = 210
 const HEIGHT = 250
 const INSET  = 16
-const LAST   = AGES.limit + 1
+const LAST   = AGES.limit * 2
 const OPEN   = 8
 const RISE   = 54
 const TOP    = 110
@@ -26,9 +26,7 @@ const REACH  = Math.log1p(LAST * OPEN)
 const EDGES  = [0, ...SPREADS, AGES.limit]
 const BANDS  = [...EDGES, LAST].slice(1).map((to, index) => {
   const [from, middle] = [EDGES[index], (EDGES[index] + to) / 2]
-  const shade          = from >= AGES.limit ? 'fill-soft opacity-20'
-    : spreadOf(middle) === 2 ? 'fill-lift'
-    : 'fill-lift opacity-45'
+  const shade          = spreadOf(middle) === 2 ? 'fill-lift' : 'fill-lift opacity-45'
   return { from, middle, shade, to }
 })
 const BOUNDS = Array.from({ length: BINS + 1 }, (_, index) => Math.expm1(index / BINS * REACH) / OPEN)
@@ -41,7 +39,7 @@ const width    = computed(() => Math.round(size.width.value))
 const shares = computed(() => {
   const ages   = drawings.value?.ages ?? new Float64Array()
   const counts = Array.from({ length: BINS }, () => 0)
-  for (const age of ages) if (age >= 0 && age < LAST) counts[Math.floor(alongOf(age) * BINS)]++
+  for (const age of ages) if (age >= 0) counts[Math.min(BINS - 1, Math.floor(alongOf(age) * BINS))]++
   return counts.map(count => count / (ages.length || 1))
 })
 const slider  = computed(() => new Slider(BINS, shares.value.indexOf(Math.max(...shares.value)), pick))
@@ -54,9 +52,8 @@ const columns = computed(() => {
   })
 })
 const rings = computed(() => {
-  const ringed = BANDS.filter(band => band.from < AGES.limit)
-  const radius = Math.min(34, ...ringed.map(band => (x(band.to) - x(band.from)) / 2 - 8))
-  return ringed.map(band => ({
+  const radius = Math.min(34, ...BANDS.map(band => (x(band.to) - x(band.from)) / 2 - 8))
+  return BANDS.map(band => ({
     cx     : (x(band.from) + x(band.to)) / 2,
     dash   : `0 ${ringGapOf(2 * Math.PI * radius, band.middle)}`,
     radius : radius
@@ -66,14 +63,14 @@ const rings = computed(() => {
 const readings = computed(() => {
   const index = slider.value.index.value
   return [
-    { label: 'Orbit age', longest: '10.0 TO 15.0 D', value: spanOf(BOUNDS[index], BOUNDS[index + 1]) },
+    { label: 'Orbit age', longest: '10.0 TO 15.0 D', value: spanOf(index) },
     { label: 'Of the catalog', longest: '100%', value: drawings.value ? percent(shares.value[index]) : '' }
   ]
 })
 
 /**
- * Returns how far along the axis `age` days stands, from 0 at no age to 1 a day
- * past the limit.
+ * Returns how far along the axis `age` days stands, from 0 at no age to 1 at
+ * twice the limit.
  */
 const alongOf = (age: number) => Math.log1p(age * OPEN) / REACH
 
@@ -81,14 +78,23 @@ const percent = (share: number) => `${(share * 100).toFixed(share < 0.1 ? 1 : 0)
 
 const pick = (px: number) => Math.floor(clamp((px - INSET) / (width.value - 2 * INSET), 0, 0.9999) * BINS)
 
-const spanOf = (low: number, high: number) => {
+/**
+ * Reads the ages of column `index`, the last column holding every age past
+ * its lower bound.
+ */
+const spanOf = (index: number) => {
+  const [low, high] = [BOUNDS[index], BOUNDS[index + 1]]
+  if (index === BINS - 1) return `${low.toFixed(1)} D OR MORE`
   if (high < 1 / 24) return `${Math.round(low * 1440)} TO ${Math.round(high * 1440)} MIN`
   if (high < 1) return `${Math.round(low * 24)} TO ${Math.round(high * 24)} H`
   return `${low.toFixed(1)} TO ${high.toFixed(1)} D`
 }
 
-const spoken = (index: number) =>
-  `${BOUNDS[index].toFixed(2)} to ${BOUNDS[index + 1].toFixed(2)} days, ${percent(shares.value[index])}`
+const spoken = (index: number) => {
+  const low  = BOUNDS[index].toFixed(2)
+  const span = index === BINS - 1 ? `${low} days or more` : `${low} to ${BOUNDS[index + 1].toFixed(2)} days`
+  return `${span}, ${percent(shares.value[index])}`
+}
 
 const x = (age: number) => INSET + alongOf(age) * (width.value - 2 * INSET)
 

@@ -31,9 +31,13 @@ let pending: Promise<Drawings> | undefined
 
 /**
  * Returns the drawings' values, reading the catalog the first time it is
- * called and sharing that read with every later call.
+ * called and sharing that read with every later call, until a read fails and
+ * the next call reads again.
  */
-const drawingsOf = () => pending ??= load()
+const drawingsOf = () => pending ??= load().catch((error: unknown) => {
+  pending = undefined
+  throw error
+})
 
 const load = async (): Promise<Drawings> => {
   const [body] = await Promise.all([catalog.bodyOf(`${import.meta.env.BASE_URL}${catalog.FILE}`), init()])

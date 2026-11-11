@@ -70,7 +70,7 @@ describe('the pointer', () => {
     const slider = new Slider(20, 0, pick)
     const press  = pointerAt(30)
     slider.press(press)
-    expect(press.currentTarget).toMatchObject({ setPointerCapture: expect.any(Function) })
+    expect((press.currentTarget as Element).setPointerCapture).toHaveBeenCalledWith(1)
     expect([slider.index.value, slider.gripped.value]).toEqual([3, true])
     slider.move(pointerAt(70))
     expect(slider.index.value).toBe(7)

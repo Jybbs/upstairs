@@ -20,14 +20,14 @@ const station      = records.filter(record => record.NORAD_CAT_ID === looks.ISS)
 
 /**
  * Returns the station of the committed records watched over `spot` through
- * the day from `START`.
+ * the day from `start`.
  */
-export const watchOf = async (spot: Spot = HOME.spot) => {
+export const watchOf = async (spot: Spot = HOME.spot, start = START) => {
   const wasm = join(import.meta.dirname, '../../../../rust/pkg/orbit_bg.wasm')
   await init({ module_or_path: await readFile(wasm) })
   const orbits = new orbit.Orbits()
   orbits.extend(station.map(record => record.EPOCH), catalog.elementsOf(station))
-  return new looks.Watch(orbits, 0, spot, START)
+  return new looks.Watch(orbits, 0, spot, start)
 }
 
 /**

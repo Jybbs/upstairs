@@ -13,7 +13,7 @@ import { DECIMALS } from '../.vitepress/lib/state/address.ts'
 
 ## Orbits
 
-The orbital elements come from [CelesTrak](https://celestrak.org/), which redistributes data from the US Space Force through [Space-Track](https://www.space-track.org/). The list covers active satellites only, leaving out debris, spent rockets, and anything outside the public catalog. CelesTrak publishes new orbital elements every two hours and asks each client for one download per update, so the site's catalog service downloads the list from CelesTrak at most once every two hours and every reader's browser reads that copy from `upstairs.fyi`.
+The orbital elements come from [CelesTrak](https://celestrak.org/), which redistributes data from the US Space Force through [Space-Track](https://www.space-track.org/). The list covers active satellites only, leaving out debris, spent rockets, and anything outside the public catalog. CelesTrak publishes no license for the elements and makes them freely available to all users, updating them every two hours and asking each client to download them only once per update[^celestrak2026], so the site's catalog service downloads the list from CelesTrak at most once every two hours and every reader's browser reads that copy from `upstairs.fyi`.
 
 ## The Map
 
@@ -21,7 +21,7 @@ The map combines terrain from the sources under Terrain below with map data from
 
 ## Terrain
 
-The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset, which [Mapzen](https://github.com/tilezen/joerd) built from the sources below and which takes in new data as its users ask for it. Each source carries its own license, set out in the attribution the dataset's registry page links, with the US sources, ETOPO1, and ArcticDEM free of restriction:
+The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset, which [Mapzen](https://github.com/tilezen/joerd) built from the sources below and which takes in new data as its users ask for it. Each source carries its own license, set out in the attribution the dataset's registry page links, with 3DEP, GMTED2010, and ETOPO1 in the public domain, SRTM in the public domain within the United States, and ArcticDEM free to use without permission:
 
 - ArcticDEM terrain data DEM(s) were created from DigitalGlobe, Inc., imagery and funded under National Science Foundation awards 1043681, 1559691, and 1542736
 - Australia terrain data © Commonwealth of Australia (Geoscience Australia) 2017

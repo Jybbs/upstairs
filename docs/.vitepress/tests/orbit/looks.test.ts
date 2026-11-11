@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import * as catalog       from '../../lib/orbit/catalog.ts'
 import * as looks         from '../../lib/orbit/looks.ts'
 import { TRACK_STEP }     from '../../lib/orbit/scan.ts'
+import { HOME }           from '../../lib/state/address.ts'
 import { START, watchOf } from '../fixtures/drawings.ts'
 
 const STEPS = [1, 10, TRACK_STEP, 120, 240]
@@ -18,6 +19,15 @@ describe('the passes of a day', () => {
   it.each(watch.passes)('places the pass peaking at $peak° inside the day, its peak between its rise and set', pass => {
     expect([START, pass.riseAt, pass.peakAt, pass.setAt, START + catalog.DAY]).toEqual(
       [START, pass.riseAt, pass.peakAt, pass.setAt, START + catalog.DAY].sort((a, b) => a - b))
+  })
+
+  it.each([
+    ['already up when the day starts', 0],
+    ['still up when the day ends', -catalog.DAY]
+  ])('leaves out a pass %s', async (_, shift) => {
+    const cut = await watchOf(HOME.spot, watch.passes[0].peakAt + shift)
+    const end = cut.start + catalog.DAY
+    expect(cut.passes.every(pass => pass.riseAt > cut.start && pass.setAt < end)).toBe(true)
   })
 
   it('reads the highest pass as the one with the greatest peak', () => {
