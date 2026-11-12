@@ -1,0 +1,4 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE description = "Create a draft release with generated notes where the version in `docs/package.json` moved and no release carries it, leaving a release that already does as it stands"
+
+bun run docs/.vitepress/tools/cut.ts

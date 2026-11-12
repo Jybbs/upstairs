@@ -1,0 +1,57 @@
+concurrency:
+  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+jobs:
+  cut:
+    if: github.ref == 'refs/heads/main'
+    name: 🏷️ Cut
+    permissions:
+      contents: write
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Provision
+        uses: $/.github/actions/provision
+        with:
+          cache: 'false'
+          tools: bun
+      - name: Draft the release where the version moved
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: mise run gha:cut
+    timeout-minutes: 10
+  logbook:
+    if: always()
+    name: 📓 Logbook
+    needs: [cut]
+    permissions:
+      actions: read
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Provision
+        uses: $/.github/actions/provision
+        with:
+          tools: bun
+      - name: Write the summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: mise run gha:logbook
+    timeout-minutes: 10
+name: 🛰️ Draft
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/package.json
+  workflow_dispatch:
+permissions:
+  contents: read
