@@ -4,7 +4,7 @@ import vue                              from '@vitejs/plugin-vue'
 import { configDefaults, defineConfig } from 'vitest/config'
 
 const triggers = [
-  '.github/**', '.mise/tasks/repo/ci.toml', 'docs/**/*.{css,md}', 'docs/.vitepress/tests/fixtures/**',
+  '.github/**', '.mise/**', 'docs/**/*.{css,md}', 'docs/.vitepress/tests/fixtures/**',
   'docs/bun.lock', 'docs/public/**', 'docs/references.bib', 'rust/**'
 ].map(glob => resolve(import.meta.dirname, '../..', glob))
 
