@@ -48,10 +48,42 @@ describe('a download', () => {
   })
 
   it.each([
-    ['a connection that fails to open', new TypeError('Network connection lost'), true],
-    ['a wait for headers past the bound', new DOMException('No answer within', 'TimeoutError'), false]
-  ])('tells %s apart as unreachable or not', async (_, error, unreachable) => {
-    const failure = await celestrak.download(Promise.reject(error)).catch((thrown: unknown) => thrown)
-    expect(failure instanceof celestrak.Unreachable).toBe(unreachable)
+    ['a connection that fails to open', new TypeError('Network connection lost'), celestrak.Unreachable],
+    ['a wait for headers past the bound', new DOMException('No answer', 'TimeoutError'), celestrak.Failed]
+  ])('tells %s apart as unreachable or failed', async (_, error, kind) => {
+    await expect(celestrak.download(Promise.reject(error))).rejects.toBeInstanceOf(kind)
+  })
+
+  it('keeps the status, the kept headers alone, and the whole of a short body of a refusal', async () => {
+    const kept   = Object.fromEntries(celestrak.KEPT.map(name => [name, `${name} value`]))
+    const answer = new Response('Access denied', { status: 403, headers: { ...kept, server: 'nginx' } })
+    await expect(celestrak.download(Promise.resolve(answer))).rejects.toMatchObject({
+      failure: {
+        body    : 'Access denied',
+        headers : kept,
+        kind    : 'refused',
+        reason  : 'CelesTrak answered 403',
+        status  : 403
+      }
+    })
+  })
+
+  it('keeps an empty body of a refusal that carries none', async () => {
+    const answer = new Response(null, { status: 304 })
+    await expect(celestrak.download(Promise.resolve(answer))).rejects.toMatchObject({
+      failure: { body: '', kind: 'refused', status: 304 }
+    })
+  })
+
+  it('keeps the first characters of a long refusal and cancels the rest of its body', async () => {
+    const cancel = vi.fn()
+    const body   = new ReadableStream({
+      cancel : cancel,
+      pull   : controller => controller.enqueue(new TextEncoder().encode('x'.repeat(1000)))
+    })
+    const failure = await celestrak.download(Promise.resolve(new Response(body, { status: 429 })))
+      .catch((error: celestrak.Failed) => error.failure)
+    expect(failure).toMatchObject({ body: 'x'.repeat(celestrak.EXCERPT), status: 429 })
+    expect(cancel).toHaveBeenCalledOnce()
   })
 })

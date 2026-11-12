@@ -18,6 +18,5 @@
     "Relay": { "type": "durable-object", "storage": "sqlite" }
   },
   "kv_namespaces": [{ "binding": "CATALOG" }],
-  "send_email": [{ "name": "EMAIL" }],
-  "vars": { "ALERT_FROM": "catalog@upstairs.fyi" }
+  "observability": { "enabled": true, "issues": { "enabled": true } }
 }
