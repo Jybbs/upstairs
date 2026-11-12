@@ -134,8 +134,8 @@ const pairAt = (zoom: number, named: Kind | null, traced: boolean) => {
 }
 
 it.each([
-  ['dims each kind but the one the tally names', false],
-  ['dims each traced kind but the one the tally names, its beads included', true]
+  ['dims each kind the filters leave out but the one the tally names, its beads included', false],
+  ['dims each kind the filters show but the one the tally names, its beads included', true]
 ])('%s', (_, traced) => {
   const plain = pairAt(7, null, traced).moving.alphas
   const named = pairAt(7, 'earth', traced).moving.alphas
@@ -384,8 +384,8 @@ it.each([
   const track  = new Float32Array(6 * TRACK_WIDTH)
   trackAt(track, CRAFT, 0)
   trackAt(track, BOSTON, 3 * TRACK_WIDTH)
-  tracks.add([passOf(25544, { riseAt: 0, setAt: 60 }), passOf(43013, { riseAt: 0, setAt: 60 })],
-    track, Uint32Array.of(0, 3 * TRACK_WIDTH), 3)
+  const passes = [passOf(25544, { riseAt: 0, setAt: 60 }), passOf(43013, { kind: 'earth', riseAt: 0, setAt: 60 })]
+  tracks.add(passes, track, Uint32Array.of(0, 3 * TRACK_WIDTH), 3)
   const moving  = canvasOf()
   const overlay = new Overlay(canvasOf().canvas, moving.canvas, {
     gathered : gathered,
@@ -537,6 +537,34 @@ it.each([
 ] as const)('%s', (_, as, colored) => {
   const { marks } = drawnAt(1800, 45, as)
   expect(marks.some(({ style }) => style === SCHEMES.day.kinds.crewed)).toBe(colored)
+})
+
+it('draws no craft docked to the chosen one over it', () => {
+  const tracks = new Tracks()
+  const track  = new Float32Array(121 * TRACK_WIDTH)
+  for (let sample = 0; sample < 121; sample++) {
+    track.set([BOSTON.latitude, BOSTON.longitude - 1 + sample / 60, 45], sample * TRACK_WIDTH)
+  }
+  const station = passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600 })
+  const docked  = passOf(49044, { peakAt: 1800, riseAt: 0, setAt: 3600 })
+  tracks.add([station, docked], track, Uint32Array.of(0, 0), 121)
+  const sketch  = sketchOf()
+  const overlay = new Overlay(sketchOf().canvas, sketch.canvas, {
+    gathered : false,
+    held     : null,
+    named    : null,
+    reduced  : true,
+    selected : station,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : index => !tracks.docked.has(index),
+    tracks   : tracks
+  })
+  overlay.resize(400, 400, 1)
+  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(1800)
+  expect([[...tracks.docked], sketch.marks.some(({ style }) => style === SCHEMES.day.dim)])
+    .toEqual([[1], false])
 })
 
 it.each([

@@ -3,6 +3,7 @@ import { mount }                    from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
 import { TRACK_STEP, TRACK_WIDTH, type Pass } from '../../lib/orbit/scan.ts'
+import { fresh }                              from '../fixtures/fresh.ts'
 import { passOf }                             from '../fixtures/passes.ts'
 
 /**
@@ -17,12 +18,11 @@ const mounted = async (seconds: number, changes: Partial<Pass> = {}, drift = 0) 
   vi.stubEnv('TZ', 'America/New_York')
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
   vi.stubGlobal('Worker', class { postMessage() {} })
-  vi.resetModules()
-  const { sky }              = await import('../../lib/state/sky.ts')
-  const { default: Readout } = await import('../../theme/Readout.vue')
-  const pass                 = passOf(1, changes)
-  const samples              = sky.span / TRACK_STEP + 1
-  const track                = new Float32Array(samples * TRACK_WIDTH)
+  const [{ sky }, { default: Readout }] = await fresh(() =>
+    Promise.all([import('../../lib/state/sky.ts'), import('../../theme/Readout.vue')]))
+  const pass    = passOf(1, changes)
+  const samples = sky.span / TRACK_STEP + 1
+  const track   = new Float32Array(samples * TRACK_WIDTH)
   for (let index = 0; index < samples; index++) {
     const time                    = index * TRACK_STEP
     const { latitude, longitude } = sky.spot.value

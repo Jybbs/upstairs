@@ -378,17 +378,18 @@ export class Overlay {
       this.drawPeak(context, tracks, pass, chosen)
     }
 
-    let chosen         = -1
-    const { selected } = state
+    let chosen               = -1
+    const { held, selected } = state
     for (let pass = 0; pass < tracks.passes.length; pass++) {
+      const record = tracks.passes[pass]
+      if (tracks.docked.has(pass) && record !== selected && record !== held) continue
       if (!tracks.up(pass, seconds)) continue
       const x = view.column(tracks.longitude)
       const y = view.row(tracks.latitude)
       if (!view.inside(x, y, PADDING)) continue
-      const { kind } = tracks.passes[pass]
-      if (view.inside(x, y)) this.onMap[kindSlots[kind]]++
+      if (view.inside(x, y)) this.onMap[kindSlots[record.kind]]++
       this.remember(x, y, pass)
-      if (tracks.passes[pass] === selected) chosen = pass
+      if (record === selected) chosen = pass
       this.drawDot(context, tracks, pass, seconds, state.traced(pass), x, y)
     }
 

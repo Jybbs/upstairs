@@ -2,6 +2,8 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi }       from 'vitest'
 
+import { fresh } from '../fixtures/fresh.ts'
+
 vi.mock('vitepress', () => ({ defineClientComponent: () => ({ render: () => null }) }))
 
 const resized = vi.hoisted(() => ({ run: () => {} }))
@@ -15,9 +17,8 @@ vi.mock('@vueuse/core', () => ({ useResizeObserver: (_: unknown, run: () => void
 const mounted = async () => {
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
   vi.stubGlobal('Worker', class { postMessage() {} })
-  vi.resetModules()
-  const { sky }               = await import('../../lib/state/sky.ts')
-  const { default: NotFound } = await import('../../theme/NotFound.vue')
+  const [{ sky }, { default: NotFound }] = await fresh(() =>
+    Promise.all([import('../../lib/state/sky.ts'), import('../../theme/NotFound.vue')]))
   return { sky, wrapper: mount(NotFound) }
 }
 

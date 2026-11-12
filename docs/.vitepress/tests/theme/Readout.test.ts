@@ -3,6 +3,7 @@ import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
 import { kindOrder } from '../../lib/orbit/kinds.ts'
+import { fresh }     from '../fixtures/fresh.ts'
 import { passOf }    from '../fixtures/passes.ts'
 
 /**
@@ -16,9 +17,8 @@ const mounted = async (seconds: number, reduced = false) => {
   vi.stubEnv('TZ', 'America/New_York')
   vi.stubGlobal('matchMedia', (query: string) => ({ matches: reduced && query.includes('reduce') }))
   vi.stubGlobal('Worker', class { postMessage() {} })
-  vi.resetModules()
-  const { sky }              = await import('../../lib/state/sky.ts')
-  const { default: Readout } = await import('../../theme/Readout.vue')
+  const [{ sky }, { default: Readout }] = await fresh(() =>
+    Promise.all([import('../../lib/state/sky.ts'), import('../../theme/Readout.vue')]))
   sky.done.value   = true
   sky.spoken.value = '5 satellites above the horizon'
   sky.start.value  = new Date(2026, 10, 10, 23, 47).getTime()

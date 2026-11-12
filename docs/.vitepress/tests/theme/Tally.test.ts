@@ -3,6 +3,7 @@ import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
 import { kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
+import { fresh }                 from '../fixtures/fresh.ts'
 
 /**
  * Mounts the tally over a fresh copy of the shared state, reading `counts` by
@@ -10,11 +11,10 @@ import { kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
  */
 const mounted = async (counts: Partial<Record<Kind, number>>) => {
   vi.stubGlobal('Worker', class { postMessage() {} })
-  vi.resetModules()
-  const { sky }            = await import('../../lib/state/sky.ts')
-  const { default: Tally } = await import('../../theme/Tally.vue')
-  const kinds              = kindOrder.map(kind => counts[kind] ?? 0)
-  sky.reading.value        = { above: 0, aboveKinds: kinds, kinds, onMap: 0 }
+  const [{ sky }, { default: Tally }] = await fresh(() =>
+    Promise.all([import('../../lib/state/sky.ts'), import('../../theme/Tally.vue')]))
+  const kinds       = kindOrder.map(kind => counts[kind] ?? 0)
+  sky.reading.value = { above: 0, aboveKinds: kinds, kinds, onMap: 0 }
   return { sky, wrapper: mount(Tally, { attachTo: document.body }) }
 }
 

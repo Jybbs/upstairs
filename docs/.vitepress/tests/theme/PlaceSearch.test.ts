@@ -2,6 +2,7 @@
 import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
+import { fresh }  from '../fixtures/fresh.ts'
 import { passOf } from '../fixtures/passes.ts'
 
 it('leaves a spot found through Near me out of the address', async () => {
@@ -18,10 +19,9 @@ it('leaves a spot found through Near me out of the address', async () => {
 it('lists the highest pass of each satellite the words typed name, and holds the one chosen', async () => {
   vi.stubGlobal('Worker', class { postMessage() {} })
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
-  vi.resetModules()
-  const { sky }                  = await import('../../lib/state/sky.ts')
-  const { default: PlaceSearch } = await import('../../theme/PlaceSearch.vue')
-  const passes                   = [
+  const [{ sky }, { default: PlaceSearch }] = await fresh(() =>
+    Promise.all([import('../../lib/state/sky.ts'), import('../../theme/PlaceSearch.vue')]))
+  const passes = [
     passOf(25544, { name: 'ISS (ZARYA)', peak: 30 }),
     passOf(25544, { key: '25544/2000', name: 'ISS (ZARYA)', peak: 70 }),
     passOf(48274, { name: 'CSS (TIANHE)' })
