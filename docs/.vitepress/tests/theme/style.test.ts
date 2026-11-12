@@ -52,8 +52,9 @@ describe('a link in a page', () => {
     expect([styleOf(LINK, '--key-wait'), styleOf(LINK, '--key-run'), styleOf(LINK, '--key-ease')])
       .toEqual(['200ms', '620ms', 'cubic-bezier(0.45, 0, 0.2, 1)']))
   it('shows the keyed state at once under reduced motion', () => {
-    const media = Array.from(SHEET.cssRules).find(rule => rule instanceof CSSMediaRule) as CSSMediaRule
-    expect(media.conditionText).toBe('(prefers-reduced-motion: reduce)')
+    const reduced = '(prefers-reduced-motion: reduce)'
+    const media   = Array.from(SHEET.cssRules).find(rule =>
+      rule instanceof CSSMediaRule && rule.conditionText === reduced) as CSSMediaRule
     expect(ruleOf(LINK, media.cssRules).style.getPropertyValue('transition')).toBe('none')
   })
 })

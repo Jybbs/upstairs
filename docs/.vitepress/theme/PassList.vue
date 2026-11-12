@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { BOUNDS, boundOf, crossingOf } from '../lib/orbit/compass.ts'
-import { kindColor }                   from '../lib/site/palette.ts'
 import { sky }                         from '../lib/state/sky.ts'
+import Icon                            from './Icon.vue'
+import SatelliteName                   from './SatelliteName.vue'
 </script>
 
 <template>
@@ -14,20 +15,22 @@ import { sky }                         from '../lib/state/sky.ts'
       <li v-for="pass in sky.rows.value.list" :key="pass.key">
         <button
           type="button"
-          class="grid h-12 w-full cursor-pointer grid-cols-[4.25rem_1fr_auto] items-center gap-2 border-b border-rule/60 px-4 text-left transition-colors hover:bg-lift"
+          class="grid h-12 w-full cursor-pointer grid-cols-[4.25rem_1fr_auto] items-center gap-2 border-b
+                 border-rule/60 px-4 text-left transition-colors hover:bg-lift"
           :class="{ 'bg-lift': pass === sky.selected.value, 'opacity-55': pass.setAt < sky.at.value }"
           :aria-current="pass === sky.selected.value"
           @click="sky.focusOn(pass)"
         >
           <span class="caps whitespace-nowrap text-soft">{{ sky.clockOf(pass.peakAt) }}</span>
           <span class="min-w-0">
-            <span class="block truncate text-sm leading-tight font-medium">
-              <span
-                class="mr-1 inline-block size-2 rounded-full"
-                :style="{ background: kindColor(pass.kind) }"
-              />{{ pass.name }}
+            <span class="flex items-center gap-1.5 truncate text-base leading-tight">
+              <Icon :name="pass.kind" />
+              <SatelliteName :name="pass.name" class="truncate" />
             </span>
-            <span class="caps block truncate text-soft">{{ BOUNDS[boundOf(pass)].arrow }} {{ crossingOf(pass) }}</span>
+            <span class="caps flex items-center gap-1 truncate text-soft">
+              <Icon :name="BOUNDS[boundOf(pass)].mark" />
+              {{ crossingOf(pass) }}
+            </span>
           </span>
           <span class="caps text-sm! text-ink">{{ Math.round(pass.peak) }}°</span>
         </button>

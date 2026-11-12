@@ -1,7 +1,9 @@
 concurrency:
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   group: ${{ github.workflow }}-${{ github.ref }}
 env:
+  REF: ${{ github.head_ref || github.ref_name }}
+  SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   WRANGLER_SEND_METRICS: 'false'
 jobs:
   catalog:
@@ -65,8 +67,10 @@ jobs:
       - name: Press the site and check its links
         run: mise run site:links
       - name: Run the suite under coverage
+        if: github.event_name != 'pull_request'
         run: mise run site:coverage
       - name: Write the coverage figure the badge reads
+        if: github.event_name != 'pull_request'
         run: mise run gha:total -- docs/.vitepress/dist
       - name: Attach the pressed site
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -77,9 +81,14 @@ jobs:
           retention-days: 1
     timeout-minutes: 15
   site:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main'
+      || (github.event_name == 'pull_request' && github.head_ref != 'main'
+      && github.event.pull_request.head.repo.full_name == github.repository)
     name: 🌐 Site
     needs: [press]
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
     runs-on: ubuntu-26.04
     steps:
       - name: Check out
@@ -102,19 +111,27 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
-        run: mise x -- bun x --no-install wrangler pages deploy .vitepress/dist --branch=main --project-name=upstairs
+          FUNCTIONS: ${{ github.ref == 'refs/heads/main' && '.' || '.vitepress/preview' }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler.ndjson
+        id: deploy
         working-directory: docs
+        run: |
+          mise x -- bun x --no-install wrangler pages deploy "$PWD/.vitepress/dist" --branch="$REF" --cwd="$FUNCTIONS" --project-name=upstairs
+          jq -r 'select(.type == "pages-deploy-detailed") | "url=\(.url)"' "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
     timeout-minutes: 10
 name: 🛰️ Deploy
 on:
-  push:
-    branches: [main]
-    paths:
+  pull_request:
+    paths: &sources
       - .github/actions/provision/**
+      - .github/scripts/summaries/deploy.md
       - .github/workflows/deploy.yml
       - .mise/**
       - docs/**
       - rust/**
+  push:
+    branches: [main]
+    paths: *sources
   workflow_dispatch:
 permissions:
   contents: read
