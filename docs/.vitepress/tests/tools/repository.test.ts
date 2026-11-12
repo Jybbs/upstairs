@@ -235,6 +235,17 @@ describe('Repository', () => {
       'added.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
     ],
     [
+      'a Warm job restoring tools no Warm row saves',
+      ({ workflows }) => ({
+        workflows: [...workflows, {
+          jobs : { added: { steps: [{ uses: PROVISION, with: { tools: 'bun lychee' } }] } },
+          on   : {},
+          path : repository.FILES.warm
+        }]
+      }),
+      '.github/workflows/warm.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
+    ],
+    [
       'a matrix row restoring tools no Warm row saves',
       job({
         steps    : [{ uses: PROVISION, with: { tools: '${{ matrix.tools }}' } }],

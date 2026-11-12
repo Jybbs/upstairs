@@ -40,7 +40,7 @@ Each pull request runs `🛰️ CI`, one row per check below, and the `📓 Logb
 | `🦀 Crate Tests` | `mise run crate:test` | *A position, a sighting, or a pass the crate computes for the records under `docs/.vitepress/tests/fixtures/` strays past 10 meters or a thousandth of a degree from the known answers, a position's azimuth taking that thousandth divided by the cosine of its elevation* |
 | `🩺 Advisories` | `mise run lock:audit` | *`bun audit` finds an advisory for a package `docs/bun.lock` resolves, `osv-scanner` finds one for a crate `rust/Cargo.lock` resolves, or either cannot reach its advisory database* |
 | `🔐 Lockfiles` | `mise run lock:check` | *`.mise/mise.lock`, `docs/bun.lock`, or `rust/Cargo.lock` drifts from its manifest* |
-| `📋 Audit` | `mise run repo:audit` | *The registries, the templates, this guide, the workflows, the tasks, and the rulesets disagree with one another, or a job restores a tool set that no job saves* |
+| `📋 Audit` | `mise run repo:audit` | *The registries, the templates, this guide, the workflows, the tasks, and the rulesets disagree with one another, or a job restores a tool set that no `🛰️ Warm` row saves* |
 | `🔦 Workflows` | `mise run repo:lint` | *zizmor reports a finding in a workflow or an action manifest* |
 | `🎯 Site Coverage` | `mise run site:coverage` | *A test fails, or the coverage falls below the thresholds `docs/.vitepress/vitest.config.ts` declares* |
 | `✂️ Knip` | `mise run site:cruft` | *knip reports an unused file, export, or dependency* |
