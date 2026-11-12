@@ -5,7 +5,6 @@ import { ref }                  from 'vue'
 
 import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
 import { SHEETS }      from '../../lib/site/sheets.ts'
-import { fresh }       from '../fixtures/fresh.ts'
 import { passOf }      from '../fixtures/passes.ts'
 
 const { cameraForBounds, easeTo, fitBounds, gather, handlers } = vi.hoisted(() => ({
@@ -80,11 +79,12 @@ const mounted = async () => {
   vi.stubGlobal('requestAnimationFrame', () => 0)
   Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } })
   document.head.append(Object.assign(document.createElement('link'), { href: SHEETS.map.href }))
-  const [{ sky }, { default: SkyMap }] = await fresh(() =>
-    Promise.all([import('../../lib/state/sky.ts'), import('../../theme/SkyMap.vue')]))
-  const wrapper = mount(SkyMap)
+  vi.resetModules()
+  const { sky }             = await import('../../lib/state/sky.ts')
+  const { default: SkyMap } = await import('../../theme/SkyMap.vue')
+  const wrapper             = mount(SkyMap)
   await flushPromises()
-  const pass = passOf(1)
+  const pass                = passOf(1)
   sky.tracks.add([pass], new Float32Array(2 * TRACK_WIDTH), Uint32Array.of(0), 2)
   cameraForBounds.mockClear()
   easeTo.mockClear()

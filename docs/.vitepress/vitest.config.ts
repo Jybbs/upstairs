@@ -9,7 +9,7 @@ export default defineConfig({
     include  : ['.vitepress/tests/**/*.test.ts'],
     coverage : {
       include          : ['.vitepress/{catalog,preview}/**/*.ts', '.vitepress/{lib,theme,tools}/**'],
-      provider         : 'v8',
+      provider         : 'istanbul',
       reportOnFailure  : true,
       reporter         : ['text', 'html'],
       reportsDirectory : '../.cache/coverage',

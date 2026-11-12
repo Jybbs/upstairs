@@ -38,7 +38,7 @@
     "@types/fontkit": "2.0.9",
     "@types/node": "26.6.6",
     "@vitejs/plugin-vue": "6.0.10",
-    "@vitest/coverage-v8": "5.1.0",
+    "@vitest/coverage-istanbul": "5.1.0",
     "@vscode/markdown-it-katex": "1.1.2",
     "@vue/test-utils": "2.5.1",
     "@vue/tsconfig": "0.9.1",

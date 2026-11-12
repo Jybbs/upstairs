@@ -3,7 +3,6 @@ import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
 import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
-import { fresh }       from '../fixtures/fresh.ts'
 import { passOf }      from '../fixtures/passes.ts'
 
 /**
@@ -18,8 +17,9 @@ const mounted = async (reduced: boolean, phone = false) => {
     removeEventListener() {}
   }))
   vi.stubGlobal('Worker', class { postMessage() {} })
-  const [{ sky }, { default: TimeStrip }] = await fresh(() =>
-    Promise.all([import('../../lib/state/sky.ts'), import('../../theme/TimeStrip.vue')]))
+  vi.resetModules()
+  const { sky }                = await import('../../lib/state/sky.ts')
+  const { default: TimeStrip } = await import('../../theme/TimeStrip.vue')
   return { sky, wrapper: mount(TimeStrip) }
 }
 

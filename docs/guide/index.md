@@ -22,7 +22,7 @@ Pressing the place the readout names opens the spot chooser, where the map slide
 
 ## The Filters
 
-Each kind of satellite takes its own color in the filters, the tally, and the pass list, and on the map for the pass the readout holds or the list chooses, every other satellite drawing in one tone. Choosing a kind under Show passes of keeps its passes in the list, and the map draws at half strength each satellite whose kind is left out or whose pass stays below the height Reaching at least sets. Only the pass the readout holds or the list chooses draws a track, whichever kinds the filters show, and Reaching at least keeps only the passes climbing to the height chosen or above. List passes switches the list between the passes crossing the map as it is framed and those anywhere in the sky over the spot.
+Each kind of satellite takes its own color in the filters, the tally, and the pass list, and on the map for the pass the readout holds or the list chooses, every other satellite drawing in one tone. Choosing a kind under Show passes of keeps its passes in the list, and the map draws at half strength every other satellite whose kind is left out or whose pass stays below the height Reaching at least sets. Only the pass the readout holds or the list chooses draws a track, whichever kinds the filters show, and Reaching at least keeps only the passes climbing to the height chosen or above. List passes switches the list between the passes crossing the map as it is framed and those anywhere in the sky over the spot.
 
 ## A Pass
 

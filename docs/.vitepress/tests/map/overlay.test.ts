@@ -1,13 +1,13 @@
 import { expect, it, vi } from 'vitest'
 
 import { BEADS, fadeOf, nearnessOf, openOf, Overlay } from '../../lib/map/overlay.ts'
-import { DAY }                                         from '../../lib/orbit/catalog.ts'
-import { kindOrder, type Kind }                        from '../../lib/orbit/kinds.ts'
-import { iconOf }                                      from '../../lib/site/icons.ts'
-import { SCHEMES }                                     from '../../lib/site/palette.ts'
-import { TRACK_WIDTH }          from '../../lib/orbit/scan.ts'
-import { Tracks }               from '../../lib/state/tracks.ts'
-import { passOf }               from '../fixtures/passes.ts'
+import { DAY }                                        from '../../lib/orbit/catalog.ts'
+import { kindOrder, type Kind }                       from '../../lib/orbit/kinds.ts'
+import { iconOf }                                     from '../../lib/site/icons.ts'
+import { SCHEMES }                                    from '../../lib/site/palette.ts'
+import { TRACK_WIDTH }                                from '../../lib/orbit/scan.ts'
+import { Tracks }                                     from '../../lib/state/tracks.ts'
+import { passOf }                                     from '../fixtures/passes.ts'
 
 const BOSTON = { latitude: 42.36, longitude: -71.06 }
 const CRAFT  = { latitude: 41.86, longitude: -70.56 }
@@ -539,7 +539,12 @@ it.each([
   expect(marks.some(({ style }) => style === SCHEMES.day.kinds.crewed)).toBe(colored)
 })
 
-it('draws no craft docked to the chosen one over it', () => {
+it.each([
+  ['draws no craft docked to the chosen one over it', 'station', 'selected', false, 1],
+  ['draws a docked craft the list chooses over the station it flies with', 'docked', 'selected', true, 2],
+  ['draws a docked craft the readout holds over the station it flies with', 'docked', 'held', true, 2]
+] as const)('%s', (_, which, as, dimmed, drawn) => {
+  vi.stubGlobal('Path2D', class { constructor(readonly d: string) {} })
   const tracks = new Tracks()
   const track  = new Float32Array(121 * TRACK_WIDTH)
   for (let sample = 0; sample < 121; sample++) {
@@ -547,14 +552,15 @@ it('draws no craft docked to the chosen one over it', () => {
   }
   const station = passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600 })
   const docked  = passOf(49044, { peakAt: 1800, riseAt: 0, setAt: 3600 })
+  const pass    = which === 'station' ? station : docked
   tracks.add([station, docked], track, Uint32Array.of(0, 0), 121)
   const sketch  = sketchOf()
   const overlay = new Overlay(sketchOf().canvas, sketch.canvas, {
     gathered : false,
-    held     : null,
+    held     : as === 'held' ? pass : null,
     named    : null,
     reduced  : true,
-    selected : station,
+    selected : as === 'selected' ? pass : null,
     spot     : BOSTON,
     start    : 0,
     traced   : index => !tracks.docked.has(index),
@@ -563,8 +569,12 @@ it('draws no craft docked to the chosen one over it', () => {
   overlay.resize(400, 400, 1)
   overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
   overlay.draw(1800)
-  expect([[...tracks.docked], sketch.marks.some(({ style }) => style === SCHEMES.day.dim)])
-    .toEqual([[1], false])
+  const styles         = sketch.marks.map(({ style }) => style)
+  const crewed         = overlay.onMap[kindOrder.indexOf('crewed')]
+  const { dim, kinds } = SCHEMES.day
+  expect([[...tracks.docked], styles.includes(dim), styles.includes(kinds.crewed), crewed])
+    .toEqual([[1], dimmed, true, drawn])
+  vi.unstubAllGlobals()
 })
 
 it.each([

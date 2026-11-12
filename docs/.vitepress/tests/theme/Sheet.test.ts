@@ -4,7 +4,6 @@ import { expect, it, vi } from 'vitest'
 import { ref }            from 'vue'
 
 import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
-import { fresh }       from '../fixtures/fresh.ts'
 import { passOf }      from '../fixtures/passes.ts'
 
 /**
@@ -26,11 +25,12 @@ vi.mock('@vueuse/core', async original => ({
 const mounted = async (pinned: boolean) => {
   vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: false, removeEventListener() {} }))
   vi.stubGlobal('Worker', class { postMessage() {} })
-  HEIGHTS.next = 0
-  const [{ sky }, { default: Sheet }] = await fresh(() =>
-    Promise.all([import('../../lib/state/sky.ts'), import('../../theme/Sheet.vue')]))
-  const pass  = passOf(1)
-  const stubs = { Filters: true, PassList: true, PassReadout: true, Readout: true, TimeStrip: true }
+  vi.resetModules()
+  HEIGHTS.next             = 0
+  const { sky }            = await import('../../lib/state/sky.ts')
+  const { default: Sheet } = await import('../../theme/Sheet.vue')
+  const pass               = passOf(1)
+  const stubs              = { Filters: true, PassList: true, PassReadout: true, Readout: true, TimeStrip: true }
   sky.tracks.add([pass], new Float32Array(TRACK_WIDTH), Uint32Array.of(0), 1)
   sky.version.value++
   const wrapper = mount(Sheet, { global: { stubs } })

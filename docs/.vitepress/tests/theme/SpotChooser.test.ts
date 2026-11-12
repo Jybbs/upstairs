@@ -3,8 +3,6 @@ import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 import { ref }            from 'vue'
 
-import { fresh } from '../fixtures/fresh.ts'
-
 vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
   useElementSize: () => ({ height: ref(240) })
@@ -21,8 +19,9 @@ const mounted = async (phone = false) => {
     addEventListener() {}, matches: phone && query.includes('40rem'), removeEventListener() {}
   }))
   vi.stubGlobal('Worker', class { postMessage() {} })
-  const [{ sky }, { default: SpotChooser }] = await fresh(() =>
-    Promise.all([import('../../lib/state/sky.ts'), import('../../theme/SpotChooser.vue')]))
+  vi.resetModules()
+  const { sky }                  = await import('../../lib/state/sky.ts')
+  const { default: SpotChooser } = await import('../../theme/SpotChooser.vue')
   sky.choose()
   return { sky, wrapper: mount(SpotChooser, { attachTo: document.body }) }
 }
