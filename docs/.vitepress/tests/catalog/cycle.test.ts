@@ -103,7 +103,7 @@ describe('a download cycle', () => {
       expect(state.get('halted')).toEqual(halt)
     })
 
-  it('halts on a refusal whose body fails partway, asking CelesTrak once', async () => {
+  it('halts on a refusal whose body fails while it is read, asking CelesTrak once', async () => {
     const body = () => new ReadableStream({
       pull: controller => controller.error(new TypeError('Network connection lost'))
     })
