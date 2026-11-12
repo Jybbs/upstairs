@@ -75,6 +75,25 @@ describe('a download', () => {
     })
   })
 
+  it('keeps the status and the characters already read of a refusal whose body fails partway', async () => {
+    const chunks = [new TextEncoder().encode('Forbidden ')]
+    const body   = new ReadableStream({
+      pull: controller => chunks.length > 0
+        ? controller.enqueue(chunks.pop())
+        : controller.error(new TypeError('Network connection lost'))
+    })
+    const answer = new Response(body, { status: 403 })
+    await expect(celestrak.download(Promise.resolve(answer))).rejects.toMatchObject({
+      failure: {
+        body   : 'Forbidden ',
+        kind   : 'refused',
+        reason : 'CelesTrak answered 403, and reading its body failed with TypeError: '
+               + 'Network connection lost',
+        status : 403
+      }
+    })
+  })
+
   it('keeps the first characters of a long refusal and cancels the rest of its body', async () => {
     const cancel = vi.fn()
     const body   = new ReadableStream({

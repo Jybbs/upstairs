@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as celestrak from '../../catalog/celestrak.ts'
 import { REGIONS }    from '../../catalog/cycle.ts'
+import wrangler       from '../../catalog/wrangler.json' with { type: 'json' }
 
 vi.mock('cloudflare:workers', () => ({
   DurableObject: class { constructor(readonly ctx: unknown, readonly env: unknown) {} }
@@ -68,5 +69,11 @@ describe('the worker', () => {
     await service.scheduled({ scheduledTime: 7 } as never, env as never)
     expect(refresher.run).toHaveBeenCalledExactlyOnceWith(7)
     expect(getByName.mock.calls).toEqual([['catalog'], ['catalog']])
+  })
+})
+
+describe('the deploy config', () => {
+  it('turns on Workers Logs and Workers Observability Issues', () => {
+    expect(wrangler.observability).toEqual({ enabled: true, issues: { enabled: true } })
   })
 })

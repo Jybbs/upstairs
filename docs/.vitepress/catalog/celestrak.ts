@@ -54,19 +54,25 @@ export class Unreachable extends Error {}
 
 /**
  * Reads the refusal out of an answer other than 200, canceling its body once
- * `EXCERPT` characters have arrived.
+ * `EXCERPT` characters have arrived. Where reading the body fails, the refusal
+ * keeps the characters already read and names the error in its reason.
  */
 const refusalOf = async (response: Response): Promise<Failure> => {
-  let body = ''
-  for await (const text of response.body?.pipeThrough(new TextDecoderStream()) ?? []) {
-    body += text
-    if (body.length >= EXCERPT) break
+  let body   = ''
+  let reason = `CelesTrak answered ${response.status}`
+  try {
+    for await (const text of response.body?.pipeThrough(new TextDecoderStream()) ?? []) {
+      body += text
+      if (body.length >= EXCERPT) break
+    }
+  } catch (error) {
+    reason += `, and reading its body failed with ${String(error)}`
   }
   return {
     body    : body.slice(0, EXCERPT),
     headers : Object.fromEntries([...response.headers].filter(([name]) => KEPT.includes(name))),
     kind    : 'refused',
-    reason  : `CelesTrak answered ${response.status}`,
+    reason  : reason,
     status  : response.status
   }
 }

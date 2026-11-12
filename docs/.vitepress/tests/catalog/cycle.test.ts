@@ -103,6 +103,17 @@ describe('a download cycle', () => {
       expect(state.get('halted')).toEqual(halt)
     })
 
+  it('halts on a refusal whose body fails partway, asking CelesTrak once', async () => {
+    const body = () => new ReadableStream({
+      pull: controller => controller.error(new TypeError('Network connection lost'))
+    })
+    const { cycle, state, fetcher } = cycleOf(() => new Response(body(), { status: 403 }))
+    expect(await cycle.run(start)).toBe('halted')
+    expect(await cycle.run(start + EVERY)).toBe('halted')
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(state.get('halted')).toMatchObject({ kind: 'refused', region: REGIONS[0], status: 403 })
+  })
+
   it.each([
     ['a list shorter than the active catalog', () => Response.json(records.slice(0, 10)), 'Expected a list'],
     ['a body that is not JSON', () => new Response('<html>'), 'JSON'],
@@ -230,6 +241,16 @@ describe('a download cycle', () => {
       expect(cycle.halt).toBeUndefined()
       expect(await cycle.run(start + 3 * EVERY)).toBe('stored')
     })
+
+  it('blocks on a halt stored as text, logging it on each run and returning it on a resume', async () => {
+    const { cycle, state, fetcher } = cycleOf(good)
+    state.set('halted', 'Error: CelesTrak answered 403')
+    expect(await cycle.run(start)).toBe('halted')
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(logged()).toEqual([{ event: 'catalog.blocked', halt: 'Error: CelesTrak answered 403' }])
+    expect(cycle.resume()).toBe('Error: CelesTrak answered 403')
+    expect(await cycle.run(start)).toBe('stored')
+  })
 
   it('returns nothing and logs nothing on a resume while the cycle runs', () => {
     const { cycle } = cycleOf(good)

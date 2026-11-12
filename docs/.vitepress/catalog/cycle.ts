@@ -1,8 +1,10 @@
 /**
  * Runs the download cycle, sending the request from each region in turn until
- * one reaches CelesTrak and storing each catalog in Workers KV. Any other
- * failure halts the cycle until it is resumed, and the halt is logged once and
- * kept in the storage of the Durable Object.
+ * one reaches CelesTrak and storing each catalog in Workers KV. A refusal, a
+ * catalog that fails its check, no region reaching CelesTrak, no headers within
+ * the wait, or a failed write to Workers KV halts the cycle until it is
+ * resumed, and the halt is logged once and kept in the storage of the Durable
+ * Object. Any other error fails the run without halting.
  */
 import { FILE }       from '../lib/orbit/catalog.ts'
 import * as celestrak from './celestrak.ts'
@@ -73,9 +75,10 @@ export class Cycle {
 
   /**
    * Downloads and stores the catalog unless the cycle has halted or the last
-   * attempt was under two hours before `time`. A failure keeps the stored file
-   * and halts the cycle, logging the halt at error level, and each run the halt
-   * blocks logs it again.
+   * attempt was under two hours before `time`. A fault `refresh` returns keeps
+   * the stored file and halts the cycle, logging the halt at error level, and
+   * each run the halt blocks logs it again. Any other error rejects the run
+   * without halting.
    */
   async run(time: number): Promise<'early' | 'halted' | 'stored'> {
     const kept = this.halt
