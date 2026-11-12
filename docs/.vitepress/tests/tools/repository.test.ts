@@ -44,6 +44,11 @@ describe('Repository', () => {
     }
   )
 
+  it('names a gate two pull-request workflows share once', () => {
+    const workflow = (path: string) => ({ jobs: { a: {}, gate: { needs: 'a' } }, on: { pull_request: null }, path })
+    expect(variant(() => ({ workflows: [workflow('ci.yml'), workflow('deploy.yml')] })).gates).toEqual(['gate'])
+  })
+
   it.each<[string, Change, string]>([
     [
       'a label carrying an extra key',

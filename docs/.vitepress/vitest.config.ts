@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     include  : ['.vitepress/tests/**/*.test.ts'],
     coverage : {
-      include          : ['.vitepress/catalog/**/*.ts', '.vitepress/{lib,theme,tools}/**'],
+      include          : ['.vitepress/{catalog,preview}/**/*.ts', '.vitepress/{lib,theme,tools}/**'],
       provider         : 'v8',
       reportOnFailure  : true,
       reporter         : ['text', 'html'],

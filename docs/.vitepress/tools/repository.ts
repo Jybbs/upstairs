@@ -134,11 +134,11 @@ export class Repository {
   }
 
   /**
-   * The names of the jobs each pull-request workflow ends on, meaning the job
-   * whose `needs` lists every other job of its workflow.
+   * The distinct names of the jobs each pull-request workflow ends on, meaning
+   * the job whose `needs` lists every other job of its workflow.
    */
   get gates(): string[] {
-    return this.checks.flatMap(gatesOf)
+    return [...new Set(this.checks.flatMap(gatesOf))]
   }
 
   /**
