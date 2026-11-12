@@ -1,0 +1,20 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "check"
+#MISE description = "Lint and type-check the site, then run the cases the branch's changes since `main` reach, skipping a tree an earlier run passed"
+
+cache=.cache/check
+mkdir -p "$cache"
+cp "$(git rev-parse --git-path index)" "$cache/index"
+GIT_INDEX_FILE=$cache/index git add --all
+tree=$(GIT_INDEX_FILE=$cache/index git write-tree)
+
+if grep -qsxF "$tree" "$cache/passed"; then
+  echo "site:check already passed over the tree $tree"
+  exit 0
+fi
+
+mise run \
+  site:lint ::: \
+  site:typecheck ::: \
+  site:test --changed origin/main --passWithNoTests
+echo "$tree" >> "$cache/passed"
