@@ -1,0 +1,15 @@
+[actions]
+enabled = true
+
+[pages]
+build_type = "workflow"
+
+[repository]
+has_wiki = false
+
+[toggles]
+pages                = true
+vulnerability-alerts = false
+
+[workflow]
+default_workflow_permissions = "read"

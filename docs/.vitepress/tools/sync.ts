@@ -3,7 +3,7 @@ import { $ } from 'bun'
 import manifest        from '../../package.json' with { type: 'json' }
 import * as repository from './repository.ts'
 
-type Live = Pick<repository.Ruleset, 'name'> & { id: number }
+export type Live = Pick<repository.Ruleset, 'name'> & { id: number }
 
 interface Request {
   method : 'DELETE' | 'PATCH' | 'POST' | 'PUT'
