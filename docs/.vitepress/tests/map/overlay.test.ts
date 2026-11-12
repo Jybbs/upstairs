@@ -541,7 +541,7 @@ it.each([
 
 it.each([
   ['draws no craft docked to the chosen one over it', 'station', 'selected', false, 1],
-  ['draws a docked craft the list chooses over the station it flies with', 'docked', 'selected', true, 2],
+  ['draws a docked craft a search by name chooses over the station it flies with', 'docked', 'selected', true, 2],
   ['draws a docked craft the readout holds over the station it flies with', 'docked', 'held', true, 2]
 ] as const)('%s', (_, which, as, dimmed, drawn) => {
   vi.stubGlobal('Path2D', class { constructor(readonly d: string) {} })
