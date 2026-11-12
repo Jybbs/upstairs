@@ -369,7 +369,7 @@ export class Overlay {
     for (let pass = 0; pass < tracks.passes.length; pass++) {
       const held   = this.heldStrength[pass]
       const chosen = this.chosenStrength[pass]
-      if (held + chosen < FAINT || !state.traced(pass)) continue
+      if (held + chosen < FAINT) continue
       const { riseAt, setAt } = tracks.passes[pass]
       this.drawTrack(context, tracks, pass, riseAt, setAt, TRACK.heldLow, TRACK.heldHigh, 0.55 * held)
       if (chosen < FAINT) continue
@@ -388,9 +388,8 @@ export class Overlay {
       const { kind } = tracks.passes[pass]
       if (view.inside(x, y)) this.onMap[kindSlots[kind]]++
       this.remember(x, y, pass)
-      const traced = state.traced(pass)
-      if (tracks.passes[pass] === selected && traced) chosen = pass
-      this.drawDot(context, tracks, pass, seconds, traced, x, y)
+      if (tracks.passes[pass] === selected) chosen = pass
+      this.drawDot(context, tracks, pass, seconds, state.traced(pass), x, y)
     }
 
     if (chosen >= 0 && tracks.up(chosen, seconds)) {
@@ -550,7 +549,7 @@ export class Overlay {
    * nearness and strengthened by it, laying `BEADS` behind it and emptying to
    * an open ring past its nearest point. The held and the chosen dots take
    * their kind's color and a ring, and a dot the filters leave out draws at
-   * half strength with no beads. Draws at `x`, `y`, the place `tracks.up`
+   * half strength, its beads included. Draws at `x`, `y`, the place `tracks.up`
    * wrote, since laying the beads reads other moments into `tracks`.
    */
   private drawDot(
@@ -574,7 +573,7 @@ export class Overlay {
     alpha            *= this.strength(record.kind)
     context.fillStyle   = color
     context.strokeStyle = color
-    if (traced) this.drawBeads(context, tracks, pass, seconds, alpha, radius * BEADS.size, x, y)
+    this.drawBeads(context, tracks, pass, seconds, alpha, radius * BEADS.size, x, y)
     alpha              *= 1 - DOT.open * open
     context.globalAlpha = 0.55 * alpha
     context.fillStyle   = this.scheme.halo

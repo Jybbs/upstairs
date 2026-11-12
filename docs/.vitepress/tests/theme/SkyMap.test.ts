@@ -8,7 +8,8 @@ import { SHEETS }      from '../../lib/site/sheets.ts'
 import { passOf }      from '../fixtures/passes.ts'
 
 const { cameraForBounds, easeTo, fitBounds, gather, handlers } = vi.hoisted(() => ({
-  cameraForBounds : vi.fn(() => ({ center: [-71, 42], zoom: 8 })),
+  cameraForBounds : vi.fn((_bounds: { points: unknown[] }, _options: object) =>
+    ({ center: [-71, 42], zoom: 8 })),
   easeTo          : vi.fn(),
   fitBounds       : vi.fn(),
   gather          : vi.fn(),
@@ -18,13 +19,13 @@ const { cameraForBounds, easeTo, fitBounds, gather, handlers } = vi.hoisted(() =
 vi.mock('maplibre-gl', () => ({
   LngLat       : { convert: ([lng, lat]: [number, number]) => ({ lat, lng }) },
   LngLatBounds : class {
-    points: number
-    constructor(...corners: unknown[]) { this.points = corners.length }
-    extend()  {
-      this.points++
+    points: unknown[]
+    constructor(...corners: unknown[]) { this.points = corners }
+    extend(point: unknown) {
+      this.points.push(point)
       return this
     }
-    isEmpty() { return !this.points }
+    isEmpty() { return !this.points.length }
   },
   Map          : class {
     keyboard        = { disableRotation() {} }
@@ -167,4 +168,16 @@ it('gives a pass that never climbs past 30° only the step fitting its whole cro
   sky.done.value      = true
   await flushPromises()
   expect(cameraForBounds).toHaveBeenCalledTimes(1)
+})
+
+it('takes the spot into the high stretch of a pass climbing past 30°', async () => {
+  const { sky } = await mounted()
+  const pass    = passOf(2)
+  sky.tracks.add([pass], new Float32Array(2 * TRACK_WIDTH).fill(45), Uint32Array.of(0), 2)
+  sky.selected.value = pass
+  sky.done.value     = true
+  await flushPromises()
+  const { latitude, longitude } = sky.spot.value
+  expect(cameraForBounds.mock.calls.map(([{ points }]) => points.at(-1)))
+    .toEqual([[longitude, latitude], [45, 45]])
 })

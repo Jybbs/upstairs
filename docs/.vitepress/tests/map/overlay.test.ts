@@ -68,7 +68,7 @@ it.each([
   ['draws the ring 5 km out once 5 km spans 10 px at the satellite', 6.87, true, true, 1],
   ['leaves the ring off while 5 km spans less than 10 px at the satellite', 6.86, true, true, 0],
   ['leaves the ring off with nothing chosen', 7, false, true, 0],
-  ['leaves the ring off where the chosen kind is filtered out', 7, true, false, 0]
+  ['draws the ring around a chosen satellite whose kind the filters leave out', 7, true, false, 1]
 ])('%s', (_, zoom, chosen, traced, rings) => {
   const tracks = new Tracks()
   const pass   = passOf(25544, { riseAt: 0, setAt: 60 })
@@ -143,10 +143,10 @@ it.each([
     .toEqual(plain.map((_, index) => expect.closeTo(index < plain.length / 2 ? 0.16 : 1)))
 })
 
-it('draws a satellite the filters leave out at half strength with no beads', () => {
+it('draws a satellite the filters leave out at half strength, its beads included', () => {
   const traced = pairAt(7, null, true).moving.alphas
   const left   = pairAt(7, null, false).moving.alphas
-  expect([left.length, traced.length, left[1] / traced[2]]).toEqual([4, 6, expect.closeTo(0.5)])
+  expect(left.map((alpha, index) => alpha / traced[index])).toEqual(traced.map(() => expect.closeTo(0.5)))
 })
 
 it.each([
@@ -457,13 +457,14 @@ const sketchOf = () => {
 /**
  * Draws one satellite crossing the view eastward at `elevation` degrees,
  * through a pass `changes` sets, chosen or held as `as` names, at `seconds`
- * into the window.
+ * into the window, its kind shown or left out by the filters as `traced` sets.
  */
 const drawnAt = (
   seconds   : number,
   elevation : number,
   as        : 'held' | 'none' | 'selected',
-  changes   = {}
+  changes   = {},
+  traced    = true
 ) => {
   const tracks = new Tracks()
   const track  = new Float32Array(121 * TRACK_WIDTH)
@@ -481,7 +482,7 @@ const drawnAt = (
     selected : as === 'selected' ? pass : null,
     spot     : BOSTON,
     start    : 0,
-    traced   : () => true,
+    traced   : () => traced,
     tracks   : tracks
   })
   overlay.resize(400, 400, 1)
@@ -506,6 +507,16 @@ it('draws the stretch flown at a third, at once under reduced motion, and marks 
   const { marks, ribbons } = drawnAt(900, 45, 'selected')
   expect([ribbons.map(({ alpha }) => alpha), marks.length])
     .toEqual([[0.7 / 3, 1 / 3, 0.7, 1].map(alpha => expect.closeTo(alpha)), 2])
+})
+
+it.each([
+  ['draws the held track of a pass whose kind the filters leave out', 'held'],
+  ['draws the chosen track and its peak for a pass whose kind the filters leave out', 'selected']
+] as const)('%s', (_, as) => {
+  const shown = drawnAt(900, 45, as)
+  const left  = drawnAt(900, 45, as, {}, false)
+  expect([left.ribbons, left.marks.length]).toEqual([shown.ribbons, shown.marks.length])
+  expect(left.ribbons.length).toBeGreaterThan(0)
 })
 
 it('leaves filled beads behind a satellite drawing nearer and open ones behind one going', () => {
