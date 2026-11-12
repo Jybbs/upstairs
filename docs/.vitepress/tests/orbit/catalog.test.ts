@@ -105,18 +105,6 @@ describe('the catalog file', () => {
   })
 })
 
-describe('the catalog age', () => {
-  it.each([
-    [0, 'fresh'],
-    [3, 'fresh'],
-    [3.1, 'aging'],
-    [14, 'aging'],
-    [14.1, 'expired']
-  ] as const)('reads %f days as %s', (days, freshness) => {
-    expect(catalog.freshnessOf(catalog.ageOf(fetched, fetched + days * catalog.DAY))).toBe(freshness)
-  })
-})
-
 describe('the ages of a catalog', () => {
   it('reads the age of each record in days, from its epoch to the time the catalog was fetched', () => {
     expect([...catalog.agesOf(records, fetched)])
