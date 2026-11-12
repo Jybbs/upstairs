@@ -8,7 +8,7 @@ import { AGES } from '../.vitepress/lib/orbit/catalog.ts'
 
 # Guide
 
-The home page opens on the map around a spot, counting the active satellites above its horizon that the map frames at the time the strip shows. Search a place by name or press the place the readout names to move the spot, and the count, the pass list, and the strip all follow it. The same search finds a satellite by name, moving the time to the highest point of its highest pass in the hour and turning the readout into that pass. Below the map, the pass list and the filters follow once the page scrolls. On a phone, the page holds the map alone, with the readout and the strip in a sheet along its foot that rises to show a pressed pass and then the hour's list.
+The home page opens on the map around a spot, counting the active satellites the map draws above its horizon at the time the strip shows. Search a place by name or press the place the readout names to move the spot, and the count, the pass list, and the strip all follow it. The same search finds a satellite by name, moving the time to the highest point of its highest pass in the hour and turning the readout into that pass. Below the map, the pass list and the filters follow once the page scrolls. On a phone, the page holds the map alone, with the readout and the strip in a sheet along its foot that rises to show a pressed pass and then the hour's list.
 
 ## The Readout
 

@@ -114,8 +114,12 @@ describe('the chosen pass', () => {
     expect(sky.selected.value).toBe(sky.tracks.passes[1])
   })
 
-  it('opens on a station rather than the craft docked to it', async () => {
-    const sky = await loaded()
+  it.each([
+    ['while the two cross the sky', true],
+    ['while the filters leave their kind out', false]
+  ])('opens on a station rather than the craft docked to it %s', async (_, shown) => {
+    const sky         = await loaded()
+    sky.traced.crewed = shown
     traced([passAt(600, 50), passAt(600, 50.5, OTHER)])
     expect(sky.selected.value).toBe(sky.tracks.passes[0])
   })

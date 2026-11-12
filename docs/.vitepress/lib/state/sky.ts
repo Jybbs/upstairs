@@ -276,9 +276,10 @@ class Sky {
 
   /**
    * Keeps the chosen pass when the scan found it again, or else the highest
-   * pass of the chosen satellite, and otherwise focuses on a known mission
-   * crossing the sky, or else the highest satellite that crosses, leaving out
-   * each craft docked to another pass.
+   * pass of the chosen satellite. Otherwise it focuses on a known mission
+   * crossing the sky, or else the highest satellite that crosses, or else the
+   * highest pass of all, and each of these last three leaves out every craft
+   * docked to another pass.
    */
   private chooseFocus() {
     const passes        = this.tracks.passes
