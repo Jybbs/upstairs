@@ -56,10 +56,10 @@ describe('the cards', () => {
     expect(cards.map(({ file }) => file)).toEqual(FILES))
   it('sizes the repository’s preview apart from every page’s card', () =>
     expect(cards.map(({ height, width }) => [width, height])).toEqual(cards.map(({ file }) => sizeOf(file))))
-  it.each(FILES)('renders %s at the size it declares', file => {
+  it.each(FILES)('sizes the drawing of %s at the size it declares', file => {
     const { height, svg, width } = cards.find(card => card.file === file)!
-    const image                  = new Resvg(svg, { font: { loadSystemFonts: false } }).render()
-    expect([image.width, image.height]).toEqual([width, height])
+    const tree                   = new Resvg(svg, { font: { loadSystemFonts: false } })
+    expect([tree.width, tree.height]).toEqual([width, height])
   })
   it('sets every word as an outline', () => cards.forEach(({ svg }) => expect(svg).not.toContain('<text')))
   it('draws every card on the night page', () =>
