@@ -20,8 +20,8 @@ const mounted = async (set: (sky: typeof Sky) => void = () => {}) => {
 }
 
 /**
- * Mounts the search, whose place search `reply` answers, and types `words`
- * into it once the search's wait has passed.
+ * Mounts the search, whose place search `reply` answers, types `words` into
+ * it, and lets the search's wait pass.
  */
 const searched = async (words: string, reply: () => Promise<Response>) => {
   vi.stubGlobal('fetch', vi.fn(reply))
@@ -70,7 +70,7 @@ it.each([
   ['says the search is not answering where its host cannot be reached',
     async () => { throw new TypeError('fetch failed') }, ['The place search is not answering.']],
   ['says the search is not answering where its host answers with an error',
-    async () => new Response(null, { status: 502 }), ['The place search is not answering.']]
+    async () => Response.json(photon, { status: 502 }), ['The place search is not answering.']]
 ])('%s', async (_, reply, lines) => {
   const { wrapper } = await searched('london', reply)
   expect(wrapper.findAll('li').map(line => line.text())).toEqual(lines)
@@ -90,5 +90,5 @@ it('searches for the words typed and moves to the place chosen, named by its fir
   await wrapper.findAll('li button')[1].trigger('click')
   expect(fetch).toHaveBeenCalledWith('https://photon.komoot.io/api/?limit=5&lang=en&q=new%20london')
   expect([sky.place.value, sky.spot.value, wrapper.find('li').exists()])
-    .toEqual(['London', { latitude: 42.9836747, longitude: -81.2452768 }, false])
+    .toEqual(['London', { latitude: 42.9836747, longitude: -81.2496068 }, false])
 })

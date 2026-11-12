@@ -50,9 +50,8 @@ const loaded = async (answer = () => new Response(file)) => {
 }
 
 /**
- * Returns the message asking for a scan of the known answers' window, an hour
- * from their start, over `spot`, or over the known answers' spot where none is
- * given.
+ * Returns the message asking for scan `id` of the hour from `start` over
+ * `spot`, each the known answers' own where none is given.
  */
 const scanOf = (id: number, spot = answers.spot, start = START): Asked =>
   ({ id, minutes: answers.grid.minutes, spot, start, type: 'scan' })
@@ -67,7 +66,7 @@ beforeEach(() => loaded())
 afterEach(() => vi.unstubAllGlobals())
 
 describe('loading the catalog', () => {
-  it('counts the satellites of each segment as it arrives, with the time the catalog was fetched', () => {
+  it('counts the satellites loaded so far as each segment arrives, with the time the catalog was fetched', () => {
     const first = full.filter(record => kindOf(record.OBJECT_NAME) !== 'starlink').length
     expect(heard).toEqual([first, full.length].map(count => ({ count, fetched: FETCHED, type: 'loaded' })))
   })
@@ -103,7 +102,7 @@ describe('a scan', () => {
 
   it.each([
     ['while it builds the grid, before it posts anything', false, []],
-    ['once it has traced the batch under way, before it finishes', true, ['counts', 'passes']]
+    ['over a grid it holds, after the batch under way and before it finishes', true, ['counts', 'passes']]
   ])('stops for a newer scan arriving %s', async (_, held, older) => {
     if (held) await hear(scanOf(1))
     await Promise.all([hear(scanOf(2)), hear(scanOf(3))])

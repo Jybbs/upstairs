@@ -21,5 +21,6 @@ it.each<[string, { kind?: Kind, on: boolean }, (string | null)[]]>([
 it('sends a press for each click', async () => {
   const wrapper = shallowMount(Chip, { props: { on: false }, slots: { default: '30°' } })
   await wrapper.get('button').trigger('click')
-  expect([wrapper.text(), wrapper.emitted('press')]).toEqual(['30°', [[]]])
+  await wrapper.get('button').trigger('click')
+  expect([wrapper.text(), wrapper.emitted('press')]).toEqual(['30°', [[], []]])
 })

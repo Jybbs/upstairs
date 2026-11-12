@@ -100,17 +100,18 @@ describe('the names on the map', () => {
   })
 
   it.each([
-    ['keeps a place 38 px past the edge of the view', 538, ['Edge']],
-    ['passes over a place 42 px past the edge of the view', 542, []]
+    ['keeps a place 40 px past the edge of the view', 540, ['Edge']],
+    ['passes over a place 41 px past the edge of the view', 541, []]
   ])('%s', (_, x, names) => {
     const place = [featureAt({ class: 'city', name: 'Edge' }, x, 0)]
     expect(namesAt({ place }, 9).map(label => label.name)).toEqual(names)
   })
 
   it.each([
-    ['passes over a smaller place 110 px beside a larger one', 110, 0, ['Large']],
-    ['keeps a smaller place 120 px beside a larger one', 120, 0, ['Large', 'Small']],
-    ['keeps a smaller place 30 px below a larger one', 0, 30, ['Large', 'Small']]
+    ['passes over a smaller place 115 px beside a larger one', 115, 0, ['Large']],
+    ['keeps a smaller place 116 px beside a larger one', 116, 0, ['Large', 'Small']],
+    ['passes over a smaller place 26 px below a larger one', 0, 26, ['Large']],
+    ['keeps a smaller place 27 px below a larger one', 0, 27, ['Large', 'Small']]
   ])('%s', (_, x, y, names) => {
     const place = [
       featureAt({ class: 'city', name: 'Large', rank: 1 }),

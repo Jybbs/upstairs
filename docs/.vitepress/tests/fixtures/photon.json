@@ -3,10 +3,10 @@
   "features": [
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-0.1276474, 51.5073219] },
+      "geometry": { "type": "Point", "coordinates": [-0.1277653, 51.5074456] },
       "properties": {
         "osm_type": "R",
-        "osm_id": 65606,
+        "osm_id": 175342,
         "osm_key": "place",
         "osm_value": "city",
         "type": "city",
@@ -18,7 +18,7 @@
     },
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [-81.2452768, 42.9836747] },
+      "geometry": { "type": "Point", "coordinates": [-81.2496068, 42.9836747] },
       "properties": {
         "osm_type": "R",
         "osm_id": 7485368,
