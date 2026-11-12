@@ -1,4 +1,4 @@
-import { Glob, TOML, YAML }                 from 'bun'
+import { $, Glob, TOML, YAML }              from 'bun'
 import { basename, dirname, extname, join } from 'node:path'
 
 import { differenceEuclidean } from 'culori'
@@ -13,6 +13,11 @@ interface Job {
   needs?    : string | string[]
   steps?    : Step[]
   strategy? : { matrix?: { include?: Row[] } }
+}
+
+interface MiseTask {
+  aliases : string[]
+  name    : string
 }
 
 export interface RegistryLabel {
@@ -57,7 +62,8 @@ export const FILES = {
   labels   : '.github/labels.toml',
   release  : '.github/release.yml',
   settings : '.github/settings.toml',
-  sweep    : '.mise/tasks/repo/ci.toml'
+  sweep    : '.mise/tasks/repo/ci.toml',
+  warm     : '.github/workflows/warm.yml'
 }
 const FRONTMATTER   = /^---\n([\s\S]*?)\n---\n/
 const KEYS          = 'color, description, name'
@@ -66,16 +72,13 @@ const LABEL_LENGTH  = 100
 const MATRIX_TOOLS  = '${{ matrix.tools }}'
 const PIN           = /^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/
 const PROVISION     = '/.github/actions/provision'
-const TASK_RUN      = /\bmise run (?:-[\w-]+ )*(\w[\w:-]*)/g
+const TASK_RUN      = /\bmise run (\w[\w:-]*)/g
 const colorDistance = differenceEuclidean('oklab')
 /**
  * The parser for each extension `parseFile` reads, a Markdown file yielding
- * its YAML frontmatter and a task file, which has no extension, yielding its
- * `#MISE` frontmatter.
+ * its YAML frontmatter.
  */
 const PARSERS = {
-  ''      : (text: string) =>
-    TOML.parse(Array.from(text.matchAll(/^#MISE (.*)/gm), match => match[1]).join('\n')),
   '.json' : JSON.parse,
   '.md'   : (text: string) => YAML.parse(FRONTMATTER.exec(text)?.[1] ?? '{}'),
   '.toml' : TOML.parse,
@@ -106,18 +109,8 @@ const provisionsOf = (job: Job) => (job.steps ?? [])
 const rowsOf = (job: Job) => job.strategy?.matrix?.include ?? []
 
 /**
- * Lists the name and every alias of each task the task file at `path`
- * declares, naming a file task `<group>:<name>` from its path.
- */
-const tasksIn = async (path: string) =>
-  Object.entries<{ alias?: string | string[] }>(extname(path)
-    ? await parseFile(path)
-    : { [`${basename(dirname(path))}:${basename(path)}`]: await parseFile(path) })
-    .flatMap(([name, task]) => [name, task.alias ?? []].flat())
-
-/**
  * Parses the JSON, TOML, or YAML file at `path`, or the frontmatter of the
- * Markdown file or the task file there, choosing the parser by its extension.
+ * Markdown file there, choosing the parser by its extension.
  */
 export const parseFile = async (path: string) =>
   PARSERS[extname(path) as keyof typeof PARSERS](await Bun.file(path).text())
@@ -160,7 +153,8 @@ export class Repository {
       (await parseFile(at(FILES.labels))).labels,
       await Promise.all((await pathsOf(root, '.github/rulesets/*.json')).map(parseFile)),
       (await parseFile(at(FILES.sweep)))['repo:ci'].depends,
-      (await Promise.all((await pathsOf(root, '.mise/tasks/*/*')).map(tasksIn))).flat(),
+      (await $`mise tasks ls --hidden --json --no-global`.cwd(root).json() as MiseTask[])
+        .flatMap(task => [task.name, ...task.aliases]),
       await Promise.all((await pathsOf(root, '.github/ISSUE_TEMPLATE/*.{md,yml}'))
         .filter(path => !path.endsWith('config.yml'))
         .map(async path => ({ labels: (await parseFile(path)).labels ?? [], path }))),
@@ -238,7 +232,7 @@ export class Repository {
       .map(check => check.context))
     return required
       .filter(context => !gates.has(context))
-      .map(context => `A ruleset requires ${context}, which no pull-request workflow ends on`)
+      .map(context => `A ruleset requires ${context}, which no workflow every pull request runs ends on`)
   }
 
   private get guideProblems(): string[] {
@@ -338,10 +332,12 @@ export class Repository {
   private get toolProblems(): string[] {
     const provisions = jobsOf(this.workflows)
       .flatMap(({ job, path }) => provisionsOf(job).map(provision => ({ ...provision, path })))
-    const saved      = new Set(provisions.filter(({ save }) => save === 'true').map(({ tools }) => tools))
+    const saved      = new Set(provisions
+      .filter(({ path, save }) => path.endsWith(FILES.warm) && save === 'true')
+      .map(({ tools }) => tools))
     return [...new Set(provisions
       .filter(({ cache, tools }) => cache !== 'false' && !saved.has(tools))
-      .map(({ path, tools }) => `${path} restores the tools ${tools}, which no job saves`))]
+      .map(({ path, tools }) => `${path} restores the tools ${tools}, which no ${FILES.warm} row saves`))]
   }
 }
 

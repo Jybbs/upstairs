@@ -67,6 +67,7 @@ describe('Repository', () => {
 
   it.each<[string, Job]>([
     ['runs a task by its alias', { steps: [{ run: 'mise run audit' }] }],
+    ['passes a flag and its value before the task', { steps: [{ run: 'mise run --jobs 4 site:test' }] }],
     [
       'runs the task its matrix row names',
       { strategy: { matrix: { include: [{ name: 'a', task: 'site:test', tools: 'bun' }] } } }
@@ -76,7 +77,7 @@ describe('Repository', () => {
       { steps: [{ uses: PROVISION, with: { cache: 'false', tools: 'bun lychee' } }] }
     ],
     [
-      'restores tools another job saves',
+      'restores tools a Warm row saves',
       { steps: [{ uses: PROVISION, with: { tools: 'bun rust github:wasm-bindgen/wasm-bindgen' } }] }
     ]
   ])('reports nothing for a job that %s', (_, added) =>
@@ -184,7 +185,7 @@ describe('Repository', () => {
           }]
         }]
       }),
-      'A ruleset requires 🔭 Gate, which no pull-request workflow ends on'
+      'A ruleset requires 🔭 Gate, which no workflow every pull request runs ends on'
     ],
     [
       'a workflow whose gate leaves a job out of its needs',
@@ -202,8 +203,8 @@ describe('Repository', () => {
       'added.yml runs mise run site:tset, which .mise/tasks/ does not declare'
     ],
     [
-      'a step running a task .mise/tasks/ does not declare after a flag',
-      job({ steps: [{ run: 'mise run --force site:tset' }] }),
+      'a task two steps of one job run once',
+      job({ steps: [{ run: 'mise run site:tset' }, { run: 'mise run site:tset' }] }),
       'added.yml runs mise run site:tset, which .mise/tasks/ does not declare'
     ],
     [
@@ -219,17 +220,27 @@ describe('Repository', () => {
       'added.yml runs mise run site:tset, which .mise/tasks/ does not declare'
     ],
     [
-      'a job restoring tools no job saves',
+      'a job restoring tools no Warm row saves',
       job({ steps: [{ uses: PROVISION, with: { tools: 'bun lychee' } }] }),
-      'added.yml restores the tools bun lychee, which no job saves'
+      'added.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
     ],
     [
-      'a matrix row restoring tools no job saves',
+      'a job restoring the same tools twice once',
+      job({ steps: Array(2).fill({ uses: PROVISION, with: { tools: 'bun lychee' } }) }),
+      'added.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
+    ],
+    [
+      'a job outside Warm saving the tools it restores',
+      job({ steps: [{ uses: PROVISION, with: { save: 'true', tools: 'bun lychee' } }] }),
+      'added.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
+    ],
+    [
+      'a matrix row restoring tools no Warm row saves',
       job({
         steps    : [{ uses: PROVISION, with: { tools: '${{ matrix.tools }}' } }],
         strategy : { matrix: { include: [{ name: 'a', tools: 'bun lychee' }] } }
       }),
-      'added.yml restores the tools bun lychee, which no job saves'
+      'added.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
     ],
     [
       'an action pinned to a tag',
