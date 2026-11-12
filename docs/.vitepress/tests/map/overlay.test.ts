@@ -414,3 +414,169 @@ it.each([
   expect(moving.centers).toEqual(expect.arrayContaining(points))
   expect(moving.centers.some(([x, y]) => x === 100 && y === 100)).toBe(gathered)
 })
+
+/**
+ * Builds a canvas whose 2D context ignores every call but `arc`, `beginPath`,
+ * `fill`, `lineTo`, and `stroke`, recording the width and alpha of each
+ * ribbon filled and the alpha, radius, and fill style of each disc and ring
+ * drawn.
+ */
+const sketchOf = () => {
+  const marks: { alpha: number, filled: boolean, radius: number, style: unknown }[] = []
+  const ribbons: { alpha: number, width: number }[] = []
+  let points: number[][] = []
+  let radius             = 0
+  let round              = false
+  const calls            = {
+    arc       : (_x: number, _y: number, size: number) => {
+      radius = size
+      round  = true
+    },
+    beginPath : () => {
+      points = []
+      round  = false
+    },
+    canvas    : { height: 0, width: 0 },
+    fill      : () => {
+      const alpha = context.globalAlpha as number
+      if (round) return marks.push({ alpha, filled: true, radius, style: context.fillStyle })
+      const [[x, y], [u, v]] = [points[0], points.at(-1)!]
+      ribbons.push({ alpha, width: Math.hypot(u - x, v - y) })
+    },
+    lineTo    : (x: number, y: number) => points.push([x, y]),
+    stroke    : () => {
+      if (round) marks.push({ alpha: context.globalAlpha as number, filled: false, radius, style: null })
+    }
+  }
+  const context = new Proxy<Record<string | symbol, unknown>>(calls, {
+    get: (target, key) => target[key] ?? (() => {})
+  })
+  return { canvas: { getContext: () => context } as unknown as HTMLCanvasElement, marks, ribbons }
+}
+
+/**
+ * Draws one satellite crossing the view eastward at `elevation` degrees,
+ * through a pass `changes` sets, chosen or held as `as` names, at `seconds`
+ * into the window.
+ */
+const drawnAt = (
+  seconds   : number,
+  elevation : number,
+  as        : 'held' | 'none' | 'selected',
+  changes   = {}
+) => {
+  const tracks = new Tracks()
+  const track  = new Float32Array(121 * TRACK_WIDTH)
+  for (let sample = 0; sample < 121; sample++) {
+    track.set([BOSTON.latitude, BOSTON.longitude - 1 + sample / 60, elevation], sample * TRACK_WIDTH)
+  }
+  const pass = passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600, ...changes })
+  tracks.add([pass], track, Uint32Array.of(0), 121)
+  const sketch  = sketchOf()
+  const overlay = new Overlay(sketchOf().canvas, sketch.canvas, {
+    gathered : false,
+    held     : as === 'held' ? pass : null,
+    named    : null,
+    reduced  : true,
+    selected : as === 'selected' ? pass : null,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => true,
+    tracks   : tracks
+  })
+  overlay.resize(400, 400, 1)
+  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(seconds)
+  return sketch
+}
+
+it.each([
+  ['draws the chosen track 1 px wide at the horizon', 'selected', 0, 1],
+  ['draws the chosen track 6 px wide straight overhead', 'selected', 90, 6],
+  ['widens the chosen track on the sine of its elevation', 'selected', 30, 3.5],
+  ['swells the held track to 3 px straight overhead', 'held', 90, 3]
+] as const)('%s', (_, as, elevation, width) => {
+  const { ribbons } = drawnAt(900, elevation, as)
+  expect(ribbons.filter((_, index) => index % 2).map(ribbon => ribbon.width))
+    .toEqual(ribbons.filter((_, index) => index % 2).map(() => expect.closeTo(width)))
+  expect(ribbons.length).toBeGreaterThan(0)
+})
+
+it('draws the stretch flown at a third, at once under reduced motion, and marks the peak', () => {
+  const { marks, ribbons } = drawnAt(900, 45, 'selected')
+  expect([ribbons.map(({ alpha }) => alpha), marks.length])
+    .toEqual([[0.7 / 3, 1 / 3, 0.7, 1].map(alpha => expect.closeTo(alpha)), 2])
+})
+
+it('leaves filled beads behind a satellite drawing nearer and open ones behind one going', () => {
+  const { marks } = drawnAt(1800, 45, 'none', { peakAt: 1760, riseAt: 1700, setAt: 1900 })
+  expect(marks.slice(0, 3).map(({ filled }) => filled)).toEqual([false, true, true])
+})
+
+it('fades each bead with its age', () => {
+  const { marks } = drawnAt(1800, 45, 'none')
+  const beads     = marks.slice(0, -2).map(({ alpha }) => alpha)
+  expect(beads).toEqual(beads.toSorted((a, b) => b - a))
+  expect(new Set(beads).size).toBe(beads.length)
+})
+
+it.each([
+  ['draws the chosen dot and its beads in its kind’s color', 'selected', true],
+  ['draws every other dot and its beads in the one tone', 'none', false]
+] as const)('%s', (_, as, colored) => {
+  const { marks } = drawnAt(1800, 45, as)
+  expect(marks.some(({ style }) => style === SCHEMES.day.kinds.crewed)).toBe(colored)
+})
+
+it.each([
+  ['gathers only the passes still up or yet to rise', 0, 20, [1]],
+  ['gathers every pass not yet set', 0, 60, [2]]
+] as const)('%s', (_, riseAt, setAt, counts) => {
+  const tracks = new Tracks()
+  const track  = new Float32Array(6 * TRACK_WIDTH)
+  trackAt(track, CRAFT, 0)
+  trackAt(track, BOSTON, 3 * TRACK_WIDTH)
+  tracks.add([passOf(25544, { riseAt, setAt }), passOf(43013, { riseAt: 0, setAt: 60 })],
+    track, Uint32Array.of(0, 3 * TRACK_WIDTH), 3)
+  const overlay = new Overlay(canvasOf().canvas, canvasOf().canvas, {
+    gathered : true,
+    held     : null,
+    named    : null,
+    reduced  : true,
+    selected : null,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => true,
+    tracks   : tracks
+  })
+  const seen: number[] = []
+  overlay.gather(tracks, 30, count => {
+    seen.push(count)
+    return []
+  })
+  expect(seen).toEqual(counts)
+})
+
+it('draws each gathered satellite 3 px round on its halo once the sky has gathered', () => {
+  const tracks = new Tracks()
+  const track  = new Float32Array(3 * TRACK_WIDTH)
+  trackAt(track, CRAFT, 0)
+  tracks.add([passOf(25544, { riseAt: 0, setAt: 60 })], track, Uint32Array.of(0), 3)
+  const sketch  = sketchOf()
+  const overlay = new Overlay(sketchOf().canvas, sketch.canvas, {
+    gathered : true,
+    held     : null,
+    named    : null,
+    reduced  : true,
+    selected : null,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => true,
+    tracks   : tracks
+  })
+  overlay.resize(400, 400, 1)
+  overlay.view.set(400, 400, 7, BOSTON.longitude, BOSTON.latitude)
+  overlay.gather(tracks, 30, () => [[100, 100]])
+  overlay.draw(30)
+  expect(sketch.marks.map(({ radius }) => radius)).toEqual([4.5, 3])
+})

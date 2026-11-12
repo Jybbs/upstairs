@@ -63,3 +63,22 @@ it('names the address that holds no page, before the way back to the map', async
     ['Not found', `There is no page at ${location.host}/no-such-page/.`])
   expect(wrapper.findAll('a, button').map(control => control.text())).toEqual(['Back to the map', '404'])
 })
+
+it.each([
+  ['beside the panel where the panel leaves the wider room to its right', 1000,
+    { height: 552, left: 424, top: 24, width: 552 }],
+  ['below the panel where the frame is too narrow beside it', 600,
+    { height: 252, left: 24, top: 324, width: 552 }]
+] as const)('gathers the sky into the room %s', async (_, width, room) => {
+  const { sky, wrapper } = await mounted()
+  const frame            = { height: 600, left: 0, top: 0, width }
+  const panel            = { bottom: 300, right: 400 }
+  const measured         = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    .mockImplementation(function (this: HTMLElement) {
+      return (this.tagName === 'MAIN' ? frame : panel) as DOMRect
+    })
+  await wrapper.get('button').trigger('click')
+  await flushPromises()
+  measured.mockRestore()
+  expect(sky.gather.value).toEqual(room)
+})

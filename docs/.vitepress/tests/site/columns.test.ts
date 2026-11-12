@@ -15,6 +15,10 @@ describe('columnsOf', () => {
       [[0, 130, 'ab'], [130, 220, 'c'], [220, 400, 'd']]],
     ['merges until every column is at least 44 px wide', [100, 110, 120, 130],
       [[0, 115, 'ab'], [115, 400, 'cd']]],
+    ['keeps a column exactly 44 px wide', [100, 144, 188, 300],
+      [[0, 122, 'a'], [122, 166, 'b'], [166, 244, 'c'], [244, 400, 'd']]],
+    ['merges a column 40 px wide with its nearer neighbor', [100, 140, 180, 300],
+      [[0, 160, 'ab'], [160, 240, 'c'], [240, 400, 'd']]],
     ['keeps one column for one peak', [50], [[0, 400, 'a']]]
   ])('%s', (_, xs, expected) =>
     expect(columnsOf(peaksAt(...xs), 400).map(({ from, peaks, to }) =>

@@ -1,15 +1,23 @@
 // @vitest-environment happy-dom
 import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
+import { ref }            from 'vue'
+
+vi.mock('@vueuse/core', async original => ({
+  ...await original<typeof import('@vueuse/core')>(),
+  useElementSize: () => ({ height: ref(240) })
+}))
 
 type Wrapper = ReturnType<typeof mount>
 
 /**
- * Mounts the spot chooser, opened, over a fresh copy of the shared state and a
- * stand-in worker.
+ * Mounts the spot chooser, 240 pixels tall and opened, over a fresh copy of
+ * the shared state and a stand-in worker, on a phone where `phone` is set.
  */
-const mounted = async () => {
-  vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: false, removeEventListener() {} }))
+const mounted = async (phone = false) => {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    addEventListener() {}, matches: phone && query.includes('40rem'), removeEventListener() {}
+  }))
   vi.stubGlobal('Worker', class { postMessage() {} })
   vi.resetModules()
   const { sky }                  = await import('../../lib/state/sky.ts')
@@ -38,4 +46,33 @@ it.each([
   const left             = vi.spyOn(sky, leave)
   await act(wrapper)
   expect(left).toHaveBeenCalled()
+})
+
+it.each([
+  ['leaves on a press outside the chooser and the map', '', 'shut'],
+  ['stays open on a press of the map', 'data-map', 'open']
+] as const)('%s', async (_, marked, choosing) => {
+  const { sky } = await mounted()
+  const outside = document.body.appendChild(document.createElement('div'))
+  if (marked) outside.setAttribute(marked, '')
+  outside.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+  outside.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  expect(sky.choosing.value).toBe(choosing)
+  outside.remove()
+})
+
+it.each([
+  ['raises the map by its height on a phone', true, 240],
+  ['leaves the map where it stands wider than a phone', false, 0]
+] as const)('%s', async (_, phone, raised) => {
+  const { sky } = await mounted(phone)
+  expect(sky.raised.value).toBe(raised)
+})
+
+it('sets the name under the pin in the heaviest weight of the mono', async () => {
+  const { sky, wrapper } = await mounted()
+  sky.aim.value          = { place: 'Paris', spot: { latitude: 48.86, longitude: 2.29 } }
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('[aria-live="polite"]').classes())
+    .toEqual(expect.arrayContaining(['font-mono', 'font-extrabold']))
 })

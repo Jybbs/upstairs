@@ -41,7 +41,8 @@ const DIM         = 0.16
 /**
  * Each dot: how many seconds it takes to fade in as it rises and out as it
  * sets, the width of its halo, the stroke of its open ring, how far it dims
- * once open, and the radius of the ring round the held and chosen dots.
+ * once open, and how far past its edge the ring round the held and chosen
+ * dots stands.
  */
 const DOT         = { ends: 40, halo: 1.5, held: 3.5, open: 0.3, thin: 1.2 } as const
 const DOT_GAP     = 4.5
@@ -550,7 +551,7 @@ export class Overlay {
    * an open ring past its nearest point. The held and the chosen dots take
    * their kind's color and a ring, and a dot the filters leave out draws at
    * half strength with no beads. Draws at `x`, `y`, the place `tracks.up`
-   * wrote, and writes nothing outside the canvas.
+   * wrote, since laying the beads reads other moments into `tracks`.
    */
   private drawDot(
     context : CanvasRenderingContext2D,
@@ -690,8 +691,9 @@ export class Overlay {
 
 /**
  * Draws a mark `radius` pixels round that is a filled disc at `open` 0 and a
- * ring `DOT.thin` pixels wide at `open` 1, its stroke thinning inward while
- * its outer edge grows by `grow` pixels, so the fill drains from the middle.
+ * ring at `open` 1 as wide as `DOT.thin` or 0.6 of `radius`, whichever is
+ * less, its stroke thinning inward while its outer edge grows by `grow`
+ * pixels, so the fill drains from the middle.
  */
 const dotAt = (
   context : CanvasRenderingContext2D,

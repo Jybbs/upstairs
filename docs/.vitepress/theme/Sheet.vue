@@ -12,8 +12,8 @@ import Readout      from './Readout.vue'
 import TimeStrip    from './TimeStrip.vue'
 
 /**
- * How many milliseconds of a throw's speed carry the sheet on past where it
- * lands.
+ * How many milliseconds of a throw's speed carry the sheet's aim on past
+ * where the drag lets go, the sheet landing on the stop nearest it.
  */
 const THROW  = 180
 const detail = ref<HTMLElement>()

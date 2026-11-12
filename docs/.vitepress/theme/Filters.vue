@@ -9,7 +9,7 @@ const kinds = Object.entries(KINDS) as [Kind, (typeof KINDS)[Kind]][]
 <template>
   <section class="flex shrink-0 flex-col gap-2.5 border-b border-rule p-4">
     <div>
-      <h3 class="caps mb-1.5 text-soft">Trace paths for</h3>
+      <h3 class="caps mb-1.5 text-soft">Show passes of</h3>
       <div class="flex flex-wrap gap-1">
         <Chip
           v-for="[kind, { label }] in kinds"

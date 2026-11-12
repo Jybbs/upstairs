@@ -122,7 +122,7 @@ watchDebounced(typed, value => {
         <button
           type="button"
           class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left text-base
-                 hover:bg-panel"
+                 hover:bg-panel max-sm:min-h-11"
           @click="chooseCraft(pass)"
         >
           <Icon :name="pass.kind" />
@@ -133,7 +133,8 @@ watchDebounced(typed, value => {
       <li v-for="item in found" :key="item.label">
         <button
           type="button"
-          class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left hover:bg-panel"
+          class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left hover:bg-panel
+                 max-sm:min-h-11"
           @click="choose(item)"
         >
           <Icon name="place" class="text-soft" /><span class="truncate">{{ item.label }}</span>

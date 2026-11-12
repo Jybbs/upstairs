@@ -3,6 +3,7 @@ import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
 import { kindOrder } from '../../lib/orbit/kinds.ts'
+import { passOf }    from '../fixtures/passes.ts'
 
 /**
  * Mounts the readout over a fresh copy of the shared state and a stand-in
@@ -102,4 +103,23 @@ it('opens the spot chooser from the place it reads', async () => {
   await wrapper.get('button[aria-expanded]').trigger('click')
   expect([sky.choosing.value, wrapper.get('button[aria-expanded]').attributes('aria-expanded')])
     .toEqual(['open', 'true'])
+})
+
+it('keeps the pinned pass on Escape while the spot chooser is open', async () => {
+  const { sky } = await mounted(0)
+  const pass    = passOf(1)
+  sky.pin(pass)
+  sky.choose()
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+  expect(sky.pinned.value).toBe(pass)
+})
+
+it('settles the name of the place in letter by letter only once the spot moves', async () => {
+  const { sky, wrapper } = await mounted(0)
+  const settling         = () => wrapper.findAll('button[aria-expanded] i')
+    .map(letter => letter.classes('motion-safe:animate-settle'))
+  const before           = settling()
+  sky.place.value        = 'Paris'
+  await wrapper.vm.$nextTick()
+  expect([before, settling()]).toEqual([before.map(() => false), [true, true, true, true, true]])
 })

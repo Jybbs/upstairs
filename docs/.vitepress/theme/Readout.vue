@@ -84,7 +84,7 @@ const when = computed(() => {
       <button
         type="button"
         class="caps cursor-pointer text-ink underline decoration-rule underline-offset-4
-               hover:decoration-soft"
+               hover:decoration-soft max-sm:py-3.25"
         :aria-expanded="sky.choosing.value === 'open'"
         :aria-label="`Choose the spot, now ${over}`"
         @click="sky.choose()"

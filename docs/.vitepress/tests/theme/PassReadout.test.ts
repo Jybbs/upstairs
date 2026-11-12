@@ -9,10 +9,11 @@ import { passOf }                             from '../fixtures/passes.ts'
  * Mounts the readout over a fresh copy of the shared state and a stand-in
  * worker, with the window opening at 11:47 PM in New York's time zone and one
  * pass laid over its track, read at `seconds` into the window. The satellite
- * stands 5° of latitude north of the spot at its peak and climbs 1° every 5
+ * stands 5° of latitude north of the spot at its peak, `drift` degrees of
+ * longitude east of it each 10 minutes after its peak, and climbs 1° every 5
  * seconds from its rise to its peak.
  */
-const mounted = async (seconds: number, changes: Partial<Pass> = {}) => {
+const mounted = async (seconds: number, changes: Partial<Pass> = {}, drift = 0) => {
   vi.stubEnv('TZ', 'America/New_York')
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
   vi.stubGlobal('Worker', class { postMessage() {} })
@@ -25,7 +26,8 @@ const mounted = async (seconds: number, changes: Partial<Pass> = {}) => {
   for (let index = 0; index < samples; index++) {
     const time                    = index * TRACK_STEP
     const { latitude, longitude } = sky.spot.value
-    track.set([latitude + 5, longitude, 60 - Math.abs(time - 600) / 5], index * 3)
+    const east                    = drift * (time - 600) / 600
+    track.set([latitude + 5, longitude + east, 60 - Math.abs(time - 600) / 5], index * 3)
   }
   sky.tracks.add([pass], track, Uint32Array.of(0), samples)
   sky.done.value   = true
@@ -35,6 +37,11 @@ const mounted = async (seconds: number, changes: Partial<Pass> = {}) => {
   sky.version.value++
   return { sky, wrapper: mount(Readout, { attachTo: document.body }) }
 }
+
+/**
+ * Returns the first point of an outline.
+ */
+const startOf = (outline: string) => outline.slice(1).split('L')[0].split(' ').map(Number)
 
 /**
  * Returns each reading's figure beside its label.
@@ -87,6 +94,24 @@ describe('the held pass', () => {
     const tick        = /^M[^L]*L[^L]*(L[^L]*Z)?$/
     const marks       = wrapper.findAll('svg path[d]').filter(path => tick.test(path.attributes('d')!))
     expect(marks.length).toBe(ends)
+  })
+
+  it('places the needle in by the height, the rise tick, and the arrowhead on a north-up sky', async () => {
+    const { wrapper } = await mounted(600)
+    const plan        = wrapper.get('svg[role="img"]')
+    const needle      = plan.get('line')
+    const ends        = plan.findAll('path[d]').map(path => path.attributes('d')!)
+      .filter(outline => /^M[^L]*L[^L]*(L[^L]*Z)?$/.test(outline))
+    expect([[needle.attributes('x2'), needle.attributes('y2')].map(Number), ...ends.map(startOf)])
+      .toEqual([[54, 41], [54, 24], [54, 94.5]].map(point => point.map(value => expect.closeTo(value))))
+  })
+
+  it('holds the needle where the satellite rises until it does', async () => {
+    const needleAt = async (seconds: number) => {
+      const needle = (await mounted(seconds, {}, 10)).wrapper.get('svg[role="img"] line')
+      return [needle.attributes('x2'), needle.attributes('y2')]
+    }
+    expect(await needleAt(100)).toEqual(await needleAt(300))
   })
 
   it('returns to the count once Escape lets the pinned pass go', async () => {

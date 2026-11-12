@@ -52,20 +52,21 @@ let request = 0
 const boundsOf = (pass: Pass) => {
   const index                   = sky.tracks.passes.indexOf(pass)
   const { latitude, longitude } = sky.spot.value
-  const high                    = new maplibregl.LngLatBounds([longitude, latitude], [longitude, latitude])
+  const high                    = new maplibregl.LngLatBounds()
   const whole                   = new maplibregl.LngLatBounds()
   for (let at = pass.riseAt; at <= pass.setAt; at += TRACK_STEP) {
     if (!sky.tracks.at(index, at)) continue
     whole.extend([sky.tracks.longitude, sky.tracks.latitude])
     if (sky.tracks.elevation > HIGH) high.extend([sky.tracks.longitude, sky.tracks.latitude])
   }
+  if (!high.isEmpty()) high.extend([longitude, latitude])
   return { high, whole }
 }
 
 /**
- * Returns the chosen pass's two steps: the camera standing back until the
- * stretch above `HIGH` degrees lies beside the spot, and the camera fitting
- * the whole crossing.
+ * Returns the chosen pass's steps: the camera standing back until the stretch
+ * above `HIGH` degrees lies beside the spot, where the pass climbs that high,
+ * and the camera fitting the whole crossing.
  */
 const stepsOf = (pass: Pass): Step[] => {
   const { high, whole } = boundsOf(pass)

@@ -8,7 +8,7 @@ export const GRID = 16
 
 /**
  * The name of each mark the set draws, meaning a kind of satellite, a
- * direction, rising and setting, or a control.
+ * direction, or a control.
  */
 export type IconName = Kind | Mark
 
