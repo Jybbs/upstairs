@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { draftOf, NOTES, outcomeOf } from '../../tools/cut.ts'
+import { contextOf, draftOf, NOTES, outcomeOf } from '../../tools/cut.ts'
+
+const BEFORE = 'ec695b92119cf872109c4faf09cf93e7bf4af861'
+const SHA    = '761cc15aaf0c1e2a3b4c5d6e7f8091a2b3c4d5e6'
 
 const release = (tag_name: string, draft = false) => ({ draft, tag_name })
 
@@ -30,14 +33,32 @@ describe('outcomeOf', () => {
   it('fails where the releases cannot be read', () =>
     expect(outcomeOf(() => Promise.reject(new Error('HTTP 502')), async () => {}, '0.2.0', '0.1.0'))
       .rejects.toThrow('HTTP 502'))
+
+  it('fails where the draft cannot be created', () =>
+    expect(outcomeOf(async () => [], () => Promise.reject(new Error('HTTP 422')), '0.2.0', '0.1.0'))
+      .rejects.toThrow('HTTP 422'))
 })
 
 describe('draftOf', () => {
   it('creates the version as a draft with generated notes, titled for it and targeting the commit', () =>
-    expect(draftOf('0.2.0', 'Jybbs/upstairs', 'ec695b9')).toEqual([
+    expect(draftOf('0.2.0', 'Jybbs/upstairs', SHA)).toEqual([
       'release', 'create', '0.2.0',
-      '--draft', '--generate-notes', '--repo', 'Jybbs/upstairs', '--target', 'ec695b9', '--title', '0.2.0'
+      '--draft', '--generate-notes', '--repo', 'Jybbs/upstairs', '--target', SHA, '--title', '0.2.0'
     ]))
+})
+
+describe('contextOf', () => {
+  it.each([
+    ['push', BEFORE],
+    ['workflow_dispatch', undefined]
+  ])('reads the commit a %s run compares with, the repository, and the commit the draft targets',
+    (event, before) =>
+      expect(contextOf({
+        BEFORE,
+        GITHUB_EVENT_NAME : event,
+        GITHUB_REPOSITORY : 'Jybbs/upstairs',
+        GITHUB_SHA        : SHA
+      })).toEqual({ before, repository: 'Jybbs/upstairs', target: SHA }))
 })
 
 describe('NOTES', () => {

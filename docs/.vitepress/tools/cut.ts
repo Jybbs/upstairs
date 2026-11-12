@@ -56,14 +56,25 @@ export const draftOf = (version: string, repository?: string, target?: string) =
   '--draft', '--generate-notes', '--repo', repository, '--target', target, '--title', version
 ]
 
+/**
+ * Reads the commit a push moved from, which a run by hand leaves unset, the
+ * repository, and the commit the draft targets from the variables the
+ * workflow sets for the step.
+ */
+export const contextOf = (env: Record<string, string | undefined>) => ({
+  before     : env.GITHUB_EVENT_NAME === 'push' ? env.BEFORE : undefined,
+  repository : env.GITHUB_REPOSITORY,
+  target     : env.GITHUB_SHA
+})
+
 if (import.meta.main) {
-  const { BEFORE, GITHUB_EVENT_NAME, GITHUB_REPOSITORY, GITHUB_SHA } = process.env
+  const { before, repository, target } = contextOf(process.env)
   const version  = manifest.version
-  const previous = GITHUB_EVENT_NAME === 'push'
-    ? (await $`git show ${BEFORE}:docs/package.json`.json()).version as string
+  const previous = before
+    ? (await $`git show ${before}:docs/package.json`.json()).version as string
     : undefined
   const read = async (): Promise<Release[]> =>
-    (await $`gh api --paginate --slurp repos/${GITHUB_REPOSITORY}/releases`.json()).flat()
-  const create = () => $`gh ${draftOf(version, GITHUB_REPOSITORY, GITHUB_SHA)}`
+    (await $`gh api --paginate --slurp repos/${repository}/releases`.json()).flat()
+  const create = () => $`gh ${draftOf(version, repository, target)}`
   console.log(NOTES[await outcomeOf(read, create, version, previous)](version))
 }
