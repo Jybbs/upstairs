@@ -1,3 +1,5 @@
+import { STATUS_CODES } from 'node:http'
+
 import { describe, expect, it } from 'vitest'
 
 import * as repository from '../../tools/repository.ts'
@@ -122,24 +124,27 @@ describe('sync.ts against a stand-in gh', async () => {
       'creates the Pages site through a POST where the probe finds none',
       { 'GET repos/{owner}/{repo}/pages': 404 }, 'POST'
     ],
-    [
-      'creates the Pages site through a POST where the probe fails for any reason',
-      { 'GET repos/{owner}/{repo}/pages': 500 }, 'POST'
-    ],
     ['updates the Pages site through a PUT where the probe finds one', {}, 'PUT']
   ])('%s', async (_, failures, method) =>
     expect((await gh.Run.of('rulesets', { ...live, failures })).requests
       .find(request => request.path.endsWith('/pages')))
       .toEqual({ body: settings.pages, method, path: 'repos/{owner}/{repo}/pages' }))
 
+  it('stops where the Pages probe fails with anything but a 404 and sends no Pages request', async () => {
+    const run = await gh.Run.of('rulesets', { ...live, failures: { 'GET repos/{owner}/{repo}/pages': 500 } })
+    expect([run.code, run.requests.some(request => request.path.endsWith('/pages')), run.stderr])
+      .toEqual([1, false, expect.stringContaining('GET repos/{owner}/{repo}/pages failed with gh: ')])
+  })
+
   it.each([
     ['a PUT answered with a 422', 'PUT repos/{owner}/{repo}/topics', 422],
     ['a PUT answered with a 404', 'PUT repos/{owner}/{repo}/topics', 404],
     ['a DELETE answered with a 422', 'DELETE repos/{owner}/{repo}/vulnerability-alerts', 422]
   ])('stops at %s and sends nothing after it', async (_, failed, status) => {
-    const run = await gh.Run.of('rulesets', { ...live, failures: { [failed]: status } })
+    const run     = await gh.Run.of('rulesets', { ...live, failures: { [failed]: status } })
+    const message = `${failed} failed with gh: ${STATUS_CODES[status]} (HTTP ${status})`
     expect([run.code, run.requests.map(request => `${request.method} ${request.path}`).at(-1), run.stderr])
-      .toEqual([1, failed, expect.stringContaining(`${failed} failed with gh: HTTP ${status}`)])
+      .toEqual([1, failed, expect.stringContaining(message)])
   })
 
   it('passes a DELETE answered with a 404 and sends every request after it', async () => {

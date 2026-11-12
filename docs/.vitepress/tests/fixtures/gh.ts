@@ -1,10 +1,12 @@
 import { appendFile, cp, mkdtempDisposable } from 'node:fs/promises'
+import { STATUS_CODES }                      from 'node:http'
 import { tmpdir }                            from 'node:os'
 import { join }                              from 'node:path'
 
 import { $ } from 'bun'
 
-import type { Live } from '../../tools/sync.ts'
+import * as repository from '../../tools/repository.ts'
+import type { Live }   from '../../tools/sync.ts'
 
 interface Answer {
   code    : number
@@ -38,6 +40,7 @@ export const ROOT = join(FIXTURES, '../../../..')
  */
 export const SETTINGS = join(FIXTURES, 'settings.toml')
 const SCRIPT          = join(ROOT, 'docs/.vitepress/tools/sync.ts')
+const FIELDS          = ['-F', '-f', '--field', '--input', '--raw-field']
 
 /**
  * Answers one `gh` call from `remote`, failing a request `remote.failures`
@@ -48,18 +51,30 @@ const SCRIPT          = join(ROOT, 'docs/.vitepress/tools/sync.ts')
 const answer = (args: string[], remote: Remote): Answer => {
   const { method, path } = requestOf(args)
   const status           = remote.failures[`${method} ${path}`]
-  if (status) return { code: 1, stderr: `gh: HTTP ${status}` }
-  if (args[0] === 'label') return { code: 0, stdout: remote.labels.join('\n') }
+  if (status) return { code: 1, stderr: `gh: ${STATUS_CODES[status]} (HTTP ${status})` }
+  if (args[0] === 'label') return { code: 0, stdout: labelListOf(args, remote.labels) }
   const rulesets = method === 'GET' && path.endsWith('/rulesets')
   return { code: 0, stdout: JSON.stringify(rulesets ? remote.rulesets : {}) }
 }
 
 /**
- * Reads the method and path of one `gh` call from its arguments, taking `GET`
- * as the method unless `--method` names another.
+ * Prints the live label names the way `gh label list --json name` does, as a
+ * JSON array, or as one name per line ending in a newline once `--jq .[].name`
+ * reads the names out of it.
+ */
+const labelListOf = (args: string[], names: string[]) => args.includes('.[].name')
+  ? names.map(name => `${name}\n`).join('')
+  : JSON.stringify(names.map(name => ({ name })))
+
+/**
+ * Reads the method and path of one `gh` call from its arguments, taking the
+ * method `--method` names, or else `POST` for a call sending a body or a field
+ * and `GET` for any other.
  */
 const requestOf = (args: string[]) => ({
-  method : args.includes('--method') ? args[args.indexOf('--method') + 1] : 'GET',
+  method : args.includes('--method')
+    ? args[args.indexOf('--method') + 1]
+    : FIELDS.some(flag => args.includes(flag)) ? 'POST' : 'GET',
   path   : args.at(-1) ?? ''
 })
 
@@ -85,8 +100,8 @@ export class Run {
     const dir           = scratch.path
     const root          = join(dir, 'repository')
     await cp(join(ROOT, '.github'), join(root, '.github'), { recursive: true })
-    await cp(join(ROOT, '.mise/tasks/repo/ci.toml'), join(root, '.mise/tasks/repo/ci.toml'))
-    await cp(SETTINGS, join(root, '.github/settings.toml'))
+    await cp(join(ROOT, repository.FILES.sweep), join(root, repository.FILES.sweep))
+    await cp(SETTINGS, join(root, repository.FILES.settings))
     await Bun.write(join(dir, 'remote.json'), JSON.stringify(remote))
     const result = await $`${process.execPath} ${SCRIPT} ${task}`
       .cwd(root)

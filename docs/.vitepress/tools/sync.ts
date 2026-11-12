@@ -28,6 +28,9 @@ const apply = async (requests: Request[], warnings: string[]) => {
   warnings.forEach(warning => console.log(warning))
 }
 
+const failureOf = (request: string, result: $.ShellOutput) =>
+  new Error(`${request} failed with ${result.stderr.toString().trim()}`)
+
 const labels = async (declared: repository.Repository) => {
   const listed = await $`gh label list --json name --jq .[].name --limit 1000`.text()
   const live   = listed.split('\n').filter(Boolean)
@@ -35,12 +38,15 @@ const labels = async (declared: repository.Repository) => {
   await apply(sync.requests, sync.strays)
 }
 
+const notFound = (result: $.ShellOutput) => result.stderr.includes('(HTTP 404)')
+
 const rulesets = async (declared: repository.Repository) => {
   const settings: Settings = await repository.parseFile(repository.FILES.settings)
   const live: Live[]       = await $`gh api ${`${REPOSITORY}/rulesets`}`.json()
-  const site               = !(await $`gh api ${`${REPOSITORY}/pages`}`.nothrow().quiet()).exitCode
+  const pages              = await $`gh api ${`${REPOSITORY}/pages`}`.nothrow().quiet()
+  if (pages.exitCode && !notFound(pages)) throw failureOf(`GET ${REPOSITORY}/pages`, pages)
   await apply(
-    [...requestsOf(site, settings), ...rulesetRequestsOf(live, declared.rulesets)],
+    [...requestsOf(!pages.exitCode, settings), ...rulesetRequestsOf(live, declared.rulesets)],
     unnamedOf(live, declared.rulesets)
   )
 }
@@ -48,8 +54,8 @@ const rulesets = async (declared: repository.Repository) => {
 const send = async ({ body, method, path }: Request) => {
   const input  = Buffer.from(JSON.stringify(body ?? {}))
   const result = await $`gh api --method ${method} --input - ${path} < ${input}`.nothrow().quiet()
-  if (result.exitCode && !(method === 'DELETE' && result.stderr.includes('404'))) {
-    throw new Error(`${method} ${path} failed with ${result.stderr.toString().trim()}`)
+  if (result.exitCode && !(method === 'DELETE' && notFound(result))) {
+    throw failureOf(`${method} ${path}`, result)
   }
 }
 
