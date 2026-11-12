@@ -130,10 +130,10 @@ describe('sync.ts against a stand-in gh', async () => {
       .find(request => request.path.endsWith('/pages')))
       .toEqual({ body: settings.pages, method, path: 'repos/{owner}/{repo}/pages' }))
 
-  it('stops where the Pages probe fails with anything but a 404 and sends no Pages request', async () => {
+  it('stops where the Pages probe fails with anything but a 404 and sends no request', async () => {
     const run = await gh.Run.of('rulesets', { ...live, failures: { 'GET repos/{owner}/{repo}/pages': 500 } })
-    expect([run.code, run.requests.some(request => request.path.endsWith('/pages')), run.stderr])
-      .toEqual([1, false, expect.stringContaining('GET repos/{owner}/{repo}/pages failed with gh: ')])
+    expect([run.code, run.requests, run.stderr])
+      .toEqual([1, [], expect.stringContaining('GET repos/{owner}/{repo}/pages failed with gh: ')])
   })
 
   it.each([
@@ -175,4 +175,10 @@ describe('sync.ts against a stand-in gh', async () => {
     ]
   ])('sync.ts %s reports each undeclared live entry on a line of its own', async (task, changes, lines) =>
     expect((await gh.Run.of(task, { ...live, ...changes })).lines).toEqual(lines))
+
+  it('reads a call sending a body with no --method as a POST', () => {
+    const path = 'repos/{owner}/{repo}/topics'
+    expect(new gh.Run([{ args: ['api', '--input', '-', path] }], 0, '', '').requests)
+      .toEqual([{ body: undefined, method: 'POST', path }])
+  })
 })

@@ -29,7 +29,8 @@ export interface Remote {
   rulesets : Live[]
 }
 
-const FIXTURES = import.meta.dirname
+const BODY_FLAGS = ['-F', '-f', '--field', '--input', '--raw-field']
+const FIXTURES   = import.meta.dirname
 /**
  * The root of the worktree the suite runs in.
  */
@@ -40,7 +41,6 @@ export const ROOT = join(FIXTURES, '../../../..')
  */
 export const SETTINGS = join(FIXTURES, 'settings.toml')
 const SCRIPT          = join(ROOT, 'docs/.vitepress/tools/sync.ts')
-const FIELDS          = ['-F', '-f', '--field', '--input', '--raw-field']
 
 /**
  * Answers one `gh` call from `remote`, failing a request `remote.failures`
@@ -74,7 +74,7 @@ const labelListOf = (args: string[], names: string[]) => args.includes('.[].name
 const requestOf = (args: string[]) => ({
   method : args.includes('--method')
     ? args[args.indexOf('--method') + 1]
-    : FIELDS.some(flag => args.includes(flag)) ? 'POST' : 'GET',
+    : BODY_FLAGS.some(flag => args.includes(flag)) ? 'POST' : 'GET',
   path   : args.at(-1) ?? ''
 })
 
@@ -124,7 +124,7 @@ export class Run {
   }
 
   /**
-   * The requests the run sent through `gh api --method`, in the order sent.
+   * Every request the run sent but a `GET`, in the order sent.
    */
   get requests(): { body: unknown, method: string, path: string }[] {
     return this.calls
