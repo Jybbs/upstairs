@@ -19,7 +19,7 @@ The site reads the satellite catalog from `docs/public/catalog.bin`, which `mise
 | `mise press` | *VitePress's build of the site into `docs/.vitepress/dist/`* |
 | `mise compile` | *The orbit crate under `rust/` compiled to WebAssembly, its bindings written into `rust/pkg/`, which `mise serve` and `mise press` each run first* |
 | `mise test` | *The site's suite under `docs/.vitepress/tests/`* |
-| `mise check` | *Oxlint and `vue-tsc` over the site together with the cases of its suite the branch's changes since `origin/main` reach, or the whole suite where a change reaches a file a case reads off disk or the crate under `rust/`, skipping a tree an earlier run passed* |
+| `mise check` | *Oxlint and `vue-tsc` over the site together with the cases of its suite the branch's changes since `origin/main` reach, or the whole suite where a change reaches a file a case reads off disk, the crate under `rust/`, or the tools and tasks under `.mise/`, skipping a tree an earlier run passed* |
 | `mise answers` | *The orbit crate's tests, holding its results to the known answers under `docs/.vitepress/tests/fixtures/`* |
 | `mise ci` | *Every check a pull request runs, listed under Checks below* |
 | `mise relock` | *`mise lock`, `bun install`, and `cargo update --workspace`, re-resolving each lockfile after its manifest changes* |
