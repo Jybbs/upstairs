@@ -277,18 +277,20 @@ class Sky {
   /**
    * Keeps the chosen pass when the scan found it again, or else the highest
    * pass of the chosen satellite, and otherwise focuses on a known mission
-   * crossing the sky, or else the highest satellite that crosses.
+   * crossing the sky, or else the highest satellite that crosses, leaving out
+   * each craft docked to another pass.
    */
   private chooseFocus() {
     const passes        = this.tracks.passes
     const chosen        = this.selected.value
-    const crossing      = passes.filter(pass => this.traced[pass.kind] && !pass.earlier && !pass.later)
+    const undocked      = passes.filter((_, index) => !this.tracks.docked.has(index))
+    const crossing      = undocked.filter(pass => this.traced[pass.kind] && !pass.earlier && !pass.later)
     const noted         = crossing.filter(pass => pass.id in kinds.NOTES && pass.peak >= WORTH)
     this.selected.value = passes.find(pass => pass.key === chosen?.key)
       ?? highestOf(passes.filter(pass => pass.id === chosen?.id))
       ?? highestOf(noted)
       ?? highestOf(crossing)
-      ?? highestOf(passes)
+      ?? highestOf(undocked)
   }
 
   /**

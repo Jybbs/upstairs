@@ -113,6 +113,12 @@ describe('the chosen pass', () => {
     traced([passAt(600, 40), passAt(2400, 60), passAt(1200, 80, OTHER)])
     expect(sky.selected.value).toBe(sky.tracks.passes[1])
   })
+
+  it('opens on a station rather than the craft docked to it', async () => {
+    const sky = await loaded()
+    traced([passAt(600, 50), passAt(600, 50.5, OTHER)])
+    expect(sky.selected.value).toBe(sky.tracks.passes[0])
+  })
 })
 
 describe('the window', () => {
