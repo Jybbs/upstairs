@@ -26,7 +26,6 @@
         "osm_value": "city",
         "type": "city",
         "name": "London",
-        "city": "London",
         "state": "Ontario",
         "country": "Canada",
         "countrycode": "CA"

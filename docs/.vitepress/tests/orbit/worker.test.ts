@@ -102,7 +102,7 @@ describe('a scan', () => {
 
   it.each([
     ['while it builds the grid, before it posts anything', false, []],
-    ['over a grid it holds, after the batch under way and before it finishes', true, ['counts', 'passes']]
+    ['over a grid it holds, before it finishes', true, ['counts', 'passes']]
   ])('stops for a newer scan arriving %s', async (_, held, older) => {
     if (held) await hear(scanOf(1))
     await Promise.all([hear(scanOf(2)), hear(scanOf(3))])

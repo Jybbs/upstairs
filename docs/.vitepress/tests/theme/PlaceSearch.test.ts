@@ -63,7 +63,9 @@ it('lists the highest pass of each satellite the words typed name, and holds the
 })
 
 it.each([
-  ['lists each place found, naming its city, state, and country once each', async () => Response.json(photon),
+  ['lists each place found, naming its city, state, and country once each',
+    async () => Response.json({ ...photon, features: photon.features.map(feature =>
+      ({ ...feature, properties: { ...feature.properties, city: feature.properties.name } })) }),
     ['London, England, United Kingdom', 'London, Ontario, Canada']],
   ['says no place has that name where the search finds none',
     async () => Response.json({ ...photon, features: [] }), ['No place by that name.']],
