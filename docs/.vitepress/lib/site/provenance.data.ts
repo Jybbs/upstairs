@@ -24,14 +24,17 @@ const LOCKFILE = new URL('../../../../rust/Cargo.lock', import.meta.url)
 
 /**
  * Reads the version the site's manifest carries, its repository, the
- * abbreviated commit the site is pressed from, and the `sgp4` version
- * `rust/Cargo.lock` resolves, once per press or serve.
+ * abbreviated commit the site is pressed from, which `SHA` names where it is
+ * set and `HEAD` names otherwise, and the `sgp4` version `rust/Cargo.lock`
+ * resolves, once per press or serve.
  */
 export default defineLoader({
   load: (): Provenance => ({
-    commit     : execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(),
+    commit     : process.env.SHA?.slice(0, 7)
+      ?? execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(),
     repository : manifest.repository.url,
-    sgp4       : (TOML.parse(readFileSync(LOCKFILE, 'utf8')) as Lockfile).package.find(({ name }) => name === 'sgp4')!.version,
+    sgp4       : (TOML.parse(readFileSync(LOCKFILE, 'utf8')) as Lockfile).package
+      .find(({ name }) => name === 'sgp4')!.version,
     version    : manifest.version
   })
 })

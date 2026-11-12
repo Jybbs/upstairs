@@ -12,15 +12,16 @@ jobs:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
       - name: Provision
         uses: $/.github/actions/provision
         with:
           cache: 'false'
           tools: bun
-      - name: Draft the release where the version moved
+      - name: Draft the release where no release carries the version
         env:
+          BEFORE: ${{ github.event.before }}
           GH_TOKEN: ${{ github.token }}
         run: mise run gha:cut
     timeout-minutes: 10
