@@ -23,8 +23,8 @@ export interface RegistryLabel {
 
 interface Row {
   name  : string
-  task  : string
   tools : string
+  task? : string
 }
 
 export interface Ruleset {
@@ -33,7 +33,9 @@ export interface Ruleset {
 }
 
 interface Step {
+  run?  : string
   uses? : string
+  with? : { cache?: string, save?: string, tools?: string }
 }
 
 interface Template {
@@ -43,7 +45,7 @@ interface Template {
 
 export interface Workflow {
   jobs : Record<string, Job>
-  on   : Record<string, unknown>
+  on   : Record<string, Record<string, unknown> | null>
   path : string
 }
 
@@ -61,13 +63,19 @@ const FRONTMATTER   = /^---\n([\s\S]*?)\n---\n/
 const KEYS          = 'color, description, name'
 const LABEL_GAP     = 15
 const LABEL_LENGTH  = 100
+const MATRIX_TOOLS  = '${{ matrix.tools }}'
 const PIN           = /^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/
+const PROVISION     = '/.github/actions/provision'
+const TASK_RUN      = /\bmise run (?:-[\w-]+ )*(\w[\w:-]*)/g
 const colorDistance = differenceEuclidean('oklab')
 /**
  * The parser for each extension `parseFile` reads, a Markdown file yielding
- * its YAML frontmatter.
+ * its YAML frontmatter and a task file, which has no extension, yielding its
+ * `#MISE` frontmatter.
  */
 const PARSERS = {
+  ''      : (text: string) =>
+    TOML.parse(Array.from(text.matchAll(/^#MISE (.*)/gm), match => match[1]).join('\n')),
   '.json' : JSON.parse,
   '.md'   : (text: string) => YAML.parse(FRONTMATTER.exec(text)?.[1] ?? '{}'),
   '.toml' : TOML.parse,
@@ -79,12 +87,37 @@ const gatesOf = (workflow: Workflow) => Object.entries(workflow.jobs)
     .every(other => other === id || [job.needs].flat().includes(other)))
   .map(([id, job]) => job.name ?? id)
 
+const jobsOf = (workflows: Workflow[]) => workflows
+  .flatMap(workflow => Object.values(workflow.jobs).map(job => ({ job, path: workflow.path })))
+
 const pathsOf = async (root: string, pattern: string) =>
   (await Array.fromAsync(new Glob(pattern).scan(root))).sort().map(path => join(root, path))
 
 /**
+ * Lists the tool set each provision step of `job` installs, one entry per
+ * matrix row where the step reads the row's tools, beside the inputs it passes.
+ */
+const provisionsOf = (job: Job) => (job.steps ?? [])
+  .filter(step => step.uses?.endsWith(PROVISION))
+  .flatMap(({ with: inputs = {} }) =>
+    (inputs.tools === MATRIX_TOOLS ? rowsOf(job).map(row => row.tools) : [inputs.tools])
+      .map(tools => ({ ...inputs, tools })))
+
+const rowsOf = (job: Job) => job.strategy?.matrix?.include ?? []
+
+/**
+ * Lists the name and every alias of each task the task file at `path`
+ * declares, naming a file task `<group>:<name>` from its path.
+ */
+const tasksIn = async (path: string) =>
+  Object.entries<{ alias?: string | string[] }>(extname(path)
+    ? await parseFile(path)
+    : { [`${basename(dirname(path))}:${basename(path)}`]: await parseFile(path) })
+    .flatMap(([name, task]) => [name, task.alias ?? []].flat())
+
+/**
  * Parses the JSON, TOML, or YAML file at `path`, or the frontmatter of the
- * Markdown file there, choosing the parser by its extension.
+ * Markdown file or the task file there, choosing the parser by its extension.
  */
 export const parseFile = async (path: string) =>
   PARSERS[extname(path) as keyof typeof PARSERS](await Bun.file(path).text())
@@ -97,8 +130,9 @@ export const wordOf = (name: string) => name.split(' ').at(-1) ?? ''
 /**
  * Holds the declarations under `.github/` and `.mise/` that name one another,
  * meaning the label registry, the release categories, the issue templates, the
- * contributor guide, the workflows and the action manifests, the rulesets, and
- * the task the local sweep runs, and reports each place two of them disagree.
+ * contributor guide, the workflows and the action manifests, the rulesets, the
+ * tasks, and the task the local sweep runs, and reports each place two of them
+ * disagree.
  */
 export class Repository {
   constructor(
@@ -108,6 +142,7 @@ export class Repository {
     readonly labels     : RegistryLabel[],
     readonly rulesets   : Ruleset[],
     readonly sweep      : string[],
+    readonly tasks      : string[],
     readonly templates  : Template[],
     readonly workflows  : Workflow[]
   ) {}
@@ -125,6 +160,7 @@ export class Repository {
       (await parseFile(at(FILES.labels))).labels,
       await Promise.all((await pathsOf(root, '.github/rulesets/*.json')).map(parseFile)),
       (await parseFile(at(FILES.sweep)))['repo:ci'].depends,
+      (await Promise.all((await pathsOf(root, '.mise/tasks/*/*')).map(tasksIn))).flat(),
       await Promise.all((await pathsOf(root, '.github/ISSUE_TEMPLATE/*.{md,yml}'))
         .filter(path => !path.endsWith('config.yml'))
         .map(async path => ({ labels: (await parseFile(path)).labels ?? [], path }))),
@@ -134,8 +170,8 @@ export class Repository {
   }
 
   /**
-   * The distinct names of the jobs each pull-request workflow ends on, meaning
-   * the job whose `needs` lists every other job of its workflow.
+   * The distinct names of the jobs each check workflow ends on, meaning the
+   * job whose `needs` lists every other job of its workflow.
    */
   get gates(): string[] {
     return [...new Set(this.checks.flatMap(gatesOf))]
@@ -154,16 +190,16 @@ export class Repository {
   get problems(): string[] {
     return [
       ...this.categoryProblems, ...this.endingProblems, ...this.gateProblems, ...this.guideProblems,
-      ...this.labelProblems, ...this.pinProblems, ...this.sweepProblems, ...this.templateProblems
+      ...this.labelProblems, ...this.pinProblems, ...this.sweepProblems, ...this.taskProblems,
+      ...this.templateProblems, ...this.toolProblems
     ]
   }
 
   /**
-   * The rows of every matrix the pull-request workflows run.
+   * The rows of every matrix the check workflows run.
    */
   get rows(): Row[] {
-    return this.checks.flatMap(workflow => Object.values(workflow.jobs)
-      .flatMap(job => job.strategy?.matrix?.include ?? []))
+    return jobsOf(this.checks).flatMap(({ job }) => rowsOf(job))
   }
 
   private get categoryProblems(): string[] {
@@ -180,8 +216,13 @@ export class Repository {
     ]
   }
 
+  /**
+   * The workflows every pull request runs, meaning those a `pull_request`
+   * triggers with no path filter.
+   */
   private get checks(): Workflow[] {
-    return this.workflows.filter(workflow => 'pull_request' in workflow.on)
+    return this.workflows.filter(({ on }) =>
+      'pull_request' in on && !['paths', 'paths-ignore'].some(key => key in (on.pull_request ?? {})))
   }
 
   private get endingProblems(): string[] {
@@ -241,11 +282,16 @@ export class Repository {
     ]
   }
 
+  /**
+   * Every workflow and every action manifest.
+   */
+  private get manifests(): Workflow[] {
+    return [...this.workflows, ...this.actions]
+  }
+
   private get pinProblems(): string[] {
-    const uses = [...this.workflows, ...this.actions].flatMap(workflow => Object.values(workflow.jobs)
-      .flatMap(job => job.steps ?? [])
-      .flatMap(step =>
-        step.uses?.startsWith('$/') === false ? [{ path: workflow.path, uses: step.uses }] : []))
+    const uses = jobsOf(this.manifests).flatMap(({ job, path }) => (job.steps ?? [])
+      .flatMap(step => step.uses?.startsWith('$/') === false ? [{ path, uses: step.uses }] : []))
     const pins = new Set(uses.map(({ uses }) => uses))
     return [
       ...uses
@@ -259,7 +305,7 @@ export class Repository {
   }
 
   private get sweepProblems(): string[] {
-    const tasks = this.rows.map(row => row.task)
+    const tasks = this.rows.flatMap(row => row.task ?? [])
     return [
       ...tasks
         .filter(task => !this.sweep.includes(task))
@@ -270,11 +316,32 @@ export class Repository {
     ]
   }
 
+  private get taskProblems(): string[] {
+    const declared = new Set(this.tasks)
+    return [...new Set(jobsOf(this.manifests)
+      .flatMap(({ job, path }) => [
+        ...(job.steps ?? [])
+          .flatMap(step => Array.from(step.run?.matchAll(TASK_RUN) ?? [], match => match[1])),
+        ...rowsOf(job).flatMap(row => row.task ?? [])
+      ]
+        .filter(task => !declared.has(task))
+        .map(task => `${path} runs mise run ${task}, which .mise/tasks/ does not declare`)))]
+  }
+
   private get templateProblems(): string[] {
     const names = this.labelNames
     return this.templates.flatMap(template => template.labels
       .filter(name => !names.has(name))
       .map(name => `${template.path} names ${name}, which ${FILES.labels} lacks`))
+  }
+
+  private get toolProblems(): string[] {
+    const provisions = jobsOf(this.workflows)
+      .flatMap(({ job, path }) => provisionsOf(job).map(provision => ({ ...provision, path })))
+    const saved      = new Set(provisions.filter(({ save }) => save === 'true').map(({ tools }) => tools))
+    return [...new Set(provisions
+      .filter(({ cache, tools }) => cache !== 'false' && !saved.has(tools))
+      .map(({ path, tools }) => `${path} restores the tools ${tools}, which no job saves`))]
   }
 }
 
