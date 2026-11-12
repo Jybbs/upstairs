@@ -41,7 +41,7 @@ Each pull request runs `🛰️ CI`, one row per check below, and the `📓 Logb
 | `🔐 Lockfiles` | `mise run lock:check` | *`.mise/mise.lock`, `docs/bun.lock`, or `rust/Cargo.lock` drifts from its manifest* |
 | `📋 Audit` | `mise run repo:audit` | *The registries, the templates, this guide, the workflows, and the rulesets disagree with one another* |
 | `🔦 Workflows` | `mise run repo:lint` | *zizmor reports a finding in a workflow or an action manifest* |
-| `🎯 Site Coverage` | `mise run site:coverage` | *A test fails, or the coverage falls below the thresholds `docs/.vitepress/vitest.config.ts` declares* |
+| `🎯 Site Coverage` | `mise run site:coverage`, then `mise run gha:total -- .cache/coverage` | *A test fails, the coverage falls below the thresholds `docs/.vitepress/vitest.config.ts` declares, or the suite writes no summary for the coverage figure to read* |
 | `✂️ Knip` | `mise run site:cruft` | *knip reports an unused file, export, or dependency* |
 | `🔗 Links` | `mise run site:links` | *A link, an asset, or a heading fragment in the pressed site names nothing the build wrote* |
 | `⚓ Oxlint` | `mise run site:lint` | *Oxlint reports a finding in the TypeScript* |

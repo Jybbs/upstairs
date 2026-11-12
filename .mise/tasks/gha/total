@@ -1,4 +1,4 @@
 #!/usr/bin/env -S bash -euo pipefail
-#MISE description = "Write the share of lines the site's suite covered, rounded down to a whole number, into `coverage.json` in the folder given, which the published site serves"
+#MISE description = "Write the share of lines the site's suite covered, rounded down to a whole number, into `coverage.json` in the folder given"
 
 bun run docs/.vitepress/tools/total.ts "$1"
