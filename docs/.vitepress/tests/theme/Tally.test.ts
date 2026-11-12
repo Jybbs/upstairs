@@ -3,29 +3,29 @@ import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
 import { kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
+import { freshSky }             from '../fixtures/sky.ts'
+
+const COUNTS: Partial<Record<Kind, number>> = { crewed: 2, earth: 5 }
 
 /**
- * Mounts the tally over a fresh copy of the shared state, reading `counts` by
+ * Mounts the tally over a fresh copy of the shared state, reading `COUNTS` by
  * kind off the map, every kind it leaves out at zero.
  */
-const mounted = async (counts: Partial<Record<Kind, number>>) => {
-  vi.stubGlobal('Worker', class { postMessage() {} })
-  vi.resetModules()
-  const { sky }            = await import('../../lib/state/sky.ts')
-  const { default: Tally } = await import('../../theme/Tally.vue')
-  const kinds              = kindOrder.map(kind => counts[kind] ?? 0)
-  sky.reading.value        = { above: 0, aboveKinds: kinds, kinds, onMap: 0 }
+const mounted = async () => {
+  const { component: Tally, sky } = await freshSky(() => import('../../theme/Tally.vue'))
+  const kinds                     = kindOrder.map(kind => COUNTS[kind] ?? 0)
+  sky.reading.value               = { above: 0, aboveKinds: kinds, kinds, onMap: 0 }
   return { sky, wrapper: mount(Tally, { attachTo: document.body }) }
 }
 
 it('draws a group for each kind on the map and none for a kind with nothing up', async () => {
-  const { wrapper } = await mounted({ crewed: 2, earth: 5 })
+  const { wrapper } = await mounted()
   expect(wrapper.findAll('button').map(button => button.attributes('aria-label')))
     .toEqual(['Crewed, 2 on this map', 'Earth, 5 on this map'])
 })
 
 it('names the kind a tap holds, lets it go on a second tap, and lets it go on Escape', async () => {
-  const { sky, wrapper } = await mounted({ crewed: 2, earth: 5 })
+  const { sky, wrapper } = await mounted()
   const [, earth]        = wrapper.findAll('button')
   await earth.trigger('click')
   expect([sky.named.value, earth.attributes('aria-pressed')]).toEqual(['earth', 'true'])
@@ -37,7 +37,7 @@ it('names the kind a tap holds, lets it go on a second tap, and lets it go on Es
 })
 
 it('dims every group but the one named', async () => {
-  const { wrapper }     = await mounted({ crewed: 2, earth: 5 })
+  const { wrapper }     = await mounted()
   const [crewed, earth] = wrapper.findAll('button')
   await earth.trigger('click')
   expect([crewed.classes('opacity-25'), earth.classes('opacity-25')]).toEqual([true, false])
@@ -47,7 +47,7 @@ it.each([
   ['keeps the group keyboard focus stands on, named, once none of its kind is on the map', true, 'earth', 2],
   ['lets a group a pointer pressed leave the tally once none of its kind is on the map', false, null, 1]
 ])('%s', async (_, keyboard, named, groups) => {
-  const { sky, wrapper } = await mounted({ crewed: 2, earth: 5 })
+  const { sky, wrapper } = await mounted()
   const earth            = wrapper.findAll('button')[1]
   vi.spyOn(earth.element, 'matches').mockReturnValue(keyboard)
   await earth.trigger('focus')
@@ -62,7 +62,7 @@ it.each([
   ['names the kind a mouse rests on and lets it go as the mouse leaves', 'mouse', 'earth'],
   ['leaves a touch to the tap rather than naming on contact', 'touch', null]
 ] as const)('%s', async (_, pointerType, named) => {
-  const { sky, wrapper } = await mounted({ crewed: 2, earth: 5 })
+  const { sky, wrapper } = await mounted()
   const earth            = wrapper.findAll('button')[1]
   await earth.trigger('pointerenter', { pointerType })
   expect(sky.named.value).toBe(named)

@@ -13,7 +13,7 @@ export default defineConfig({
       reportOnFailure  : true,
       reporter         : ['text', 'html'],
       reportsDirectory : '../.cache/coverage',
-      thresholds       : { branches: 28, functions: 51, lines: 34, statements: 34 }
+      thresholds       : { branches: 84, functions: 89, lines: 91, statements: 90 }
     }
   }
 })

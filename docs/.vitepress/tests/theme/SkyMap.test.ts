@@ -6,14 +6,16 @@ import { ref }                  from 'vue'
 import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
 import { SHEETS }      from '../../lib/site/sheets.ts'
 import { passOf }      from '../fixtures/passes.ts'
+import { freshSky }    from '../fixtures/sky.ts'
 
-const { cameraForBounds, easeTo, fitBounds, gather, handlers } = vi.hoisted(() => ({
-  cameraForBounds : vi.fn((_bounds: { points: unknown[] }, _options: object) =>
-    ({ center: [-71, 42], zoom: 8 })),
+const { TOWN, cameraForBounds, easeTo, fitBounds, gather, handlers } = vi.hoisted(() => ({
+  TOWN            : 10 * 360 / (512 * 2 ** 5),
   easeTo          : vi.fn(),
   fitBounds       : vi.fn(),
   gather          : vi.fn(),
-  handlers        : new Map<string, (event: unknown) => void>()
+  handlers        : new Map<string, (event: unknown) => void>(),
+  cameraForBounds : vi.fn((_bounds: { points: unknown[] }, _options: object) =>
+    ({ center: [-71, 42], zoom: 8 }))
 }))
 
 vi.mock('maplibre-gl', () => ({
@@ -58,7 +60,7 @@ vi.mock('../../lib/map/overlay.ts', async () => {
   return {
     Overlay: class {
       gather = gather
-      labels = [{ latitude: 0, longitude: 10 * 360 / (512 * 2 ** 5), name: 'Town', tier: 'city' }]
+      labels = [{ latitude: 0, longitude: TOWN, name: 'Town', tier: 'city' }]
       view   = new View()
       crossing()   { return new Uint8Array(1) }
       invalidate() {}
@@ -75,16 +77,13 @@ vi.mock('../../lib/map/overlay.ts', async () => {
  */
 const mounted = async () => {
   vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: false, removeEventListener() {} }))
-  vi.stubGlobal('Worker', class { postMessage() {} })
   vi.stubGlobal('requestAnimationFrame', () => 0)
   Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } })
   document.head.append(Object.assign(document.createElement('link'), { href: SHEETS.map.href }))
-  vi.resetModules()
-  const { sky }             = await import('../../lib/state/sky.ts')
-  const { default: SkyMap } = await import('../../theme/SkyMap.vue')
-  const wrapper             = mount(SkyMap)
+  const { component: SkyMap, sky } = await freshSky(() => import('../../theme/SkyMap.vue'))
+  const wrapper                    = mount(SkyMap)
   await flushPromises()
-  const pass                = passOf(1)
+  const pass                       = passOf(1)
   sky.tracks.add([pass], new Float32Array(2 * TRACK_WIDTH), Uint32Array.of(0), 2)
   cameraForBounds.mockClear()
   easeTo.mockClear()
@@ -136,7 +135,7 @@ it('pulls the pin onto a town 10 px away once the map rests', async () => {
   await flushPromises()
   handlers.get('moveend')!({})
   expect(easeTo).toHaveBeenLastCalledWith(expect.objectContaining({
-    center   : [expect.closeTo(10 * 360 / (512 * 2 ** 5)), 0],
+    center   : [expect.closeTo(TOWN), 0],
     duration : 120
   }))
 })

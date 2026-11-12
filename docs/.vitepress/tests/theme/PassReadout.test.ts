@@ -1,9 +1,15 @@
 // @vitest-environment happy-dom
-import { mount }                    from '@vue/test-utils'
+import { mount, type VueWrapper }   from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
 import { TRACK_STEP, TRACK_WIDTH, type Pass } from '../../lib/orbit/scan.ts'
 import { passOf }                             from '../fixtures/passes.ts'
+import { freshSky }                           from '../fixtures/sky.ts'
+
+/**
+ * Matches the outline of a rise tick or a set arrowhead.
+ */
+const END = /^M[^L]*L[^L]*(L[^L]*Z)?$/
 
 /**
  * Mounts the readout over a fresh copy of the shared state and a stand-in
@@ -16,13 +22,10 @@ import { passOf }                             from '../fixtures/passes.ts'
 const mounted = async (seconds: number, changes: Partial<Pass> = {}, drift = 0) => {
   vi.stubEnv('TZ', 'America/New_York')
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
-  vi.stubGlobal('Worker', class { postMessage() {} })
-  vi.resetModules()
-  const { sky }              = await import('../../lib/state/sky.ts')
-  const { default: Readout } = await import('../../theme/Readout.vue')
-  const pass                 = passOf(1, changes)
-  const samples              = sky.span / TRACK_STEP + 1
-  const track                = new Float32Array(samples * TRACK_WIDTH)
+  const { component: Readout, sky } = await freshSky(() => import('../../theme/Readout.vue'))
+  const pass                        = passOf(1, changes)
+  const samples                     = sky.span / TRACK_STEP + 1
+  const track                       = new Float32Array(samples * TRACK_WIDTH)
   for (let index = 0; index < samples; index++) {
     const time                    = index * TRACK_STEP
     const { latitude, longitude } = sky.spot.value
@@ -39,15 +42,18 @@ const mounted = async (seconds: number, changes: Partial<Pass> = {}, drift = 0) 
 }
 
 /**
- * Returns the first point of an outline.
- */
-const startOf = (outline: string) => outline.slice(1).split('L')[0].split(' ').map(Number)
-
-/**
  * Returns each reading's figure beside its label.
  */
-const readingsOf = (wrapper: Awaited<ReturnType<typeof mounted>>['wrapper']) =>
+const readingsOf = (wrapper: VueWrapper) =>
   wrapper.findAll('dl > div').map(column => [column.get('dd').text(), column.get('dt').text()])
+
+/**
+ * Returns the first point of an outline.
+ */
+const startOf = (outline: string) => outline.slice(1)
+  .split('L')[0]
+  .split(' ')
+  .map(Number)
 
 describe('the held pass', () => {
   it('reads how far, how high it peaks, and how high it stands while it is up', async () => {
@@ -91,8 +97,7 @@ describe('the held pass', () => {
     ['draws no arrowhead while it is still up as the hour closes', { later: true, setAt: 3600 }, 1]
   ])('%s', async (_, changes, ends) => {
     const { wrapper } = await mounted(600, changes)
-    const tick        = /^M[^L]*L[^L]*(L[^L]*Z)?$/
-    const marks       = wrapper.findAll('svg path[d]').filter(path => tick.test(path.attributes('d')!))
+    const marks       = wrapper.findAll('svg path[d]').filter(path => END.test(path.attributes('d')!))
     expect(marks.length).toBe(ends)
   })
 
@@ -100,8 +105,9 @@ describe('the held pass', () => {
     const { wrapper } = await mounted(600)
     const plan        = wrapper.get('svg[role="img"]')
     const needle      = plan.get('line')
-    const ends        = plan.findAll('path[d]').map(path => path.attributes('d')!)
-      .filter(outline => /^M[^L]*L[^L]*(L[^L]*Z)?$/.test(outline))
+    const ends        = plan.findAll('path[d]')
+      .map(path => path.attributes('d')!)
+      .filter(outline => END.test(outline))
     expect([[needle.attributes('x2'), needle.attributes('y2')].map(Number), ...ends.map(startOf)])
       .toEqual([[54, 41], [54, 24], [54, 94.5]].map(point => point.map(value => expect.closeTo(value))))
   })

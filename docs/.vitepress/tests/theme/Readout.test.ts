@@ -1,9 +1,17 @@
 // @vitest-environment happy-dom
-import { mount }          from '@vue/test-utils'
-import { expect, it, vi } from 'vitest'
+import { mount, type VueWrapper } from '@vue/test-utils'
+import { expect, it, vi }         from 'vitest'
 
 import { kindOrder } from '../../lib/orbit/kinds.ts'
 import { passOf }    from '../fixtures/passes.ts'
+import { freshSky }  from '../fixtures/sky.ts'
+
+/**
+ * Returns the line naming the place and the time, its spacing collapsed.
+ */
+const lineOf = (wrapper: VueWrapper) => wrapper.get('p.truncate')
+  .text()
+  .replace(/\s+/g, ' ')
 
 /**
  * Mounts the readout over a fresh copy of the shared state and a stand-in
@@ -15,10 +23,7 @@ import { passOf }    from '../fixtures/passes.ts'
 const mounted = async (seconds: number, reduced = false) => {
   vi.stubEnv('TZ', 'America/New_York')
   vi.stubGlobal('matchMedia', (query: string) => ({ matches: reduced && query.includes('reduce') }))
-  vi.stubGlobal('Worker', class { postMessage() {} })
-  vi.resetModules()
-  const { sky }              = await import('../../lib/state/sky.ts')
-  const { default: Readout } = await import('../../theme/Readout.vue')
+  const { component: Readout, sky } = await freshSky(() => import('../../theme/Readout.vue'))
   sky.done.value   = true
   sky.spoken.value = '5 satellites above the horizon'
   sky.start.value  = new Date(2026, 10, 10, 23, 47).getTime()
@@ -37,8 +42,7 @@ it.each([
   ['12:00 AM', 780, ['Wed'], 'The time read is on Wednesday, November 11.']
 ])('names the weekday before the time at %s only once the day turns', async (time, at, weekday, spoken) => {
   const { wrapper } = await mounted(at)
-  const line        = wrapper.get('p.truncate').text().replace(/\s+/g, ' ')
-  expect(line).toBe(`Above Boston · ${[...weekday, time].join(' ')}`)
+  expect(lineOf(wrapper)).toBe(`Above Boston · ${[...weekday, time].join(' ')}`)
   expect(wrapper.findAll('[aria-live="polite"]')[1].text()).toBe(spoken)
 })
 
@@ -95,7 +99,7 @@ it.each([
   const { sky, wrapper } = await mounted(30)
   sky.clock.value        = clock
   await wrapper.vm.$nextTick()
-  expect(wrapper.get('p.truncate').text().replace(/\s+/g, ' ')).toBe(`Above Boston · ${time}`)
+  expect(lineOf(wrapper)).toBe(`Above Boston · ${time}`)
 })
 
 it('opens the spot chooser from the place it reads', async () => {

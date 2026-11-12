@@ -2,6 +2,8 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi }       from 'vitest'
 
+import { freshSky } from '../fixtures/sky.ts'
+
 vi.mock('vitepress', () => ({ defineClientComponent: () => ({ render: () => null }) }))
 
 const resized = vi.hoisted(() => ({ run: () => {} }))
@@ -14,10 +16,7 @@ vi.mock('@vueuse/core', () => ({ useResizeObserver: (_: unknown, run: () => void
  */
 const mounted = async () => {
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
-  vi.stubGlobal('Worker', class { postMessage() {} })
-  vi.resetModules()
-  const { sky }               = await import('../../lib/state/sky.ts')
-  const { default: NotFound } = await import('../../theme/NotFound.vue')
+  const { component: NotFound, sky } = await freshSky(() => import('../../theme/NotFound.vue'))
   return { sky, wrapper: mount(NotFound) }
 }
 
@@ -56,8 +55,7 @@ it('gathers the sky again into the room a resized frame leaves, only while it is
 
 it('names the address that holds no page, before the way back to the map', async () => {
   history.replaceState(null, '', '/no-such-page/')
-  const { default: NotFound } = await import('../../theme/NotFound.vue')
-  const wrapper               = mount(NotFound)
+  const { wrapper } = await mounted()
   await wrapper.vm.$nextTick()
   expect(wrapper.findAll('p').map(line => line.text())).toEqual(
     ['Not found', `There is no page at ${location.host}/no-such-page/.`])
