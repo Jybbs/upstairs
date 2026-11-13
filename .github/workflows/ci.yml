@@ -33,6 +33,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - { name: 📦 Catalog Bundle, task: catalog:bundle, tools: bun }
           - { name: 🧷 Catalog Types, task: catalog:typecheck, tools: bun }
           - { name: 📎 Clippy, task: crate:lint, tools: rust }
           - { name: 🦀 Crate Tests, task: crate:test, tools: rust }
