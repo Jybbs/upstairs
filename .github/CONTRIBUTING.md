@@ -21,6 +21,7 @@ The site reads the satellite catalog from `docs/public/catalog.bin`, which `mise
 | `mise test` | *The site's suite under `docs/.vitepress/tests/`* |
 | `mise check` | *Oxlint and `vue-tsc` over the site together with the cases of its suite the branch's changes since `origin/main` reach, or the whole suite where a change reaches a file a case reads off disk, the crate under `rust/`, or the tools and tasks under `.mise/`, skipping a tree an earlier run passed* |
 | `mise answers` | *The orbit crate's tests, holding its results to the known answers under `docs/.vitepress/tests/fixtures/`* |
+| `mise reel` | *The README's preview of the home map, recorded frame by frame from the fixture catalog under `docs/.vitepress/tests/fixtures/` into `.github/` in each scheme, in a Chromium the task installs under `.cache/playwright/` on its first run* |
 | `mise ci` | *Every check a pull request runs, listed under Checks below* |
 | `mise relock` | *`mise lock`, `bun install`, and `cargo update --workspace`, re-resolving each lockfile after its manifest changes* |
 | `mise lift` | *A list of the newer version of each pinned tool and package* |

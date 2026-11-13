@@ -11,9 +11,9 @@ const CAPS = { outlined: 48, small: 20 }
  */
 const CAP_SHARE = 689 / 1000
 /**
- * The height the README sets the word at, in pixels.
+ * The width the README sets the word at, in pixels.
  */
-const README_HEIGHT = 72
+const README_WIDTH = 560
 /**
  * The touch icon's file under the built site, its side, and the side of the
  * drawing centered on it, all in pixels.
@@ -43,9 +43,9 @@ export const drawnWordOf = (height: number, ink: string, u: string) =>
   capitalOf(height, u) + `<path d="${MARK.lowercase}${MARK.tittle}" fill="${ink}"/>`
 
 /**
- * Returns the word the cards draw, the U as `drawnWordOf` draws it, the
- * lowercase filled with a fade from `u` to `ink` across the p to the a, and
- * the i's tittle in `u`.
+ * Returns the word the cards and the README draw, the U as `drawnWordOf`
+ * draws it, the lowercase filled with a fade from `u` to `ink` across the p to
+ * the a, and the i's tittle in `u`.
  */
 export const fadedWordOf = (height: number, ink: string, u: string) =>
     capitalOf(height, u)
@@ -80,14 +80,14 @@ export const touchIconOf = () => {
 }
 
 /**
- * Builds the word the README opens on in one scheme's ink and U, at the
- * height the README sets it.
+ * Builds the word the README opens on in one scheme's ink and U, faded as the
+ * cards draw it, at the width the README sets it.
  */
 export const wordmarkOf = (scheme: SchemeName) => {
   const [, , width, height] = boxOf(MARK.box)
   const { ink, u }          = SCHEMES[scheme]
-  const scale               = README_HEIGHT / height
+  const tall                = README_WIDTH * height / width
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${MARK.box}" `
-       + `width="${(width * scale).toFixed(1)}" height="${README_HEIGHT}" role="img" aria-label="Upstairs">`
-       + `${drawnWordOf(README_HEIGHT, ink, u)}</svg>\n`
+       + `width="${README_WIDTH}" height="${tall.toFixed(1)}" role="img" aria-label="Upstairs">`
+       + `${fadedWordOf(tall, ink, u)}</svg>\n`
 }
