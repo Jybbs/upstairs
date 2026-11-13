@@ -31,8 +31,6 @@ vi.mock('../../../../rust/pkg/orbit.js', async importOriginal => {
   }
 })
 
-const tasks: (() => void)[] = []
-
 let heard: Answer[]
 let hear: (asked: Asked) => Promise<void>
 let heed: (answer: Answer) => void
@@ -41,14 +39,11 @@ let heed: (answer: Answer) => void
  * Queues `run` as the worker's next task, after every task queued before it,
  * running once the microtasks of the task before it have settled.
  */
-const task = (run: () => void) => {
-  tasks.push(run)
-  setTimeout(() => tasks.shift()?.())
-}
+const task = (run: () => void) => setImmediate(run)
 
 /**
  * Stands in for the worker's `MessageChannel`, delivering each message to
- * `port1` as a task on the queue `task` keeps.
+ * `port1` as a task queued through `task`.
  */
 class Channel {
   port1 = { onmessage: null as (() => void) | null }
