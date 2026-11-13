@@ -1,32 +1,30 @@
-description: Install mise at the floor `.mise/config.toml` sets and the tools a job names, at the versions `.mise/mise.lock` pins
+name        : Provision
+description : Install mise at the floor `.mise/config.toml` sets and the tools a job names, at the versions `.mise/mise.lock` pins
+
 inputs:
   cache:
-    default: 'true'
-    description: Whether to restore the tool cache at all
+    default     : 'true'
+    description : Whether to restore the tool cache at all
+
   save:
-    default: 'false'
-    description: Whether to save the tool cache once the tools are installed
+    default     : 'false'
+    description : Whether to save the tool cache once the tools are installed
+
   tools:
-    description: The tools to install, separated by spaces
-    required: true
-name: Provision
+    description : The tools to install, separated by spaces
+    required    : true
+
 runs:
+  using: composite
   steps:
-    - name: Read the mise floor and the cache label
-      id: floor
-      env:
-        TOOLS: ${{ inputs.tools }}
-      shell: bash
+    - name  : Read the mise floor and the cache label
+      env   : { TOOLS: "${{ inputs.tools }}" }
+      id    : floor
+      shell : bash
       run: |
         echo "version=$(sed -n 's/^min_version = "\(.*\)"$/\1/p' .mise/config.toml)" >> "$GITHUB_OUTPUT"
         echo "label=${TOOLS// /+}" >> "$GITHUB_OUTPUT"
-    - name: Install the tools
-      uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
-      with:
-        cache: ${{ inputs.cache }}
-        cache_key: provision-${{ steps.floor.outputs.label }}-{{default}}
-        cache_max_age_days: '0'
-        cache_save: ${{ inputs.save }}
-        install_args: ${{ inputs.tools }}
-        version: ${{ steps.floor.outputs.version }}
-  using: composite
+
+    - name : Install the tools
+      uses : jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+      with : { cache: "${{ inputs.cache }}", cache_key: "provision-${{ steps.floor.outputs.label }}-{{default}}", cache_max_age_days: '0', cache_save: "${{ inputs.save }}", install_args: "${{ inputs.tools }}", version: "${{ steps.floor.outputs.version }}" }

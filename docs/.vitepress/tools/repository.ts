@@ -72,6 +72,7 @@ const LABEL_LENGTH  = 100
 const MATRIX_TOOLS  = '${{ matrix.tools }}'
 const PIN           = /^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/
 const PROVISION     = '/.github/actions/provision'
+const ROW_KEYS      = new Set(['name', 'task', 'tools'])
 const TASK_RUN      = /\bmise run (\w[\w:-]*)/g
 const colorDistance = differenceEuclidean('oklab')
 /**
@@ -184,8 +185,8 @@ export class Repository {
   get problems(): string[] {
     return [
       ...this.categoryProblems, ...this.endingProblems, ...this.gateProblems, ...this.guideProblems,
-      ...this.labelProblems, ...this.pinProblems, ...this.sweepProblems, ...this.taskProblems,
-      ...this.templateProblems, ...this.toolProblems
+      ...this.labelProblems, ...this.pinProblems, ...this.rowProblems, ...this.sweepProblems,
+      ...this.taskProblems, ...this.templateProblems, ...this.toolProblems
     ]
   }
 
@@ -296,6 +297,16 @@ export class Repository {
         .filter((action, index, actions) => actions.indexOf(action) !== index)
         .map(action => `${action} is pinned to more than one commit`))
     ]
+  }
+
+  /**
+   * Each matrix row key outside `name`, `task`, and `tools`, which an unquoted
+   * comma in a row's name splits off into a key of its own.
+   */
+  private get rowProblems(): string[] {
+    return [...new Set(jobsOf(this.workflows).flatMap(({ job, path }) => rowsOf(job)
+      .flatMap(row => Object.keys(row).filter(key => !ROW_KEYS.has(key)))
+      .map(key => `${path} holds a matrix row with the key ${key}, which is not name, task, or tools`)))]
   }
 
   private get sweepProblems(): string[] {
