@@ -5,13 +5,13 @@ import { Resvg }                                                    from '@resvg
 import { clampRgb, formatHex, oklab, wcagContrast, wcagLuminance } from 'culori'
 import { createContentLoader }                                      from 'vitepress'
 
-import manifest                           from '../../../package.json' with { type: 'json' }
-import CLIMB                              from './climb.json' with { type: 'json' }
-import { Face, type Faces, type Setting } from './faces.ts'
-import MARK                               from './mark.json' with { type: 'json' }
-import { boxOf, fadedWordOf }             from './mark.ts'
-import { SCHEMES, type SchemeName }       from './palette.ts'
-import * as sections                      from './sections.ts'
+import manifest                                    from '../../../package.json' with { type: 'json' }
+import CLIMB                                       from './climb.json' with { type: 'json' }
+import { Face, type Faces, type Setting }          from './faces.ts'
+import MARK                                        from './mark.json' with { type: 'json' }
+import { TOUCH, boxOf, fadedWordOf, touchIconOf } from './mark.ts'
+import { SCHEMES, type SchemeName }                from './palette.ts'
+import * as sections                               from './sections.ts'
 
 /**
  * A link-preview card drawn as SVG, the file it is written to, and its size
@@ -330,8 +330,9 @@ export const sectionLineOf = (faces: Faces, line: string, section: sections.Sect
 }
 
 /**
- * Renders every card as a PNG into the built site under `outDir`, reading
- * each line from the description of the page it stands for.
+ * Renders every card and the touch icon as PNGs into the built site under
+ * `outDir`, reading each card's line from the description of the page it
+ * stands for.
  */
 export const writeCards = async (outDir: string) => {
   const folders = sections.sectionsOf().map(section => [section, sections.folderOf(section)])
@@ -344,6 +345,7 @@ export const writeCards = async (outDir: string) => {
   } as Lines
   const faces   = await Face.faces()
   await mkdir(dirname(join(outDir, fileOf())), { recursive: true })
-  await Promise.all(cardsOf(faces, lines).map(({ file, svg }) =>
+  const touch   = { file: TOUCH.file, svg: touchIconOf() }
+  await Promise.all([...cardsOf(faces, lines), touch].map(({ file, svg }) =>
     writeFile(join(outDir, file), new Resvg(svg, { font: { loadSystemFonts: false } }).render().asPng())))
 }

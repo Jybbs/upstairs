@@ -5,6 +5,7 @@ import type { Label } from './overlay.ts'
 
 const GAP  = 64
 const MOST = 40
+const PULL = 14
 
 const textOf = (properties: Record<string, unknown>): string | null =>
   (properties['name:en'] ?? properties.name ?? null) as string | null
@@ -67,24 +68,12 @@ export const namesOn = (map: Map, view: View): Label[] => {
 }
 
 /**
- * Returns the name of the place nearest a spot in the tiles on screen, if one
- * is close.
+ * Returns the town in the tiles on screen nearest a point of the view beside
+ * its distance in pixels, if one stands within `PULL` pixels of it.
  */
-export const placeNear = (
-  labels    : readonly Label[],
-  latitude  : number,
-  longitude : number,
-  view      : View
-): string | null => {
-  const x    = view.column(longitude)
-  const y    = view.row(latitude)
-  const near = labels
-    .filter(label => label.tier === 'city')
-    .map(label => ({
-      distance : Math.hypot(view.column(label.longitude) - x, view.row(label.latitude) - y),
-      name     : label.name
-    }))
-    .filter(({ distance }) => distance < 28)
-    .sort((a, b) => a.distance - b.distance)[0]
-  return near?.name ?? null
-}
+export const placeNear = (labels: readonly Label[], x: number, y: number, view: View) =>
+  labels.reduce<{ distance: number, label: Label } | null>((near, label) => {
+    if (label.tier !== 'city') return near
+    const distance = Math.hypot(view.column(label.longitude) - x, view.row(label.latitude) - y)
+    return distance < (near?.distance ?? PULL) ? { distance, label } : near
+  }, null)

@@ -136,12 +136,6 @@ export const elementsOf = (records: readonly Record[]) => {
 }
 
 /**
- * Whether a catalog of this age in days still places satellites, and whether
- * they may drift.
- */
-export const freshnessOf = (age: number) => age > AGES.limit ? 'expired' : age > AGES.warn ? 'aging' : 'fresh'
-
-/**
  * The Unix time in milliseconds of a record's epoch, a UTC time, to the
  * millisecond.
  */

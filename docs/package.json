@@ -5,6 +5,10 @@
   "version": "0.0.0",
   "description": "Shows the satellites passing over a chosen spot on a topographic map.",
   "homepage": "https://upstairs.fyi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jybbs/upstairs"
+  },
   "keywords": [
     "celestrak",
     "maplibre",
@@ -38,7 +42,7 @@
     "@types/fontkit": "2.0.9",
     "@types/node": "26.6.6",
     "@vitejs/plugin-vue": "6.0.10",
-    "@vitest/coverage-v8": "5.1.0",
+    "@vitest/coverage-istanbul": "5.1.0",
     "@vscode/markdown-it-katex": "1.1.2",
     "@vue/test-utils": "2.5.1",
     "@vue/tsconfig": "0.9.1",
@@ -66,6 +70,7 @@
     "entry": [
       ".vitepress/catalog/fetch.ts",
       ".vitepress/catalog/service.ts",
+      ".vitepress/lib/site/*.data.ts",
       ".vitepress/preview/functions/*.ts",
       ".vitepress/tools/*.ts"
     ],
