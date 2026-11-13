@@ -37,7 +37,7 @@ let heed: (answer: Answer) => void
 
 /**
  * Loads a fresh copy of the worker over a page whose catalog request `answer`
- * replies to, with every answer it posts collected in `heard` and then handed
+ * replies to, with every answer it posts collected in `heard` and then passed
  * to `heed`.
  */
 const loaded = async (answer = () => new Response(file)) => {
@@ -63,7 +63,7 @@ const loaded = async (answer = () => new Response(file)) => {
  * Returns the message asking for scan `id` of the hour from `start` over
  * `spot`, each the known answers' own where none is given.
  */
-const scanOf = (id: number, spot = answers.spot, start = START): Asked =>
+const scanOf = (id: number, spot = answers.spot, start = START): Extract<Asked, { type: 'scan' }> =>
   ({ id, minutes: answers.grid.minutes, spot, start, type: 'scan' })
 
 /**
@@ -124,8 +124,8 @@ describe('a scan', () => {
     let newer = Promise.resolve()
     heed      = answer => {
       if (answer.type !== 'passes') return
-      heed  = () => {}
-      newer = hear(scanOf(2))
+      heed = () => {}
+      queueMicrotask(() => { newer = hear({ ...scanOf(2), minutes: 1 }) })
     }
     await hear(scanOf(1))
     await newer

@@ -4,8 +4,8 @@ import { TRACK_WIDTH, type Pass } from '../../lib/orbit/scan.ts'
 import type { sky as Sky }        from '../../lib/state/sky.ts'
 
 /**
- * Adds `passes` to the scan the shared state holds, each on a one-sample
- * track, and bumps `version` so `rows` recomputes over them.
+ * Adds `passes` to the scan the shared state holds, every one reading the same
+ * zeroed sample, and bumps `version` so `rows` recomputes over them.
  */
 export const addScanned = (sky: typeof Sky, passes: Pass[]) => {
   sky.tracks.add(passes, new Float32Array(TRACK_WIDTH), new Uint32Array(passes.length), 1)

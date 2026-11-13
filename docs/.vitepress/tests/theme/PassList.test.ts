@@ -35,7 +35,7 @@ describe('the rows', () => {
   })
 
   it('reads each pass’s peak time, name, crossing, and highest elevation to a whole degree', async () => {
-    const { wrapper }    = await mounted([passOf(7, { kind: 'weather', peak: 59.6 })])
+    const { wrapper }    = await mounted([passOf(7, { peak: 59.6 })])
     const [time, , peak] = wrapper.findAll('button > span')
     const [name, path]   = wrapper.findAll('button > span > span')
     expect([time, name, path, peak].map(found => found.text()))
@@ -50,7 +50,7 @@ describe('the rows', () => {
     ['leaves a pass unfaded at the moment it sets', (sky: typeof Sky) => { sky.at.value = 900 },
       { current: 'false', faded: false, lifted: false }]
   ])('%s', async (_, set, shown) => {
-    const { wrapper } = await mounted([passOf(7, { kind: 'weather' })], set)
+    const { wrapper } = await mounted([passOf(7)], set)
     const row         = wrapper.get('button')
     expect({
       current : row.attributes('aria-current'),

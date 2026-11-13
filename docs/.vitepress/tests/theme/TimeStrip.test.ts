@@ -20,7 +20,7 @@ const mounted = async (reduced: boolean, phone = false) => {
   const pass                          = passOf(1)
   addScanned(sky, [pass])
   sky.scope.value = 'sky'
-  const wrapper = mount(TimeStrip)
+  const wrapper   = mount(TimeStrip)
   await wrapper.vm.$nextTick()
   return { pass, sky, wrapper }
 }
