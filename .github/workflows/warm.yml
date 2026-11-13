@@ -1,78 +1,7 @@
-concurrency:
-  cancel-in-progress: false
-  group: ${{ github.workflow }}-${{ github.ref }}
-jobs:
-  logbook:
-    if: always()
-    name: 📓 Logbook
-    needs: [prune, save]
-    permissions:
-      actions: read
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Check out
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Provision
-        uses: $/.github/actions/provision
-        with:
-          tools: bun
-      - name: Write the summary
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NEEDS: ${{ toJSON(needs) }}
-        run: mise run gha:logbook
-    timeout-minutes: 10
-  prune:
-    name: 🧹 Prune
-    needs: [save]
-    permissions:
-      actions: write
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Check out
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Provision
-        uses: $/.github/actions/provision
-        with:
-          cache: 'false'
-          tools: bun
-      - name: Delete the superseded caches
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: mise run gha:prune
-    timeout-minutes: 10
-  save:
-    name: ${{ matrix.name }}
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Check out
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Provision
-        uses: $/.github/actions/provision
-        with:
-          save: 'true'
-          tools: ${{ matrix.tools }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { name: 🔥 Bun, tools: bun }
-          - { name: 🔥 Bun and OSV-Scanner, tools: bun osv-scanner }
-          - { name: 🔥 Bun and Rust, tools: bun rust }
-          - { name: 🔥 Bun, Rust, and wasm-bindgen, tools: bun rust github:wasm-bindgen/wasm-bindgen }
-          - { name: 🔥 Bun, cargo-about, Lychee, Rust, and wasm-bindgen, tools: bun github:EmbarkStudios/cargo-about lychee rust github:wasm-bindgen/wasm-bindgen }
-          - { name: 🔥 Bun, cargo-about, Rust, and wasm-bindgen, tools: bun github:EmbarkStudios/cargo-about rust github:wasm-bindgen/wasm-bindgen }
-          - { name: 🔥 Rust, tools: rust }
-          - { name: 🔥 Zizmor, tools: zizmor }
-    timeout-minutes: 15
-name: 🛰️ Warm
+name        : 🛰️ Warm
+run-name    : 🛰️ Warm · ${{ github.head_ref || github.ref_name }}
+permissions : { contents: read }
+
 on:
   push:
     branches: [main]
@@ -81,6 +10,76 @@ on:
       - .github/workflows/warm.yml
       - .mise/config.toml
       - .mise/mise.lock
+
   workflow_dispatch:
-permissions:
-  contents: read
+
+concurrency:
+  cancel-in-progress : false
+  group              : ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  save:
+    name            : ${{ matrix.name }}
+    runs-on         : &runner ubuntu-26.04
+    timeout-minutes : &timeout 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: 🔥 Bun,                                                tools: &bun bun }
+          - { name: 🔥 Bun and OSV-Scanner,                                tools: bun osv-scanner }
+          - { name: 🔥 Bun and Rust,                                       tools: bun rust }
+          - { name: "🔥 Bun, Rust, and wasm-bindgen",                      tools: bun rust github:wasm-bindgen/wasm-bindgen }
+          - { name: "🔥 Bun, cargo-about, Lychee, Rust, and wasm-bindgen", tools: bun github:EmbarkStudios/cargo-about lychee rust github:wasm-bindgen/wasm-bindgen }
+          - { name: "🔥 Bun, cargo-about, Rust, and wasm-bindgen",         tools: bun github:EmbarkStudios/cargo-about rust github:wasm-bindgen/wasm-bindgen }
+          - { name: 🔥 Rust,                                               tools: rust }
+          - { name: 🔥 Zizmor,                                             tools: zizmor }
+
+    steps:
+      - &checkout
+        name : Check out
+        uses : actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with : { persist-credentials: false }
+
+      - name : Provision
+        uses : $/.github/actions/provision
+        with : { save: 'true', tools: "${{ matrix.tools }}" }
+
+  prune:
+    name            : 🧹 Prune
+    needs           : [save]
+    permissions     : { actions: write }
+    runs-on         : *runner
+    timeout-minutes : *timeout
+
+    steps:
+      - *checkout
+
+      - name : Provision
+        uses : $/.github/actions/provision
+        with : { cache: 'false', tools: *bun }
+
+      - name              : Delete the superseded caches
+        continue-on-error : true
+        env               : { GH_TOKEN: "${{ github.token }}" }
+        run               : mise run gha:prune
+
+  logbook:
+    name            : 📓 Logbook
+    if              : always()
+    needs           : [prune, save]
+    permissions     : { actions: read }
+    runs-on         : *runner
+    timeout-minutes : *timeout
+
+    steps:
+      - *checkout
+
+      - name : Provision
+        uses : $/.github/actions/provision
+        with : { tools: *bun }
+
+      - name : Write the summary
+        env  : { GH_TOKEN: "${{ github.token }}", NEEDS: "${{ toJSON(needs) }}" }
+        run  : mise run gha:logbook

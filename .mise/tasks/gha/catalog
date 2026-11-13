@@ -1,0 +1,7 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE depends     = ["site:install"]
+#MISE description = "Deploy the catalog service to Cloudflare through the `wrangler` `docs/package.json` pins"
+#MISE dir         = "{{config_root}}/docs"
+#MISE env         = { WRANGLER_SEND_METRICS = "false" }
+
+bun x --no-install wrangler deploy --config .vitepress/catalog/wrangler.json
