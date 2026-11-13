@@ -1,18 +1,18 @@
-import { statSync }      from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { statSync } from 'node:fs'
+import { join }     from 'node:path'
 
 import sharp                    from 'sharp'
 import { describe, expect, it } from 'vitest'
 
 import { SCHEMES, type SchemeName } from '../../lib/site/palette.ts'
 import * as reel                    from '../../tools/reel.ts'
+import { ROOT }                     from '../fixtures/gh.ts'
 import { README }                   from '../fixtures/shipped.ts'
 
 const HOLDING = { hold: 8, refresh: 4 }
 const NAMES   = Object.keys(SCHEMES) as SchemeName[]
 
-const fileOf = (scheme: SchemeName) =>
-  fileURLToPath(new URL(`../../../../.github/${reel.reelFileOf(scheme)}`, import.meta.url))
+const fileOf = (scheme: SchemeName) => join(ROOT, '.github', reel.reelFileOf(scheme))
 const pixels = (...levels: number[]) => Buffer.from(levels)
 
 describe('holding the pixels that barely move', () => {

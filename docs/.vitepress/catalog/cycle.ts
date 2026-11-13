@@ -1,19 +1,34 @@
 /**
  * Runs the download cycle, sending the request from each region in turn until
- * one reaches CelesTrak, storing each catalog in Workers KV, and halting with
- * an alert on any other failure until the cycle is resumed.
+ * one reaches CelesTrak and storing each catalog in Workers KV. A refusal, a
+ * catalog that fails its check, no region reaching CelesTrak, no headers within
+ * the wait, or a failed write to Workers KV halts the cycle until it is
+ * resumed, and the halt is logged once and kept in the storage of the Durable
+ * Object. Any other error fails the run without halting.
  */
-import { FILE, type Record }     from '../lib/orbit/catalog.ts'
-import { download, Unreachable } from './celestrak.ts'
-import { encode }                from './encode.ts'
-import { RESUME }                from './serve.ts'
+import { FILE }       from '../lib/orbit/catalog.ts'
+import * as celestrak from './celestrak.ts'
+import { encode }     from './encode.ts'
 
 export interface Bindings {
-  ALERT_FROM : string
-  ALERT_TO   : string
-  CATALOG    : Pick<KVNamespace, 'put'>
-  EMAIL      : Pick<SendEmail, 'send'>
+  CATALOG: Pick<KVNamespace, 'put'>
 }
+
+type Fault =
+  | (celestrak.Failure | { kind: 'unstored', reason: string }) & { region: Region }
+  | { kind: 'unreached', reason: string, regions: Misses }
+
+/**
+ * The record of a halt, naming the kind of failure, the reason, and the region
+ * the failure came through, or the result of each region where none reached
+ * CelesTrak.
+ */
+type Halt = Fault & { event: 'catalog.halted', time: string }
+
+/**
+ * The result of each region that failed to reach CelesTrak.
+ */
+type Misses = { [region in Region]?: string }
 
 export type Region = typeof REGIONS[number]
 
@@ -29,8 +44,8 @@ export const REGIONS = ['weur', 'apac', 'enam', 'wnam', 'eeur'] as const satisfi
 
 /**
  * Runs one download each cycle, keeping the time of the last attempt, the
- * region that last reached CelesTrak, the reason it halted, and whether the
- * alert went out in the storage of the Durable Object.
+ * region that last reached CelesTrak, and the halt in the storage of the
+ * Durable Object.
  */
 export class Cycle {
   constructor(
@@ -40,72 +55,69 @@ export class Cycle {
   ) {}
 
   /**
+   * The halt the cycle stopped on, kept until the cycle is resumed.
+   */
+  get halt() {
+    return this.state.get<Halt>('halted')
+  }
+
+  /**
+   * Clears the halt, logging the restart beside the halt it clears, and returns
+   * that halt, leaving the next download to the next cycle.
+   */
+  resume() {
+    const halt = this.halt
+    if (halt === undefined) return undefined
+    this.state.delete('halted')
+    console.log({ event: 'catalog.resumed', halt })
+    return halt
+  }
+
+  /**
    * Downloads and stores the catalog unless the cycle has halted or the last
-   * attempt was under two hours before `time`. A failure keeps the stored file,
-   * halts the cycle, and sends the alert, which each halted run sends again
-   * until a send succeeds.
+   * attempt was under two hours before `time`. A fault `refresh` returns keeps
+   * the stored file and halts the cycle, logging the halt at error level, and
+   * each run the halt blocks logs it again. Any other error rejects the run
+   * without halting.
    */
   async run(time: number): Promise<'early' | 'halted' | 'stored'> {
-    const halted = this.state.get<string>('halted')
-    if (halted !== undefined) {
-      if (this.state.get('alerted') === undefined) await this.alert(halted)
+    const kept = this.halt
+    if (kept !== undefined) {
+      console.error({ event: 'catalog.blocked', halt: kept })
       return 'halted'
     }
     if (time - (this.state.get<number>('attempted') ?? -Infinity) < EVERY) return 'early'
     this.state.put('attempted', time)
-    try {
-      await this.env.CATALOG.put(FILE, encode(time, await this.downloadFromRegions()))
-      return 'stored'
-    } catch (error) {
-      const reason = String(error)
-      this.state.put('halted', reason)
-      await this.alert(reason)
-      return 'halted'
-    }
-  }
-
-  /**
-   * Clears the halt and the record of its alert, leaving the next download to
-   * the next cycle.
-   */
-  resume() {
-    this.state.delete('halted')
-    this.state.delete('alerted')
-  }
-
-  /**
-   * Sends the alert for `reason`, recording that it went out once the send
-   * succeeds.
-   */
-  private async alert(reason: string) {
-    await this.env.EMAIL.send({
-      from    : this.env.ALERT_FROM,
-      subject : 'The Upstairs catalog stopped refreshing',
-      text    : `${reason}\n\nThe last good catalog stays in place. POST to ${RESUME} with the resume `
-              + 'token to start the cycle again.',
-      to      : this.env.ALERT_TO
-    })
-    this.state.put('alerted', true)
+    const fault = await this.refresh(time)
+    if (fault === undefined) return 'stored'
+    const halt: Halt = { ...fault, event: 'catalog.halted', time: new Date(time).toISOString() }
+    console.error(halt)
+    this.state.put('halted', halt)
+    return 'halted'
   }
 
   /**
    * Downloads the catalog from the first region that reaches CelesTrak,
-   * starting from the one that last did, and fails with the result of every
-   * region where none does.
+   * starting from the one that last did, and stores it, returning the fault
+   * that halts the cycle where the download or the write fails.
    */
-  private async downloadFromRegions(): Promise<Record[]> {
-    const reached          = this.state.get<Region>('reached')
-    const misses: string[] = []
+  private async refresh(time: number): Promise<Fault | undefined> {
+    const reached         = this.state.get<Region>('reached')
+    const regions: Misses = {}
     for (const region of REGIONS.toSorted((a, b) => Number(b === reached) - Number(a === reached))) {
       try {
-        const records = await download(this.send(region))
+        const records = await celestrak.download(this.send(region))
         this.state.put('reached', region)
-        return records
+        return await this.env.CATALOG.put(FILE, encode(time, records)).then(
+          () => undefined,
+          (error: unknown) => ({ kind: 'unstored', reason: String(error), region }) as const
+        )
       } catch (error) {
-        if (!(error instanceof Unreachable)) throw error
-        misses.push(`${region}: ${error.message}`)
+        if (error instanceof celestrak.Failed) return { ...error.failure, region }
+        if (!(error instanceof celestrak.Unreachable)) throw error
+        regions[region] = error.message
       }
     }
-    throw new Error(`No region reached CelesTrak\n${misses.join('\n')}`)
+    return { kind: 'unreached', reason: 'No region reached CelesTrak', regions }
   }
 }
