@@ -62,7 +62,8 @@ const encode = async (frames: Buffer[], reel: typeof REEL, scheme: SchemeName) =
   const pngs = await Promise.all(frames.map(frame => sharp(frame, { raw }).png().toBuffer()))
   await sharp(pngs, { join: { animated: true } })
     .gif({
-      delay                : reel.step,
+      // sharp gives a lone delay to the first frame alone when it joins frames
+      delay                : frames.map(() => reel.step),
       dither               : 0,
       effort               : 7,
       interPaletteMaxError : 256,
