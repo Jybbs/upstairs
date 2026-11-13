@@ -4,14 +4,7 @@ import { expect, it, vi } from 'vitest'
 
 import Shield from '../../theme/Shield.vue'
 
-const DATA = vi.hoisted(() => ({
-  commit     : 'ec695b9',
-  repository : 'https://github.com/Jybbs/upstairs',
-  sgp4       : '2.4.0',
-  version    : '0.0.0'
-}))
-
-vi.mock('../../lib/site/provenance.data.ts', () => ({ data: DATA }))
+vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
 
 const readings = () => mount(Shield).findAll('text').map(text => ({
   href  : text.find('a').exists() ? text.get('a').attributes('href') : undefined,

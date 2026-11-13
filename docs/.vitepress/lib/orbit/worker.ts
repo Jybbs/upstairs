@@ -29,11 +29,10 @@ export type Asked =
   | { type: 'load', url: string }
   | { type: 'scan', id: number, spot: scan.Spot, start: number, minutes: number }
 
-const BATCH   = 100
-const CHUNK   = 400
-const channel = new MessageChannel()
-const ready   = init()
-
+const BATCH                   = 100
+const CHUNK                   = 400
+const channel                 = new MessageChannel()
+const ready                   = init()
 const waiting: (() => void)[] = []
 
 let held: { grid: orbit.Grid, key: string } | null = null
@@ -95,20 +94,18 @@ const run = async (orbits: orbit.Orbits, id: number, minutes: number, spot: scan
   sighting.free()
   post({ counts, id, step: scan.GRID_STEP, type: 'counts' })
 
-  // Everything but Starlink comes first, since those rows are the ones that get read.
-  const starlink = (row: number) => Number(satellites[row].kind === 'starlink')
-  const order    = risen.toSorted((a, b) => starlink(a) - starlink(b))
-  const samples  = scan.samplesFor(minutes, scan.TRACK_STEP)
-  const tracer   = new orbit.Tracer(spot.latitude, spot.longitude, start, samples, scan.TRACK_STEP)
+  const samples = scan.samplesFor(minutes, scan.TRACK_STEP)
+  const tracer  = new orbit.Tracer(spot.latitude, spot.longitude, start, samples, scan.TRACK_STEP)
 
   try {
-    for (let first = 0; first < order.length; first += BATCH) {
-      const batch                      = order.subarray(first, first + BATCH)
+    // Rows run in catalog order, so every satellite but Starlink, whose segment comes last, is traced first.
+    for (let first = 0; first < risen.length; first += BATCH) {
+      const batch                      = risen.subarray(first, first + BATCH)
       const trace                      = tracer.trace(orbits, batch)
       const { offsets, passes, track } = trace
       trace.free()
       const done  = first + batch.length
-      const total = order.length
+      const total = risen.length
       post(
         { done, id, offsets, passes: passes.map(passOf), samples, total, track, type: 'passes' },
         [offsets.buffer, track.buffer]
