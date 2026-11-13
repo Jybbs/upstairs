@@ -5,7 +5,7 @@
  * fetched.
  */
 
-import { onMounted, shallowRef } from 'vue'
+import { onMounted, ref, shallowRef } from 'vue'
 
 import init, * as orbit from '../../../../rust/pkg/orbit.js'
 import * as catalog     from '../orbit/catalog.ts'
@@ -27,6 +27,12 @@ export interface Drawings {
   scanned : looks.Watched
 }
 
+/**
+ * The line each drawing shows where its values could not be made from a
+ * catalog that did load.
+ */
+export const UNDRAWN = 'The drawing could not be made'
+
 let pending: Promise<Drawings> | undefined
 
 /**
@@ -40,13 +46,10 @@ const drawingsOf = () => pending ??= load().catch((error: unknown) => {
 })
 
 const load = async (): Promise<Drawings> => {
-  const [body] = await Promise.all([catalog.bodyOf(`${import.meta.env.BASE_URL}${catalog.FILE}`), init()])
-  const records: catalog.Record[] = []
-  let fetched                     = 0
-  for await (const segment of catalog.segmentsOf(body)) {
-    fetched = segment.fetched
-    records.push(...segment.records)
-  }
+  const [{ fetched, records }] = await Promise.all([
+    read().catch((cause: unknown) => { throw new Error(catalog.UNLOADED, { cause }) }),
+    init()
+  ])
   const station = records.find(record => record.NORAD_CAT_ID === looks.ISS)
   if (!station) throw new Error('The catalog holds no orbit for the space station')
   const orbits = new orbit.Orbits()
@@ -65,11 +68,34 @@ const load = async (): Promise<Drawings> => {
 }
 
 /**
+ * Returns the records of the catalog the site serves, beside the time they
+ * were fetched.
+ */
+const read = async () => {
+  const body                      = await catalog.bodyOf(`${import.meta.env.BASE_URL}${catalog.FILE}`)
+  const records: catalog.Record[] = []
+  let fetched                     = 0
+  for await (const segment of catalog.segmentsOf(body)) {
+    fetched = segment.fetched
+    records.push(...segment.records)
+  }
+  return { fetched, records }
+}
+
+/**
  * Returns a ref holding the drawings' values once a component has mounted and
- * the catalog is read.
+ * the catalog is read, beside a ref holding the line each drawing shows in
+ * their place where they fail, `UNLOADED` where the catalog read fails and
+ * `UNDRAWN` otherwise.
  */
 export const useDrawings = () => {
   const drawings = shallowRef<Drawings>()
-  onMounted(async () => { drawings.value = await drawingsOf() })
-  return drawings
+  const failure  = ref<string>()
+  onMounted(() => drawingsOf().then(
+    values           => { drawings.value = values },
+    (error: unknown) => {
+      failure.value = error instanceof Error && error.message === catalog.UNLOADED ? catalog.UNLOADED : UNDRAWN
+    }
+  ))
+  return { drawings, failure }
 }

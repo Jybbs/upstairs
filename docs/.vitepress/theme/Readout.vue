@@ -2,6 +2,7 @@
 import { onKeyStroke }          from '@vueuse/core'
 import { computed, ref, watch } from 'vue'
 
+import { UNLOADED }                               from '../lib/orbit/catalog.ts'
 import { coordinatesOf }                          from '../lib/orbit/compass.ts'
 import { KINDS, kindSlots }                       from '../lib/orbit/kinds.ts'
 import { CLOCK, minuteFormat, secondFormat, sky } from '../lib/state/sky.ts'
@@ -126,7 +127,7 @@ const when = computed(() => {
       <template v-if="!folded">
         <Tally />
         <p class="caps flex h-3 items-center gap-2 text-soft">
-          <template v-if="sky.failed.value">The catalog did not load</template>
+          <template v-if="sky.failed.value">{{ UNLOADED }}</template>
           <template v-else-if="sky.expired.value">
             Orbits {{ Math.floor(sky.age.value) }} days old, too old to draw
           </template>

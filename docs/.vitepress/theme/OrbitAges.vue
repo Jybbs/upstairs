@@ -31,10 +31,11 @@ const BANDS  = [...EDGES, LAST].slice(1).map((to, index) => {
 })
 const BOUNDS = Array.from({ length: BINS + 1 }, (_, index) => Math.expm1(index / BINS * REACH) / OPEN)
 
-const drawings = useDrawings()
-const frame    = ref<HTMLElement>()
-const size     = useElementSize(frame)
-const width    = computed(() => Math.round(size.width.value))
+const { drawings, failure } = useDrawings()
+
+const frame = ref<HTMLElement>()
+const size  = useElementSize(frame)
+const width = computed(() => Math.round(size.width.value))
 
 const shares = computed(() => {
   const ages   = drawings.value?.ages ?? new Float64Array()
@@ -103,72 +104,75 @@ onBeforeUnmount(() => slider.value.leave())
 
 <template>
   <figure ref="frame" class="panel">
-    <svg
-      class="drawing cursor-pointer"
-      :width="width"
-      :height="HEIGHT"
-      :viewBox="`0 0 ${width} ${HEIGHT}`"
-      aria-label="Ages in the catalog"
-      :aria-valuetext="drawings && spoken(slider.index.value)"
-      v-bind="slider.attributes"
-      v-on="slider.events"
-    >
-      <g v-if="drawings && width">
-        <rect
-          v-for="band in BANDS"
-          :key="band.from"
-          :x="x(band.from)"
-          :y="TOP"
-          :width="x(band.to) - x(band.from)"
-          :height="BOTTOM - TOP"
-          :class="band.shade"
-        />
-        <g v-for="ring in rings" :key="ring.cx">
-          <circle :cx="ring.cx" :cy="RISE" :r="ring.radius + 10" class="fill-lift" />
-          <circle
-            :cx="ring.cx"
-            :cy="RISE"
-            :r="ring.radius"
-            class="fill-none stroke-panel [stroke-linecap:round]"
-            :stroke-width="RING.halo"
-            :opacity="RING.alpha"
-            :stroke-dasharray="ring.dash"
+    <p v-if="failure" class="caps m-0 text-base text-soft">{{ failure }}</p>
+    <template v-else>
+      <svg
+        class="drawing cursor-pointer"
+        :width="width"
+        :height="HEIGHT"
+        :viewBox="`0 0 ${width} ${HEIGHT}`"
+        aria-label="Ages in the catalog"
+        :aria-valuetext="drawings && spoken(slider.index.value)"
+        v-bind="slider.attributes"
+        v-on="slider.events"
+      >
+        <g v-if="drawings && width">
+          <rect
+            v-for="band in BANDS"
+            :key="band.from"
+            :x="x(band.from)"
+            :y="TOP"
+            :width="x(band.to) - x(band.from)"
+            :height="BOTTOM - TOP"
+            :class="band.shade"
           />
-          <circle
-            :cx="ring.cx"
-            :cy="RISE"
-            :r="ring.radius"
-            class="fill-none [stroke-linecap:round]"
-            :stroke="drawings?.color"
-            :stroke-width="RING.width"
-            :stroke-dasharray="ring.dash"
+          <g v-for="ring in rings" :key="ring.cx">
+            <circle :cx="ring.cx" :cy="RISE" :r="ring.radius + 10" class="fill-lift" />
+            <circle
+              :cx="ring.cx"
+              :cy="RISE"
+              :r="ring.radius"
+              class="fill-none stroke-panel [stroke-linecap:round]"
+              :stroke-width="RING.halo"
+              :opacity="RING.alpha"
+              :stroke-dasharray="ring.dash"
+            />
+            <circle
+              :cx="ring.cx"
+              :cy="RISE"
+              :r="ring.radius"
+              class="fill-none [stroke-linecap:round]"
+              :stroke="drawings?.color"
+              :stroke-width="RING.width"
+              :stroke-dasharray="ring.dash"
+            />
+            <circle
+              :cx="ring.cx"
+              :cy="RISE"
+              r="6.5"
+              class="stroke-panel stroke-[2.5]"
+              :fill="drawings?.color"
+            />
+          </g>
+          <rect
+            v-for="(column, index) in columns"
+            :key="index"
+            v-bind="column"
+            :class="index === slider.index.value ? 'fill-ink' : 'fill-dim'"
           />
-          <circle
-            :cx="ring.cx"
-            :cy="RISE"
-            r="6.5"
-            class="stroke-panel stroke-[2.5]"
-            :fill="drawings?.color"
-          />
+          <path :d="`M${INSET} ${BOTTOM}H${width - INSET}`" class="axis" />
+          <g v-for="edge in EDGES" :key="edge">
+            <path :d="`M${x(edge)} ${BOTTOM}v6`" class="axis" />
+            <text
+              :x="x(edge)"
+              :y="BOTTOM + 24"
+              class="caps fill-soft text-base"
+              :text-anchor="edge ? 'middle' : 'start'"
+            >{{ edge }}</text>
+          </g>
         </g>
-        <rect
-          v-for="(column, index) in columns"
-          :key="index"
-          v-bind="column"
-          :class="index === slider.index.value ? 'fill-ink' : 'fill-dim'"
-        />
-        <path :d="`M${INSET} ${BOTTOM}H${width - INSET}`" class="axis" />
-        <g v-for="edge in EDGES" :key="edge">
-          <path :d="`M${x(edge)} ${BOTTOM}v6`" class="axis" />
-          <text
-            :x="x(edge)"
-            :y="BOTTOM + 24"
-            class="caps fill-soft text-base"
-            :text-anchor="edge ? 'middle' : 'start'"
-          >{{ edge }}</text>
-        </g>
-      </g>
-    </svg>
-    <Readings :readings="readings" />
+      </svg>
+      <Readings :readings="readings" />
+    </template>
   </figure>
 </template>
