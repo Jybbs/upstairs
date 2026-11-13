@@ -8,6 +8,7 @@ import { h, onMounted }                     from 'vue'
 
 import { followFootnotes } from '../lib/site/landing.ts'
 import NotFound            from './NotFound.vue'
+import Shield              from './Shield.vue'
 import SiteMark            from './SiteMark.vue'
 import './style.css'
 import './credit.css'
@@ -17,6 +18,7 @@ export default {
   extends: DefaultTheme,
 
   Layout: () => h(DefaultTheme.Layout, null, {
+    'doc-after'            : () => h(Shield, { class: 'mx-auto mt-12' }),
     'nav-bar-title-before' : () => h(SiteMark),
     'not-found'            : () => h(NotFound)
   }),

@@ -31,3 +31,20 @@ describe('compass words', () => {
       .toBe('S → STILL UP')
   })
 })
+
+describe('bearings and ranges', () => {
+  it.each([
+    ['north', { latitude: 0, longitude: 0 }, 10, 0, 0],
+    ['east along the equator', { latitude: 0, longitude: 0 }, 0, 10, 90],
+    ['south', { latitude: 42.36, longitude: -71.06 }, 30, -71.06, 180],
+    ['west across the antimeridian', { latitude: 0, longitude: -179 }, 0, 179, 270]
+  ])('points %s', (_, spot, latitude, longitude, bearing) =>
+    expect(compass.bearingOf(spot, latitude, longitude)).toBeCloseTo(bearing))
+
+  it.each([
+    ['its height straight overhead', 90, 410],
+    ['farther at 60°', 60, 468.75],
+    ['to the horizon at 0°', 0, 2322.14]
+  ])('reads the distance to a satellite 410 km up as %s', (_, elevation, kilometers) =>
+    expect(compass.slantOf(410, elevation)).toBeCloseTo(kilometers, 1))
+})

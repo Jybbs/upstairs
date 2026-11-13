@@ -1,0 +1,35 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-0.1277653, 51.5074456] },
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 175342,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "London",
+        "state": "England",
+        "country": "United Kingdom",
+        "countrycode": "GB"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-81.2496068, 42.9836747] },
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 7485368,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "London",
+        "state": "Ontario",
+        "country": "Canada",
+        "countrycode": "CA"
+      }
+    }
+  ]
+}
