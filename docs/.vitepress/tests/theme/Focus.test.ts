@@ -2,12 +2,12 @@
 import { shallowMount }   from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
-import { DAY }                    from '../../lib/orbit/catalog.ts'
-import { KINDS, NOTES }           from '../../lib/orbit/kinds.ts'
-import { TRACK_WIDTH, type Pass } from '../../lib/orbit/scan.ts'
-import type { sky as Sky }        from '../../lib/state/sky.ts'
-import { passOf }                 from '../fixtures/passes.ts'
-import { freshSky }               from '../fixtures/sky.ts'
+import { DAY }                  from '../../lib/orbit/catalog.ts'
+import { KINDS, NOTES }         from '../../lib/orbit/kinds.ts'
+import type { Pass }            from '../../lib/orbit/scan.ts'
+import type { sky as Sky }      from '../../lib/state/sky.ts'
+import { passOf }               from '../fixtures/passes.ts'
+import { addScanned, freshSky } from '../fixtures/sky.ts'
 
 const NOW = Date.parse('2026-11-06T18:37:00Z')
 
@@ -19,7 +19,7 @@ const NOW = Date.parse('2026-11-06T18:37:00Z')
 const mounted = async (passes: Pass[], set: (sky: typeof Sky) => void = () => {}) => {
   vi.useFakeTimers({ now: NOW })
   const { component: Focus, sky } = await freshSky(() => import('../../theme/Focus.vue'))
-  sky.tracks.add(passes, new Float32Array(TRACK_WIDTH), new Uint32Array(passes.length), 1)
+  addScanned(sky, passes)
   if (passes.length) sky.pin(passes[0])
   set(sky)
   const wrapper = shallowMount(Focus)

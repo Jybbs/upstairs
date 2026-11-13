@@ -3,9 +3,8 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { expect, it, vi }         from 'vitest'
 import { ref }                    from 'vue'
 
-import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
-import { passOf }      from '../fixtures/passes.ts'
-import { freshSky }    from '../fixtures/sky.ts'
+import { passOf }               from '../fixtures/passes.ts'
+import { addScanned, freshSky } from '../fixtures/sky.ts'
 
 /**
  * The heights the sheet measures, in the order it measures them: its peek, the
@@ -50,8 +49,7 @@ const mounted = async (pinned: boolean) => {
   const stubs                     = {
     Filters: true, PassList: true, PassReadout: true, Readout: true, TimeStrip: true
   }
-  sky.tracks.add([pass], new Float32Array(TRACK_WIDTH), Uint32Array.of(0), 1)
-  sky.version.value++
+  addScanned(sky, [pass])
   const wrapper = mount(Sheet, { global: { stubs } })
   if (pinned) sky.pin(pass)
   await wrapper.vm.$nextTick()

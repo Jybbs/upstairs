@@ -4,7 +4,7 @@ import { expect, it, vi }         from 'vitest'
 
 import { kindOrder } from '../../lib/orbit/kinds.ts'
 import { passOf }    from '../fixtures/passes.ts'
-import { freshSky }  from '../fixtures/sky.ts'
+import { lateSky }   from '../fixtures/sky.ts'
 
 /**
  * Returns the line naming the place and the time, its spacing collapsed.
@@ -21,12 +21,10 @@ const lineOf = (wrapper: VueWrapper) => wrapper.get('p.truncate')
  * set.
  */
 const mounted = async (seconds: number, reduced = false) => {
-  vi.stubEnv('TZ', 'America/New_York')
   vi.stubGlobal('matchMedia', (query: string) => ({ matches: reduced && query.includes('reduce') }))
-  const { component: Readout, sky } = await freshSky(() => import('../../theme/Readout.vue'))
+  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.vue'))
   sky.done.value   = true
   sky.spoken.value = '5 satellites above the horizon'
-  sky.start.value  = new Date(2026, 10, 10, 23, 47).getTime()
   sky.at.value     = seconds
   return { sky, wrapper: mount(Readout) }
 }
