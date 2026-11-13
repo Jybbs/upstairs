@@ -1,7 +1,7 @@
 import { appendFile, cp, mkdtempDisposable } from 'node:fs/promises'
 import { STATUS_CODES }                      from 'node:http'
 import { tmpdir }                            from 'node:os'
-import { join }                              from 'node:path'
+import { delimiter, dirname, join }          from 'node:path'
 
 import { $ } from 'bun'
 
@@ -40,6 +40,7 @@ export const ROOT = join(FIXTURES, '../../../..')
  * which turn `pages` on.
  */
 export const SETTINGS = join(FIXTURES, 'settings.toml')
+const PATH            = [join(FIXTURES, 'bin'), dirname(Bun.which('mise')!)].join(delimiter)
 const SCRIPT          = join(ROOT, 'docs/.vitepress/tools/sync.ts')
 
 /**
@@ -93,7 +94,8 @@ export class Run {
   /**
    * Runs `sync.ts <task>` against the stand-in answering from `remote`, in a
    * copy of the declarations under `.github/` and `.mise/` whose settings are
-   * those of `SETTINGS`, with only the stand-in on its `PATH`.
+   * those of `SETTINGS`, on a `PATH` holding the stand-in and then the
+   * directory `mise` runs from.
    */
   static async of(task: 'labels' | 'rulesets', remote: Remote): Promise<Run> {
     await using scratch = await mkdtempDisposable(join(tmpdir(), 'upstairs-gh-'))
@@ -105,7 +107,7 @@ export class Run {
     await Bun.write(join(dir, 'remote.json'), JSON.stringify(remote))
     const result = await $`${process.execPath} ${SCRIPT} ${task}`
       .cwd(root)
-      .env({ BUN: process.execPath, GH_STAND_IN: dir, PATH: join(FIXTURES, 'bin') })
+      .env({ BUN: process.execPath, GH_STAND_IN: dir, PATH })
       .nothrow()
       .quiet()
     return new Run(
