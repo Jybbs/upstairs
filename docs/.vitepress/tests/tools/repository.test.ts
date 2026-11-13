@@ -1,14 +1,13 @@
 import { basename, join } from 'node:path'
-import { fileURLToPath }  from 'node:url'
 
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { FILES, Repository, parseFile } from '../../tools/repository.ts'
+import { ROOT }                         from '../fixtures/gh.ts'
 
 type Change = (base: Repository) => Partial<Repository>
 
 const CHECKOUT_PIN = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-const ROOT         = fileURLToPath(new URL('../../../..', import.meta.url))
 
 let base: Repository
 

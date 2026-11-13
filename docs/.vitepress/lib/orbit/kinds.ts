@@ -14,6 +14,17 @@ export const KINDS = {
   other      : { label: 'Other',      traced: false, about: 'Listed in the catalog without a role this site recognizes.' }
 } as const
 /**
+ * The kinds in the order of `KINDS`, where the index of each is the slot it
+ * takes in a count by kind.
+ */
+export const kindOrder = Object.keys(KINDS) as Kind[]
+/**
+ * The slot each kind takes in a count by kind, its index in `kindOrder`.
+ */
+export const kindSlots = Object.fromEntries(
+  kindOrder.map((kind, index) => [kind, index])
+) as Record<Kind, number>
+/**
  * Plain notes on well-known missions by catalog number.
  */
 export const NOTES: Readonly<Record<number, string>> = {

@@ -14,6 +14,11 @@ const CAP_SHARE = 689 / 1000
  * The height the README sets the word at, in pixels.
  */
 const README_HEIGHT = 72
+/**
+ * The touch icon's file under the built site, its side, and the side of the
+ * drawing centered on it, all in pixels.
+ */
+export const TOUCH = { file: 'apple-touch-icon.png', mark: 112, size: 180 } as const
 
 /**
  * Returns the word's U in `u` at the drawing its cap height takes, over the
@@ -57,6 +62,22 @@ export const faviconOf = () =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${MARK.s16.box}"><style>path{fill:${SCHEMES.day.u}}`
   + `@media (prefers-color-scheme:dark){path{fill:${SCHEMES.night.u}}}</style>`
   + `<path d="${MARK.capital}" fill-opacity=".3"/><path d="${MARK.s16.d}" fill-rule="evenodd"/></svg>\n`
+
+/**
+ * Builds the touch icon, the favicon's drawing knocked out in the Daylight
+ * page's color on a ground of the Daylight U's teal, centered at `TOUCH.mark`
+ * pixels on a tile `TOUCH.size` pixels square.
+ */
+export const touchIconOf = () => {
+  const { mark, size } = TOUCH
+  const { page, u }    = SCHEMES.day
+  const inset          = (size - mark) / 2
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" `
+       + `viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" fill="${u}"/>`
+       + `<svg x="${inset}" y="${inset}" width="${mark}" height="${mark}" viewBox="${MARK.s16.box}">`
+       + `<path d="${MARK.capital}" fill="${page}" fill-opacity=".3"/>`
+       + `<path d="${MARK.s16.d}" fill="${page}" fill-rule="evenodd"/></svg></svg>`
+}
 
 /**
  * Builds the word the README opens on in one scheme's ink and U, at the
