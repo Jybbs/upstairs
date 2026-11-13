@@ -24,5 +24,5 @@ it.each([
   const footer = await mounted(count)
   expect(footer.element.firstElementChild?.matches('svg.shield')).toBe(true)
   expect(footer.findAll('dt').map(dt => dt.text())).toEqual(['Active', 'Orbits'])
-  footer.findAll('dd').forEach((dd, i) => expect(dd.text()).toMatch(readings[i]!))
+  expect(footer.findAll('dd').map(dd => dd.text())).toEqual(readings.map(r => expect.stringMatching(r)))
 })
