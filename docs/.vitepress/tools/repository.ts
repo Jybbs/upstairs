@@ -304,9 +304,9 @@ export class Repository {
    * comma in a row's name splits off into a key of its own.
    */
   private get rowProblems(): string[] {
-    return jobsOf(this.workflows).flatMap(({ job, path }) => rowsOf(job)
+    return [...new Set(jobsOf(this.workflows).flatMap(({ job, path }) => rowsOf(job)
       .flatMap(row => Object.keys(row).filter(key => !ROW_KEYS.has(key)))
-      .map(key => `${path} holds a matrix row with the key ${key}, which no step reads`))
+      .map(key => `${path} holds a matrix row with the key ${key}, which is not name, task, or tools`)))]
   }
 
   private get sweepProblems(): string[] {

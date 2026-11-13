@@ -223,7 +223,12 @@ describe('Repository', () => {
     [
       'a matrix row whose unquoted name splits at a comma into a key of its own',
       job({ strategy: { matrix: { include: [SPLIT_ROW] } } }),
-      'added.yml holds a matrix row with the key Rust, which no step reads'
+      'added.yml holds a matrix row with the key Rust, which is not name, task, or tools'
+    ],
+    [
+      'a key two matrix rows share once',
+      job({ strategy: { matrix: { include: Array(2).fill(SPLIT_ROW) } } }),
+      'added.yml holds a matrix row with the key Rust, which is not name, task, or tools'
     ],
     [
       'a job restoring tools no Warm row saves',
