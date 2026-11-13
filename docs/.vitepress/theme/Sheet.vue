@@ -9,6 +9,7 @@ import Filters      from './Filters.vue'
 import PassList     from './PassList.vue'
 import PassReadout  from './PassReadout.vue'
 import Readout      from './Readout.vue'
+import Stamp        from './Stamp.vue'
 import TimeStrip    from './TimeStrip.vue'
 
 /**
@@ -21,7 +22,8 @@ const peek   = ref<HTMLElement>()
 const sheet  = ref<HTMLElement>()
 /**
  * The stop the sheet rests at: peek holding the count, the time, and the
- * strip, half adding the pinned pass, and full adding the hour's list.
+ * strip, half adding the pinned pass, and full adding the hour's list and the
+ * shield below it.
  */
 const stop   = ref<0 | 1 | 2>(0)
 const shown  = ref(0)
@@ -154,11 +156,12 @@ onBeforeUnmount(() => { sky.covered.value = 0 })
       </div>
     </div>
     <div
-      class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain border-t border-rule"
+      class="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-rule"
       :inert="stop < 2"
     >
       <Filters />
       <PassList />
+      <Stamp />
     </div>
   </section>
 </template>

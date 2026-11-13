@@ -12,6 +12,7 @@ import { passOf }      from '../fixtures/passes.ts'
  */
 const HEIGHTS = vi.hoisted(() => ({ next: 0, of: [100, 200, 600] }))
 
+vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
 vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
   useElementSize: () => ({ height: ref(HEIGHTS.of[HEIGHTS.next++ % HEIGHTS.of.length]) })
@@ -60,6 +61,13 @@ it('falls back to peek once the pinned pass is let go', async () => {
   sky.release()
   await wrapper.vm.$nextTick()
   expect(wrapper.get('button').attributes('aria-label')).toBe('Raise the sheet')
+})
+
+it('closes the hour’s list on the shield beside the active count and the orbits time', async () => {
+  const { wrapper } = await mounted(false)
+  const footer      = wrapper.get('.overflow-y-auto > footer')
+  expect(footer.find('svg.shield').exists()).toBe(true)
+  expect(footer.findAll('dt').map(dt => dt.text())).toEqual(['Active', 'Orbits'])
 })
 
 it('uncovers the map once it unmounts', async () => {

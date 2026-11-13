@@ -10,7 +10,7 @@ import theme               from '../../theme/index.ts'
 type Slots = Record<'doc-after' | 'nav-bar-title-before' | 'not-found', () => VNode>
 
 vi.mock('../../lib/site/landing.ts', () => ({ followFootnotes: vi.fn() }))
-vi.mock('../../lib/site/provenance.data.ts', () => ({ data: { commit: 'ec695b9', repository: '', sgp4: '', version: '' } }))
+vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
 vi.mock('vitepress', () => ({ defineClientComponent: () => ({}) }))
 vi.mock('vitepress/theme-without-fonts', () => ({ default: { Layout: {} } }))
 
