@@ -3,26 +3,31 @@ import { fileURLToPath }  from 'node:url'
 
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { FILES, Repository, parseFile } from '../../tools/repository.ts'
+import * as repository from '../../tools/repository.ts'
 
-type Change = (base: Repository) => Partial<Repository>
+type Change = (base: repository.Repository) => Partial<repository.Repository>
+type Job    = repository.Workflow['jobs'][string]
 
 const CHECKOUT_PIN = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+const PROVISION    = '$/.github/actions/provision'
 const ROOT         = fileURLToPath(new URL('../../../..', import.meta.url))
 
-let base: Repository
+let base: repository.Repository
 
 const action = (uses: string) =>
   ({ actions: [{ jobs: { step: { steps: [{ uses }] } }, on: {}, path: 'action.yml' }] })
 
+const job = (added: Job): Change => ({ workflows }) =>
+  ({ workflows: [...workflows, { jobs: { added }, on: {}, path: 'added.yml' }] })
+
 const relabel = (change: object, index: number): Change => ({ labels }) =>
   ({ labels: labels.with(index, { ...labels[index], ...change }) })
 
-const variant = (change: Change): Repository =>
-  Object.assign(Object.create(Repository.prototype), base, change(base))
+const variant = (change: Change): repository.Repository =>
+  Object.assign(Object.create(repository.Repository.prototype), base, change(base))
 
 beforeAll(async () => {
-  base = await Repository.read(ROOT)
+  base = await repository.Repository.read(ROOT)
 })
 
 describe('Repository', () => {
@@ -44,9 +49,45 @@ describe('Repository', () => {
     }
   )
 
+  it('reads each task by its name and its alias, from a task file and from a TOML table', () =>
+    expect(base.tasks).toEqual(expect.arrayContaining(['audit', 'catalog:bundle', 'ci', 'repo:ci'])))
+
+  it.each(['paths', 'paths-ignore'])(
+    'leaves out of the checks a workflow whose pull_request trigger filters by %s',
+    filter => {
+      const workflow = {
+        jobs : { a: {}, gate: { needs: 'a' } },
+        on   : { pull_request: { [filter]: ['docs/**'] } },
+        path : 'deploy.yml'
+      }
+      expect(variant(({ workflows }) => ({ workflows: [...workflows, workflow] })).gates)
+        .toEqual(['📓 Logbook'])
+    }
+  )
+
+  it.each<[string, Job]>([
+    ['runs a task by its alias', { steps: [{ run: 'mise run audit' }] }],
+    ['passes a flag and its value before the task', { steps: [{ run: 'mise run --jobs 4 site:test' }] }],
+    [
+      'runs the task its matrix row names',
+      { strategy: { matrix: { include: [{ name: 'a', task: 'site:test', tools: 'bun' }] } } }
+    ],
+    [
+      'installs tools it restores no cache for',
+      { steps: [{ uses: PROVISION, with: { cache: 'false', tools: 'bun lychee' } }] }
+    ],
+    [
+      'restores tools a Warm row saves',
+      { steps: [{ uses: PROVISION, with: { tools: 'bun rust github:wasm-bindgen/wasm-bindgen' } }] }
+    ]
+  ])('reports nothing for a job that %s', (_, added) =>
+    expect(variant(job(added)).problems).toEqual(base.problems))
+
   it('names a gate two pull-request workflows share once', () => {
-    const workflow = (path: string) => ({ jobs: { a: {}, gate: { needs: 'a' } }, on: { pull_request: null }, path })
-    expect(variant(() => ({ workflows: [workflow('ci.yml'), workflow('deploy.yml')] })).gates).toEqual(['gate'])
+    const workflow = (path: string) =>
+      ({ jobs: { a: {}, gate: { needs: 'a' } }, on: { pull_request: null }, path })
+    expect(variant(() => ({ workflows: [workflow('ci.yml'), workflow('deploy.yml')] })).gates)
+      .toEqual(['gate'])
   })
 
   it.each<[string, Change, string]>([
@@ -144,7 +185,7 @@ describe('Repository', () => {
           }]
         }]
       }),
-      'A ruleset requires 🔭 Gate, which no pull-request workflow ends on'
+      'A ruleset requires 🔭 Gate, which no workflow every pull request runs ends on'
     ],
     [
       'a workflow whose gate leaves a job out of its needs',
@@ -155,6 +196,62 @@ describe('Repository', () => {
         ]
       }),
       'deploy.yml ends on no job whose needs list every other job'
+    ],
+    [
+      'a step running a task .mise/tasks/ does not declare',
+      job({ steps: [{ run: 'mise run site:tset' }] }),
+      'added.yml runs mise run site:tset, which .mise/tasks/ does not declare'
+    ],
+    [
+      'a task two steps of one job run once',
+      job({ steps: [{ run: 'mise run site:tset' }, { run: 'mise run site:tset' }] }),
+      'added.yml runs mise run site:tset, which .mise/tasks/ does not declare'
+    ],
+    [
+      'an action running a task .mise/tasks/ does not declare',
+      () => ({
+        actions: [{ jobs: { step: { steps: [{ run: 'mise run site:tset' }] } }, on: {}, path: 'action.yml' }]
+      }),
+      'action.yml runs mise run site:tset, which .mise/tasks/ does not declare'
+    ],
+    [
+      'a matrix row running a task .mise/tasks/ does not declare',
+      job({ strategy: { matrix: { include: [{ name: 'a', task: 'site:tset', tools: 'bun' }] } } }),
+      'added.yml runs mise run site:tset, which .mise/tasks/ does not declare'
+    ],
+    [
+      'a job restoring tools no Warm row saves',
+      job({ steps: [{ uses: PROVISION, with: { tools: 'bun lychee' } }] }),
+      'added.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
+    ],
+    [
+      'a job restoring the same tools twice once',
+      job({ steps: Array(2).fill({ uses: PROVISION, with: { tools: 'bun lychee' } }) }),
+      'added.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
+    ],
+    [
+      'a job outside Warm saving the tools it restores',
+      job({ steps: [{ uses: PROVISION, with: { save: 'true', tools: 'bun lychee' } }] }),
+      'added.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
+    ],
+    [
+      'a Warm job restoring tools no Warm row saves',
+      ({ workflows }) => ({
+        workflows: [...workflows, {
+          jobs : { added: { steps: [{ uses: PROVISION, with: { tools: 'bun lychee' } }] } },
+          on   : {},
+          path : repository.FILES.warm
+        }]
+      }),
+      '.github/workflows/warm.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
+    ],
+    [
+      'a matrix row restoring tools no Warm row saves',
+      job({
+        steps    : [{ uses: PROVISION, with: { tools: '${{ matrix.tools }}' } }],
+        strategy : { matrix: { include: [{ name: 'a', tools: 'bun lychee' }] } }
+      }),
+      'added.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
     ],
     [
       'an action pinned to a tag',
@@ -181,7 +278,7 @@ describe('parseFile', () => {
       'the frontmatter of a Markdown file',
       '.github/ISSUE_TEMPLATE/spec.md', { about: expect.any(String), name: 'Spec' }
     ],
-    ['a Markdown file with no frontmatter as empty', FILES.guide, {}]
+    ['a Markdown file with no frontmatter as empty', repository.FILES.guide, {}]
   ])('reads %s', async (_, path, parsed) =>
-    expect(await parseFile(join(ROOT, path))).toEqual(parsed))
+    expect(await repository.parseFile(join(ROOT, path))).toEqual(parsed))
 })
