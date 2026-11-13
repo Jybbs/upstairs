@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
-import { mount }          from '@vue/test-utils'
-import { expect, it, vi } from 'vitest'
-import { ref }            from 'vue'
+import { mount, type VueWrapper } from '@vue/test-utils'
+import { expect, it, vi }         from 'vitest'
+import { ref }                    from 'vue'
 
 import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
 import { passOf }      from '../fixtures/passes.ts'
+import { freshSky }    from '../fixtures/sky.ts'
 
 /**
  * The heights the sheet measures, in the order it measures them: its peek, the
@@ -18,19 +19,36 @@ vi.mock('@vueuse/core', async original => ({
 }))
 
 /**
+ * Drags the sheet from 400 px down the page through each point of `path`, a
+ * pointer's place and the milliseconds since the press, and lets it go.
+ */
+const dragged = async (wrapper: VueWrapper, path: number[][]) => {
+  const sheet = wrapper.get('section')
+  Object.assign(sheet.element, { setPointerCapture() {} })
+  const clock = vi.spyOn(performance, 'now')
+  await sheet.trigger('pointerdown', { clientX: 100, clientY: 400 })
+  for (const [x, y, at] of path) {
+    clock.mockReturnValue(at)
+    await sheet.trigger('pointermove', { clientX: x, clientY: y })
+  }
+  await sheet.trigger('pointerup')
+  clock.mockRestore()
+  return sheet
+}
+
+/**
  * Mounts a phone's sheet over a fresh copy of the shared state and a stand-in
  * worker, its panels stubbed, with one pass in the scan, pinned where `pinned`
  * is set.
  */
 const mounted = async (pinned: boolean) => {
   vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: false, removeEventListener() {} }))
-  vi.stubGlobal('Worker', class { postMessage() {} })
-  vi.resetModules()
-  HEIGHTS.next             = 0
-  const { sky }            = await import('../../lib/state/sky.ts')
-  const { default: Sheet } = await import('../../theme/Sheet.vue')
-  const pass               = passOf(1)
-  const stubs              = { Filters: true, PassList: true, PassReadout: true, Readout: true, TimeStrip: true }
+  HEIGHTS.next                    = 0
+  const { component: Sheet, sky } = await freshSky(() => import('../../theme/Sheet.vue'))
+  const pass                      = passOf(1)
+  const stubs                     = {
+    Filters: true, PassList: true, PassReadout: true, Readout: true, TimeStrip: true
+  }
   sky.tracks.add([pass], new Float32Array(TRACK_WIDTH), Uint32Array.of(0), 1)
   sky.version.value++
   const wrapper = mount(Sheet, { global: { stubs } })
@@ -68,24 +86,6 @@ it('uncovers the map once it unmounts', async () => {
   wrapper.unmount()
   expect(sky.covered.value).toBe(0)
 })
-
-/**
- * Drags the sheet from 400 px down the page through each point of `path`, a
- * pointer's place and the milliseconds since the press, and lets it go.
- */
-const dragged = async (wrapper: Awaited<ReturnType<typeof mounted>>['wrapper'], path: number[][]) => {
-  const sheet = wrapper.get('section')
-  Object.assign(sheet.element, { setPointerCapture() {} })
-  const clock = vi.spyOn(performance, 'now')
-  await sheet.trigger('pointerdown', { clientX: 100, clientY: 400 })
-  for (const [x, y, at] of path) {
-    clock.mockReturnValue(at)
-    await sheet.trigger('pointermove', { clientX: x, clientY: y })
-  }
-  await sheet.trigger('pointerup')
-  clock.mockRestore()
-  return sheet
-}
 
 it.each([
   ['covers the map up to its peek at rest', false, 100],
