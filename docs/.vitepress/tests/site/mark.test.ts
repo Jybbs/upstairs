@@ -1,11 +1,10 @@
-import { readFileSync } from 'node:fs'
-
 import { Resvg }                from '@resvg/resvg-js'
 import { describe, expect, it } from 'vitest'
 
 import MARK                         from '../../lib/site/mark.json' with { type: 'json' }
 import * as mark                    from '../../lib/site/mark.ts'
 import { SCHEMES, type SchemeName } from '../../lib/site/palette.ts'
+import { README, publicOf }         from '../fixtures/shipped.ts'
 
 const DRAWINGS = [
   { drawing: 'the word’s drawing alone',            height: 69.7, outlined: false, u: MARK.word },
@@ -20,7 +19,10 @@ const WORDS    = [
 ]
 const DRAWN    = DRAWINGS.flatMap(drawing => WORDS.map(word => ({ ...drawing, ...word })))
 
-const publicOf = (file: string) => readFileSync(new URL(`../../../public/${file}`, import.meta.url), 'utf8')
+const sizeOf = (svg: string) => {
+  const [, width, height] = svg.match(/ width="([\d.]+)" height="([\d.]+)"/)!.map(Number)
+  return { height: height!, width: width! }
+}
 
 describe('the word', () => {
   it.each(DRAWN)('sets the U of $word at $height px in $drawing', ({ drawn, height, outlined, u }) => {
@@ -47,6 +49,19 @@ describe('the files the README and the browser read', () => {
   it('ships the favicon the mark draws', () => expect(publicOf('favicon.svg')).toBe(mark.faviconOf()))
   it.each(NAMES)('ships the README’s word in the %s scheme', scheme =>
     expect(publicOf(`wordmark-${scheme}.svg`)).toBe(mark.wordmarkOf(scheme)))
+  it.each(NAMES)('fades the README’s word in the %s scheme as the cards draw it', scheme => {
+    const word = mark.wordmarkOf(scheme)
+    expect(word).toContain(mark.fadedWordOf(sizeOf(word).height, SCHEMES[scheme].ink, SCHEMES[scheme].u))
+  })
+  it.each(NAMES)('sets the README’s word in the %s scheme between 480 and 640 px wide', scheme => {
+    const { width } = sizeOf(mark.wordmarkOf(scheme))
+    expect(width).toBeGreaterThanOrEqual(480)
+    expect(width).toBeLessThanOrEqual(640)
+  })
+  it('sizes the README’s word to the drawing it shows', () => {
+    const { height, width } = sizeOf(mark.wordmarkOf('day'))
+    expect(README).toContain(`alt="upstairs" width="${width}" height="${Math.round(height)}"`)
+  })
   it.each(NAMES)('colors the favicon’s U as the %s scheme colors the word’s', scheme =>
     expect(mark.faviconOf()).toContain(`fill:${SCHEMES[scheme].u}`))
 
@@ -63,7 +78,8 @@ describe('the files the README and the browser read', () => {
 
     it('fills every corner with the Daylight U, leaving no pixel transparent', () => {
       const last = mark.TOUCH.size - 1
-      expect([pixel(0, 0), pixel(last, 0), pixel(0, last), pixel(last, last)]).toEqual(Array(4).fill(SCHEMES.day.u))
+      expect([pixel(0, 0), pixel(last, 0), pixel(0, last), pixel(last, last)])
+        .toEqual(Array(4).fill(SCHEMES.day.u))
     })
 
     it('knocks the favicon’s drawing out of the ground in the Daylight page’s color', () => {
