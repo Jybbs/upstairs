@@ -1,6 +1,6 @@
 /**
- * Checks that the site's own address serves a catalog, writing the answer it
- * got into the step summary and failing where the answer is anything else.
+ * Checks that the site's own address serves a catalog, failing where it
+ * answers anything else and writing that answer into the step summary.
  */
 import { appendFile } from 'node:fs/promises'
 

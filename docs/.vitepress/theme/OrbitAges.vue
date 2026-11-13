@@ -8,7 +8,7 @@ import { useElementSize }                 from '@vueuse/core'
 import { computed, onBeforeUnmount, ref } from 'vue'
 
 import { RING, SPREADS, ringGapOf, spreadOf } from '../lib/map/overlay.ts'
-import { AGES, UNLOADED }                      from '../lib/orbit/catalog.ts'
+import { AGES }                                from '../lib/orbit/catalog.ts'
 import { clamp }                               from '../lib/site/motion.ts'
 import { Slider }                              from '../lib/site/slider.ts'
 import { useDrawings }                         from '../lib/state/drawings.ts'
@@ -31,7 +31,7 @@ const BANDS  = [...EDGES, LAST].slice(1).map((to, index) => {
 })
 const BOUNDS = Array.from({ length: BINS + 1 }, (_, index) => Math.expm1(index / BINS * REACH) / OPEN)
 
-const { drawings, failed } = useDrawings()
+const { drawings, failure } = useDrawings()
 
 const frame = ref<HTMLElement>()
 const size  = useElementSize(frame)
@@ -104,7 +104,7 @@ onBeforeUnmount(() => slider.value.leave())
 
 <template>
   <figure ref="frame" class="panel">
-    <p v-if="failed" class="caps m-0 text-base text-soft">{{ UNLOADED }}</p>
+    <p v-if="failure" class="caps m-0 text-base text-soft">{{ failure }}</p>
     <template v-else>
       <svg
         class="drawing cursor-pointer"

@@ -1,0 +1,9 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE description = "Delete the `ALERT_TO` and `RESUME_TOKEN` secrets the catalog service no longer reads, wherever either is still bound"
+#MISE dir         = "{{config_root}}/docs"
+
+config=.vitepress/catalog/wrangler.json
+
+bun x --no-install wrangler secret list --config "$config" \
+  | jq -r '.[].name | select(IN("ALERT_TO", "RESUME_TOKEN"))' \
+  | xargs -n 1 -r bun x --no-install wrangler secret delete --config "$config"

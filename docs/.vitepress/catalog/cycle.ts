@@ -21,7 +21,7 @@ type Fault =
 
 /**
  * A halt kept under `halted` in the storage of the Durable Object, which the
- * cycle turns into a wait.
+ * cycle turns into a wait ending `EVERY` after the time the halt records.
  */
 type Halted = { halt: unknown, kind: 'halted', reason: string }
 
@@ -35,7 +35,8 @@ export type Region = typeof REGIONS[number]
 /**
  * The record of a wait, naming the kind of failure, the reason, and the region
  * the failure came through, or the result of each region where none reached
- * CelesTrak, beside the refusals in a row up to it and the time it ends.
+ * CelesTrak, beside the refusals since the last download that succeeded and the
+ * time it ends.
  */
 export type Wait = (Fault | Halted)
   & { event: 'catalog.waiting', refusals: number, time: string, until: string }
@@ -46,14 +47,10 @@ export type Wait = (Fault | Halted)
  */
 export const EVERY = 2 * 3_600_000
 /**
- * The longest wait a run of refusals doubles up to, in milliseconds, unless
- * `retry-after` asks for longer.
+ * The longest wait, in milliseconds, which the doubled wait and `retry-after`
+ * each stop at.
  */
 export const LONGEST = DAY
-/**
- * The latest time a `Date` holds, in milliseconds.
- */
-const LATEST = 8.64e15
 /**
  * The location hints of the relays sending the request, in the order a cycle
  * tries them after the one that last reached CelesTrak.
@@ -69,13 +66,19 @@ const askedOf = (value: string | undefined, time: number) =>
 
 /**
  * Returns how long the cycle waits after `fault`, where a refusal waits
- * `EVERY`, doubled for each refusal before it in the row up to `LONGEST`, or
- * as long as its `retry-after` asks where that is longer, and every other fault
- * waits for the next scheduled run.
+ * `EVERY`, doubled for each refusal before it since the last download that
+ * succeeded, or as long as its `retry-after` asks where that is longer, up to
+ * `LONGEST`, and every other fault waits for the next scheduled run.
  */
 const delayOf = (fault: Fault | Halted, refusals: number, time: number) => fault.kind === 'refused'
-  ? Math.max(Math.min(EVERY * 2 ** (refusals - 1), LONGEST), askedOf(fault.headers['retry-after'], time))
+  ? Math.min(Math.max(EVERY * 2 ** (refusals - 1), askedOf(fault.headers['retry-after'], time)), LONGEST)
   : EVERY
+
+/**
+ * Returns the time a stored halt records, or `time` where it records none, as
+ * a halt stored as text does.
+ */
+const haltedAt = (halt: unknown, time: number): number => Date.parse(Object(halt).time) || time
 
 const isoOf = (time: number) => new Date(time).toISOString()
 
@@ -95,16 +98,20 @@ export class Cycle {
    * Downloads and stores the catalog unless a wait runs past `time` or the last
    * attempt was under `EVERY` before it. A fault `refresh` returns keeps the
    * stored file and starts a wait, logging it at error level, and each run the
-   * wait blocks logs it again. A halt kept under `halted` turns into a wait of
-   * `EVERY` from `time`. A download that succeeds ends the wait, logging the
-   * wait it ends. Any other error rejects the run without a wait.
+   * wait blocks logs it again. A halt kept under `halted` turns into a wait
+   * ending `EVERY` after the time the halt records, which ends at once for a
+   * halt older than that, and the `alerted` mark beside it is deleted. A
+   * download that succeeds ends the wait, logging the wait it ends. Any other
+   * error rejects the run without a wait.
    */
   async run(time: number): Promise<'early' | 'stored' | 'waiting'> {
     const halt = this.state.get('halted')
     if (halt !== undefined) {
+      this.state.delete('alerted')
       this.state.delete('halted')
-      this.wait(time, { halt, kind: 'halted', reason: 'The cycle halted before waits replaced halts' })
-      return 'waiting'
+      const reason = 'The cycle halted before waits replaced halts'
+      if (time < Date.parse(this.wait(haltedAt(halt, time), { halt, kind: 'halted', reason }).until))
+        return 'waiting'
     }
     const kept = this.state.get<Wait>('wait')
     if (kept !== undefined && time < Date.parse(kept.until)) {
@@ -151,8 +158,9 @@ export class Cycle {
   }
 
   /**
-   * Starts a wait after `fault` at `time`, counting the refusals in a row from
-   * `before`, the wait it follows, and logs it at error level.
+   * Starts a wait after `fault` at `time`, counting the refusals since the last
+   * download that succeeded from `before`, the wait it follows, and logs it at
+   * error level, returning the wait.
    */
   private wait(time: number, fault: Fault | Halted, before?: Wait) {
     const refusals   = (before?.refusals ?? 0) + Number(fault.kind === 'refused')
@@ -161,9 +169,10 @@ export class Cycle {
       event    : 'catalog.waiting',
       refusals : refusals,
       time     : isoOf(time),
-      until    : isoOf(Math.min(time + delayOf(fault, refusals, time), LATEST))
+      until    : isoOf(time + delayOf(fault, refusals, time))
     }
     console.error(wait)
     this.state.put('wait', wait)
+    return wait
   }
 }

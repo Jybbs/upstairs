@@ -5,6 +5,7 @@ import { onMounted, ref, shallowRef } from 'vue'
 
 import { SPREADS, ringGapOf, spreadOf } from '../../lib/map/overlay.ts'
 import { AGES, UNLOADED }              from '../../lib/orbit/catalog.ts'
+import { UNDRAWN }                     from '../../lib/state/drawings.ts'
 import { TRACK_STEP }                  from '../../lib/orbit/scan.ts'
 import LookAngles                      from '../../theme/LookAngles.vue'
 import OrbitAges                       from '../../theme/OrbitAges.vue'
@@ -12,22 +13,26 @@ import PeakSearch                      from '../../theme/PeakSearch.vue'
 import { drawingsOf }                  from '../fixtures/drawings.ts'
 
 /**
- * The ages the drawings read in place of the fixture's, and whether the read
- * fails, where a case sets them.
+ * The ages the drawings read in place of the fixture's, and the line a failed
+ * read shows, where a case sets them.
  */
-const aged = vi.hoisted(() => ({ ages: undefined as Float64Array | undefined, failed: false }))
+const aged = vi.hoisted(() => ({
+  ages    : undefined as Float64Array | undefined,
+  failure : undefined as string | undefined
+}))
 
-vi.mock('../../lib/state/drawings.ts', async () => {
+vi.mock('../../lib/state/drawings.ts', async original => {
   const values = await (await import('../fixtures/drawings.ts')).drawingsOf()
   return {
+    ...await original<typeof import('../../lib/state/drawings.ts')>(),
     useDrawings: () => {
       const drawings = shallowRef<typeof values>()
-      const failed   = ref(false)
+      const failure  = ref<string>()
       onMounted(() => {
-        if (aged.failed) failed.value = true
+        if (aged.failure) failure.value = aged.failure
         else drawings.value = { ...values, ages: aged.ages ?? values.ages }
       })
-      return { drawings, failed }
+      return { drawings, failure }
     }
   }
 })
@@ -220,15 +225,16 @@ describe('the catalog ages', () => {
   })
 })
 
-describe('a drawing whose catalog did not load', () => {
-  it.each([LookAngles, PeakSearch, OrbitAges])('states that the catalog did not load in place of the drawing',
-    async component => {
-      aged.failed = true
-      const wrapper = mount(component)
-      await flushPromises()
-      const shown = [wrapper.text(), wrapper.find('svg').exists()]
-      wrapper.unmount()
-      aged.failed = false
-      expect(shown).toEqual([UNLOADED, false])
-    })
+describe('a drawing whose values failed', () => {
+  it.each([LookAngles, PeakSearch, OrbitAges].flatMap(component => [UNLOADED, UNDRAWN].map(line => ({
+    component, line
+  }))))('states "$line" in place of the drawing', async ({ component, line }) => {
+    aged.failure = line
+    const wrapper = mount(component)
+    await flushPromises()
+    const shown = [wrapper.text(), wrapper.find('svg').exists()]
+    wrapper.unmount()
+    aged.failure = undefined
+    expect(shown).toEqual([line, false])
+  })
 })

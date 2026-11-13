@@ -29,6 +29,11 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
         run: mise x -- bun x --no-install wrangler deploy --config .vitepress/catalog/wrangler.json
         working-directory: docs
+      - name: Delete the secrets the service no longer reads
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+        run: mise run gha:unbind
       - name: Check the served catalog
         run: mise run gha:served
     timeout-minutes: 10

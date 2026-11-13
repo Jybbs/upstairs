@@ -9,7 +9,6 @@
 import { useElementSize, useIntersectionObserver, usePreferredReducedMotion } from '@vueuse/core'
 import { computed, onBeforeUnmount, ref, useId, watch }                       from 'vue'
 
-import { UNLOADED }              from '../lib/orbit/catalog.ts'
 import { GRID_STEP, TRACK_STEP } from '../lib/orbit/scan.ts'
 import { clamp, Spring }         from '../lib/site/motion.ts'
 import { pathOf }                from '../lib/site/paths.ts'
@@ -27,7 +26,7 @@ const STOPS  = [10, 15, 20, TRACK_STEP, 45, 60, 90, GRID_STEP, 180, 240]
 const LAST   = STOPS.length - 1
 const NAMES  = STOPS.map(step => step < 60 ? `${step} S` : `${step / 60} MIN`)
 
-const { drawings, failed } = useDrawings()
+const { drawings, failure } = useDrawings()
 
 const clip    = `peak-${useId()}`
 const frame   = ref<HTMLElement>()
@@ -300,7 +299,7 @@ onBeforeUnmount(() => {
 
 <template>
   <figure ref="frame" class="panel">
-    <p v-if="failed" class="caps m-0 text-base text-soft">{{ UNLOADED }}</p>
+    <p v-if="failure" class="caps m-0 text-base text-soft">{{ failure }}</p>
     <template v-else>
       <div class="caps mb-3 text-base leading-snug text-soft">Drag the knob to change the spacing</div>
       <svg

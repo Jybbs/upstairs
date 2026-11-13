@@ -8,7 +8,6 @@
 import { useElementSize }                 from '@vueuse/core'
 import { computed, onBeforeUnmount, ref } from 'vue'
 
-import { UNLOADED }       from '../lib/orbit/catalog.ts'
 import { pointOf }        from '../lib/orbit/compass.ts'
 import type { Look }      from '../lib/orbit/looks.ts'
 import { clamp }          from '../lib/site/motion.ts'
@@ -19,7 +18,7 @@ import Readings           from './Readings.vue'
 
 const RADIANS = Math.PI / 180
 
-const { drawings, failed } = useDrawings()
+const { drawings, failure } = useDrawings()
 
 const frame = ref<HTMLElement>()
 const size  = useElementSize(frame)
@@ -104,7 +103,7 @@ onBeforeUnmount(() => slider.value.leave())
 
 <template>
   <figure ref="frame" class="panel">
-    <p v-if="failed" class="caps m-0 text-base text-soft">{{ UNLOADED }}</p>
+    <p v-if="failure" class="caps m-0 text-base text-soft">{{ failure }}</p>
     <template v-else>
       <svg
         class="drawing cursor-pointer"

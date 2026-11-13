@@ -16,15 +16,18 @@ const SPACINGS = [[EVERY - 1, 'early'], [EVERY, 'stored']] as const
 const BACKOFF  = [EVERY, 2 * EVERY, 4 * EVERY, 8 * EVERY, LONGEST, LONGEST]
 const ASKED    = [
   ['the doubled wait', '60', EVERY],
-  ['two days', String(2 * LONGEST / 1000), 2 * LONGEST],
-  ['two days', new Date(start + 2 * LONGEST).toUTCString(), 2 * LONGEST],
+  ['twelve hours', String(6 * EVERY / 1000), 6 * EVERY],
+  ['a day', String(2 * LONGEST / 1000), LONGEST],
+  ['a day', new Date(start + 2 * LONGEST).toUTCString(), LONGEST],
   ['the doubled wait', new Date(start - LONGEST).toUTCString(), EVERY],
   ['the doubled wait', 'tomorrow', EVERY],
-  ['until the latest time a date holds', '9'.repeat(20), 8.64e15 - start]
+  ['a day', '9'.repeat(20), LONGEST]
 ] as const
+const halted   = { event: 'catalog.halted', kind: 'refused', reason: 'CelesTrak answered 403', status: 403 }
 const HALTS    = [
-  ['a record', { event: 'catalog.halted', kind: 'refused', reason: 'CelesTrak answered 403', status: 403 }],
-  ['text', 'Error: CelesTrak answered 403']
+  ['a record an hour old', { ...halted, time: new Date(start - EVERY / 2).toISOString() }, start - EVERY / 2],
+  ['a record holding no time', halted, start],
+  ['text', 'Error: CelesTrak answered 403', start]
 ] as const
 const REFUSALS = [301, 403, 404, 500, 503, 520]
 const refused  = (status: number) => () => new Response(null, { status })
@@ -234,7 +237,7 @@ describe('a download cycle', () => {
     expect(console.error).not.toHaveBeenCalled()
   })
 
-  it('doubles the wait on each refusal in a row up to a day', async () => {
+  it('doubles the wait on each refusal since the last download that succeeded, up to a day', async () => {
     const { cycle, fetcher, waited } = cycleOf(refused(403))
     const waits: number[] = []
     for (let time = start; waits.length < BACKOFF.length; time += waits.at(-1)!) {
@@ -279,7 +282,7 @@ describe('a download cycle', () => {
     expect(state.get('wait')).toMatchObject({ refusals: 1, until: new Date(start + 3 * EVERY).toISOString() })
   })
 
-  it('keeps the refusals in a row through a fault of another kind, which waits for the next run alone',
+  it('counts the refusals through a fault of another kind, which waits for the next run alone',
     async () => {
       let answer = refused(403)
       const { cycle, state, waited } = cycleOf(() => answer())
@@ -294,14 +297,15 @@ describe('a download cycle', () => {
       expect(state.get('wait')).toMatchObject({ refusals: 2, until })
     })
 
-  it.each(HALTS)('turns a halt stored as %s into a wait of two hours, asking CelesTrak nothing until it ends',
-    async (_, halt) => {
+  it.each(HALTS)('turns a halt stored as %s into a wait ending two hours after the halt, deleting the old keys',
+    async (_, halt, at) => {
       const { cycle, state, fetcher } = cycleOf(good)
+      state.set('alerted', true)
       state.set('attempted', start - 3 * EVERY)
       state.set('halted', halt)
       expect(await cycle.run(start)).toBe('waiting')
       expect(fetcher).not.toHaveBeenCalled()
-      expect(state.has('halted')).toBe(false)
+      expect(['alerted', 'halted'].filter(key => state.has(key))).toEqual([])
       const wait = state.get('wait')
       expect(wait).toEqual({
         event    : 'catalog.waiting',
@@ -309,12 +313,21 @@ describe('a download cycle', () => {
         kind     : 'halted',
         reason   : 'The cycle halted before waits replaced halts',
         refusals : 0,
-        time     : new Date(start).toISOString(),
-        until    : new Date(start + EVERY).toISOString()
+        time     : new Date(at).toISOString(),
+        until    : new Date(at + EVERY).toISOString()
       })
       expect(logged()).toEqual([wait])
-      expect(await cycle.run(start + EVERY - 1)).toBe('waiting')
-      expect(await cycle.run(start + EVERY)).toBe('stored')
+      expect(await cycle.run(at + EVERY - 1)).toBe('waiting')
+      expect(await cycle.run(at + EVERY)).toBe('stored')
     })
-})
 
+  it('downloads on the first run after a halt recorded more than two hours before it', async () => {
+    const { cycle, state, fetcher } = cycleOf(good)
+    state.set('attempted', start - 3 * EVERY)
+    state.set('halted', { ...halted, time: new Date(start - EVERY - 1).toISOString() })
+    expect(await cycle.run(start)).toBe('stored')
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect([state.has('halted'), state.has('wait')]).toEqual([false, false])
+    expect(console.log).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ event: 'catalog.recovered' }))
+  })
+})
