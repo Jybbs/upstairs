@@ -65,7 +65,10 @@ it('falls back to peek once the pinned pass is let go', async () => {
 
 it('closes the hour’s list on the shield beside the active count and the orbits time', async () => {
   const { wrapper } = await mounted(false)
-  const footer      = wrapper.get('.overflow-y-auto > footer')
+  const scroller    = wrapper.get('.overflow-y-auto')
+  const footer      = scroller.get(':scope > footer')
+  expect([...scroller.element.children].map(child => child.localName))
+    .toEqual(['filters-stub', 'pass-list-stub', 'footer'])
   expect(footer.find('svg.shield').exists()).toBe(true)
   expect(footer.findAll('dt').map(dt => dt.text())).toEqual(['Active', 'Orbits'])
 })
