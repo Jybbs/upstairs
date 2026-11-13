@@ -3,8 +3,7 @@
   "main": "service.ts",
   "compatibility_date": "2026-11-01",
   "routes": [
-    { "pattern": "upstairs.fyi/catalog.bin", "zone_name": "upstairs.fyi" },
-    { "pattern": "upstairs.fyi/catalog/resume", "zone_name": "upstairs.fyi" }
+    { "pattern": "upstairs.fyi/catalog.bin", "zone_name": "upstairs.fyi" }
   ],
   "triggers": { "crons": ["0 */2 * * *"] },
   "durable_objects": {
@@ -18,6 +17,5 @@
     "Relay": { "type": "durable-object", "storage": "sqlite" }
   },
   "kv_namespaces": [{ "binding": "CATALOG" }],
-  "send_email": [{ "name": "EMAIL" }],
-  "vars": { "ALERT_FROM": "catalog@upstairs.fyi" }
+  "observability": { "enabled": true, "issues": { "enabled": true } }
 }

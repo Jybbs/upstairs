@@ -1,78 +1,81 @@
+name        : 🛰️ CI
+run-name    : 🛰️ CI · ${{ github.head_ref || github.ref_name }}
+permissions : { contents: read }
+
+on:
+  pull_request:
+
+  workflow_dispatch:
+
 concurrency:
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress : ${{ github.event_name == 'pull_request' }}
+  group              : ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   check:
-    name: ${{ matrix.name }}
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Check out
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Provision
-        uses: $/.github/actions/provision
-        with:
-          tools: ${{ matrix.tools }}
-      - name: Run ${{ matrix.task }}
-        env:
-          GH_TOKEN: ${{ matrix.task == 'repo:lint' && github.token || '' }}
-          TASK: ${{ matrix.task }}
-        run: mise run "$TASK"
-      - name: Write the coverage figure the badge reads
-        if: matrix.task == 'site:coverage'
-        run: mise run gha:total -- .cache/coverage
-      - name: Attach the coverage report
-        if: matrix.task == 'site:coverage' && !cancelled()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: coverage
-          path: .cache/coverage
-          retention-days: 14
+    name            : ${{ matrix.name }}
+    runs-on         : &runner ubuntu-26.04
+    timeout-minutes : &timeout 15
+
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: 📦 Catalog Bundle, task: catalog:bundle, tools: bun }
-          - { name: 🧷 Catalog Types, task: catalog:typecheck, tools: bun }
-          - { name: 📎 Clippy, task: crate:lint, tools: rust }
-          - { name: 🦀 Crate Tests, task: crate:test, tools: rust }
-          - { name: 🩺 Advisories, task: lock:audit, tools: bun osv-scanner }
-          - { name: 🔐 Lockfiles, task: lock:check, tools: bun rust }
-          - { name: 📋 Audit, task: repo:audit, tools: bun }
-          - { name: 🔦 Workflows, task: repo:lint, tools: zizmor }
-          - { name: 🎯 Site Coverage, task: site:coverage, tools: bun rust github:wasm-bindgen/wasm-bindgen }
-          - { name: ✂️ Knip, task: site:cruft, tools: bun rust github:wasm-bindgen/wasm-bindgen }
-          - { name: 🔗 Links, task: site:links, tools: bun github:EmbarkStudios/cargo-about lychee rust github:wasm-bindgen/wasm-bindgen }
-          - { name: ⚓ Oxlint, task: site:lint, tools: bun }
-          - { name: 📰 Press, task: site:press, tools: bun github:EmbarkStudios/cargo-about rust github:wasm-bindgen/wasm-bindgen }
-          - { name: 🧷 Types, task: site:typecheck, tools: bun rust github:wasm-bindgen/wasm-bindgen }
-    timeout-minutes: 15
-  logbook:
-    if: always()
-    name: 📓 Logbook
-    needs: [check]
-    permissions:
-      actions: read
-    runs-on: ubuntu-26.04
+          - { name: 📦 Catalog Bundle, task: catalog:bundle,    tools: &bun bun }
+          - { name: 🧷 Catalog Types,  task: catalog:typecheck, tools: *bun }
+          - { name: 📎 Clippy,         task: crate:lint,        tools: &rust rust }
+          - { name: 🦀 Crate Tests,    task: crate:test,        tools: *rust }
+          - { name: 🩺 Advisories,     task: lock:audit,        tools: bun osv-scanner }
+          - { name: 🔐 Lockfiles,      task: lock:check,        tools: bun rust }
+          - { name: 📋 Audit,          task: repo:audit,        tools: *bun }
+          - { name: 🔦 Workflows,      task: repo:lint,         tools: zizmor }
+          - { name: 🎯 Site Coverage,  task: site:coverage,     tools: &wasm bun rust github:wasm-bindgen/wasm-bindgen }
+          - { name: ✂️ Knip,           task: site:cruft,        tools: *wasm }
+          - { name: 🔗 Links,          task: site:links,        tools: bun github:EmbarkStudios/cargo-about lychee rust github:wasm-bindgen/wasm-bindgen }
+          - { name: ⚓ Oxlint,         task: site:lint,         tools: *bun }
+          - { name: 📰 Press,          task: site:press,        tools: bun github:EmbarkStudios/cargo-about rust github:wasm-bindgen/wasm-bindgen }
+          - { name: 🧷 Types,          task: site:typecheck,    tools: *wasm }
+
     steps:
-      - name: Check out
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Provision
-        uses: $/.github/actions/provision
-        with:
-          tools: bun
-      - name: Write the summary
+      - &checkout
+        name : Check out
+        uses : actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with : { persist-credentials: false }
+
+      - name : Provision
+        uses : $/.github/actions/provision
+        with : { tools: "${{ matrix.tools }}" }
+
+      - name : Run ${{ matrix.task }}
+        run  : mise run "$TASK"
         env:
-          GH_TOKEN: ${{ github.token }}
-          NEEDS: ${{ toJSON(needs) }}
-        run: mise run gha:logbook
-    timeout-minutes: 10
-name: 🛰️ CI
-on:
-  pull_request:
-  workflow_dispatch:
-permissions:
-  contents: read
+          GH_TOKEN : ${{ matrix.task == 'repo:lint' && github.token || '' }}
+          TASK     : ${{ matrix.task }}
+
+      - name : Write the coverage figure the badge reads
+        if   : matrix.task == 'site:coverage'
+        run  : mise run gha:total -- .cache/coverage
+
+      - name : Attach the coverage report
+        if   : matrix.task == 'site:coverage' && !cancelled()
+        uses : actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with : { name: coverage, path: .cache/coverage, retention-days: 14 }
+
+  logbook:
+    name            : 📓 Logbook
+    if              : always()
+    needs           : [check]
+    permissions     : { actions: read }
+    runs-on         : *runner
+    timeout-minutes : *timeout
+
+    steps:
+      - *checkout
+
+      - name : Provision
+        uses : $/.github/actions/provision
+        with : { tools: *bun }
+
+      - name : Write the summary
+        env  : { GH_TOKEN: "${{ github.token }}", NEEDS: "${{ toJSON(needs) }}" }
+        run  : mise run gha:logbook

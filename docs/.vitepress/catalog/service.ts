@@ -1,7 +1,7 @@
 /**
  * Wires the download cycle to a cron trigger through one Durable Object, which
  * sends the catalog request through a relay placed in each region, and serves
- * the catalog and the resume path on every other request.
+ * the catalog on every other request.
  */
 import { DurableObject } from 'cloudflare:workers'
 
@@ -23,8 +23,6 @@ export class Refresher extends DurableObject<Env> {
     this.env.RELAYS.getByName(region, { locationHint: region }).fetchCatalog())
 
   run(time: number) { return this.cycle.run(time) }
-
-  resume() { this.cycle.resume() }
 }
 
 /**
@@ -35,13 +33,10 @@ export class Relay extends DurableObject {
   fetchCatalog() { return fetchCatalog(fetch) }
 }
 
-const refresher = (env: Env) => env.REFRESHER.getByName('catalog')
-
 export default {
-  fetch: (request, env, ctx) =>
-    serve(caches.default, env, request, promise => ctx.waitUntil(promise), () => refresher(env).resume()),
+  fetch: (request, env, ctx) => serve(caches.default, env, request, promise => ctx.waitUntil(promise)),
 
   async scheduled(controller, env) {
-    await refresher(env).run(controller.scheduledTime)
+    await env.REFRESHER.getByName('catalog').run(controller.scheduledTime)
   }
 } satisfies ExportedHandler<Env>

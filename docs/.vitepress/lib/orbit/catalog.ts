@@ -50,6 +50,11 @@ export const SEGMENT_HEAD = 8
  */
 export const TICK = 864
 /**
+ * The line the map's readout and each drawing show where the catalog file did
+ * not load.
+ */
+export const UNLOADED = 'The catalog did not load'
+/**
  * Every field a catalog record keeps.
  */
 export const FIELDS = [

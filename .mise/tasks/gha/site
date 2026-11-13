@@ -1,0 +1,19 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE depends     = ["site:install"]
+#MISE description = "Send the pressed site to the Cloudflare Pages project `upstairs` as a deployment of the branch in `REF`, carrying the preview's Pages Function on every branch but `main`, and write the deployment's address to the step's `url` output"
+#MISE dir         = "{{config_root}}/docs"
+#MISE env         = { WRANGLER_SEND_METRICS = "false" }
+
+functions=.vitepress/preview
+if [[ $GITHUB_REF == refs/heads/main ]]; then
+  functions=.
+fi
+output="$RUNNER_TEMP/wrangler.ndjson"
+
+WRANGLER_OUTPUT_FILE_PATH="$output" bun x --no-install wrangler pages deploy \
+  --branch="$REF" \
+  --cwd="$functions" \
+  --project-name=upstairs \
+  "$PWD/.vitepress/dist"
+jq -r 'select(.type == "pages-deploy-detailed") | "url=\(.url)"' "$output" \
+  >> "$GITHUB_OUTPUT"

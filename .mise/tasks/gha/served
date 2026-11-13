@@ -1,0 +1,4 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE description = "Fail unless `upstairs.fyi/catalog.bin` answers 200 with a catalog, writing any other answer into the step summary"
+
+bun run docs/.vitepress/tools/served.ts
