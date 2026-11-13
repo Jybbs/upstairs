@@ -74,6 +74,9 @@
       ".vitepress/preview/functions/*.ts",
       ".vitepress/tools/*.ts"
     ],
+    "ignoreBinaries": [
+      "mise"
+    ],
     "ignoreDependencies": [
       "oxlint",
       "vue-tsc",

@@ -1,0 +1,7 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE depends     = ["site:install"]
+#MISE description = "Compile the catalog service as a deploy would, sending nothing to Cloudflare and failing where a binding names a class the service does not export"
+#MISE dir         = "{{config_root}}/docs"
+#MISE env         = { WRANGLER_SEND_METRICS = "false" }
+
+bun x --no-install wrangler deploy --config .vitepress/catalog/wrangler.json --dry-run
