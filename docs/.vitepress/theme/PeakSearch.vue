@@ -26,19 +26,20 @@ const STOPS  = [10, 15, 20, TRACK_STEP, 45, 60, 90, GRID_STEP, 180, 240]
 const LAST   = STOPS.length - 1
 const NAMES  = STOPS.map(step => step < 60 ? `${step} S` : `${step / 60} MIN`)
 
-const clip     = `peak-${useId()}`
-const drawings = useDrawings()
-const frame    = ref<HTMLElement>()
-const gap      = ref<SVGRectElement>()
-const handle   = ref<SVGGElement>()
-const level    = ref<SVGLineElement>()
-const missed   = ref('')
-const nudging  = ref(false)
-const samples  = ref<SVGGElement>()
-const summit   = ref<SVGCircleElement>()
-const motion   = usePreferredReducedMotion()
-const size     = useElementSize(frame)
-const width    = computed(() => Math.round(size.width.value))
+const { drawings, failure } = useDrawings()
+
+const clip    = `peak-${useId()}`
+const frame   = ref<HTMLElement>()
+const gap     = ref<SVGRectElement>()
+const handle  = ref<SVGGElement>()
+const level   = ref<SVGLineElement>()
+const missed  = ref('')
+const nudging = ref(false)
+const samples = ref<SVGGElement>()
+const summit  = ref<SVGCircleElement>()
+const motion  = usePreferredReducedMotion()
+const size    = useElementSize(frame)
+const width   = computed(() => Math.round(size.width.value))
 
 /**
  * Reads the scanned pass at every stop, meaning the time of its highest sample,
@@ -298,93 +299,96 @@ onBeforeUnmount(() => {
 
 <template>
   <figure ref="frame" class="panel">
-    <div class="caps mb-3 text-base leading-snug text-soft">Drag the knob to change the spacing</div>
-    <svg
-      :class="['drawing group', slider.gripped.value ? 'cursor-grabbing held' : 'cursor-grab', { nudging }]"
-      :width="layout?.full ?? 0"
-      :height="layout?.tall ?? 0"
-      :viewBox="`0 0 ${layout?.full ?? 0} ${layout?.tall ?? 0}`"
-      aria-label="Time between samples"
-      :aria-valuetext="scale ? spoken(slider.index.value) : undefined"
-      v-bind="slider.attributes"
-      v-on="{ ...slider.events, pointercancel: release, pointerdown: press, pointerup: release }"
-      @animationend="nudging = false"
-    >
-      <g v-if="layout && scale">
-        <rect
-          :x="layout.box.left"
-          :y="layout.box.top"
-          :width="layout.box.width"
-          :height="layout.box.height"
-          class="fill-lift"
-        />
-        <clipPath :id="clip">
+    <p v-if="failure" class="caps m-0 text-base text-soft">{{ failure }}</p>
+    <template v-else>
+      <div class="caps mb-3 text-base leading-snug text-soft">Drag the knob to change the spacing</div>
+      <svg
+        :class="['drawing group', slider.gripped.value ? 'cursor-grabbing held' : 'cursor-grab', { nudging }]"
+        :width="layout?.full ?? 0"
+        :height="layout?.tall ?? 0"
+        :viewBox="`0 0 ${layout?.full ?? 0} ${layout?.tall ?? 0}`"
+        aria-label="Time between samples"
+        :aria-valuetext="scale ? spoken(slider.index.value) : undefined"
+        v-bind="slider.attributes"
+        v-on="{ ...slider.events, pointercancel: release, pointerdown: press, pointerup: release }"
+        @animationend="nudging = false"
+      >
+        <g v-if="layout && scale">
           <rect
             :x="layout.box.left"
             :y="layout.box.top"
             :width="layout.box.width"
             :height="layout.box.height"
+            class="fill-lift"
           />
-        </clipPath>
-        <path :d="`M${layout.box.left} ${layout.y(0)}H${layout.box.right}`" class="axis" />
-        <g :clip-path="`url(#${clip})`">
-          <rect ref="gap" :x="layout.box.left" :width="layout.box.width" class="fill-u opacity-20" />
-          <path
-            :d="`M${layout.box.left} ${layout.peak.y}H${layout.box.right}`"
-            class="fill-none stroke-u stroke-[1.5] [stroke-dasharray:6_4]"
-          />
-          <line
-            ref="level"
-            :x1="layout.box.left"
-            :x2="layout.box.right"
-            class="fill-none stroke-ink stroke-[1.25]"
-          />
-          <path
-            :d="layout.curve"
-            class="fill-none stroke-2 [stroke-linecap:round] [stroke-linejoin:round]"
-            :stroke="drawings?.color"
-          />
-        </g>
-        <g ref="samples">
-          <circle v-for="index in scale.count" :key="index" :r="RADIUS" class="fill-ink" />
-        </g>
-        <circle ref="summit" r="7.5" class="fill-none stroke-ink stroke-[1.5]" />
-        <circle :cx="layout.peak.x" :cy="layout.peak.y" r="5.5" class="fill-u" />
-        <text
-          :x="layout.peak.x"
-          :y="layout.peak.y - 13"
-          class="caps fill-soft text-base"
-          text-anchor="middle"
-        >PEAK</text>
-        <path :d="`M${INSET} ${layout.below}H${layout.full - INSET}`" class="axis" />
-        <g v-for="(step, index) in STOPS" :key="step">
-          <circle :cx="layout.along(index)" :cy="layout.below" r="3" class="fill-ink" />
-          <text
-            v-if="step === TRACK_STEP || step === GRID_STEP"
-            :x="layout.along(index)"
-            :y="layout.below + 36"
-            class="caps fill-soft text-base"
-            text-anchor="middle"
-          >{{ NAMES[index] }}</text>
-        </g>
-        <g ref="handle" transform="translate(0 0)">
-          <g class="group-[.nudging]:animate-nudge">
-            <circle r="19" class="fill-none stroke-u stroke-2 opacity-0 group-focus-visible:opacity-100" />
-            <circle
-              r="14"
-              class="fill-panel stroke-ink stroke-2 transition-[stroke,stroke-width] duration-200
-                group-hover:stroke-u group-hover:stroke-3 group-focus-visible:stroke-u
-                group-focus-visible:stroke-3 group-[.held]:stroke-u group-[.held]:stroke-3
-                motion-reduce:transition-none"
+          <clipPath :id="clip">
+            <rect
+              :x="layout.box.left"
+              :y="layout.box.top"
+              :width="layout.box.width"
+              :height="layout.box.height"
+            />
+          </clipPath>
+          <path :d="`M${layout.box.left} ${layout.y(0)}H${layout.box.right}`" class="axis" />
+          <g :clip-path="`url(#${clip})`">
+            <rect ref="gap" :x="layout.box.left" :width="layout.box.width" class="fill-u opacity-20" />
+            <path
+              :d="`M${layout.box.left} ${layout.peak.y}H${layout.box.right}`"
+              class="fill-none stroke-u stroke-[1.5] [stroke-dasharray:6_4]"
+            />
+            <line
+              ref="level"
+              :x1="layout.box.left"
+              :x2="layout.box.right"
+              class="fill-none stroke-ink stroke-[1.25]"
             />
             <path
-              d="M-4 -5V5M0 -5V5M4 -5V5"
-              class="fill-none stroke-ink stroke-[1.75] [stroke-linecap:round]"
+              :d="layout.curve"
+              class="fill-none stroke-2 [stroke-linecap:round] [stroke-linejoin:round]"
+              :stroke="drawings?.color"
             />
           </g>
+          <g ref="samples">
+            <circle v-for="index in scale.count" :key="index" :r="RADIUS" class="fill-ink" />
+          </g>
+          <circle ref="summit" r="7.5" class="fill-none stroke-ink stroke-[1.5]" />
+          <circle :cx="layout.peak.x" :cy="layout.peak.y" r="5.5" class="fill-u" />
+          <text
+            :x="layout.peak.x"
+            :y="layout.peak.y - 13"
+            class="caps fill-soft text-base"
+            text-anchor="middle"
+          >PEAK</text>
+          <path :d="`M${INSET} ${layout.below}H${layout.full - INSET}`" class="axis" />
+          <g v-for="(step, index) in STOPS" :key="step">
+            <circle :cx="layout.along(index)" :cy="layout.below" r="3" class="fill-ink" />
+            <text
+              v-if="step === TRACK_STEP || step === GRID_STEP"
+              :x="layout.along(index)"
+              :y="layout.below + 36"
+              class="caps fill-soft text-base"
+              text-anchor="middle"
+            >{{ NAMES[index] }}</text>
+          </g>
+          <g ref="handle" transform="translate(0 0)">
+            <g class="group-[.nudging]:animate-nudge">
+              <circle r="19" class="fill-none stroke-u stroke-2 opacity-0 group-focus-visible:opacity-100" />
+              <circle
+                r="14"
+                class="fill-panel stroke-ink stroke-2 transition-[stroke,stroke-width] duration-200
+                  group-hover:stroke-u group-hover:stroke-3 group-focus-visible:stroke-u
+                  group-focus-visible:stroke-3 group-[.held]:stroke-u group-[.held]:stroke-3
+                  motion-reduce:transition-none"
+              />
+              <path
+                d="M-4 -5V5M0 -5V5M4 -5V5"
+                class="fill-none stroke-ink stroke-[1.75] [stroke-linecap:round]"
+              />
+            </g>
+          </g>
         </g>
-      </g>
-    </svg>
-    <Readings :readings="readings" />
+      </svg>
+      <Readings :readings="readings" />
+    </template>
   </figure>
 </template>

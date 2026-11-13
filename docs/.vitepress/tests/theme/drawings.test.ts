@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
-import { flushPromises, mount }     from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
-import { onMounted, shallowRef }    from 'vue'
+import { flushPromises, mount }       from '@vue/test-utils'
+import { describe, expect, it, vi }   from 'vitest'
+import { onMounted, ref, shallowRef } from 'vue'
 
 import { SPREADS, ringGapOf, spreadOf } from '../../lib/map/overlay.ts'
-import { AGES }                        from '../../lib/orbit/catalog.ts'
+import { AGES, UNLOADED }              from '../../lib/orbit/catalog.ts'
+import { UNDRAWN }                     from '../../lib/state/drawings.ts'
 import { TRACK_STEP }                  from '../../lib/orbit/scan.ts'
 import LookAngles                      from '../../theme/LookAngles.vue'
 import OrbitAges                       from '../../theme/OrbitAges.vue'
@@ -12,17 +13,26 @@ import PeakSearch                      from '../../theme/PeakSearch.vue'
 import { drawingsOf }                  from '../fixtures/drawings.ts'
 
 /**
- * The ages the drawings read in place of the fixture's, where a case sets them.
+ * The ages the drawings read in place of the fixture's, and the line a failed
+ * read shows, where a case sets them.
  */
-const aged = vi.hoisted(() => ({ ages: undefined as Float64Array | undefined }))
+const aged = vi.hoisted(() => ({
+  ages    : undefined as Float64Array | undefined,
+  failure : undefined as string | undefined
+}))
 
-vi.mock('../../lib/state/drawings.ts', async () => {
+vi.mock('../../lib/state/drawings.ts', async original => {
   const values = await (await import('../fixtures/drawings.ts')).drawingsOf()
   return {
+    ...await original<typeof import('../../lib/state/drawings.ts')>(),
     useDrawings: () => {
       const drawings = shallowRef<typeof values>()
-      onMounted(() => { drawings.value = { ...values, ages: aged.ages ?? values.ages } })
-      return drawings
+      const failure  = ref<string>()
+      onMounted(() => {
+        if (aged.failure) failure.value = aged.failure
+        else drawings.value = { ...values, ages: aged.ages ?? values.ages }
+      })
+      return { drawings, failure }
     }
   }
 })
@@ -212,5 +222,19 @@ describe('the catalog ages', () => {
     wrapper.unmount()
     aged.ages = undefined
     expect(readings).toEqual(['25.0 D OR MORE', '50%', '25.00 days or more, 50%'])
+  })
+})
+
+describe('a drawing whose values failed', () => {
+  it.each([LookAngles, PeakSearch, OrbitAges].flatMap(component => [UNLOADED, UNDRAWN].map(line => ({
+    component, line
+  }))))('states "$line" in place of the drawing', async ({ component, line }) => {
+    aged.failure = line
+    const wrapper = mount(component)
+    await flushPromises()
+    const shown = [wrapper.text(), wrapper.find('svg').exists()]
+    wrapper.unmount()
+    aged.failure = undefined
+    expect(shown).toEqual([line, false])
   })
 })

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as celestrak from '../../catalog/celestrak.ts'
 import { REGIONS }    from '../../catalog/cycle.ts'
 import wrangler       from '../../catalog/wrangler.json' with { type: 'json' }
+import { FILE }       from '../../lib/orbit/catalog.ts'
 
 vi.mock('cloudflare:workers', () => ({
   DurableObject: class { constructor(readonly ctx: unknown, readonly env: unknown) {} }
@@ -17,8 +18,7 @@ describe('the refresher', () => {
   })
   afterEach(() => { vi.restoreAllMocks() })
 
-  it('places the relay for each region through its own location hint, keeping the halt until '
-   + 'resumed', async () => {
+  it('places the relay for each region through its own location hint, keeping the wait', async () => {
     const getByName = vi.fn(() => ({ fetchCatalog: async () => new Response(null, { status: 522 }) }))
     const env       = { CATALOG: { put: vi.fn() }, RELAYS: { getByName } }
     const state     = new Map<string, unknown>()
@@ -28,12 +28,9 @@ describe('the refresher', () => {
       put    : (key: string, value: unknown) => void state.set(key, value)
     }
     const refresher = new Refresher({ storage: { kv } } as never, env as never)
-    expect(await refresher.run(0)).toBe('halted')
+    expect(await refresher.run(0)).toBe('waiting')
     expect(getByName.mock.calls).toEqual(REGIONS.map(region => [region, { locationHint: region }]))
-    const halt = refresher.halt()
-    expect(halt).toMatchObject({ kind: 'unreached' })
-    expect(refresher.resume()).toEqual(halt)
-    expect(refresher.halt()).toBeUndefined()
+    expect(state.get('wait')).toMatchObject({ kind: 'unreached' })
   })
 })
 
@@ -54,25 +51,28 @@ describe('the relay', () => {
 describe('the worker', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
-  it('answers the resume path through the refresher and runs it on the scheduled time', async () => {
-    const halt      = { kind: 'refused' }
-    const refresher = { halt: vi.fn(), resume: vi.fn(async () => halt), run: vi.fn() }
-    const getByName = vi.fn(() => refresher)
-    const env       = { REFRESHER: { getByName }, RESUME_TOKEN: 'token' }
-    vi.stubGlobal('caches', { default: {} })
-    const request  = new Request('https://upstairs.fyi/catalog/resume', {
-      headers : { authorization: 'Bearer token' },
-      method  : 'POST'
+  it('answers a request for the catalog from Workers KV and runs the refresher on the scheduled time',
+    async () => {
+      const refresher = { run: vi.fn() }
+      const getByName = vi.fn(() => refresher)
+      const get       = vi.fn(async () => null)
+      const env       = { CATALOG: { get }, REFRESHER: { getByName } }
+      vi.stubGlobal('caches', { default: { match: async () => undefined } })
+      const request   = new Request(`https://upstairs.fyi/${FILE}`)
+      const response  = await service.fetch(request as never, env as never, {} as never)
+      expect(response.status).toBe(503)
+      expect(get).toHaveBeenCalledOnce()
+      await service.scheduled({ scheduledTime: 7 } as never, env as never)
+      expect(refresher.run).toHaveBeenCalledExactlyOnceWith(7)
+      expect(getByName).toHaveBeenCalledExactlyOnceWith('catalog')
     })
-    const response = await service.fetch(request as never, env as never, {} as never)
-    expect(await response.json()).toEqual(halt)
-    await service.scheduled({ scheduledTime: 7 } as never, env as never)
-    expect(refresher.run).toHaveBeenCalledExactlyOnceWith(7)
-    expect(getByName.mock.calls).toEqual([['catalog'], ['catalog']])
-  })
 })
 
 describe('the deploy config', () => {
+  it('routes the catalog path alone to the service', () => {
+    expect(wrangler.routes.map(route => route.pattern)).toEqual([`upstairs.fyi/${FILE}`])
+  })
+
   it('turns on Workers Logs and Workers Observability Issues', () => {
     expect(wrangler.observability).toEqual({ enabled: true, issues: { enabled: true } })
   })
