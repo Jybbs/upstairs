@@ -2,10 +2,9 @@
 import { mount }      from '@vue/test-utils'
 import { expect, it } from 'vitest'
 
-import { KINDS, type Kind } from '../../lib/orbit/kinds.ts'
-import { TRACK_WIDTH }      from '../../lib/orbit/scan.ts'
-import { passOf }           from '../fixtures/passes.ts'
-import { freshSky }         from '../fixtures/sky.ts'
+import { KINDS, type Kind }     from '../../lib/orbit/kinds.ts'
+import { passOf }               from '../fixtures/passes.ts'
+import { addScanned, freshSky } from '../fixtures/sky.ts'
 
 /**
  * A pass of each of three kinds traced from the start and of one left out,
@@ -26,7 +25,7 @@ const PASSES = [
  */
 const mounted = async () => {
   const { component: Filters, sky } = await freshSky(() => import('../../theme/Filters.vue'))
-  sky.tracks.add(PASSES, new Float32Array(TRACK_WIDTH), new Uint32Array(PASSES.length), 1)
+  addScanned(sky, PASSES)
   sky.inFrame.value = Uint8Array.of(1, 0, 1, 1)
   const wrapper     = mount(Filters)
   const chipOf      = (text: string) => wrapper.findAll('button').find(button => button.text() === text)!

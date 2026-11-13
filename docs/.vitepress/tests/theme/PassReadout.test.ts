@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { TRACK_STEP, TRACK_WIDTH, type Pass } from '../../lib/orbit/scan.ts'
 import { passOf }                             from '../fixtures/passes.ts'
-import { freshSky }                           from '../fixtures/sky.ts'
+import { lateSky }                            from '../fixtures/sky.ts'
 
 /**
  * Matches the outline of a rise tick or a set arrowhead.
@@ -20,9 +20,8 @@ const END = /^M[^L]*L[^L]*(L[^L]*Z)?$/
  * seconds from its rise to its peak.
  */
 const mounted = async (seconds: number, changes: Partial<Pass> = {}, drift = 0) => {
-  vi.stubEnv('TZ', 'America/New_York')
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
-  const { component: Readout, sky } = await freshSky(() => import('../../theme/Readout.vue'))
+  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.vue'))
   const pass                        = passOf(1, changes)
   const samples                     = sky.span / TRACK_STEP + 1
   const track                       = new Float32Array(samples * TRACK_WIDTH)
@@ -33,10 +32,9 @@ const mounted = async (seconds: number, changes: Partial<Pass> = {}, drift = 0) 
     track.set([latitude + 5, longitude + east, 60 - Math.abs(time - 600) / 5], index * 3)
   }
   sky.tracks.add([pass], track, Uint32Array.of(0), samples)
-  sky.done.value   = true
-  sky.start.value  = new Date(2026, 10, 10, 23, 47).getTime()
-  sky.at.value     = seconds
-  sky.held.value   = pass
+  sky.done.value = true
+  sky.at.value   = seconds
+  sky.held.value = pass
   sky.version.value++
   return { sky, wrapper: mount(Readout, { attachTo: document.body }) }
 }

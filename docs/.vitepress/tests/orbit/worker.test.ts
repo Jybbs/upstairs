@@ -12,6 +12,7 @@ import full                   from '../fixtures/records.json' with { type: 'json
 const FETCHED = Date.parse('2026-11-06T18:53:57.264Z')
 const START   = Date.parse(answers.start)
 const file    = encode(FETCHED, full as unknown as Record[])
+const whole   = await readFile(new URL('../fixtures/catalog.bin', import.meta.url))
 
 const built = vi.hoisted(() => ({ grids: 0 }))
 
@@ -32,17 +33,42 @@ vi.mock('../../../../rust/pkg/orbit.js', async importOriginal => {
 
 let heard: Answer[]
 let hear: (asked: Asked) => Promise<void>
+let heed: (answer: Answer) => void
+
+/**
+ * Queues `run` as the worker's next task, after every task queued before it,
+ * running once the microtasks of the task before it have settled.
+ */
+const task = (run: () => void) => setImmediate(run)
+
+/**
+ * Stands in for the worker's `MessageChannel`, delivering each message to
+ * `port1` as a task queued through `task`.
+ */
+class Channel {
+  port1 = { onmessage: null as (() => void) | null }
+  port2 = { postMessage: () => task(() => this.port1.onmessage?.()) }
+}
 
 /**
  * Loads a fresh copy of the worker over a page whose catalog request `answer`
- * replies to, with every answer it posts collected in `heard`.
+ * replies to, with every answer it posts collected in `heard` and then passed
+ * to `heed`, and every yield it takes queued through `task`.
  */
 const loaded = async (answer = () => new Response(file)) => {
-  heard        = []
-  built.grids  = 0
-  const scope  = { onmessage: null as unknown, postMessage: (posted: Answer) => heard.push(posted) }
+  heard       = []
+  heed        = () => {}
+  built.grids = 0
+  const scope = {
+    onmessage   : null as unknown,
+    postMessage : (posted: Answer) => {
+      heard.push(posted)
+      heed(posted)
+    }
+  }
   vi.stubGlobal('self', scope)
   vi.stubGlobal('fetch', vi.fn(async () => answer()))
+  vi.stubGlobal('MessageChannel', Channel)
   vi.resetModules()
   await import('../../lib/orbit/worker.ts')
   hear = data => (scope.onmessage as (event: { data: Asked }) => Promise<void>)({ data })
@@ -53,7 +79,7 @@ const loaded = async (answer = () => new Response(file)) => {
  * Returns the message asking for scan `id` of the hour from `start` over
  * `spot`, each the known answers' own where none is given.
  */
-const scanOf = (id: number, spot = answers.spot, start = START): Asked =>
+const scanOf = (id: number, spot = answers.spot, start = START): Extract<Asked, { type: 'scan' }> =>
   ({ id, minutes: answers.grid.minutes, spot, start, type: 'scan' })
 
 /**
@@ -66,7 +92,7 @@ beforeEach(() => loaded())
 afterEach(() => vi.unstubAllGlobals())
 
 describe('loading the catalog', () => {
-  it('counts the satellites loaded so far as each segment arrives, with the time the catalog was fetched', () => {
+  it('counts the satellites loaded so far as each segment arrives, beside the catalog’s fetch time', () => {
     const first = full.filter(record => kindOf(record.OBJECT_NAME) !== 'starlink').length
     expect(heard).toEqual([first, full.length].map(count => ({ count, fetched: FETCHED, type: 'loaded' })))
   })
@@ -107,6 +133,21 @@ describe('a scan', () => {
     if (held) await hear(scanOf(1))
     await Promise.all([hear(scanOf(2)), hear(scanOf(3))])
     expect([typesOf(2), typesOf(3).at(-1)]).toEqual([older, 'done'])
+  })
+
+  it('stops a scan of more than one batch after the batch under way once a newer scan arrives', async () => {
+    await loaded(() => new Response(whole))
+    let newer = Promise.resolve()
+    heed      = answer => {
+      if (answer.type !== 'passes') return
+      heed = () => {}
+      task(() => { newer = hear({ ...scanOf(2), minutes: 1 }) })
+    }
+    await hear(scanOf(1))
+    await newer
+    const [first] = heard.filter(answer => answer.type === 'passes')
+    expect([typesOf(1), first.done < first.total, typesOf(2).at(-1)])
+      .toEqual([['counts', 'passes'], true, 'done'])
   })
 
   it.each([

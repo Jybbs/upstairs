@@ -2,9 +2,8 @@
 import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
-import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
-import { passOf }      from '../fixtures/passes.ts'
-import { freshSky }    from '../fixtures/sky.ts'
+import { passOf }               from '../fixtures/passes.ts'
+import { addScanned, freshSky } from '../fixtures/sky.ts'
 
 /**
  * Mounts the time strip over a fresh copy of the shared state and a stand-in
@@ -19,10 +18,9 @@ const mounted = async (reduced: boolean, phone = false) => {
   }))
   const { component: TimeStrip, sky } = await freshSky(() => import('../../theme/TimeStrip.vue'))
   const pass                          = passOf(1)
-  sky.tracks.add([pass], new Float32Array(TRACK_WIDTH), Uint32Array.of(0), 1)
+  addScanned(sky, [pass])
   sky.scope.value = 'sky'
-  sky.version.value++
-  const wrapper = mount(TimeStrip)
+  const wrapper   = mount(TimeStrip)
   await wrapper.vm.$nextTick()
   return { pass, sky, wrapper }
 }
