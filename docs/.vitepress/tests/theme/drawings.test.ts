@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
-import { flushPromises, mount }     from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
-import { onMounted, shallowRef }    from 'vue'
+import { flushPromises, mount }       from '@vue/test-utils'
+import { describe, expect, it, vi }   from 'vitest'
+import { onMounted, ref, shallowRef } from 'vue'
 
 import { SPREADS, ringGapOf, spreadOf } from '../../lib/map/overlay.ts'
-import { AGES }                        from '../../lib/orbit/catalog.ts'
+import { AGES, UNLOADED }              from '../../lib/orbit/catalog.ts'
 import { TRACK_STEP }                  from '../../lib/orbit/scan.ts'
 import LookAngles                      from '../../theme/LookAngles.vue'
 import OrbitAges                       from '../../theme/OrbitAges.vue'
@@ -12,17 +12,22 @@ import PeakSearch                      from '../../theme/PeakSearch.vue'
 import { drawingsOf }                  from '../fixtures/drawings.ts'
 
 /**
- * The ages the drawings read in place of the fixture's, where a case sets them.
+ * The ages the drawings read in place of the fixture's, and whether the read
+ * fails, where a case sets them.
  */
-const aged = vi.hoisted(() => ({ ages: undefined as Float64Array | undefined }))
+const aged = vi.hoisted(() => ({ ages: undefined as Float64Array | undefined, failed: false }))
 
 vi.mock('../../lib/state/drawings.ts', async () => {
   const values = await (await import('../fixtures/drawings.ts')).drawingsOf()
   return {
     useDrawings: () => {
       const drawings = shallowRef<typeof values>()
-      onMounted(() => { drawings.value = { ...values, ages: aged.ages ?? values.ages } })
-      return drawings
+      const failed   = ref(false)
+      onMounted(() => {
+        if (aged.failed) failed.value = true
+        else drawings.value = { ...values, ages: aged.ages ?? values.ages }
+      })
+      return { drawings, failed }
     }
   }
 })
@@ -213,4 +218,17 @@ describe('the catalog ages', () => {
     aged.ages = undefined
     expect(readings).toEqual(['25.0 D OR MORE', '50%', '25.00 days or more, 50%'])
   })
+})
+
+describe('a drawing whose catalog did not load', () => {
+  it.each([LookAngles, PeakSearch, OrbitAges])('states that the catalog did not load in place of the drawing',
+    async component => {
+      aged.failed = true
+      const wrapper = mount(component)
+      await flushPromises()
+      const shown = [wrapper.text(), wrapper.find('svg').exists()]
+      wrapper.unmount()
+      aged.failed = false
+      expect(shown).toEqual([UNLOADED, false])
+    })
 })

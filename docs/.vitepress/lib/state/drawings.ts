@@ -5,7 +5,7 @@
  * fetched.
  */
 
-import { onMounted, shallowRef } from 'vue'
+import { onMounted, ref, shallowRef } from 'vue'
 
 import init, * as orbit from '../../../../rust/pkg/orbit.js'
 import * as catalog     from '../orbit/catalog.ts'
@@ -66,10 +66,14 @@ const load = async (): Promise<Drawings> => {
 
 /**
  * Returns a ref holding the drawings' values once a component has mounted and
- * the catalog is read.
+ * the catalog is read, beside a ref that turns `true` where the read fails.
  */
 export const useDrawings = () => {
   const drawings = shallowRef<Drawings>()
-  onMounted(async () => { drawings.value = await drawingsOf() })
-  return drawings
+  const failed   = ref(false)
+  onMounted(() => drawingsOf().then(
+    values => { drawings.value = values },
+    ()     => { failed.value = true }
+  ))
+  return { drawings, failed }
 }

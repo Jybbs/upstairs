@@ -8,6 +8,7 @@
 import { useElementSize }                 from '@vueuse/core'
 import { computed, onBeforeUnmount, ref } from 'vue'
 
+import { UNLOADED }       from '../lib/orbit/catalog.ts'
 import { pointOf }        from '../lib/orbit/compass.ts'
 import type { Look }      from '../lib/orbit/looks.ts'
 import { clamp }          from '../lib/site/motion.ts'
@@ -18,10 +19,11 @@ import Readings           from './Readings.vue'
 
 const RADIANS = Math.PI / 180
 
-const drawings = useDrawings()
-const frame    = ref<HTMLElement>()
-const size     = useElementSize(frame)
-const width    = computed(() => Math.round(size.width.value))
+const { drawings, failed } = useDrawings()
+
+const frame = ref<HTMLElement>()
+const size  = useElementSize(frame)
+const width = computed(() => Math.round(size.width.value))
 
 const looks  = computed(() => drawings.value?.highest.looks ?? [])
 const peak   = computed(() => nearest(look => -look.elevation))
@@ -102,58 +104,61 @@ onBeforeUnmount(() => slider.value.leave())
 
 <template>
   <figure ref="frame" class="panel">
-    <svg
-      class="drawing cursor-pointer"
-      :width="2 * shape.half"
-      :height="shape.half"
-      :viewBox="`0 0 ${2 * shape.half} ${shape.half}`"
-      aria-label="The pass across the sky"
-      :aria-valuetext="look && spoken(look)"
-      v-bind="slider.attributes"
-      v-on="slider.events"
-    >
-      <g v-if="parts && width">
-        <circle :cx="shape.cx" :cy="shape.cy" :r="shape.radius" class="fill-lift" />
-        <circle
-          v-for="elevation in [30, 60]"
-          :key="elevation"
-          :cx="shape.cx"
-          :cy="shape.cy"
-          :r="shape.radius * (90 - elevation) / 90"
-          class="guide"
-        />
-        <path
-          :d="`M${shape.cx - shape.radius} ${shape.cy}H${shape.cx + shape.radius}`
-            + `M${shape.cx} ${shape.cy - shape.radius}V${shape.cy + shape.radius}`"
-          class="guide"
-        />
-        <circle :cx="shape.cx" :cy="shape.cy" :r="shape.radius" class="axis" />
-        <text
-          :x="shape.cx"
-          :y="shape.cy - shape.radius - 8"
-          class="caps fill-soft text-base"
-          text-anchor="middle"
-        >N</text>
-        <path :d="parts.sweep" class="fill-none stroke-u stroke-3 [stroke-linecap:round]" />
-        <path
-          :d="trail"
-          class="fill-none stroke-3 [stroke-linecap:round] [stroke-linejoin:round]"
-          :stroke="drawings?.color"
-        />
-        <path :d="parts.needle" class="fill-none stroke-ink stroke-[1.25]" />
-        <circle v-bind="parts.dot" r="6.5" class="stroke-panel stroke-[2.5]" :fill="drawings?.color" />
-        <path :d="`M${shape.half + 4} ${shape.sy}H${2 * shape.half - 4}`" class="axis" />
-        <path
-          :d="`M${shape.sx + shape.reach} ${shape.sy}`
-            + `A${shape.reach} ${shape.reach} 0 0 0 ${shape.sx} ${shape.sy - shape.reach}`"
-          class="guide"
-        />
-        <path :d="parts.wedge" class="fill-u opacity-25" />
-        <path :d="parts.sight" class="fill-none stroke-ink stroke-[1.25]" />
-        <circle :cx="shape.sx" :cy="shape.sy" r="4.5" class="fill-u" />
-        <circle v-bind="parts.side" r="6.5" class="stroke-panel stroke-[2.5]" :fill="drawings?.color" />
-      </g>
-    </svg>
-    <Readings :readings="readings" />
+    <p v-if="failed" class="caps m-0 text-base text-soft">{{ UNLOADED }}</p>
+    <template v-else>
+      <svg
+        class="drawing cursor-pointer"
+        :width="2 * shape.half"
+        :height="shape.half"
+        :viewBox="`0 0 ${2 * shape.half} ${shape.half}`"
+        aria-label="The pass across the sky"
+        :aria-valuetext="look && spoken(look)"
+        v-bind="slider.attributes"
+        v-on="slider.events"
+      >
+        <g v-if="parts && width">
+          <circle :cx="shape.cx" :cy="shape.cy" :r="shape.radius" class="fill-lift" />
+          <circle
+            v-for="elevation in [30, 60]"
+            :key="elevation"
+            :cx="shape.cx"
+            :cy="shape.cy"
+            :r="shape.radius * (90 - elevation) / 90"
+            class="guide"
+          />
+          <path
+            :d="`M${shape.cx - shape.radius} ${shape.cy}H${shape.cx + shape.radius}`
+              + `M${shape.cx} ${shape.cy - shape.radius}V${shape.cy + shape.radius}`"
+            class="guide"
+          />
+          <circle :cx="shape.cx" :cy="shape.cy" :r="shape.radius" class="axis" />
+          <text
+            :x="shape.cx"
+            :y="shape.cy - shape.radius - 8"
+            class="caps fill-soft text-base"
+            text-anchor="middle"
+          >N</text>
+          <path :d="parts.sweep" class="fill-none stroke-u stroke-3 [stroke-linecap:round]" />
+          <path
+            :d="trail"
+            class="fill-none stroke-3 [stroke-linecap:round] [stroke-linejoin:round]"
+            :stroke="drawings?.color"
+          />
+          <path :d="parts.needle" class="fill-none stroke-ink stroke-[1.25]" />
+          <circle v-bind="parts.dot" r="6.5" class="stroke-panel stroke-[2.5]" :fill="drawings?.color" />
+          <path :d="`M${shape.half + 4} ${shape.sy}H${2 * shape.half - 4}`" class="axis" />
+          <path
+            :d="`M${shape.sx + shape.reach} ${shape.sy}`
+              + `A${shape.reach} ${shape.reach} 0 0 0 ${shape.sx} ${shape.sy - shape.reach}`"
+            class="guide"
+          />
+          <path :d="parts.wedge" class="fill-u opacity-25" />
+          <path :d="parts.sight" class="fill-none stroke-ink stroke-[1.25]" />
+          <circle :cx="shape.sx" :cy="shape.sy" r="4.5" class="fill-u" />
+          <circle v-bind="parts.side" r="6.5" class="stroke-panel stroke-[2.5]" :fill="drawings?.color" />
+        </g>
+      </svg>
+      <Readings :readings="readings" />
+    </template>
   </figure>
 </template>

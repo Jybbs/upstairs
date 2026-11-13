@@ -6,9 +6,9 @@
 import type { Record } from '../lib/orbit/catalog.ts'
 
 /**
- * What halts the download cycle once a request reaches CelesTrak, where a
- * refusal keeps the status, the headers in `KEPT`, and the first `EXCERPT`
- * characters of the body CelesTrak answered with.
+ * What starts a wait of the download cycle once a request reaches CelesTrak,
+ * where a refusal keeps the status, the headers in `KEPT`, and the first
+ * `EXCERPT` characters of the body CelesTrak answered with.
  */
 export type Failure =
   | { kind: 'refused', reason: string, body: string, headers: { [name: string]: string }, status: number }
@@ -17,7 +17,7 @@ export type Failure =
 const AGENT    = 'upstairs-catalog'
 const AT_LEAST = 5000
 /**
- * The most characters of a refusal's body a halt keeps.
+ * The most characters of a refusal's body a wait keeps.
  */
 export const EXCERPT = 4096
 /**
@@ -26,7 +26,7 @@ export const EXCERPT = 4096
  */
 export const HEADER_WAIT = 30_000
 /**
- * The headers of a refusal a halt keeps.
+ * The headers of a refusal a wait keeps.
  */
 export const KEPT   = ['cf-ray', 'content-type', 'location', 'retry-after']
 export const SOURCE = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json'
@@ -37,8 +37,8 @@ export const SOURCE = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&
 const UNCONNECTED = [521, 522, 523]
 
 /**
- * Marks a download that halts the cycle, carrying the failure the halt
- * records.
+ * Marks a download that starts a wait of the cycle, carrying the failure the
+ * wait records.
  */
 export class Failed extends Error {
   constructor(readonly failure: Failure) {
