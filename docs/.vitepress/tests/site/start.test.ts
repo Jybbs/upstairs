@@ -46,6 +46,9 @@ describe('the start cards', () => {
       .toContain(`${start.startFileOf(page, 'day')}" alt="${page}" width="${width}" height="${height}">`)
   })
 
+  it('centers the row of cards in the README', () =>
+    expect(README).toContain(`<p align="center">\n<a href="${start.startLinkOf('Map').href}">`))
+
   it('sets the cards in the README in the order the pages are listed', () => {
     const at = start.startPagesOf().map(page => README.indexOf(start.startFileOf(page, 'day')))
     expect(at).toEqual(at.toSorted((a, b) => a - b))

@@ -17,8 +17,8 @@
 ***Upstairs*** counts every active satellite above a spot chosen on a terrain map, lists the passes crossing its sky, and plays them through a window of time. The reader's browser calculates each position from the orbital elements [CelesTrak](https://celestrak.org/) publishes, running the SGP4 orbit model through the [`sgp4`](https://docs.rs/sgp4) crate compiled to [WebAssembly](https://webassembly.org/), and [MapLibre](https://maplibre.org/) draws the terrain map beneath the satellites. A catalog service on [Cloudflare Workers](https://developers.cloudflare.com/workers/) downloads the elements from CelesTrak at most once every two hours, as CelesTrak asks, and every reader's browser reads that copy from `upstairs.fyi`.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../docs/public/reel-night.gif">
-  <img src="../docs/public/reel-day.gif" alt="The home map over Boston with time running fast, satellites crossing its sky while the count of those above it rises and falls." width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="reel-night.gif">
+  <img src="reel-day.gif" alt="Satellites cross the sky over Boston on the home map as time runs fast, and the count of those above the spot rises and falls." width="100%">
 </picture>
 
 ---

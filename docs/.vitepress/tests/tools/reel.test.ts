@@ -12,7 +12,7 @@ const HOLDING = { hold: 8, refresh: 4 }
 const NAMES   = Object.keys(SCHEMES) as SchemeName[]
 
 const fileOf = (scheme: SchemeName) =>
-  fileURLToPath(new URL(`../../../public/${reel.reelFileOf(scheme)}`, import.meta.url))
+  fileURLToPath(new URL(`../../../../.github/${reel.reelFileOf(scheme)}`, import.meta.url))
 const pixels = (...levels: number[]) => Buffer.from(levels)
 
 describe('holding the pixels that barely move', () => {
@@ -60,6 +60,18 @@ describe('the reel', () => {
     expect(statSync(fileOf(scheme)).size).toBeLessThan(6_000_000)
   })
 
-  it.each(NAMES)('shows the %s reel in the README', scheme =>
-    expect(README).toContain(`../docs/public/${reel.reelFileOf(scheme)}`))
+  it('shows every frame of the reel for one step', async () => {
+    const frames = [0, 120, 240].map(level => Buffer.alloc(12, level))
+    const gif    = await reel.reelGifOf(frames, { channels: 3, height: 2, width: 2 })
+    expect((await sharp(gif).metadata()).delay).toEqual(frames.map(() => reel.REEL.step))
+  })
+
+  it('shows the night reel under the dark scheme and the day reel under the light one', () =>
+    expect(README).toContain([
+      `<source media="(prefers-color-scheme: dark)" srcset="${reel.reelFileOf('night')}">`,
+      `  <img src="${reel.reelFileOf('day')}"`
+    ].join('\n')))
+
+  it('fills the README’s column with the reel', () =>
+    expect(README).toMatch(new RegExp(`<img src="${reel.reelFileOf('day')}" alt="[^"]+" width="100%">`)))
 })

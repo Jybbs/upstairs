@@ -62,6 +62,12 @@ describe('the files the README and the browser read', () => {
     const { height, width } = sizeOf(mark.wordmarkOf('day'))
     expect(README).toContain(`alt="upstairs" width="${width}" height="${Math.round(height)}"`)
   })
+  it('closes the README’s opening block on the word and the badge row', () => {
+    const block = README.slice(README.indexOf('</picture>') + '</picture>'.length, README.indexOf('</div>'))
+    expect(block.split('\n').filter(line => line && !line.startsWith('[!['))).toEqual([])
+  })
+  it('opens the README’s sections on their emoji in order', () =>
+    expect(README.match(/^## \S+/gmu)).toEqual(['## 🛰️', '## 📍', '## ⌨️', '## ©️']))
   it.each(NAMES)('colors the favicon’s U as the %s scheme colors the word’s', scheme =>
     expect(mark.faviconOf()).toContain(`fill:${SCHEMES[scheme].u}`))
 

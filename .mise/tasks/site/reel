@@ -1,7 +1,7 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "reel"
 #MISE depends     = ["crate:compile", "site:install"]
-#MISE description = "Record the README's preview of the home map from the committed fixture catalog into `docs/public/`, one GIF per scheme"
+#MISE description = "Record the README's preview of the home map from the committed fixture catalog into `.github/`, one GIF per scheme"
 #MISE dir         = "{{config_root}}/docs"
 
 common=$(git rev-parse --path-format=absolute --git-common-dir)
