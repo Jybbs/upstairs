@@ -31,14 +31,34 @@ vi.mock('../../../../rust/pkg/orbit.js', async importOriginal => {
   }
 })
 
+const tasks: (() => void)[] = []
+
 let heard: Answer[]
 let hear: (asked: Asked) => Promise<void>
 let heed: (answer: Answer) => void
 
 /**
+ * Queues `run` as the worker's next task, after every task queued before it,
+ * running once the microtasks of the task before it have settled.
+ */
+const task = (run: () => void) => {
+  tasks.push(run)
+  setTimeout(() => tasks.shift()?.())
+}
+
+/**
+ * Stands in for the worker's `MessageChannel`, delivering each message to
+ * `port1` as a task on the queue `task` keeps.
+ */
+class Channel {
+  port1 = { onmessage: null as (() => void) | null }
+  port2 = { postMessage: () => task(() => this.port1.onmessage?.()) }
+}
+
+/**
  * Loads a fresh copy of the worker over a page whose catalog request `answer`
  * replies to, with every answer it posts collected in `heard` and then passed
- * to `heed`.
+ * to `heed`, and every yield it takes queued through `task`.
  */
 const loaded = async (answer = () => new Response(file)) => {
   heard       = []
@@ -53,6 +73,7 @@ const loaded = async (answer = () => new Response(file)) => {
   }
   vi.stubGlobal('self', scope)
   vi.stubGlobal('fetch', vi.fn(async () => answer()))
+  vi.stubGlobal('MessageChannel', Channel)
   vi.resetModules()
   await import('../../lib/orbit/worker.ts')
   hear = data => (scope.onmessage as (event: { data: Asked }) => Promise<void>)({ data })
@@ -125,7 +146,7 @@ describe('a scan', () => {
     heed      = answer => {
       if (answer.type !== 'passes') return
       heed = () => {}
-      queueMicrotask(() => { newer = hear({ ...scanOf(2), minutes: 1 }) })
+      task(() => { newer = hear({ ...scanOf(2), minutes: 1 }) })
     }
     await hear(scanOf(1))
     await newer
