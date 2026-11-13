@@ -19,7 +19,7 @@ export default defineConfig({
       include          : ['.vitepress/{catalog,preview,lib,theme,tools}/**/*.{ts,vue}'],
       provider         : 'istanbul',
       reportOnFailure  : true,
-      reporter         : ['text', 'html'],
+      reporter         : ['text', 'html', 'json-summary'],
       reportsDirectory : '../.cache/coverage',
       thresholds       : { branches: 28, functions: 51, lines: 34, statements: 34 }
     }
