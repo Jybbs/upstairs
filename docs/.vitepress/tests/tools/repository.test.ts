@@ -11,6 +11,7 @@ type Job    = repository.Workflow['jobs'][string]
 const CHECKOUT_PIN = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
 const PROVISION    = '$/.github/actions/provision'
 const ROOT         = fileURLToPath(new URL('../../../..', import.meta.url))
+const SPLIT_ROW    = { Rust: null, name: '🔥 Bun', tools: 'bun' }
 
 let base: repository.Repository
 
@@ -218,6 +219,11 @@ describe('Repository', () => {
       'a matrix row running a task .mise/tasks/ does not declare',
       job({ strategy: { matrix: { include: [{ name: 'a', task: 'site:tset', tools: 'bun' }] } } }),
       'added.yml runs mise run site:tset, which .mise/tasks/ does not declare'
+    ],
+    [
+      'a matrix row whose unquoted name splits at a comma into a key of its own',
+      job({ strategy: { matrix: { include: [SPLIT_ROW] } } }),
+      'added.yml holds a matrix row with the key Rust, which no step reads'
     ],
     [
       'a job restoring tools no Warm row saves',
