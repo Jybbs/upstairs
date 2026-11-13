@@ -6,7 +6,7 @@ import SatelliteName                   from './SatelliteName.vue'
 </script>
 
 <template>
-  <section class="min-h-0 flex-1 xl:overflow-y-auto" aria-label="Passes">
+  <section class="xl:overflow-y-auto" aria-label="Passes">
     <p class="caps sticky top-0 z-10 flex justify-between border-b border-rule bg-panel px-4 py-2 text-soft">
       <span>{{ sky.rows.value.list.length + sky.rows.value.more }} passes</span>
       <span>Highest</span>

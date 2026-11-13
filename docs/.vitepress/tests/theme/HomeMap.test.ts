@@ -5,6 +5,7 @@ import { expect, it, vi } from 'vitest'
 import { freshSky } from '../fixtures/sky.ts'
 
 vi.mock('../../lib/site/entries.data.ts', () => ({ data: [] }))
+vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
 
 /**
  * Mounts the home page over a fresh copy of the shared state, every component

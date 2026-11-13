@@ -65,6 +65,10 @@ The first deploy creates the Workers KV namespace the service stores the catalog
 4. Confirm that a request for `upstairs.fyi/catalog.bin` reaches the Worker rather than the Pages project
 5. Confirm that the `upstairs` project names `main` as its production branch and has `upstairs.fyi` attached as a custom domain, since a deploy to any other branch makes a [preview](https://developers.cloudflare.com/pages/configuration/preview-deployments/) the custom domain never serves, and a Direct Upload project changes that branch only through the [Update Project](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/edit/) endpoint
 
+## Releasing
+
+Each push to `main` that changes `docs/package.json` runs `🛰️ Draft`, which also runs by hand from `main` through `workflow_dispatch`. `🏷️ Cut` compares the version the manifest carries with the one it carried before the push and stops where the version did not move, as on a dependency change. Where it moved, or on a run by hand, the job reads the repository's releases and creates a draft with [generated notes](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes), grouped by the categories in `.github/release.yml`, where no release carries the version yet. A draft already carrying it stays as it is, a published release carrying it skips the cut with a warning, and a read that fails fails the run, so one version never holds two drafts. Publishing the draft from the Releases page lands its tag on the commit the run drafted from. The shield at the foot of the home page, at the end of the hour's list in a phone's sheet, and below the reading column of every doc page shows the version, the commit the site was pressed from, and the `sgp4` version `rust/Cargo.lock` resolves.
+
 ## Labels
 
 An issue and a pull request each carry the label of every domain the change lands in, and a defect takes `🐞 bug` beside them. `.github/labels.toml` declares each label, and `.github/release.yml` files it under one category of the release notes.

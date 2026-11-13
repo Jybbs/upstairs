@@ -5,6 +5,10 @@
   "version": "0.0.0",
   "description": "Shows the satellites passing over a chosen spot on a topographic map.",
   "homepage": "https://upstairs.fyi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jybbs/upstairs"
+  },
   "keywords": [
     "celestrak",
     "maplibre",
