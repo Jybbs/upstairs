@@ -13,7 +13,13 @@ import { ridgeOf }                  from '../lib/site/ridges.ts'
 import { CLOCK, minuteFormat, sky } from '../lib/state/sky.ts'
 import Icon                         from './Icon.vue'
 
-const LABEL_WIDTH = 78
+/**
+ * A label's width per character in ems, JetBrains Mono's advance of 0.6 beside
+ * the 0.1 the `caps` letter spacing adds, the room in pixels kept between two
+ * labels, and the font size in pixels `caps` sets a label in on a phone and
+ * wider.
+ */
+const LABEL       = { advance: 0.7, gap: 8, phone: 12, wide: 11 } as const
 /**
  * The strip's height, the row its ground runs along, the height a pass
  * standing straight overhead climbs to above it, and its inset either side, in
@@ -60,17 +66,21 @@ const stacked = computed(() => ridges.value
     Number(a.pass === sky.held.value) - Number(b.pass === sky.held.value) || b.pass.peak - a.pass.peak))
 const strip = ref<SVGSVGElement>()
 /**
- * The strip's ticks, labeling every one standing a label and a half from the
- * last, since the first and the last labels stand wholly inside the strip
- * where every other label centers on its tick.
+ * The strip's ticks, labeled every so many ticks that each label clears the
+ * one before it by `LABEL.gap`, the spacing taking the whole width of the
+ * widest label beside half of another, since the first and the last labels
+ * stand wholly inside the strip where every other label centers on its tick.
  */
 const ticks = computed(() => {
-  const every = Math.ceil(LABEL_WIDTH * 1.5 / (inner.value / TICKS))
-  return Array.from({ length: TICKS + 1 }, (_, index) => {
+  const clocks = Array.from({ length: TICKS + 1 }, (_, index) => sky.clockOf(index * sky.span / TICKS))
+  const size   = phone.value ? LABEL.phone : LABEL.wide
+  const label  = Math.max(...clocks.map(clock => clock.length)) * LABEL.advance * size
+  const every  = Math.ceil((label * 1.5 + LABEL.gap) / (inner.value / TICKS))
+  return clocks.map((clock, index) => {
     const seconds = index * sky.span / TICKS
     return {
       anchor  : index === 0 ? 'start' : index === TICKS ? 'end' : 'middle',
-      clock   : index % every === 0 ? sky.clockOf(seconds) : '',
+      clock   : index % every === 0 ? clock : '',
       seconds : seconds,
       x       : xOf(seconds)
     }

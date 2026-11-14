@@ -45,9 +45,19 @@ const { height: headHeight }  = useElementSize(head, undefined, { box: 'border-b
 const { height: blockHeight } = useElementSize(block, undefined, { box: 'border-box' })
 const { height: sheetHeight } = useElementSize(sheet, undefined, { box: 'border-box' })
 const { width: climbWidth }   = useElementSize(climb)
-const stops = computed(() => [
-  peekHeight.value,
-  sky.shown.value ? Math.ceil(headHeight.value + blockHeight.value) : peekHeight.value,
+/**
+ * The peek's height as last measured with the strip in it, since the half
+ * stop sets the strip aside.
+ */
+const rested = ref(0)
+/**
+ * The height the sheet shows at each stop, half standing no higher than full.
+ */
+const stops  = computed(() => [
+  rested.value,
+  sky.shown.value
+    ? Math.min(Math.ceil(headHeight.value + blockHeight.value), sheetHeight.value)
+    : rested.value,
   sheetHeight.value
 ])
 /**
@@ -141,6 +151,7 @@ const rest = (to: 0 | 1 | 2) => {
   if (stop.value === 0) sky.release()
 }
 
+watch(peekHeight, height => { if (stop.value !== 1) rested.value = height }, { immediate: true })
 watch(sky.pinned, pinned => { if (pinned) rest(1); else if (stop.value === 1) rest(0) })
 watch([stop, stops], () => {
   if (grabbed) return

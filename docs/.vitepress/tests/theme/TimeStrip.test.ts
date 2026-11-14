@@ -18,6 +18,16 @@ vi.mock('@vueuse/core', async original => ({
 }))
 
 /**
+ * Each locale beside each page width a reader might open the strip at, and the
+ * width the strip measures there, a phone's strip standing 68 px narrower than
+ * its page and a wider page's 102 px.
+ */
+const PAGES = ['en-US', 'en-GB'].flatMap(locale => [
+  ...[390, 414, 500, 600, 639].map(page => [locale, page, true, page - 68] as const),
+  ...[640, 700, 768, 800, 1024, 1280, 1920].map(page => [locale, page, false, page - 102] as const)
+])
+
+/**
  * Three passes peaking at 10, 20, and 30 minutes, the middle one the highest.
  */
 const THREE = [
@@ -224,10 +234,32 @@ it('raises on a phone the same pass the tap that follows chooses, with a pass pi
 })
 
 it.each([
-  ['labels every tick on a strip wide enough for each', 800, [0, 1, 2, 3, 4, 5, 6]],
-  ['labels every third tick on a phone, clear of the labels at either end', 322, [0, 3, 6]]
-] as const)('%s', async (_, width, labeled) => {
-  const { wrapper } = await mounted(false, false, [passOf(1)], width)
+  ['labels every tick on a strip wide enough for each', false, 800, [0, 1, 2, 3, 4, 5, 6]],
+  ['labels every tick on the strip of a page 768 px wide', false, 666, [0, 1, 2, 3, 4, 5, 6]],
+  ['labels every tick on the strip of a page 800 px wide', false, 698, [0, 1, 2, 3, 4, 5, 6]],
+  ['labels every third tick on a phone, clear of the labels at either end', true, 322, [0, 3, 6]]
+] as const)('%s', async (_, phone, width, labeled) => {
+  const { wrapper } = await mounted(false, phone, [passOf(1)], width)
   const ticks       = wrapper.findAll('text.fill-soft')
   expect(ticks.flatMap((tick, index) => tick.text() ? [index] : [])).toEqual(labeled)
+})
+
+it.each(PAGES)('keeps the %s hour labels 8 px apart on a %i px page', async (locale, _, phone, width) => {
+  const { sky, wrapper } = await mounted(false, phone, [passOf(1)], width)
+  const { clockOf }      = sky
+  const clock            = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' })
+  vi.spyOn(sky, 'clockOf').mockImplementation(seconds => clockOf.call(sky, seconds, clock))
+  sky.start.value += 60_000
+  await wrapper.vm.$nextTick()
+  const em    = phone ? 12 : 11
+  const spans = wrapper.findAll('text.fill-soft')
+    .filter(tick => tick.text())
+    .map(tick => {
+      const [x, across] = [Number(tick.attributes('x')), tick.text().length * (0.6 + 0.1) * em]
+      const anchor      = tick.attributes('text-anchor') as 'end' | 'middle' | 'start'
+      const left        = { end: x - across, middle: x - across / 2, start: x }[anchor]
+      return [left, left + across] as const
+    })
+  const gaps = spans.slice(1).map(([left], index) => left - spans[index]![1])
+  expect(Math.min(...gaps)).toBeGreaterThanOrEqual(8)
 })

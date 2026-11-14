@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { expect, it, vi }         from 'vitest'
-import { ref }                    from 'vue'
+import { type Ref, ref }          from 'vue'
 
 import { passOf }               from '../fixtures/passes.ts'
 import { addScanned, freshSky } from '../fixtures/sky.ts'
@@ -9,14 +9,19 @@ import { addScanned, freshSky } from '../fixtures/sky.ts'
 /**
  * The heights the sheet measures, in the order it measures them: its peek, the
  * handle and the readout above the strip, the pinned pass's block, the whole
- * sheet, and the climb, with the climb 300 px wide.
+ * sheet, and the climb, with the climb 300 px wide, beside the ref each
+ * measurement returns, which a case changes to move a height.
  */
-const HEIGHTS = vi.hoisted(() => ({ next: 0, of: [100, 60, 420, 600, 104] }))
+const HEIGHTS = vi.hoisted(() => ({ measured: [] as Ref<number>[], of: [100, 60, 420, 600, 104] }))
 
 vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
 vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
-  useElementSize: () => ({ height: ref(HEIGHTS.of[HEIGHTS.next++ % HEIGHTS.of.length]), width: ref(300) })
+  useElementSize: () => {
+    const height = ref(HEIGHTS.of[HEIGHTS.measured.length % HEIGHTS.of.length]!)
+    HEIGHTS.measured.push(height)
+    return { height, width: ref(300) }
+  }
 }))
 
 /**
@@ -44,7 +49,7 @@ const dragged = async (wrapper: VueWrapper, path: number[][]) => {
  */
 const mounted = async (pinned: boolean) => {
   vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: false, removeEventListener() {} }))
-  HEIGHTS.next                    = 0
+  HEIGHTS.measured                = []
   const { component: Sheet, sky } = await freshSky(() => import('../../theme/Sheet.vue'))
   const pass                      = passOf(1)
   const stubs                     = {
@@ -98,11 +103,22 @@ it('uncovers the map once it unmounts', async () => {
 })
 
 it.each([
-  ['covers the map up to its peek at rest', false, 100],
-  ['covers the handle, the readout, and the pass block once a pass is pinned', true, 480]
-] as const)('%s', async (_, pinned, covered) => {
-  const { sky } = await mounted(pinned)
+  ['covers the map up to its peek at rest', false, 600, 100],
+  ['covers the handle, the readout, and the pass block once a pass is pinned', true, 600, 480],
+  ['stands half no higher than full where the pass block runs past the sheet', true, 450, 450]
+] as const)('%s', async (_, pinned, sheet, covered) => {
+  const { sky, wrapper }     = await mounted(pinned)
+  HEIGHTS.measured[3]!.value = sheet
+  await wrapper.vm.$nextTick()
   expect(sky.covered.value).toBe(covered)
+})
+
+it('holds a drag down from half at the peek the strip sets, while the strip is set aside', async () => {
+  const { wrapper }          = await mounted(true)
+  HEIGHTS.measured[0]!.value = 60
+  await wrapper.vm.$nextTick()
+  const sheet = await dragged(wrapper, [[100, 420, 0], [100, 900, 1000]])
+  expect(sheet.attributes('style')).toContain('translateY(500px)')
 })
 
 it('shows the pinned pass’s kind, name, 104 px climb, times, Previous, and Next at half', async () => {
