@@ -81,7 +81,7 @@ it.each([
   expect(sky.gather.value).toEqual(room)
 })
 
-it('sets the numeral as an unpressed toggle button, pressed by Enter and Space as by a click', async () => {
+it('sets the numeral as an unpressed toggle of type button', async () => {
   const numeral = (await mounted()).wrapper.get('button')
   expect([numeral.attributes('type'), numeral.attributes('aria-pressed')]).toEqual(['button', 'false'])
 })

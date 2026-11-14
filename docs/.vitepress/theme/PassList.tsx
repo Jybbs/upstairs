@@ -37,6 +37,15 @@ export default defineComponent(
       if (selected && passes.value.highlightedValue === selected.key) sky.focusOn(selected)
     }
 
+    /**
+     * Highlights the selected pass when the list takes focus, which the
+     * listbox skips while it holds a value, so focus shows on its row.
+     */
+    const highlightSelected = () => {
+      const selected = sky.selected.value
+      if (selected && !passes.value.highlightedValue) passes.value.highlightValue(selected.key)
+    }
+
     return () => (
       <section class="xl:overflow-y-auto" aria-label="Passes">
         <p
@@ -48,7 +57,12 @@ export default defineComponent(
           </span>
           <span>Highest</span>
         </p>
-        <ul onKeydown={refocus} {...passes.value.getContentProps()} class="group outline-none">
+        <ul
+          onFocus={highlightSelected}
+          onKeydown={refocus}
+          {...passes.value.getContentProps()}
+          class="group outline-none"
+        >
           {sky.rows.value.list.map(pass => (
             <li
               key={pass.key}
@@ -57,7 +71,7 @@ export default defineComponent(
               class={[
                 `grid h-12 w-full cursor-pointer grid-cols-[4.25rem_1fr_auto] items-center gap-2 border-b
                  border-rule/60 px-4 text-left transition-colors hover:bg-lift
-                 group-focus-visible:data-highlighted:bg-lift`,
+                 group-focus-visible:data-highlighted:[outline:4px_auto_-webkit-focus-ring-color]`,
                 { 'bg-lift': pass === sky.selected.value, 'opacity-55': pass.setAt < sky.at.value }
               ]}
             >

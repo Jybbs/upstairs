@@ -46,13 +46,12 @@ vi.stubGlobal('ResizeObserver', class {
 const drawings = await drawingsOf()
 
 /**
- * Mounts `component` once the catalog is read, focusing the drawing and
- * pressing each of `keys` on it, and returns the readings it shows.
+ * Mounts `component` once the catalog is read, pressing each of `keys` on the
+ * drawing, and returns the readings it shows.
  */
 const readingsOf = async (component: Parameters<typeof mount>[0], keys: string[] = []) => {
   const wrapper = mount(component)
   await flushPromises()
-  await wrapper.get('svg').trigger('focusin')
   for (const key of keys) await wrapper.get('svg').trigger('keydown', { key })
   const readings = wrapper.findAll('dd').map(dd => dd.text())
   wrapper.unmount()
@@ -132,7 +131,6 @@ describe('the peak search', () => {
     vi.useFakeTimers({ toFake: ['performance', 'requestAnimationFrame'] })
     const wrapper = mount(PeakSearch)
     await flushPromises()
-    await wrapper.get('svg').trigger('focusin')
     await wrapper.get('svg').trigger('keydown', { key: 'End' })
     const gliding = wrapper.findAll('dd')[1].text()
     vi.advanceTimersByTime(5_000)
@@ -149,7 +147,6 @@ describe('the peak search', () => {
     await flushPromises()
     const band    = () => Number(wrapper.get('rect.fill-u').attributes('height'))
     const opening = band()
-    await wrapper.get('svg').trigger('focusin')
     await wrapper.get('svg').trigger('keydown', { key: 'End' })
     expect(band() / opening).toBeCloseTo(drawings.scanned.miss(240) / drawings.scanned.miss(TRACK_STEP), 6)
     wrapper.unmount()
@@ -193,7 +190,6 @@ describe('the catalog ages', () => {
     const share   = () => Number.parseFloat(wrapper.findAll('dd')[1].text())
     const opening = share()
     const count   = Number(wrapper.get('svg').attributes('aria-valuemax')) + 1
-    await wrapper.get('svg').trigger('focusin')
     await wrapper.get('svg').trigger('keydown', { key: 'Home' })
     const shares = [share()]
     for (const _ of Array.from({ length: count - 1 })) {
@@ -237,7 +233,6 @@ describe('the catalog ages', () => {
     const wrapper = mount(OrbitAges)
     await flushPromises()
     const svg = wrapper.get('svg')
-    await svg.trigger('focusin')
     await svg.trigger('keydown', { key: 'End' })
     const readings = [...wrapper.findAll('dd').map(dd => dd.text()), svg.attributes('aria-valuetext')]
     wrapper.unmount()
@@ -279,7 +274,6 @@ describe('the keys of a drawing on a slider', () => {
     await flushPromises()
     const svg  = wrapper.get('svg')
     const last = Number(svg.attributes('aria-valuemax'))
-    await svg.trigger('focusin')
     await svg.trigger('keydown', { key: from })
     await svg.trigger('keydown', { key })
     await flushPromises()
