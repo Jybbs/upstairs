@@ -1,0 +1,13 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE description = "Run the orbit crate's tests where the branch's changes since `origin/main` reach `rust/` or the records and known answers the tests read, passing any further arguments to Cargo"
+
+paths=(docs/.vitepress/tests/fixtures/{answers,records}.json rust)
+changed=$(git diff --merge-base --name-only origin/main -- "${paths[@]}")
+untracked=$(git ls-files --exclude-standard --others -- "${paths[@]}")
+
+if [[ -z "$changed$untracked" ]]; then
+  echo "crate:affected found no change since origin/main under rust/ or in the records and known answers"
+  exit 0
+fi
+
+mise run crate:test "$@"

@@ -1,0 +1,6 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "affected"
+#MISE depends     = ["crate:compile", "site:install"]
+#MISE description = "Run the cases of the site's suite the branch's changes since `origin/main` reach, passing any further arguments to Vitest, which passes where no case is reached"
+
+mise run --skip-deps site:test --changed origin/main "$@"
