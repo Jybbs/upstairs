@@ -48,6 +48,7 @@
     "@vue/tsconfig": "0.9.1",
     "culori": "4.0.2",
     "fontkit": "2.0.4",
+    "gifenc": "1.0.3",
     "happy-dom": "21.0.4",
     "knip": "6.44.2",
     "oxlint": "1.92.0",
