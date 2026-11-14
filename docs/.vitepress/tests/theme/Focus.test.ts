@@ -18,7 +18,7 @@ const NOW = Date.parse('2026-11-06T18:37:00Z')
  */
 const mounted = async (passes: Pass[], set: (sky: typeof Sky) => void = () => {}) => {
   vi.useFakeTimers({ now: NOW })
-  const { component: Focus, sky } = await freshSky(() => import('../../theme/Focus.vue'))
+  const { component: Focus, sky } = await freshSky(() => import('../../theme/Focus.tsx'))
   addScanned(sky, passes)
   if (passes.length) sky.pin(passes[0])
   set(sky)

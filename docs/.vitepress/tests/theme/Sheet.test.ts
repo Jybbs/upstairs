@@ -50,7 +50,7 @@ const dragged = async (wrapper: VueWrapper, path: number[][]) => {
 const mounted = async (pinned: boolean) => {
   vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: false, removeEventListener() {} }))
   HEIGHTS.measured                = []
-  const { component: Sheet, sky } = await freshSky(() => import('../../theme/Sheet.vue'))
+  const { component: Sheet, sky } = await freshSky(() => import('../../theme/Sheet.tsx'))
   const pass                      = passOf(1)
   const stubs                     = {
     Filters: true, PassList: true, PassReadout: true, Readout: true, TimeStrip: true

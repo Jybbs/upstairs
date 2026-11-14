@@ -22,7 +22,7 @@ const lineOf = (wrapper: VueWrapper) => wrapper.get('p.truncate')
  */
 const mounted = async (seconds: number, reduced = false) => {
   vi.stubGlobal('matchMedia', (query: string) => ({ matches: reduced && query.includes('reduce') }))
-  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.vue'))
+  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.tsx'))
   sky.done.value   = true
   sky.spoken.value = '5 satellites above the horizon'
   sky.at.value     = seconds

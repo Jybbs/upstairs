@@ -11,7 +11,7 @@ vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenanc
  * with `count` satellites where `count` is given, and returns its footer.
  */
 const mounted = async (count?: number) => {
-  const { component: Stamp, sky } = await freshSky(() => import('../../theme/Stamp.vue'))
+  const { component: Stamp, sky } = await freshSky(() => import('../../theme/Stamp.tsx'))
   if (count) sky.loaded.value = { count, fetched: Date.parse('2026-11-06T18:53:57Z') }
   return mount(Stamp).get('footer')
 }

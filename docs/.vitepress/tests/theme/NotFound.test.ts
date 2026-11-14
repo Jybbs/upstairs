@@ -16,7 +16,7 @@ vi.mock('@vueuse/core', () => ({ useResizeObserver: (_: unknown, run: () => void
  */
 const mounted = async () => {
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
-  const { component: NotFound, sky } = await freshSky(() => import('../../theme/NotFound.vue'))
+  const { component: NotFound, sky } = await freshSky(() => import('../../theme/NotFound.tsx'))
   return { sky, wrapper: mount(NotFound) }
 }
 
@@ -79,4 +79,9 @@ it.each([
   await flushPromises()
   measured.mockRestore()
   expect(sky.gather.value).toEqual(room)
+})
+
+it('sets the numeral as an unpressed toggle button, pressed by Enter and Space as by a click', async () => {
+  const numeral = (await mounted()).wrapper.get('button')
+  expect([numeral.attributes('type'), numeral.attributes('aria-pressed')]).toEqual(['button', 'false'])
 })

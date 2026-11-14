@@ -14,7 +14,7 @@ vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenanc
  */
 const mounted = async (choosing: boolean, phone: boolean) => {
   vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: phone, removeEventListener() {} }))
-  const { component: HomeMap, sky } = await freshSky(() => import('../../theme/HomeMap.vue'))
+  const { component: HomeMap, sky } = await freshSky(() => import('../../theme/HomeMap.tsx'))
   if (choosing) sky.choose()
   return shallowMount(HomeMap)
 }

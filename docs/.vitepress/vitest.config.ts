@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 
-import vue                              from '@vitejs/plugin-vue'
+import vueJsx                           from '@vitejs/plugin-vue-jsx'
 import { configDefaults, defineConfig } from 'vitest/config'
 
 const triggers = [
@@ -10,13 +10,13 @@ const triggers = [
 
 export default defineConfig({
   cacheDir : '../.cache/vite',
-  plugins  : [vue()],
+  plugins  : [vueJsx()],
 
   test: {
     forceRerunTriggers : [...configDefaults.forceRerunTriggers, ...triggers],
     include            : ['.vitepress/tests/**/*.test.ts'],
     coverage           : {
-      include          : ['.vitepress/{catalog,preview,lib,theme,tools}/**/*.{ts,vue}'],
+      include          : ['.vitepress/{catalog,preview,lib,theme,tools}/**/*.{ts,tsx}'],
       provider         : 'istanbul',
       reportOnFailure  : true,
       reporter         : ['text', 'html', 'json-summary'],

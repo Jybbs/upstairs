@@ -21,7 +21,7 @@ const END = /^M[^L]*L[^L]*(L[^L]*Z)?$/
  */
 const mounted = async (seconds: number, changes: Partial<Pass> = {}, drift = 0) => {
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
-  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.vue'))
+  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.tsx'))
   const pass                        = passOf(1, changes)
   const samples                     = sky.span / TRACK_STEP + 1
   const track                       = new Float32Array(samples * TRACK_WIDTH)

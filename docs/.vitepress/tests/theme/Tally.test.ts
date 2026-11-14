@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
-import { mount }          from '@vue/test-utils'
-import { expect, it, vi } from 'vitest'
+import { enableAutoUnmount, mount }  from '@vue/test-utils'
+import { afterEach, expect, it, vi } from 'vitest'
 
 import { kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
 import { freshSky }             from '../fixtures/sky.ts'
+
+enableAutoUnmount(afterEach)
 
 const COUNTS: Partial<Record<Kind, number>> = { crewed: 2, earth: 5 }
 
@@ -12,7 +14,7 @@ const COUNTS: Partial<Record<Kind, number>> = { crewed: 2, earth: 5 }
  * kind off the map, every kind it leaves out at zero.
  */
 const mounted = async () => {
-  const { component: Tally, sky } = await freshSky(() => import('../../theme/Tally.vue'))
+  const { component: Tally, sky } = await freshSky(() => import('../../theme/Tally.tsx'))
   const kinds                     = kindOrder.map(kind => COUNTS[kind] ?? 0)
   sky.reading.value               = { above: 0, aboveKinds: kinds, kinds, onMap: 0 }
   return { sky, wrapper: mount(Tally, { attachTo: document.body }) }
@@ -34,6 +36,14 @@ it('names the kind a tap holds, lets it go on a second tap, and lets it go on Es
   await earth.trigger('click')
   await earth.trigger('keydown', { key: 'Escape' })
   expect(sky.named.value).toBe(null)
+})
+
+it('takes the tally out of the tab order once no kind is on the map', async () => {
+  const { sky, wrapper } = await mounted()
+  sky.reading.value      = { ...sky.reading.value, kinds: kindOrder.map(() => 0) }
+  await wrapper.vm.$nextTick()
+  expect([wrapper.findAll('button').length, wrapper.get('[role="group"]').attributes('tabindex')])
+    .toEqual([0, '-1'])
 })
 
 it('dims every group but the one named', async () => {
@@ -68,4 +78,19 @@ it.each([
   expect(sky.named.value).toBe(named)
   await earth.trigger('pointerleave', { pointerType })
   expect(sky.named.value).toBe(null)
+})
+
+it.each([
+  ['moves to the next kind on the right arrow and names it', 0, 'ArrowRight', 1, 'earth'],
+  ['moves to the kind before on the left arrow and names it', 1, 'ArrowLeft', 0, 'crewed'],
+  ['moves to the last kind on End and names it', 0, 'End', 1, 'earth'],
+  ['moves to the first kind on Home and names it', 1, 'Home', 0, 'crewed']
+] as const)('%s', async (_, from, key, to, named) => {
+  const { sky, wrapper } = await mounted()
+  const groups           = wrapper.findAll<HTMLButtonElement>('button')
+  vi.spyOn(groups[to].element, 'matches').mockReturnValue(true)
+  groups[from].element.focus()
+  await groups[from].trigger('keydown', { key })
+  await new Promise(requestAnimationFrame)
+  expect([document.activeElement, sky.named.value]).toEqual([groups[to].element, named])
 })
