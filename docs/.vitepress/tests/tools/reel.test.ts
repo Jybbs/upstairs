@@ -12,8 +12,9 @@ import { README }                   from '../fixtures/shipped.ts'
 const HOLDING = { hold: 8, refresh: 4 }
 const NAMES   = Object.keys(SCHEMES) as SchemeName[]
 
-const fileOf = (scheme: SchemeName) => join(ROOT, '.github', reel.reelFileOf(scheme))
-const pixels = (...levels: number[]) => Buffer.from(levels)
+const fileOf  = (scheme: SchemeName) => join(ROOT, '.github', reel.reelFileOf(scheme))
+const frameOf = (...pixels: Uint8Array[]) => Uint8Array.from(pixels.flatMap(pixel => [...pixel]))
+const pixel   = (red: number, green = 0, blue = 0) => Uint8Array.of(red, green, blue, 255)
 
 describe('holding the pixels that barely move', () => {
 
@@ -24,24 +25,23 @@ describe('holding the pixels that barely move', () => {
     { before: 100, change: 2,  frame: 4, held: false, name: 'keeps a two-level change on a refresh frame' },
     { before: 100, change: -8, frame: 1, held: true,  name: 'holds a darker change at the hold' }
   ])('$name', ({ before, change, frame, held }) => {
-    const still  = Array.from({ length: frame }, () => pixels(before, before, before))
-    const frames = reel.heldFramesOf([...still, pixels(before + change, before, before)], HOLDING)
+    const still  = Array.from({ length: frame }, () => pixel(before, before, before))
+    const frames = reel.heldFramesOf([...still, pixel(before + change, before, before)], HOLDING)
     expect(frames.at(-1)![0]).toBe(held ? before : before + change)
   })
 
   it('keeps a pixel whose one channel moves past the hold', () =>
-    expect([...reel.heldFramesOf([pixels(0, 0, 0), pixels(0, 0, 9)], HOLDING)[1]!]).toEqual([0, 0, 9]))
+    expect([...reel.heldFramesOf([pixel(0), pixel(0, 0, 9)], HOLDING)[1]!]).toEqual([0, 0, 9, 255]))
 
   it('compares each frame with the frame held before it', () => {
-    const frames = reel.heldFramesOf([pixels(100), pixels(105), pixels(110)].map(frame =>
-      Buffer.concat([frame, pixels(0, 0)])), HOLDING)
+    const frames = reel.heldFramesOf([pixel(100), pixel(105), pixel(110)], HOLDING)
     expect(frames.map(frame => frame[0])).toEqual([100, 100, 110])
   })
 
   it('leaves the frames it was given unchanged', () => {
-    const frames = [pixels(100, 100, 100), pixels(104, 100, 100)]
+    const frames = [pixel(100, 100, 100), pixel(104, 100, 100)]
     reel.heldFramesOf(frames, HOLDING)
-    expect([...frames[1]!]).toEqual([104, 100, 100])
+    expect([...frames[1]!]).toEqual([104, 100, 100, 255])
   })
 })
 
@@ -61,9 +61,28 @@ describe('the reel', () => {
   })
 
   it('shows every frame of the reel for one step', async () => {
-    const frames = [0, 120, 240].map(level => Buffer.alloc(12, level))
-    const gif    = await reel.reelGifOf(frames, { channels: 3, height: 2, width: 2 })
+    const frames = [0, 120, 240].map(level => frameOf(...Array(4).fill(pixel(level, level, level))))
+    const gif    = reel.reelGifOf(frames, { height: 2, width: 2 })
     expect((await sharp(gif).metadata()).delay).toEqual(frames.map(() => reel.REEL.step))
+  })
+
+  it('shows each frame’s own colors where only some of its pixels change', async () => {
+    const frames = [[0, 80, 160, 240], [240, 80, 160, 0], [240, 80, 160, 0], [0, 80, 160, 240]]
+      .map(levels => frameOf(...levels.map(level => pixel(level))))
+    const gif   = reel.reelGifOf(frames, { height: 2, width: 2 })
+    const shown = await sharp(gif, { animated: true }).ensureAlpha().raw().toBuffer()
+    expect([...shown]).toEqual(frames.flatMap(frame => [...frame]))
+  })
+
+  it.each([
+    { every: 1, name: 'shows a color only a later frame holds once every frame is sampled', shown: 240 },
+    { every: 2, name: 'shows the nearest sampled color for one no sampled frame holds',     shown: 0 }
+  ])('$name', async ({ every, shown }) => {
+    const frames = [0, 240].map(level => frameOf(pixel(level, level, level)))
+    const tuning = { ...reel.REEL, palette: { colors: 255, every } }
+    const gif    = reel.reelGifOf(frames, { height: 1, width: 1 }, tuning)
+    const pixels = await sharp(gif, { animated: true }).ensureAlpha().raw().toBuffer()
+    expect([...pixels.subarray(-4)]).toEqual([...pixel(shown, shown, shown)])
   })
 
   it('shows the night reel under the dark scheme and the day reel under the light one', () =>
