@@ -38,6 +38,15 @@ describe('holding the pixels that barely move', () => {
     expect(frames.map(frame => frame[0])).toEqual([100, 100, 110])
   })
 
+  it('holds each pixel of a frame at the color of the frame held before it', () => {
+    const frames = reel.heldFramesOf([
+      frameOf(pixel(100), pixel(0, 0, 0)),
+      frameOf(pixel(120), pixel(0, 0, 9)),
+      frameOf(pixel(125), pixel(0, 0, 14))
+    ], HOLDING)
+    expect(frames.map(frame => [frame[0], frame[6]])).toEqual([[100, 0], [120, 9], [120, 9]])
+  })
+
   it('leaves the frames it was given unchanged', () => {
     const frames = [pixel(100, 100, 100), pixel(104, 100, 100)]
     reel.heldFramesOf(frames, HOLDING)
@@ -84,6 +93,20 @@ describe('the reel', () => {
     const pixels = await sharp(gif, { animated: true }).ensureAlpha().raw().toBuffer()
     expect([...pixels.subarray(-4)]).toEqual([...pixel(shown, shown, shown)])
   })
+
+  it('writes a repeated frame in under a third of the bytes a changed frame takes', () => {
+    const noise = (step: number) =>
+      Uint8Array.from({ length: 16 * 16 * 4 }, (_, at) => at % 4 === 3 ? 255 : at * step % 256)
+
+    const size     = { height: 16, width: 16 }
+    const first    = reel.reelGifOf([noise(37)], size).length
+    const repeated = reel.reelGifOf([noise(37), noise(37)], size).length - first
+    const changed  = reel.reelGifOf([noise(37), noise(53)], size).length - first
+    expect(repeated).toBeLessThan(changed / 3)
+  })
+
+  it('leaves the palette room for the transparent entry among a GIF’s 256 colors', () =>
+    expect(reel.REEL.palette.colors).toBeLessThanOrEqual(255))
 
   it('shows the night reel under the dark scheme and the day reel under the light one', () =>
     expect(README).toContain([

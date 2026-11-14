@@ -35,7 +35,8 @@ const GITHUB = new URL('../../../.github/', import.meta.url)
  * lapse speed from `lead` milliseconds past `start`, each frame a screenshot of
  * `band` at `density` taken after the page's clock runs on by `step`
  * milliseconds, scaled to `width` pixels and played for `step` milliseconds.
- * Every frame is written on one palette of `palette.colors` colors quantized
+ * Every frame is written on one palette of `palette.colors` colors, at most 255
+ * so the transparent entry fits among the 256 a GIF palette holds, quantized
  * from every `palette.every`th frame. The map is dragged `pan.by` pixels
  * sideways in `pan.steps` moves before the first frame, a frame takes up to
  * `tries` screenshots past its first to settle, and each wait is in
