@@ -6,6 +6,15 @@ import { passOf }               from '../fixtures/passes.ts'
 import { addScanned, freshSky } from '../fixtures/sky.ts'
 
 /**
+ * Three passes peaking at 10, 20, and 30 minutes, the middle one the highest.
+ */
+const THREE = [
+  passOf(1),
+  passOf(2, { key: '2/900', peak: 80, peakAt: 1200, riseAt: 900, setAt: 1500 }),
+  passOf(3, { key: '3/1500', peak: 30, peakAt: 1800, riseAt: 1500, setAt: 2100 })
+]
+
+/**
  * Mounts the time strip over a fresh copy of the shared state and a stand-in
  * worker, with `passes` in the sky, the device asking for reduced motion where
  * `reduced` is set and being a phone where `phone` is.
@@ -24,15 +33,6 @@ const mounted = async (reduced: boolean, phone = false, passes = [passOf(1)]) =>
   await wrapper.vm.$nextTick()
   return { pass, passes, sky, wrapper }
 }
-
-/**
- * Three passes peaking at 10, 20, and 30 minutes, the middle one the highest.
- */
-const THREE = [
-  passOf(1),
-  passOf(2, { key: '2/900', peak: 80, peakAt: 1200, riseAt: 900, setAt: 1500 }),
-  passOf(3, { key: '3/1500', peak: 30, peakAt: 1800, riseAt: 1500, setAt: 2100 })
-]
 
 /**
  * Returns the place in time order of each ridge the strip draws, from the back

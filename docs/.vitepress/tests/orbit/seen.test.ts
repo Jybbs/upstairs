@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { seenAt, sunAt } from '../../lib/orbit/seen.ts'
+import { SEEN, seenAt, sunAt } from '../../lib/orbit/seen.ts'
 
 const DEGREES = 180 / Math.PI
 const SPOT    = { latitude: 0, longitude: 0 }
@@ -45,4 +45,9 @@ describe('seenAt', () => {
     ['sees a satellite just inside 5,000 km', OVERHEAD, 4999, '2026-03-20T18:45:00Z', true]
   ] as const)('%s', (_, look, height, time, seen) =>
     expect(seenAt(look, height, SPOT, Date.parse(time))).toBe(seen))
+
+  it.each([
+    ['reads the limits it is given', '2026-03-20T18:31:00Z', { ...SEEN, dusk: 5 }],
+    ['sees a satellite between Earth and the sun', '2026-03-20T12:00:00Z', { ...SEEN, dusk: -90 }]
+  ] as const)('%s', (_, time, seen) => expect(seenAt(OVERHEAD, 400, SPOT, Date.parse(time), seen)).toBe(true))
 })

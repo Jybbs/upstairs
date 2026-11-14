@@ -19,11 +19,12 @@ const START      = Date.parse('2026-03-20T18:45:00Z')
 
 /**
  * Builds the tracks of one pass rising at 60 seconds, peaking at 50° at 120,
- * and setting at 180, its samples over the spot, with `changes` laid over it.
+ * and setting at 180, its samples over the spot at `latitudes`, with `changes`
+ * laid over it.
  */
-const tracksOf = (changes = {}) => {
+const tracksOf = (changes = {}, latitudes: readonly number[] = ELEVATIONS.map(() => 0)) => {
   const tracks = new Tracks()
-  const track  = new Float32Array(ELEVATIONS.flatMap(elevation => [0, 0, elevation]))
+  const track  = new Float32Array(ELEVATIONS.flatMap((elevation, index) => [latitudes[index], 0, elevation]))
   const pass   = passOf(1, { height: 400, peak: 50, peakAt: 120, riseAt: 60, setAt: 180, ...changes })
   tracks.add([pass], track, new Uint32Array([0]), track.length / TRACK_WIDTH)
   return tracks
@@ -37,9 +38,12 @@ describe('footholdsOf', () => {
       [[60, 0, false], [90, 25, true], [105, 52, true], [120, 50, true], [150, 25, true], [180, 0, false]]],
     ['cuts the climb at the end of the window', {}, 120, [[60, 0, false], [90, 25, true], [120, 50, true]]],
     ['cuts the climb at the start of the window', { riseAt: -30 }, 90,
-      [[0, 0, false], [30, 0, false], [60, 0, false], [90, 25, true]]]
-  ] as const)('%s', (_, changes, span, expected) => {
-    const footholds = footholdsOf(0, span, SPOT, START, tracksOf(changes))
+      [[0, 0, false], [30, 0, false], [60, 0, false], [90, 25, true]]],
+    ['stands on the ground and unseen beside a sample that failed to propagate', {}, 180,
+      [[60, 0, false], [90, 0, false], [120, 50, true], [150, 25, true], [180, 0, false]],
+      [0, 0, 0, Number.NaN, 0, 0, 0]]
+  ] as const)('%s', (_, changes, span, expected, latitudes?: readonly number[]) => {
+    const footholds = footholdsOf(0, span, SPOT, START, tracksOf(changes, latitudes))
     expect(footholds.map(({ at, elevation, seen }) => [at, elevation, seen])).toEqual(expected)
   })
 })

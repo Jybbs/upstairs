@@ -16,17 +16,17 @@ interface Look { elevation: number, latitude: number, longitude: number }
 type Vector = [number, number, number]
 
 /**
- * How far in degrees the sun stands under the spot's horizon at the least, how
- * high in degrees the satellite stands at the least, and how far in kilometers
- * it stands at the most, for a satellite in sunlight to be seen by eye.
- */
-const SEEN = { dusk: 6, far: 5000, low: 10 } as const
-/**
  * The equatorial radius of the WGS84 ellipsoid in kilometers and the square
  * of its eccentricity.
  */
 const ELLIPSOID = { axis: 6378.137, eccentricity: 0.00669437999014 } as const
 const RADIANS   = Math.PI / 180
+/**
+ * How far in degrees the sun stands under the spot's horizon at the least, how
+ * high in degrees the satellite stands at the least, and how far in kilometers
+ * it stands at the most, for a satellite in sunlight to be seen by eye.
+ */
+export const SEEN = { dusk: 6, far: 5000, low: 10 } as const
 
 const dot = (a: Vector, b: Vector) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
@@ -34,7 +34,7 @@ const dot = (a: Vector, b: Vector) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
  * Returns the Earth-fixed position in kilometers of a point `height`
  * kilometers over the WGS84 ellipsoid at `latitude` and `longitude`.
  */
-const fixedOf = (latitude: number, longitude: number, height: number): Vector => {
+const fixedOf = (height: number, latitude: number, longitude: number): Vector => {
   const [sinLat, cosLat] = [Math.sin(latitude * RADIANS), Math.cos(latitude * RADIANS)]
   const [sinLon, cosLon] = [Math.sin(longitude * RADIANS), Math.cos(longitude * RADIANS)]
   const normal           = ELLIPSOID.axis / Math.sqrt(1 - ELLIPSOID.eccentricity * sinLat * sinLat)
@@ -47,22 +47,24 @@ const fixedOf = (latitude: number, longitude: number, height: number): Vector =>
 
 /**
  * Returns whether a satellite standing where `look` reads, `height` kilometers
- * up, can be seen by eye from the spot at Unix time `time` in milliseconds: in
- * sunlight outside the cylinder of Earth's shadow, while the sun stands
- * `SEEN.dusk` degrees or more under the spot's horizon and the satellite at
- * least `SEEN.low` degrees up and nearer than `SEEN.far` kilometers.
+ * up, can be seen by eye from the spot at Unix time `time` in milliseconds,
+ * which holds while it stands in sunlight outside the cylinder of Earth's
+ * shadow, the sun `seen.dusk` degrees or more under the spot's horizon, and
+ * the satellite at least `seen.low` degrees up and nearer than `seen.far`
+ * kilometers.
  */
 export const seenAt = (
   { elevation, latitude, longitude } : Look,
   height                             : number,
   spot                               : Spot,
-  time                               : number
+  time                               : number,
+  seen                               : Record<keyof typeof SEEN, number> = SEEN
 ): boolean => {
-  if (elevation < SEEN.low || slantOf(height, elevation) >= SEEN.far) return false
+  if (elevation < seen.low || slantOf(height, elevation) >= seen.far) return false
   const sun = sunAt(time)
-  const up  = fixedOf(spot.latitude, spot.longitude, 0)
-  if (dot(up, sun) / Math.hypot(...up) > -Math.sin(SEEN.dusk * RADIANS)) return false
-  const satellite = fixedOf(latitude, longitude, height)
+  const up  = fixedOf(0, spot.latitude, spot.longitude)
+  if (dot(up, sun) / Math.hypot(...up) > -Math.sin(seen.dusk * RADIANS)) return false
+  const satellite = fixedOf(height, latitude, longitude)
   const toward    = dot(satellite, sun)
   return toward > 0 || dot(satellite, satellite) - toward * toward > EARTH_KM * EARTH_KM
 }

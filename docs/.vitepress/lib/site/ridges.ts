@@ -1,3 +1,9 @@
+/**
+ * Works out a pass's climb from its rise to its set, and builds the paths that
+ * draw that climb as a ridge, its crest split where the satellite can be seen
+ * by eye and where it cannot.
+ */
+
 import { TRACK_STEP, type Spot } from '../orbit/scan.ts'
 import { seenAt }                from '../orbit/seen.ts'
 import type { Tracks }           from '../state/tracks.ts'
@@ -31,9 +37,10 @@ export const footholdsOf = (index: number, span: number, spot: Spot, start: numb
 }
 
 /**
- * Returns the paths of a climb drawn as a ridge, `x` placing a moment and `y`
- * an elevation: its outline closed along the ground, and its crest split into
- * the stretches where the satellite can be seen at both ends and the rest.
+ * Returns the paths of a climb drawn as a ridge, meaning its outline closed
+ * along the ground and its crest split into the stretches where the satellite
+ * can be seen at both ends and the rest, with `x` placing a moment and `y` an
+ * elevation.
  */
 export const ridgeOf = (
   climb : readonly Foothold[],

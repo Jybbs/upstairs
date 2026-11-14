@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useElementSize, useParentElement }      from '@vueuse/core'
+import { useElementSize }                        from '@vueuse/core'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { turnOf }    from '../lib/site/drag.ts'
@@ -17,15 +17,15 @@ import Stamp         from './Stamp.vue'
 import TimeStrip     from './TimeStrip.vue'
 
 /**
- * How many milliseconds of a throw's speed carry the sheet's aim on past
- * where the drag lets go, the sheet landing on the stop nearest it.
- */
-const THROW  = 180
-/**
  * The height of the pinned pass's climb in pixels, and how far its line stands
  * in from each edge.
  */
 const CLIMB  = { height: 44, inset: 4 } as const
+/**
+ * How many milliseconds of a throw's speed carry the sheet's aim on past
+ * where the drag lets go, the sheet landing on the stop nearest it.
+ */
+const THROW  = 180
 const climb  = ref<SVGSVGElement>()
 const peek   = ref<HTMLElement>()
 const sheet  = ref<HTMLElement>()
@@ -37,10 +37,16 @@ const sheet  = ref<HTMLElement>()
 const stop   = ref<0 | 1 | 2>(0)
 const shown  = ref(0)
 const moving = ref(false)
+/**
+ * The map under the bar, the box the sheet stands in and whose height sets
+ * the half stop.
+ */
+const map    = computed(() =>
+  sheet.value?.offsetParent instanceof HTMLElement ? sheet.value.offsetParent : null)
 
 const { height: peekHeight }  = useElementSize(peek, undefined, { box: 'border-box' })
 const { height: sheetHeight } = useElementSize(sheet, undefined, { box: 'border-box' })
-const { height: mapHeight }   = useElementSize(useParentElement(sheet))
+const { height: mapHeight }   = useElementSize(map)
 const { width: climbWidth }   = useElementSize(climb)
 const stops = computed(() => [
   peekHeight.value,
@@ -78,25 +84,10 @@ let pressed: { pointer: number, x: number, y: number } | null = null
 let dragged = false
 
 /**
- * Rests the sheet at stop `to`, at peek once no pass is pinned in place of
- * half, letting the pinned pass go at peek.
- */
-const rest = (to: 0 | 1 | 2) => {
-  stop.value = to === 1 && !sky.shown.value ? 0 : to
-  if (stop.value === 0) sky.release()
-}
-
-/**
  * Steps the sheet to its next stop up, or back down from full to half while a
  * pass is shown and to peek otherwise.
  */
 const cycle = () => rest(stop.value === 2 ? 1 : stop.value === 0 && sky.shown.value ? 1 : 2)
-
-const press = (event: PointerEvent) => {
-  dragged = false
-  if ((event.target as Element).closest('input, a, .overflow-y-auto')) return
-  pressed = { pointer: event.pointerId, x: event.clientX, y: event.clientY }
-}
 
 /**
  * Moves the sheet with a drag up or down, once the press has turned up or down
@@ -123,6 +114,12 @@ const move = (event: PointerEvent) => {
   shown.value   = clamp(grabbed.from - (event.clientY - grabbed.y), stops.value[0], stops.value[2])
 }
 
+const press = (event: PointerEvent) => {
+  dragged = false
+  if ((event.target as Element).closest('input, a, .overflow-y-auto')) return
+  pressed = { pointer: event.pointerId, x: event.clientX, y: event.clientY }
+}
+
 /**
  * Lands a drag on the stop nearest where it is thrown toward.
  */
@@ -136,6 +133,15 @@ const release = () => {
   moving.value = false
   shown.value  = stops.value[near]
   rest(near)
+}
+
+/**
+ * Rests the sheet at stop `to`, at peek once no pass is pinned in place of
+ * half, letting the pinned pass go at peek.
+ */
+const rest = (to: 0 | 1 | 2) => {
+  stop.value = to === 1 && !sky.shown.value ? 0 : to
+  if (stop.value === 0) sky.release()
 }
 
 watch(sky.pinned, pinned => { if (pinned) rest(1); else if (stop.value === 1) rest(0) })

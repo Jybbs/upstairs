@@ -14,13 +14,13 @@ import { ridgeOf }                  from '../lib/site/ridges.ts'
 import { CLOCK, minuteFormat, sky } from '../lib/state/sky.ts'
 import Icon                         from './Icon.vue'
 
+const LABEL_WIDTH = 78
 /**
  * The strip's height, the row its ground runs along, the height a pass
  * standing straight overhead climbs to above it, and its inset either side, in
  * pixels.
  */
 const STRIP       = { ground: 74, height: 110, inset: 16, overhead: 60 } as const
-const LABEL_WIDTH = 78
 const TICKS       = 6
 const cursor      = ref<SVGGElement>()
 /**
@@ -33,7 +33,7 @@ const turning     = computed((): { label: string, mark: IconName | 'step' } => {
     ? { label: `Run the rest of the hour at ${CLOCK.lapse} times real speed`, mark: 'lapse' }
     : { label: 'Back to now', mark: 'now' }
 })
-const inner       = computed(() => width.value - STRIP.inset * 2)
+const inner = computed(() => width.value - STRIP.inset * 2)
 /**
  * The climb of each pass that rises or sets in the window, in the order the
  * passes peak.
@@ -57,8 +57,8 @@ const ridges = computed(() => climbs.value.map(({ climb, pass }) => ({
 const stacked = computed(() => ridges.value
   .map(ridge => ({ ...ridge, raised: ridge.pass === sky.shown.value }))
   .toSorted((a, b) => Number(a.raised) - Number(b.raised) || b.pass.peak - a.pass.peak))
-const strip   = ref<SVGSVGElement>()
-const ticks   = computed(() => {
+const strip = ref<SVGSVGElement>()
+const ticks = computed(() => {
   const every = Math.ceil(LABEL_WIDTH / (inner.value / TICKS))
   return Array.from({ length: TICKS + 1 }, (_, index) => {
     const seconds = index * sky.span / TICKS
@@ -77,7 +77,7 @@ const { width } = useElementSize(strip, { height: 0, width: 800 })
  */
 const columns = computed(() =>
   columnsOf(ridges.value.map(({ pass, peak }) => ({ item: pass, x: peak[0] })), width.value))
-const phone   = usePhone()
+const phone = usePhone()
 
 /**
  * Where a press on a phone's strip went down, and whether it has turned into a
@@ -109,6 +109,15 @@ const drag = (event: PointerEvent) => {
 }
 
 /**
+ * Lets the raised ridge fall back once the pointer, the finger, or the focus
+ * leaves the strip.
+ */
+const leave = () => {
+  down           = null
+  sky.held.value = null
+}
+
+/**
  * Chooses on a phone the pass a tap lands on, from the column under it.
  */
 const lift = (event: PointerEvent) => {
@@ -117,15 +126,6 @@ const lift = (event: PointerEvent) => {
     if (picked) sky.focusOn(picked)
   }
   leave()
-}
-
-/**
- * Lets the raised ridge fall back once the pointer, the finger, or the focus
- * leaves the strip.
- */
-const leave = () => {
-  down           = null
-  sky.held.value = null
 }
 
 const nudge = (event: KeyboardEvent) => {
@@ -161,13 +161,13 @@ const pressRidge = (event: PointerEvent, pass: Pass) => {
   sky.focusOn(pass)
 }
 
+const secondsAt = (clientX: number) => (xAt(clientX) - STRIP.inset) / inner.value * sky.span
+
 /**
  * Returns how far in pixels a pointer at `clientX` stands from the strip's
  * left edge.
  */
 const xAt = (clientX: number) => clientX - strip.value!.getBoundingClientRect().left
-
-const secondsAt = (clientX: number) => (xAt(clientX) - STRIP.inset) / inner.value * sky.span
 
 const xOf = (seconds: number) => STRIP.inset + seconds / sky.span * inner.value
 
