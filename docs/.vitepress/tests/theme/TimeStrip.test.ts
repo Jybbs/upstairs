@@ -135,3 +135,62 @@ it('raises on a phone the ridge in the column a finger holds', async () => {
   await strip.trigger('pointerdown', { clientX: 100, clientY: 40 })
   expect(sky.held.value).toBe(pass)
 })
+
+it('keeps a pinned ridge in its place among the rest, so each lower peak stays pressable', async () => {
+  const { passes, sky, wrapper } = await mounted(false, false, THREE)
+  sky.pin(passes[1])
+  await wrapper.vm.$nextTick()
+  expect(stackOf(wrapper)).toEqual([1, 0, 2])
+})
+
+it('raises each pass’s own ridge to its peak elevation', async () => {
+  const { wrapper } = await mounted(false, false, THREE)
+  const ridges      = wrapper.findAll('g.cursor-pointer')
+  const peaks       = ridges.map(ridge => ridge.get('circle'))
+    .map(peak => [Number(peak.attributes('cx')), Number(peak.attributes('cy')).toFixed(1)] as const)
+    .toSorted(([a], [b]) => a - b)
+    .map(([, y]) => y)
+  expect([peaks, new Set(ridges.map(ridge => ridge.get('path').attributes('d'))).size])
+    .toEqual([['34.0', '20.7', '54.0'], 3])
+})
+
+it('colors each ridge by its pass’s kind and dots the crest where it cannot be seen', async () => {
+  const passes      = [passOf(1), passOf(2, { key: '2/900', kind: 'weather', peakAt: 1200, riseAt: 900, setAt: 1500 })]
+  const { wrapper } = await mounted(false, false, passes)
+  const ridges      = wrapper.findAll('g.cursor-pointer')
+  expect(ridges.map(ridge => {
+    const unseen = ridge.get('path[stroke-dasharray="1 3"]')
+    return [ridge.attributes('style'), unseen.attributes('d')!.startsWith('M')]
+  })).toEqual(passes.map(({ kind }) => [`--ridge: var(--kind-${kind});`, true]))
+})
+
+it('raises nothing on a phone as a pointer passes over a ridge', async () => {
+  const { sky, wrapper } = await mounted(false, true)
+  await wrapper.get('g.cursor-pointer').trigger('pointerenter')
+  expect(sky.held.value).toBeNull()
+})
+
+it('lets the raised ridge fall once a finger drags across the strip', async () => {
+  const { sky, wrapper } = await mounted(false, true)
+  const strip            = wrapper.get('svg[role="slider"]')
+  Object.assign(strip.element, { hasPointerCapture: () => true, setPointerCapture() {} })
+  await strip.trigger('pointerdown', { clientX: 100, clientY: 40 })
+  await strip.trigger('pointermove', { clientX: 160, clientY: 40 })
+  expect(sky.held.value).toBeNull()
+})
+
+it('raises on a phone the same pass the tap that follows chooses, with a pass pinned', async () => {
+  const passes           = [
+    passOf(1, { peakAt: 20, riseAt: 0 }),
+    passOf(2, { kind: 'weather', peakAt: 40, riseAt: 0 })
+  ]
+  const { sky, wrapper } = await mounted(false, true, passes)
+  const strip            = wrapper.get('svg[role="slider"]')
+  const x                = Number(wrapper.get('g.cursor-pointer circle').attributes('cx'))
+  sky.pin(passes[0])
+  Object.assign(strip.element, { setPointerCapture() {} })
+  await strip.trigger('pointerdown', { clientX: x, clientY: 40 })
+  const held = sky.held.value
+  await strip.trigger('pointerup', { clientX: x, clientY: 40 })
+  expect([held, sky.pinned.value]).toEqual([passes[1], passes[1]])
+})

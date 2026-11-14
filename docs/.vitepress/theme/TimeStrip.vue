@@ -7,7 +7,6 @@ import type { Pass }                from '../lib/orbit/scan.ts'
 import { columnsOf, pickAt }        from '../lib/site/columns.ts'
 import { turnOf }                   from '../lib/site/drag.ts'
 import type { IconName }            from '../lib/site/icons.ts'
-import { clamp }                    from '../lib/site/motion.ts'
 import { kindColor }                from '../lib/site/palette.ts'
 import { usePhone }                 from '../lib/site/phone.ts'
 import { ridgeOf }                  from '../lib/site/ridges.ts'
@@ -52,11 +51,13 @@ const ridges = computed(() => climbs.value.map(({ climb, pass }) => ({
 })))
 /**
  * The ridges from the highest to the lowest, so a lower ridge stands in front
- * of a higher one, with the ridge the readout shows raised above them all.
+ * of a higher one, with the ridge a pointer, a finger, or a key holds raised
+ * above them all and the ridge the readout shows drawn heavier.
  */
 const stacked = computed(() => ridges.value
   .map(ridge => ({ ...ridge, raised: ridge.pass === sky.shown.value }))
-  .toSorted((a, b) => Number(a.raised) - Number(b.raised) || b.pass.peak - a.pass.peak))
+  .toSorted((a, b) =>
+    Number(a.pass === sky.held.value) - Number(b.pass === sky.held.value) || b.pass.peak - a.pass.peak))
 const strip = ref<SVGSVGElement>()
 const ticks = computed(() => {
   const every = Math.ceil(LABEL_WIDTH / (inner.value / TICKS))
@@ -93,7 +94,7 @@ const browse = (by: 1 | -1) => {
   const passes = ridges.value.map(({ pass }) => pass)
   const index  = passes.findIndex(pass => pass === sky.held.value)
   const at     = sky.at.value
-  const next   = index >= 0 ? passes[clamp(index + by, 0, passes.length - 1)]
+  const next   = index >= 0 ? passes[index + by]
     : by > 0 ? passes.find(pass => pass.peakAt >= at) : passes.findLast(pass => pass.peakAt < at)
   if (next) sky.held.value = next
 }
@@ -141,14 +142,14 @@ const nudge = (event: KeyboardEvent) => {
 }
 
 /**
- * Starts a press on the strip, which on a phone raises the ridge of the
- * column under the finger while it holds still.
+ * Starts a press on the strip, which on a phone raises the ridge a tap there
+ * would choose while the finger holds still.
  */
 const press = (event: PointerEvent) => {
   strip.value!.setPointerCapture(event.pointerId)
   if (!phone.value) return sky.seek(secondsAt(event.clientX))
   down           = { drag: null, x: event.clientX, y: event.clientY }
-  sky.held.value = pickAt(columns.value, xAt(event.clientX), null)
+  sky.held.value = pickAt(columns.value, xAt(event.clientX), sky.pinned.value)
 }
 
 /**

@@ -132,3 +132,15 @@ it('leaves the sheet where it stands once a drag turns across the page', async (
   const sheet       = await dragged(wrapper, [[130, 402, 0], [130, 200, 10]])
   expect(sheet.attributes('style')).toContain('translateY(500px)')
 })
+
+it('draws the pinned pass’s climb over its rise, peak, and set, its full readout in the list', async () => {
+  const { wrapper } = await mounted(true)
+  const climb       = wrapper.get('svg[role="img"]')
+  const times       = [...climb.element.nextElementSibling!.children].map(time => time.textContent!)
+  expect([
+    climb.get('path').attributes('d')!.startsWith('M'),
+    times.length,
+    times[1].startsWith('60°'),
+    wrapper.find('.overflow-y-auto pass-readout-stub').exists()
+  ]).toEqual([true, 3, true, true])
+})
