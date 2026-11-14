@@ -1,6 +1,6 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "check"
-#MISE description = "Lint and type-check the site while running the cases the branch's changes since `origin/main` reach, skipping a tree an earlier run passed"
+#MISE description = "Lint and type-check the site while running the site's cases and the crate's tests the branch's changes since `origin/main` reach, skipping a tree an earlier run passed"
 
 cache=.cache/check
 mkdir -p "$cache"
@@ -18,5 +18,6 @@ fi
 mise run \
   site:lint ::: \
   site:typecheck ::: \
-  site:test --changed origin/main --passWithNoTests
+  site:affected ::: \
+  crate:affected
 echo "$tree" >> "$cache/passed"

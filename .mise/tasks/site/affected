@@ -1,0 +1,5 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "affected"
+#MISE description = "Run the cases of the site's suite the branch's changes since `origin/main` reach, passing any further arguments to Vitest and succeeding where no case is reached"
+
+mise run site:test --changed origin/main --passWithNoTests "$@"
