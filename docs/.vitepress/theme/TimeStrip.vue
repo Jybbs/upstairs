@@ -16,10 +16,10 @@ import Icon                         from './Icon.vue'
 /**
  * A label's width per character in ems, JetBrains Mono's advance of 0.6 beside
  * the 0.1 the `caps` letter spacing adds, the room in pixels kept between two
- * labels, and the font size in pixels `caps` sets a label in on a phone and
+ * labels, and the font size in rems `caps` sets a label in on a phone and
  * wider.
  */
-const LABEL       = { advance: 0.7, gap: 8, phone: 12, wide: 11 } as const
+const LABEL       = { advance: 0.7, gap: 8, phone: 0.75, wide: 0.6875 } as const
 /**
  * The strip's height, the row its ground runs along, the height a pass
  * standing straight overhead climbs to above it, and its inset either side, in
@@ -66,6 +66,11 @@ const stacked = computed(() => ridges.value
     Number(a.pass === sky.held.value) - Number(b.pass === sky.held.value) || b.pass.peak - a.pass.peak))
 const strip = ref<SVGSVGElement>()
 /**
+ * The page's root font size in pixels, which scales the rems `caps` sets a
+ * label in.
+ */
+const rem   = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+/**
  * The strip's ticks, labeled every so many ticks that each label clears the
  * one before it by `LABEL.gap`, the spacing taking the whole width of the
  * widest label beside half of another, since the first and the last labels
@@ -73,7 +78,7 @@ const strip = ref<SVGSVGElement>()
  */
 const ticks = computed(() => {
   const clocks = Array.from({ length: TICKS + 1 }, (_, index) => sky.clockOf(index * sky.span / TICKS))
-  const size   = phone.value ? LABEL.phone : LABEL.wide
+  const size   = (phone.value ? LABEL.phone : LABEL.wide) * rem
   const label  = Math.max(...clocks.map(clock => clock.length)) * LABEL.advance * size
   const every  = Math.ceil((label * 1.5 + LABEL.gap) / (inner.value / TICKS))
   return clocks.map((clock, index) => {

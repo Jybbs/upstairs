@@ -121,6 +121,16 @@ it('holds a drag down from half at the peek the strip sets, while the strip is s
   expect(sheet.attributes('style')).toContain('translateY(500px)')
 })
 
+it('takes up a peek measured at full once the sheet falls back to its peek', async () => {
+  const { sky, wrapper }     = await mounted(false)
+  const handle               = wrapper.get('button')
+  await handle.trigger('click')
+  HEIGHTS.measured[0]!.value = 60
+  await wrapper.vm.$nextTick()
+  await handle.trigger('click')
+  expect(sky.covered.value).toBe(60)
+})
+
 it('shows the pinned pass’s kind, name, 104 px climb, times, Previous, and Next at half', async () => {
   const { wrapper } = await mounted(true)
   const climb       = wrapper.get('svg[role="img"]').element

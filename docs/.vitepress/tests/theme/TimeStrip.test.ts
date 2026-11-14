@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
-import { mount, type VueWrapper } from '@vue/test-utils'
-import { expect, it, vi }         from 'vitest'
-import { ref }                    from 'vue'
+import { mount, type VueWrapper }         from '@vue/test-utils'
+import { expect, it, onTestFinished, vi } from 'vitest'
+import { ref }                            from 'vue'
 
 import { TRACK_WIDTH }          from '../../lib/orbit/scan.ts'
 import { passOf }               from '../fixtures/passes.ts'
@@ -242,6 +242,25 @@ it.each([
   const { wrapper } = await mounted(false, phone, [passOf(1)], width)
   const ticks       = wrapper.findAll('text.fill-soft')
   expect(ticks.flatMap((tick, index) => tick.text() ? [index] : [])).toEqual(labeled)
+})
+
+it('spaces the hour labels by the root font size a reader sets', async () => {
+  document.documentElement.style.fontSize = '20px'
+  onTestFinished(() => { document.documentElement.style.fontSize = '' })
+  const { wrapper } = await mounted(false, false, [passOf(1)], 698)
+  const ticks       = wrapper.findAll('text.fill-soft')
+  expect(ticks.flatMap((tick, index) => tick.text() ? [index] : [])).toEqual([0, 2, 4, 6])
+})
+
+it('spaces the hour labels by the widest, where the window runs from 9 into 10 o’clock', async () => {
+  const { sky, wrapper } = await mounted(false, false, [passOf(1)], 598)
+  const { clockOf }      = sky
+  const clock            = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
+  vi.spyOn(sky, 'clockOf').mockImplementation(seconds => clockOf.call(sky, seconds, clock))
+  sky.start.value        = new Date(2026, 10, 7, 9, 45).getTime()
+  await wrapper.vm.$nextTick()
+  const ticks            = wrapper.findAll('text.fill-soft')
+  expect(ticks.flatMap((tick, index) => tick.text() ? [index] : [])).toEqual([0, 2, 4, 6])
 })
 
 it.each(PAGES)('keeps the %s hour labels 8 px apart on a %i px page', async (locale, _, phone, width) => {
