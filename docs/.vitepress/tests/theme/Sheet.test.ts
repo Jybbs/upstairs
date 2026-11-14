@@ -8,14 +8,15 @@ import { addScanned, freshSky } from '../fixtures/sky.ts'
 
 /**
  * The heights the sheet measures, in the order it measures them: its peek, the
- * pinned pass below it, and the whole sheet.
+ * whole sheet, and the map under the bar, with the pinned pass's climb 300 px
+ * wide.
  */
-const HEIGHTS = vi.hoisted(() => ({ next: 0, of: [100, 200, 600] }))
+const HEIGHTS = vi.hoisted(() => ({ next: 0, of: [100, 600, 608, 44] }))
 
 vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
 vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
-  useElementSize: () => ({ height: ref(HEIGHTS.of[HEIGHTS.next++ % HEIGHTS.of.length]) })
+  useElementSize: () => ({ height: ref(HEIGHTS.of[HEIGHTS.next++ % HEIGHTS.of.length]), width: ref(300) })
 }))
 
 /**
@@ -98,10 +99,20 @@ it('uncovers the map once it unmounts', async () => {
 
 it.each([
   ['covers the map up to its peek at rest', false, 100],
-  ['covers the map down to the pinned pass once one is pinned', true, 300]
+  ['covers half the map once a pass is pinned', true, 304]
 ] as const)('%s', async (_, pinned, covered) => {
   const { sky } = await mounted(pinned)
   expect(sky.covered.value).toBe(covered)
+})
+
+it('shows the pinned pass’s kind, name, climb, and its Previous and Next over half the map', async () => {
+  const { wrapper } = await mounted(true)
+  const block       = wrapper.get('svg[role="img"]').element.parentElement!
+  expect([
+    block.querySelector('.caps')!.textContent!.trim(),
+    block.querySelector('.font-mono')!.textContent,
+    [...block.querySelectorAll('button')].map(button => button.textContent!.trim())
+  ]).toEqual(['Crewed', 'CRAFT 1', ['Previous', 'Next']])
 })
 
 it('lets the pinned pass go once a drag drops the sheet to its peek', async () => {
