@@ -20,37 +20,34 @@ import TimeStrip     from './TimeStrip.vue'
  * The height of the pinned pass's climb in pixels, and how far its line stands
  * in from each edge.
  */
-const CLIMB  = { height: 44, inset: 4 } as const
+const CLIMB  = { height: 104, inset: 4 } as const
 /**
  * How many milliseconds of a throw's speed carry the sheet's aim on past
  * where the drag lets go, the sheet landing on the stop nearest it.
  */
 const THROW  = 180
+const block  = ref<HTMLElement>()
 const climb  = ref<SVGSVGElement>()
+const head   = ref<HTMLElement>()
 const peek   = ref<HTMLElement>()
 const sheet  = ref<HTMLElement>()
 /**
  * The stop the sheet rests at: peek holding the count, the time, and the
- * strip, half standing at half the map's height with the pinned pass, and
- * full adding the hour's list and the shield below it.
+ * strip, half setting the strip aside for the pinned pass, and full bringing
+ * the strip back above the pass, the hour's list, and the shield.
  */
 const stop   = ref<0 | 1 | 2>(0)
 const shown  = ref(0)
 const moving = ref(false)
-/**
- * The map under the bar, the box the sheet stands in and whose height sets
- * the half stop.
- */
-const map    = computed(() =>
-  sheet.value?.offsetParent instanceof HTMLElement ? sheet.value.offsetParent : null)
 
 const { height: peekHeight }  = useElementSize(peek, undefined, { box: 'border-box' })
+const { height: headHeight }  = useElementSize(head, undefined, { box: 'border-box' })
+const { height: blockHeight } = useElementSize(block, undefined, { box: 'border-box' })
 const { height: sheetHeight } = useElementSize(sheet, undefined, { box: 'border-box' })
-const { height: mapHeight }   = useElementSize(map)
 const { width: climbWidth }   = useElementSize(climb)
 const stops = computed(() => [
   peekHeight.value,
-  Math.max(sky.shown.value ? Math.round(mapHeight.value / 2) : 0, peekHeight.value),
+  sky.shown.value ? Math.ceil(headHeight.value + blockHeight.value) : peekHeight.value,
   sheetHeight.value
 ])
 /**
@@ -168,19 +165,21 @@ onBeforeUnmount(() => { sky.covered.value = 0 })
     @pointercancel="release"
   >
     <div ref="peek" class="shrink-0">
-      <button
-        type="button"
-        class="relative block h-11 w-full cursor-grab touch-none"
-        :aria-label="['Raise the sheet', 'Raise the sheet to the hour’s list', 'Lower the sheet'][stop]"
-        @click="dragged || cycle()"
-      >
-        <span class="absolute top-2.5 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-soft" />
-      </button>
-      <Readout folded class="touch-none" />
-      <TimeStrip />
+      <div ref="head">
+        <button
+          type="button"
+          class="relative block h-11 w-full cursor-grab touch-none"
+          :aria-label="['Raise the sheet', 'Raise the sheet to the hour’s list', 'Lower the sheet'][stop]"
+          @click="dragged || cycle()"
+        >
+          <span class="absolute top-2.5 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-soft" />
+        </button>
+        <Readout folded class="touch-none" />
+      </div>
+      <TimeStrip v-show="stop !== 1" />
     </div>
-    <div class="shrink-0 border-t border-rule" :inert="stop < 1">
-      <div v-if="pinned" class="flex flex-col gap-1.5 px-4 pt-2.5">
+    <div ref="block" class="shrink-0 border-t border-rule" :inert="stop < 1">
+      <div v-if="pinned" class="flex flex-col gap-3 px-4 pt-5 pb-3">
         <p class="flex items-center gap-2">
           <KindTag :kind="pinned.pass.kind" />
           <SatelliteName :name="pinned.pass.name" class="truncate text-base leading-tight text-ink" />

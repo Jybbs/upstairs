@@ -8,10 +8,10 @@ import { addScanned, freshSky } from '../fixtures/sky.ts'
 
 /**
  * The heights the sheet measures, in the order it measures them: its peek, the
- * whole sheet, and the map under the bar, with the pinned pass's climb 300 px
- * wide.
+ * handle and the readout above the strip, the pinned pass's block, the whole
+ * sheet, and the climb, with the climb 300 px wide.
  */
-const HEIGHTS = vi.hoisted(() => ({ next: 0, of: [100, 600, 608, 44] }))
+const HEIGHTS = vi.hoisted(() => ({ next: 0, of: [100, 60, 420, 600, 104] }))
 
 vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
 vi.mock('@vueuse/core', async original => ({
@@ -99,20 +99,34 @@ it('uncovers the map once it unmounts', async () => {
 
 it.each([
   ['covers the map up to its peek at rest', false, 100],
-  ['covers half the map once a pass is pinned', true, 304]
+  ['covers the handle, the readout, and the pass block once a pass is pinned', true, 480]
 ] as const)('%s', async (_, pinned, covered) => {
   const { sky } = await mounted(pinned)
   expect(sky.covered.value).toBe(covered)
 })
 
-it('shows the pinned pass’s kind, name, climb, and its Previous and Next over half the map', async () => {
+it('shows the pinned pass’s kind, name, 104 px climb, times, Previous, and Next at half', async () => {
   const { wrapper } = await mounted(true)
-  const block       = wrapper.get('svg[role="img"]').element.parentElement!
+  const climb       = wrapper.get('svg[role="img"]').element
+  const block       = climb.parentElement!
   expect([
+    [...block.children].map(child => child.localName),
     block.querySelector('.caps')!.textContent!.trim(),
     block.querySelector('.font-mono')!.textContent,
+    climb.getAttribute('height'),
+    climb.nextElementSibling!.childElementCount,
     [...block.querySelectorAll('button')].map(button => button.textContent!.trim())
-  ]).toEqual(['Crewed', 'CRAFT 1', ['Previous', 'Next']])
+  ]).toEqual([['p', 'svg', 'p', 'p'], 'Crewed', 'CRAFT 1', '104', 3, ['Previous', 'Next']])
+})
+
+it.each([
+  ['sets the strip aside at half while a pass is pinned', true, 0, false],
+  ['brings the strip back at full while a pass is pinned', true, 1, true],
+  ['keeps the strip at peek with no pass pinned', false, 0, true]
+] as const)('%s', async (_, pinned, presses, strip) => {
+  const { wrapper } = await mounted(pinned)
+  for (const _press of Array(presses)) await wrapper.get('button').trigger('click')
+  expect((wrapper.get('time-strip-stub').element as HTMLElement).style.display !== 'none').toBe(strip)
 })
 
 it('lets the pinned pass go once a drag drops the sheet to its peek', async () => {

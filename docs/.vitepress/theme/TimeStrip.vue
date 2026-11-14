@@ -59,8 +59,13 @@ const stacked = computed(() => ridges.value
   .toSorted((a, b) =>
     Number(a.pass === sky.held.value) - Number(b.pass === sky.held.value) || b.pass.peak - a.pass.peak))
 const strip = ref<SVGSVGElement>()
+/**
+ * The strip's ticks, labeling every one standing a label and a half from the
+ * last, since the first and the last labels stand wholly inside the strip
+ * where every other label centers on its tick.
+ */
 const ticks = computed(() => {
-  const every = Math.ceil(LABEL_WIDTH / (inner.value / TICKS))
+  const every = Math.ceil(LABEL_WIDTH * 1.5 / (inner.value / TICKS))
   return Array.from({ length: TICKS + 1 }, (_, index) => {
     const seconds = index * sky.span / TICKS
     return {

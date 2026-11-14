@@ -1,10 +1,21 @@
 // @vitest-environment happy-dom
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { expect, it, vi }         from 'vitest'
+import { ref }                    from 'vue'
 
 import { TRACK_WIDTH }          from '../../lib/orbit/scan.ts'
 import { passOf }               from '../fixtures/passes.ts'
 import { addScanned, freshSky } from '../fixtures/sky.ts'
+
+/**
+ * The width the strip measures, 800 px unless a case narrows it.
+ */
+const WIDTH = vi.hoisted(() => ({ value: 800 }))
+
+vi.mock('@vueuse/core', async original => ({
+  ...await original<typeof import('@vueuse/core')>(),
+  useElementSize: () => ({ height: ref(0), width: ref(WIDTH.value) })
+}))
 
 /**
  * Three passes peaking at 10, 20, and 30 minutes, the middle one the highest.
@@ -20,7 +31,8 @@ const THREE = [
  * worker, with `passes` in the sky, the device asking for reduced motion where
  * `reduced` is set and being a phone where `phone` is.
  */
-const mounted = async (reduced: boolean, phone = false, passes = [passOf(1)]) => {
+const mounted = async (reduced: boolean, phone = false, passes = [passOf(1)], width = 800) => {
+  WIDTH.value = width
   vi.stubGlobal('matchMedia', (query: string) => ({
     addEventListener() {},
     matches: reduced && query.includes('reduce') || phone && query.includes('40rem'),
@@ -209,4 +221,13 @@ it('raises on a phone the same pass the tap that follows chooses, with a pass pi
   const held = sky.held.value
   await strip.trigger('pointerup', { clientX: x, clientY: 40 })
   expect([held, sky.pinned.value]).toEqual([passes[1], passes[1]])
+})
+
+it.each([
+  ['labels every tick on a strip wide enough for each', 800, [0, 1, 2, 3, 4, 5, 6]],
+  ['labels every third tick on a phone, clear of the labels at either end', 322, [0, 3, 6]]
+] as const)('%s', async (_, width, labeled) => {
+  const { wrapper } = await mounted(false, false, [passOf(1)], width)
+  const ticks       = wrapper.findAll('text.fill-soft')
+  expect(ticks.flatMap((tick, index) => tick.text() ? [index] : [])).toEqual(labeled)
 })
