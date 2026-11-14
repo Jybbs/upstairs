@@ -23,14 +23,17 @@ describe('sunAt', () => {
     expect(read).toBeCloseTo(degrees, 1)
   })
 
-  it('returns a unit vector', () => expect(Math.hypot(...sunAt(Date.parse('2026-11-13T19:00:00Z')))).toBeCloseTo(1, 12))
+  it('returns a unit vector', () =>
+    expect(Math.hypot(...sunAt(Date.parse('2026-11-13T19:00:00Z')))).toBeCloseTo(1, 12))
 })
 
 describe('seenAt', () => {
   it.each([
     ['sees a satellite in sunlight overhead after dusk', OVERHEAD, 400, '2026-03-20T18:45:00Z', true],
-    ['sees nothing while the sun stands 5.9° under the horizon', OVERHEAD, 400, '2026-03-20T18:31:00Z', false],
-    ['sees a satellite once the sun stands 6.2° under the horizon', OVERHEAD, 400, '2026-03-20T18:32:00Z', true],
+    ['sees nothing while the sun stands 5.9° under the horizon', OVERHEAD, 400,
+      '2026-03-20T18:31:00Z', false],
+    ['sees a satellite once the sun stands 6.2° under the horizon', OVERHEAD, 400,
+      '2026-03-20T18:32:00Z', true],
     ['sees nothing in daylight', OVERHEAD, 400, '2026-03-20T12:00:00Z', false],
     ['sees nothing in Earth’s shadow at midnight', OVERHEAD, 400, '2026-03-21T00:00:00Z', false],
     ['sees nothing once the sun stands 20.7° down, deep enough to shade 400 km up', OVERHEAD, 400,

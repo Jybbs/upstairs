@@ -14,7 +14,7 @@ interface Foothold { at: number, elevation: number, seen: boolean }
  * at each of its track's samples and at its peak, where it stands at the peak
  * the scan found.
  */
-export const climbOf = (index: number, span: number, spot: Spot, start: number, tracks: Tracks) => {
+export const footholdsOf = (index: number, span: number, spot: Spot, start: number, tracks: Tracks) => {
   const pass       = tracks.passes[index]
   const [from, to] = [Math.max(pass.riseAt, 0), Math.min(pass.setAt, span)]
   const moments    = new Set([from, to])
@@ -35,9 +35,13 @@ export const climbOf = (index: number, span: number, spot: Spot, start: number, 
  * an elevation: its outline closed along the ground, and its crest split into
  * the stretches where the satellite can be seen at both ends and the rest.
  */
-export const ridgeOf = (climb: readonly Foothold[], x: (at: number) => number, y: (elevation: number) => number) => {
-  const points = climb.map(({ at, elevation }) => `${x(at).toFixed(1)} ${y(elevation).toFixed(1)}`)
-  const ground = y(0).toFixed(1)
+export const ridgeOf = (
+  climb : readonly Foothold[],
+  x     : (at: number) => number,
+  y     : (elevation: number) => number
+) => {
+  const point  = (at: number, elevation: number) => `${x(at).toFixed(1)} ${y(elevation).toFixed(1)}`
+  const points = climb.map(({ at, elevation }) => point(at, elevation))
   const crest  = { seen: '', unseen: '' }
   let last: keyof typeof crest | null = null
   for (let index = 1; index < climb.length; index++) {
@@ -47,7 +51,6 @@ export const ridgeOf = (climb: readonly Foothold[], x: (at: number) => number, y
   }
   return {
     ...crest,
-    outline : `M${x(climb[0].at).toFixed(1)} ${ground}L${points.join('L')}`
-            + `L${x(climb.at(-1)!.at).toFixed(1)} ${ground}Z`
+    outline : `M${point(climb[0].at, 0)}L${points.join('L')}L${point(climb.at(-1)!.at, 0)}Z`
   }
 }

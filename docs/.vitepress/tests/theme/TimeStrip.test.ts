@@ -70,7 +70,7 @@ it.each([
 
 it('picks on a phone the pass in the column a tap lands on', async () => {
   const { pass, sky, wrapper } = await mounted(false, true)
-  const strip = wrapper.get('svg[role="slider"]')
+  const strip                  = wrapper.get('svg[role="slider"]')
   Object.assign(strip.element, { setPointerCapture() {} })
   await strip.trigger('pointerdown', { clientX: 100, clientY: 40 })
   await strip.trigger('pointerup', { clientX: 100, clientY: 40 })
@@ -81,7 +81,7 @@ it('draws each pass as a ridge with its outline, its crest, and its peak, and no
   const { wrapper } = await mounted(false)
   const ridge       = wrapper.get('g.cursor-pointer')
   expect([ridge.findAll('path').length, ridge.findAll('circle').length, ridge.findAll('line').length])
-    .toEqual([3, 2, 0])
+    .toEqual([3, 1, 0])
 })
 
 it.each([
@@ -130,7 +130,7 @@ it.each(['blur', 'pointercancel'] as const)('lets the raised ridge fall on %s', 
 
 it('raises on a phone the ridge in the column a finger holds', async () => {
   const { pass, sky, wrapper } = await mounted(false, true)
-  const strip = wrapper.get('svg[role="slider"]')
+  const strip                  = wrapper.get('svg[role="slider"]')
   Object.assign(strip.element, { setPointerCapture() {} })
   await strip.trigger('pointerdown', { clientX: 100, clientY: 40 })
   expect(sky.held.value).toBe(pass)

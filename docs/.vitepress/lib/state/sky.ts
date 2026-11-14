@@ -6,6 +6,7 @@ import * as kinds                         from '../orbit/kinds.ts'
 import { minuteOf, type Pass, type Spot } from '../orbit/scan.ts'
 import type { Answer, Asked }             from '../orbit/worker.ts'
 import { clamp }                          from '../site/motion.ts'
+import { footholdsOf }                    from '../site/ridges.ts'
 import * as address                       from './address.ts'
 import { Tracks }                         from './tracks.ts'
 
@@ -517,6 +518,15 @@ class Sky {
     if (now - this.spokenAt < SPOKEN) return
     this.spokenAt     = now
     this.spoken.value = `${this.up.value.toLocaleString()} satellites above the horizon`
+  }
+
+  /**
+   * Returns the climb of `pass` from its rise to its set, cut at the ends of
+   * the window.
+   */
+  climbOf(pass: Pass) {
+    const index = this.tracks.passes.indexOf(pass)
+    return footholdsOf(index, this.span, this.spot.value, this.start.value, this.tracks)
   }
 
   /**

@@ -2,20 +2,19 @@
 import { useElementSize, useParentElement }      from '@vueuse/core'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
-import { KINDS }            from '../lib/orbit/kinds.ts'
-import { turnOf }           from '../lib/site/drag.ts'
-import { clamp }            from '../lib/site/motion.ts'
-import { kindColor }        from '../lib/site/palette.ts'
-import { climbOf, ridgeOf } from '../lib/site/ridges.ts'
-import { sky }              from '../lib/state/sky.ts'
-import Filters              from './Filters.vue'
-import Icon                 from './Icon.vue'
-import PassList             from './PassList.vue'
-import PassReadout          from './PassReadout.vue'
-import Readout              from './Readout.vue'
-import SatelliteName        from './SatelliteName.vue'
-import Stamp                from './Stamp.vue'
-import TimeStrip            from './TimeStrip.vue'
+import { turnOf }    from '../lib/site/drag.ts'
+import { clamp }     from '../lib/site/motion.ts'
+import { kindColor } from '../lib/site/palette.ts'
+import { ridgeOf }   from '../lib/site/ridges.ts'
+import { sky }       from '../lib/state/sky.ts'
+import Filters       from './Filters.vue'
+import KindTag       from './KindTag.vue'
+import PassList      from './PassList.vue'
+import PassReadout   from './PassReadout.vue'
+import Readout       from './Readout.vue'
+import SatelliteName from './SatelliteName.vue'
+import Stamp         from './Stamp.vue'
+import TimeStrip     from './TimeStrip.vue'
 
 /**
  * How many milliseconds of a throw's speed carry the sheet's aim on past
@@ -45,25 +44,24 @@ const { height: mapHeight }   = useElementSize(useParentElement(sheet))
 const { width: climbWidth }   = useElementSize(climb)
 const stops = computed(() => [
   peekHeight.value,
-  sky.shown.value ? Math.max(Math.round(mapHeight.value / 2), peekHeight.value) : peekHeight.value,
+  Math.max(sky.shown.value ? Math.round(mapHeight.value / 2) : 0, peekHeight.value),
   sheetHeight.value
 ])
 /**
  * The pinned pass's climb from its rise to its set, filling the width its
- * line takes and rising to its peak at the top, beside its kind and the times
- * it rises, peaks, and sets.
+ * line takes and rising to its peak at the top, beside the color it is drawn
+ * in and the times it rises, peaks, and sets.
  */
 const pinned = computed(() => {
   const pass = sky.shown.value
   if (!pass) return null
-  const steps  = climbOf(sky.tracks.passes.indexOf(pass), sky.span, sky.spot.value, sky.start.value, sky.tracks)
-  const [from, to] = [steps[0].at, steps.at(-1)!.at]
-  const across = climbWidth.value - CLIMB.inset * 2
-  const x      = (at: number) => CLIMB.inset + (at - from) / (to - from || 1) * across
-  const y      = (elevation: number) => CLIMB.height - elevation / pass.peak * (CLIMB.height - CLIMB.inset * 2)
+  const steps        = sky.climbOf(pass)
+  const [from, to]   = [steps[0].at, steps.at(-1)!.at]
+  const [across, up] = [climbWidth.value - CLIMB.inset * 2, CLIMB.height - CLIMB.inset * 2]
+  const x            = (at: number) => CLIMB.inset + (at - from) / (to - from || 1) * across
+  const y            = (elevation: number) => CLIMB.height - elevation / pass.peak * up
   return {
     color : kindColor(pass.kind),
-    kind  : KINDS[pass.kind].label,
     pass  : pass,
     peak  : [x(pass.peakAt), y(pass.peak)] as const,
     times : [sky.clockOf(from), `${Math.round(pass.peak)}° ${sky.clockOf(pass.peakAt)}`, sky.clockOf(to)],
@@ -178,12 +176,7 @@ onBeforeUnmount(() => { sky.covered.value = 0 })
     <div class="shrink-0 border-t border-rule" :inert="stop < 1">
       <div v-if="pinned" class="flex flex-col gap-1.5 px-4 pt-2.5">
         <p class="flex items-center gap-2">
-          <span
-            class="caps inline-flex h-6.5 shrink-0 items-center gap-1.5 rounded-sm border border-rule bg-lift px-2
-                   text-ink"
-          >
-            <Icon :name="pinned.pass.kind" />{{ pinned.kind }}
-          </span>
+          <KindTag :kind="pinned.pass.kind" />
           <SatelliteName :name="pinned.pass.name" class="truncate text-base leading-tight text-ink" />
         </p>
         <svg
@@ -194,12 +187,23 @@ onBeforeUnmount(() => { sky.covered.value = 0 })
           :aria-label="`The pass climbs to ${Math.round(pinned.pass.peak)}° from its rise to its set`"
         >
           <path :d="pinned.outline" :fill="`color-mix(in oklab, ${pinned.color} 18%, var(--panel))`" />
-          <g fill="none" :stroke="pinned.color" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <g
+            fill="none"
+            :stroke="pinned.color"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path :d="pinned.seen" />
             <path :d="pinned.unseen" stroke-dasharray="1 3.5" />
           </g>
-          <circle :cx="pinned.peak[0]" :cy="pinned.peak[1]" r="4.5" class="fill-panel" />
-          <circle :cx="pinned.peak[0]" :cy="pinned.peak[1]" r="2.5" class="fill-ink" />
+          <circle
+            :cx="pinned.peak[0]"
+            :cy="pinned.peak[1]"
+            r="3.5"
+            stroke-width="2"
+            class="fill-ink stroke-panel"
+          />
         </svg>
         <p class="caps flex justify-between gap-2 text-soft">
           <span v-for="time in pinned.times" :key="time">{{ time }}</span>

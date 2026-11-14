@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useElementSize }                            from '@vueuse/core'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useElementSize, useRafFn } from '@vueuse/core'
+import { computed, ref }            from 'vue'
 
 import { boundOf }                  from '../lib/orbit/compass.ts'
 import type { Pass }                from '../lib/orbit/scan.ts'
@@ -10,7 +10,7 @@ import type { IconName }            from '../lib/site/icons.ts'
 import { clamp }                    from '../lib/site/motion.ts'
 import { kindColor }                from '../lib/site/palette.ts'
 import { usePhone }                 from '../lib/site/phone.ts'
-import { climbOf, ridgeOf }         from '../lib/site/ridges.ts'
+import { ridgeOf }                  from '../lib/site/ridges.ts'
 import { CLOCK, minuteFormat, sky } from '../lib/state/sky.ts'
 import Icon                         from './Icon.vue'
 
@@ -35,27 +35,28 @@ const turning     = computed((): { label: string, mark: IconName | 'step' } => {
 })
 const inner       = computed(() => width.value - STRIP.inset * 2)
 /**
- * One ridge for each pass that rises or sets in the window, in the order the
- * passes peak, each with its outline, its crest seen and unseen, and its peak.
+ * The climb of each pass that rises or sets in the window, in the order the
+ * passes peak.
  */
-const ridges = computed(() => {
-  const { passes } = sky.tracks
-  return sky.rows.value.list
-    .filter(pass => boundOf(pass) !== 'holding' && !(pass.earlier && pass.later))
-    .map(pass => {
-      const climb = climbOf(passes.indexOf(pass), sky.span, sky.spot.value, sky.start.value, sky.tracks)
-      return { pass, peak: [xOf(pass.peakAt), yOf(pass.peak)] as const, ...ridgeOf(climb, xOf, yOf) }
-    })
-})
+const climbs = computed(() => sky.rows.value.list
+  .filter(pass => boundOf(pass) !== 'holding' && !(pass.earlier && pass.later))
+  .map(pass => ({ climb: sky.climbOf(pass), pass })))
+/**
+ * Each climb drawn as a ridge across the strip's width, with its outline, its
+ * crest seen and unseen, and its peak.
+ */
+const ridges = computed(() => climbs.value.map(({ climb, pass }) => ({
+  pass : pass,
+  peak : [xOf(pass.peakAt), yOf(pass.peak)] as const,
+  ...ridgeOf(climb, xOf, yOf)
+})))
 /**
  * The ridges from the highest to the lowest, so a lower ridge stands in front
  * of a higher one, with the ridge the readout shows raised above them all.
  */
-const stacked = computed(() => {
-  const shown = sky.shown.value
-  return ridges.value.toSorted((a, b) => Number(a.pass === shown) - Number(b.pass === shown)
-    || b.pass.peak - a.pass.peak)
-})
+const stacked = computed(() => ridges.value
+  .map(ridge => ({ ...ridge, raised: ridge.pass === sky.shown.value }))
+  .toSorted((a, b) => Number(a.raised) - Number(b.raised) || b.pass.peak - a.pass.peak))
 const strip   = ref<SVGSVGElement>()
 const ticks   = computed(() => {
   const every = Math.ceil(LABEL_WIDTH / (inner.value / TICKS))
@@ -74,7 +75,8 @@ const { width } = useElementSize(strip, { height: 0, width: 800 })
  * The strip cut into columns around the peaks, which a tap on a phone picks
  * from.
  */
-const columns = computed(() => columnsOf(ridges.value.map(({ pass, peak }) => ({ item: pass, x: peak[0] })), width.value))
+const columns = computed(() =>
+  columnsOf(ridges.value.map(({ pass, peak }) => ({ item: pass, x: peak[0] })), width.value))
 const phone   = usePhone()
 
 /**
@@ -82,7 +84,6 @@ const phone   = usePhone()
  * drag across the strip or up and down it.
  */
 let down: { drag: 'across' | 'along' | null, x: number, y: number } | null = null
-let request = 0
 
 /**
  * Raises the ridge `by` places later or earlier than the one raised, or where
@@ -90,7 +91,7 @@ let request = 0
  */
 const browse = (by: 1 | -1) => {
   const passes = ridges.value.map(({ pass }) => pass)
-  const index  = passes.indexOf(sky.held.value!)
+  const index  = passes.findIndex(pass => pass === sky.held.value)
   const at     = sky.at.value
   const next   = index >= 0 ? passes[clamp(index + by, 0, passes.length - 1)]
     : by > 0 ? passes.find(pass => pass.peakAt >= at) : passes.findLast(pass => pass.peakAt < at)
@@ -172,14 +173,7 @@ const xOf = (seconds: number) => STRIP.inset + seconds / sky.span * inner.value
 
 const yOf = (elevation: number) => STRIP.ground - elevation / 90 * STRIP.overhead
 
-onMounted(() => {
-  const loop = () => {
-    cursor.value?.setAttribute('transform', `translate(${xOf(sky.seconds)} 0)`)
-    request = requestAnimationFrame(loop)
-  }
-  request = requestAnimationFrame(loop)
-})
-onBeforeUnmount(() => cancelAnimationFrame(request))
+useRafFn(() => cursor.value?.setAttribute('transform', `translate(${xOf(sky.seconds)} 0)`))
 </script>
 
 <template>
@@ -214,10 +208,10 @@ onBeforeUnmount(() => cancelAnimationFrame(request))
         @pointerup="lift"
         @pointercancel="leave"
         @keydown="nudge"
-        @blur="sky.held.value = null"
+        @blur="leave"
       >
         <g
-          v-for="{ pass, outline, seen, unseen, peak } in stacked"
+          v-for="{ pass, outline, seen, unseen, peak, raised } in stacked"
           :key="pass.key"
           class="cursor-pointer"
           :style="{ '--ridge': kindColor(pass.kind) }"
@@ -227,7 +221,7 @@ onBeforeUnmount(() => cancelAnimationFrame(request))
         >
           <path
             :d="outline"
-            :class="pass === sky.shown.value
+            :class="raised
               ? 'fill-[color-mix(in_oklab,var(--ridge)_30%,var(--panel))]'
               : 'fill-[color-mix(in_oklab,var(--ridge)_14%,var(--panel))]'"
           />
@@ -236,13 +230,12 @@ onBeforeUnmount(() => cancelAnimationFrame(request))
             stroke="var(--ridge)"
             stroke-linecap="round"
             stroke-linejoin="round"
-            :stroke-width="pass === sky.shown.value ? 2.5 : 1.5"
+            :stroke-width="raised ? 2.5 : 1.5"
           >
             <path :d="seen" />
             <path :d="unseen" stroke-dasharray="1 3" />
           </g>
-          <circle :cx="peak[0]" :cy="peak[1]" r="4.5" class="fill-panel" />
-          <circle :cx="peak[0]" :cy="peak[1]" r="2.5" class="fill-ink" />
+          <circle :cx="peak[0]" :cy="peak[1]" r="3.5" stroke-width="2" class="fill-ink stroke-panel" />
         </g>
         <line
           :x1="STRIP.inset"
