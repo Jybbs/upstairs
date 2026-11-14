@@ -38,6 +38,13 @@ const upper   = ref<HTMLCanvasElement>()
 
 const { isDark } = useData()
 const scheme     = computed(() => SCHEMES[isDark.value ? 'night' : 'day'])
+/**
+ * Centers the zoom buttons in the map left above a phone's sheet while a pass
+ * is pinned, and in the whole map otherwise.
+ */
+const zoomAt     = computed(() => sky.pinned.value && sky.covered.value
+  ? { top: `calc((100% - ${sky.covered.value}px) / 2)` }
+  : undefined)
 
 let contourTiles: string
 let demTiles: string
@@ -392,6 +399,7 @@ onBeforeUnmount(() => {
       />
     </div>
     <div
+      :style="zoomAt"
       class="absolute top-1/2 right-3 z-10 flex -translate-y-1/2 flex-col overflow-hidden rounded-sm border
              border-rule bg-panel/95 text-ink shadow-lift [&>button]:grid [&>button]:size-11
              [&>button]:cursor-pointer [&>button]:place-items-center [&>button:hover]:bg-lift"

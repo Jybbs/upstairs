@@ -11,8 +11,11 @@ export const BOUNDS = {
   northbound : { label: 'Northbound', mark: 'north' },
   southbound : { label: 'Southbound', mark: 'south' }
 } as const
-const EARTH_KM = 6371
-const POINTS   = [
+/**
+ * The Earth's mean radius in kilometers.
+ */
+export const EARTH_KM = 6371
+const POINTS = [
   'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'
 ] as const
 

@@ -1,22 +1,31 @@
 <script setup lang="ts">
-import { useElementSize }                            from '@vueuse/core'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useElementSize, useRafFn } from '@vueuse/core'
+import { computed, ref }            from 'vue'
 
-import { BOUNDS, boundOf }          from '../lib/orbit/compass.ts'
+import { boundOf }                  from '../lib/orbit/compass.ts'
 import type { Pass }                from '../lib/orbit/scan.ts'
 import { columnsOf, pickAt }        from '../lib/site/columns.ts'
 import { turnOf }                   from '../lib/site/drag.ts'
 import type { IconName }            from '../lib/site/icons.ts'
 import { kindColor }                from '../lib/site/palette.ts'
 import { usePhone }                 from '../lib/site/phone.ts'
+import { ridgeOf }                  from '../lib/site/ridges.ts'
 import { CLOCK, minuteFormat, sky } from '../lib/state/sky.ts'
 import Icon                         from './Icon.vue'
 
-const AXIS        = 42
-const HEIGHT      = 110
-const INSET       = 16
-const LABEL_WIDTH = 78
-const STEM        = 30
+/**
+ * A label's width per character in ems, JetBrains Mono's advance of 0.6 beside
+ * the 0.1 the `caps` letter spacing adds, the room in pixels kept between two
+ * labels, and the font size in rems `caps` sets a label in on a phone and
+ * wider.
+ */
+const LABEL       = { advance: 0.7, gap: 8, phone: 0.75, wide: 0.6875 } as const
+/**
+ * The strip's height, the row its ground runs along, the height a pass
+ * standing straight overhead climbs to above it, and its inset either side, in
+ * pixels.
+ */
+const STRIP       = { ground: 74, height: 110, inset: 16, overhead: 60 } as const
 const TICKS       = 6
 const cursor      = ref<SVGGElement>()
 /**
@@ -29,23 +38,56 @@ const turning     = computed((): { label: string, mark: IconName | 'step' } => {
     ? { label: `Run the rest of the hour at ${CLOCK.lapse} times real speed`, mark: 'lapse' }
     : { label: 'Back to now', mark: 'now' }
 })
-const inner       = computed(() => width.value - INSET * 2)
-const pins = computed(() => sky.rows.value.list.flatMap(pass => {
-  const bound = boundOf(pass)
-  if (bound === 'holding' || (pass.earlier && pass.later)) return []
-  const tip = AXIS + (bound === 'northbound' ? -1 : 1) * (5 + pass.peak / 90 * STEM)
-  return [{ pass, tip, x: xOf(pass.peakAt) }]
-}))
+const inner = computed(() => width.value - STRIP.inset * 2)
+/**
+ * The climb of each pass that rises or sets in the window, in the order the
+ * passes peak.
+ */
+const climbs = computed(() => sky.rows.value.list
+  .filter(pass => boundOf(pass) !== 'holding' && !(pass.earlier && pass.later))
+  .map(pass => ({ climb: sky.climbOf(pass), pass })))
+/**
+ * Each climb drawn as a ridge across the strip's width, with its outline, its
+ * crest seen and unseen, and its peak.
+ */
+const ridges = computed(() => climbs.value.map(({ climb, pass }) => ({
+  pass : pass,
+  peak : [xOf(pass.peakAt), yOf(pass.peak)] as const,
+  ...ridgeOf(climb, xOf, yOf)
+})))
+/**
+ * The ridges from the highest to the lowest, so a lower ridge stands in front
+ * of a higher one, with the ridge a pointer, a finger, or a key holds raised
+ * above them all and the ridge the readout shows drawn heavier.
+ */
+const stacked = computed(() => ridges.value
+  .map(ridge => ({ ...ridge, heavy: ridge.pass === sky.shown.value }))
+  .toSorted((a, b) =>
+    Number(a.pass === sky.held.value) - Number(b.pass === sky.held.value) || b.pass.peak - a.pass.peak))
 const strip = ref<SVGSVGElement>()
+/**
+ * The page's root font size in pixels, which scales the rems `caps` sets a
+ * label in.
+ */
+const rem   = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+/**
+ * The strip's ticks, labeled every so many ticks that each label clears the
+ * one before it by `LABEL.gap`, the spacing taking the whole width of the
+ * widest label beside half of another, since the first and the last labels
+ * stand wholly inside the strip where every other label centers on its tick.
+ */
 const ticks = computed(() => {
-  const every = Math.ceil(LABEL_WIDTH / (inner.value / TICKS))
-  return Array.from({ length: TICKS + 1 }, (_, index) => {
+  const clocks = Array.from({ length: TICKS + 1 }, (_, index) => sky.clockOf(index * sky.span / TICKS))
+  const size   = (phone.value ? LABEL.phone : LABEL.wide) * rem
+  const label  = Math.max(...clocks.map(clock => clock.length)) * LABEL.advance * size
+  const every  = Math.ceil((label * 1.5 + LABEL.gap) / (inner.value / TICKS))
+  return clocks.map((clock, index) => {
     const seconds = index * sky.span / TICKS
     return {
       anchor  : index === 0 ? 'start' : index === TICKS ? 'end' : 'middle',
-      clock  : index % every === 0 ? sky.clockOf(seconds) : '',
-      seconds,
-      x      : xOf(seconds)
+      clock   : index % every === 0 ? clock : '',
+      seconds : seconds,
+      x       : xOf(seconds)
     }
   })
 })
@@ -54,58 +96,93 @@ const { width } = useElementSize(strip, { height: 0, width: 800 })
  * The strip cut into columns around the peaks, which a tap on a phone picks
  * from.
  */
-const columns = computed(() => columnsOf(pins.value.map(({ pass, x }) => ({ item: pass, x })), width.value))
-const phone   = usePhone()
+const columns = computed(() =>
+  columnsOf(ridges.value.map(({ pass, peak }) => ({ item: pass, x: peak[0] })), width.value))
+const phone = usePhone()
 
 /**
  * Where a press on a phone's strip went down, and whether it has turned into a
  * drag across the strip or up and down it.
  */
 let down: { drag: 'across' | 'along' | null, x: number, y: number } | null = null
-let request = 0
+
+/**
+ * Raises the ridge `by` places later or earlier than the one raised, or where
+ * none is raised the first to peak after the time read or the last before it.
+ */
+const browse = (by: 1 | -1) => {
+  const passes = ridges.value.map(({ pass }) => pass)
+  const index  = passes.findIndex(pass => pass === sky.held.value)
+  const at     = sky.at.value
+  const next   = index >= 0 ? passes[index + by]
+    : by > 0 ? passes.find(pass => pass.peakAt >= at) : passes.findLast(pass => pass.peakAt < at)
+  if (next) sky.held.value = next
+}
 
 const drag = (event: PointerEvent) => {
   if (!strip.value!.hasPointerCapture(event.pointerId)) return
   if (down && !down.drag) {
     down.drag = turnOf(down.x, down.y, event)
     if (!down.drag) return
+    sky.held.value = null
   }
   if (down?.drag !== 'along') sky.seek(secondsAt(event.clientX))
 }
 
 /**
- * Picks on a phone the pass a tap lands on, from the column under it.
+ * Lets the raised ridge fall back once the pointer, the finger, or the focus
+ * leaves the strip.
+ */
+const leave = () => {
+  down           = null
+  sky.held.value = null
+}
+
+/**
+ * Chooses on a phone the pass a tap lands on, from the column under it.
  */
 const lift = (event: PointerEvent) => {
   if (down && !down.drag) {
     const picked = pickAt(columns.value, xAt(event.clientX), sky.pinned.value)
     if (picked) sky.focusOn(picked)
   }
-  down = null
+  leave()
 }
 
 const nudge = (event: KeyboardEvent) => {
-  const step = { ArrowLeft: -60, ArrowRight: 60, PageDown: -600, PageUp: 600 }[event.key]
-  if (!step) return
+  const held = sky.held.value
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') browse(event.key === 'ArrowUp' ? 1 : -1)
+  else if (event.key === 'Enter' && held) sky.focusOn(held)
+  else {
+    const step = { ArrowLeft: -60, ArrowRight: 60, PageDown: -600, PageUp: 600 }[event.key]
+    if (!step) return
+    sky.seek(sky.seconds + step)
+  }
   event.preventDefault()
-  sky.seek(sky.seconds + step)
-}
-
-const press = (event: PointerEvent) => {
-  strip.value!.setPointerCapture(event.pointerId)
-  if (phone.value) down = { drag: null, x: event.clientX, y: event.clientY }
-  else sky.seek(secondsAt(event.clientX))
 }
 
 /**
- * Pins the pass whose peak a pointer presses wider than a phone and moves the
- * clock to its peak, leaving a phone's press to the column under it.
+ * Starts a press on the strip, which on a phone raises the ridge a tap there
+ * would choose while the finger holds still.
  */
-const pressPin = (event: PointerEvent, pass: Pass) => {
+const press = (event: PointerEvent) => {
+  strip.value!.setPointerCapture(event.pointerId)
+  if (!phone.value) return sky.seek(secondsAt(event.clientX))
+  down           = { drag: null, x: event.clientX, y: event.clientY }
+  sky.held.value = pickAt(columns.value, xAt(event.clientX), sky.pinned.value)
+}
+
+/**
+ * Chooses the pass whose ridge a pointer presses wider than a phone and moves
+ * the clock to its peak, leaving a phone's press to the column under it.
+ */
+const pressRidge = (event: PointerEvent, pass: Pass) => {
   if (phone.value) return
   event.stopPropagation()
   sky.focusOn(pass)
 }
+
+const secondsAt = (clientX: number) => (xAt(clientX) - STRIP.inset) / inner.value * sky.span
 
 /**
  * Returns how far in pixels a pointer at `clientX` stands from the strip's
@@ -113,26 +190,15 @@ const pressPin = (event: PointerEvent, pass: Pass) => {
  */
 const xAt = (clientX: number) => clientX - strip.value!.getBoundingClientRect().left
 
-const secondsAt = (clientX: number) => (xAt(clientX) - INSET) / inner.value * sky.span
+const xOf = (seconds: number) => STRIP.inset + seconds / sky.span * inner.value
 
-const xOf = (seconds: number) => INSET + seconds / sky.span * inner.value
+const yOf = (elevation: number) => STRIP.ground - elevation / 90 * STRIP.overhead
 
-onMounted(() => {
-  const loop = () => {
-    cursor.value?.setAttribute('transform', `translate(${xOf(sky.seconds)} 0)`)
-    request = requestAnimationFrame(loop)
-  }
-  request = requestAnimationFrame(loop)
-})
-onBeforeUnmount(() => cancelAnimationFrame(request))
+useRafFn(() => cursor.value?.setAttribute('transform', `translate(${xOf(sky.seconds)} 0)`))
 </script>
 
 <template>
   <section class="shrink-0 border-t border-rule bg-panel" aria-label="Time">
-    <p class="caps hidden items-center justify-end gap-1 px-4 pt-2.5 text-soft sm:flex">
-      <Icon :name="BOUNDS.northbound.mark" />{{ BOUNDS.northbound.label }} ·
-      <Icon :name="BOUNDS.southbound.mark" />{{ BOUNDS.southbound.label }}
-    </p>
     <div class="flex items-center gap-2 pl-4">
       <button
         type="button"
@@ -149,10 +215,11 @@ onBeforeUnmount(() => cancelAnimationFrame(request))
       <svg
         ref="strip"
         class="block min-w-0 flex-1 cursor-ew-resize touch-none select-none"
-        :height="HEIGHT"
+        :height="STRIP.height"
         role="slider"
         tabindex="0"
         aria-label="Time within the window"
+        aria-keyshortcuts="ArrowUp ArrowDown Enter"
         :aria-valuemin="0"
         :aria-valuemax="sky.span"
         :aria-valuenow="Math.round(sky.at.value)"
@@ -160,49 +227,65 @@ onBeforeUnmount(() => cancelAnimationFrame(request))
         @pointerdown="press"
         @pointermove="drag"
         @pointerup="lift"
-        @pointercancel="down = null"
+        @pointercancel="leave"
         @keydown="nudge"
+        @blur="leave"
       >
-        <line :x1="INSET" :x2="width - INSET" :y1="AXIS" :y2="AXIS" class="stroke-dim" />
-        <g v-for="tick in ticks" :key="tick.seconds">
-          <line :x1="tick.x" :x2="tick.x" :y1="AXIS - 3" :y2="AXIS + 3" class="stroke-dim" />
+        <g
+          v-for="{ pass, outline, seen, unseen, peak, heavy } in stacked"
+          :key="pass.key"
+          class="cursor-pointer"
+          :style="{ '--ridge': kindColor(pass.kind) }"
+          @pointerdown="pressRidge($event, pass)"
+          @pointerenter="phone || (sky.held.value = pass)"
+          @pointerleave="phone || (sky.held.value = null)"
+        >
+          <path
+            :d="outline"
+            :class="heavy
+              ? 'fill-[color-mix(in_oklab,var(--ridge)_30%,var(--panel))]'
+              : 'fill-[color-mix(in_oklab,var(--ridge)_14%,var(--panel))]'"
+          />
+          <g
+            fill="none"
+            stroke="var(--ridge)"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            :stroke-width="heavy ? 2.5 : 1.5"
+          >
+            <path :d="seen" />
+            <path :d="unseen" stroke-dasharray="1 3" />
+          </g>
+          <circle :cx="peak[0]" :cy="peak[1]" r="3.5" stroke-width="2" class="fill-ink stroke-panel" />
+        </g>
+        <line
+          :x1="STRIP.inset"
+          :x2="width - STRIP.inset"
+          :y1="STRIP.ground"
+          :y2="STRIP.ground"
+          class="pointer-events-none stroke-dim"
+        />
+        <g v-for="tick in ticks" :key="tick.seconds" class="pointer-events-none">
+          <line
+            :x1="tick.x"
+            :x2="tick.x"
+            :y1="STRIP.ground - 3"
+            :y2="STRIP.ground + 3"
+            class="stroke-dim"
+          />
           <text
             :x="tick.x"
-            :y="HEIGHT - 5"
+            :y="STRIP.height - 5"
             :text-anchor="tick.anchor"
             class="caps fill-soft"
           >{{ tick.clock }}</text>
         </g>
-        <g
-          v-for="{ pass, x, tip } in pins"
-          :key="pass.key"
-          class="cursor-pointer"
-          @pointerdown="pressPin($event, pass)"
-          @pointerenter="sky.held.value = pass"
-          @pointerleave="sky.held.value = null"
-        >
-          <line
-            :x1="x"
-            :x2="x"
-            :y1="AXIS"
-            :y2="tip"
-            :style="{ stroke: kindColor(pass.kind) }"
-            stroke-opacity="0.6"
-          />
-          <circle
-            :cx="x"
-            :cy="tip"
-            :r="pass === sky.selected.value ? 5 : 2.6"
-            :style="{ fill: kindColor(pass.kind) }"
-            :class="{ 'stroke-ink': pass === sky.selected.value }"
-          />
-        </g>
         <g class="pointer-events-none" :transform="`translate(${xOf(sky.now.value)} 0)`">
-          <line :y1="AXIS + 3" :y2="AXIS + 12" class="stroke-ink" stroke-width="1.5" />
-          <text :y="HEIGHT - 20" text-anchor="middle" class="caps fill-ink">Now</text>
+          <line :y1="STRIP.ground + 3" :y2="STRIP.ground + 12" class="stroke-ink" stroke-width="1.5" />
+          <text :y="STRIP.height - 20" text-anchor="middle" class="caps fill-ink">Now</text>
         </g>
         <g ref="cursor" class="pointer-events-none">
-          <line :y1="4" :y2="HEIGHT - 20" class="stroke-u" stroke-width="1.5" />
+          <line :y1="4" :y2="STRIP.height - 20" class="stroke-u" stroke-width="1.5" />
           <path d="M-5 2 L5 2 L0 9 Z" class="fill-u" />
         </g>
       </svg>

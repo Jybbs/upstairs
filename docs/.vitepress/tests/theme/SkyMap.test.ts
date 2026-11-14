@@ -112,6 +112,21 @@ it.each([
   expect(padding).toEqual({ bottom: covered + edge, left: 48, right: 48, top: edge })
 })
 
+it.each([
+  ['centers the zoom buttons in the map above the sheet once a pass is pinned', 480, 'pin',
+    'calc((100% - 480px) / 2)'],
+  ['leaves the zoom buttons at the map’s middle with no pass pinned', 480, null, ''],
+  ['leaves the zoom buttons at the map’s middle while a finger only holds a pass', 330, 'hold', ''],
+  ['leaves the zoom buttons at the map’s middle where no sheet covers it', 0, 'pin', '']
+] as const)('%s', async (_, covered, chosen, top) => {
+  const { pass, sky, wrapper } = await mounted()
+  sky.covered.value            = covered
+  if (chosen === 'pin') sky.pin(pass)
+  if (chosen === 'hold') sky.held.value = pass
+  await flushPromises()
+  expect((wrapper.get('[aria-label="Zoom"]').element as HTMLElement).style.top).toBe(top)
+})
+
 it('lets the pinned pass go on a press of the empty map', async () => {
   const { pass, sky } = await mounted()
   sky.pin(pass)

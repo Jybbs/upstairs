@@ -2,11 +2,11 @@
 import { computed } from 'vue'
 
 import { BOUNDS, boundOf, slantOf } from '../lib/orbit/compass.ts'
-import { KINDS }                    from '../lib/orbit/kinds.ts'
 import type { Pass }                from '../lib/orbit/scan.ts'
 import { kindColor }                from '../lib/site/palette.ts'
 import { sky }                      from '../lib/state/sky.ts'
 import Icon                         from './Icon.vue'
+import KindTag                      from './KindTag.vue'
 import PassSky                      from './PassSky.vue'
 import SatelliteName                from './SatelliteName.vue'
 
@@ -59,12 +59,7 @@ const slantAt = (seconds: number) => sky.tracks.at(index.value, seconds) && sky.
   <div class="flex flex-col gap-2">
     <SatelliteName :name="pass.name" class="text-[22px] leading-tight tracking-tight text-balance text-ink" />
     <p class="flex items-center gap-2">
-      <span
-        class="caps inline-flex h-6.5 items-center gap-1.5 rounded-sm border border-rule bg-lift px-2
-               text-ink"
-      >
-        <Icon :name="pass.kind" />{{ KINDS[pass.kind].label }}
-      </span>
+      <KindTag :kind="pass.kind" />
       <span class="h-px flex-1 bg-rule" />
       <span class="caps inline-flex items-center gap-1 text-soft">
         <Icon :name="BOUNDS[bound].mark" />{{ BOUNDS[bound].label }}

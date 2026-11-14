@@ -1,21 +1,27 @@
 // @vitest-environment happy-dom
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { expect, it, vi }         from 'vitest'
-import { ref }                    from 'vue'
+import { type Ref, ref }          from 'vue'
 
 import { passOf }               from '../fixtures/passes.ts'
 import { addScanned, freshSky } from '../fixtures/sky.ts'
 
 /**
  * The heights the sheet measures, in the order it measures them: its peek, the
- * pinned pass below it, and the whole sheet.
+ * handle and the readout above the strip, the pinned pass's block, the whole
+ * sheet, and the climb, with the climb 300 px wide, beside the ref each
+ * measurement returns, which a case changes to move a height.
  */
-const HEIGHTS = vi.hoisted(() => ({ next: 0, of: [100, 200, 600] }))
+const HEIGHTS = vi.hoisted(() => ({ measured: [] as Ref<number>[], of: [100, 60, 420, 600, 104] }))
 
 vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
 vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
-  useElementSize: () => ({ height: ref(HEIGHTS.of[HEIGHTS.next++ % HEIGHTS.of.length]) })
+  useElementSize: () => {
+    const height = ref(HEIGHTS.of[HEIGHTS.measured.length % HEIGHTS.of.length]!)
+    HEIGHTS.measured.push(height)
+    return { height, width: ref(300) }
+  }
 }))
 
 /**
@@ -43,7 +49,7 @@ const dragged = async (wrapper: VueWrapper, path: number[][]) => {
  */
 const mounted = async (pinned: boolean) => {
   vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: false, removeEventListener() {} }))
-  HEIGHTS.next                    = 0
+  HEIGHTS.measured                = []
   const { component: Sheet, sky } = await freshSky(() => import('../../theme/Sheet.vue'))
   const pass                      = passOf(1)
   const stubs                     = {
@@ -97,11 +103,56 @@ it('uncovers the map once it unmounts', async () => {
 })
 
 it.each([
-  ['covers the map up to its peek at rest', false, 100],
-  ['covers the map down to the pinned pass once one is pinned', true, 300]
-] as const)('%s', async (_, pinned, covered) => {
-  const { sky } = await mounted(pinned)
+  ['covers the map up to its peek at rest', false, 600, 100],
+  ['covers the handle, the readout, and the pass block once a pass is pinned', true, 600, 480],
+  ['stands half no higher than full where the pass block runs past the sheet', true, 450, 450]
+] as const)('%s', async (_, pinned, sheet, covered) => {
+  const { sky, wrapper }     = await mounted(pinned)
+  HEIGHTS.measured[3]!.value = sheet
+  await wrapper.vm.$nextTick()
   expect(sky.covered.value).toBe(covered)
+})
+
+it('holds a drag down from half at the peek the strip sets, while the strip is set aside', async () => {
+  const { wrapper }          = await mounted(true)
+  HEIGHTS.measured[0]!.value = 60
+  await wrapper.vm.$nextTick()
+  const sheet = await dragged(wrapper, [[100, 420, 0], [100, 900, 1000]])
+  expect(sheet.attributes('style')).toContain('translateY(500px)')
+})
+
+it('takes up a peek measured at full once the sheet falls back to its peek', async () => {
+  const { sky, wrapper }     = await mounted(false)
+  const handle               = wrapper.get('button')
+  await handle.trigger('click')
+  HEIGHTS.measured[0]!.value = 60
+  await wrapper.vm.$nextTick()
+  await handle.trigger('click')
+  expect(sky.covered.value).toBe(60)
+})
+
+it('shows the pinned pass’s kind, name, 104 px climb, times, Previous, and Next at half', async () => {
+  const { wrapper } = await mounted(true)
+  const climb       = wrapper.get('svg[role="img"]').element
+  const block       = climb.parentElement!
+  expect([
+    [...block.children].map(child => child.localName),
+    block.querySelector('.caps')!.textContent!.trim(),
+    block.querySelector('.font-mono')!.textContent,
+    climb.getAttribute('height'),
+    climb.nextElementSibling!.childElementCount,
+    [...block.querySelectorAll('button')].map(button => button.textContent!.trim())
+  ]).toEqual([['p', 'svg', 'p', 'p'], 'Crewed', 'CRAFT 1', '104', 3, ['Previous', 'Next']])
+})
+
+it.each([
+  ['sets the strip aside at half while a pass is pinned', true, 0, false],
+  ['brings the strip back at full while a pass is pinned', true, 1, true],
+  ['keeps the strip at peek with no pass pinned', false, 0, true]
+] as const)('%s', async (_, pinned, presses, strip) => {
+  const { wrapper } = await mounted(pinned)
+  for (const _press of Array(presses)) await wrapper.get('button').trigger('click')
+  expect((wrapper.get('time-strip-stub').element as HTMLElement).style.display !== 'none').toBe(strip)
 })
 
 it('lets the pinned pass go once a drag drops the sheet to its peek', async () => {
@@ -120,4 +171,17 @@ it('leaves the sheet where it stands once a drag turns across the page', async (
   const { wrapper } = await mounted(false)
   const sheet       = await dragged(wrapper, [[130, 402, 0], [130, 200, 10]])
   expect(sheet.attributes('style')).toContain('translateY(500px)')
+})
+
+it('draws the pinned pass’s climb over its rise, peak, and set, its full readout in the list', async () => {
+  const { sky, wrapper } = await mounted(true)
+  const climb            = wrapper.get('svg[role="img"]')
+  const times            = [...climb.element.nextElementSibling!.children].map(time => time.textContent!)
+  expect([
+    climb.get('path').attributes('d')!.startsWith('M'),
+    climb.get('path[stroke-dasharray]').attributes('d')!.startsWith('M'),
+    climb.get('circle').attributes('cy'),
+    times,
+    wrapper.find('.overflow-y-auto pass-readout-stub').exists()
+  ]).toEqual([true, true, '8', [sky.clockOf(300), `60° ${sky.clockOf(600)}`, sky.clockOf(900)], true])
 })
