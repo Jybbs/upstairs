@@ -55,7 +55,7 @@ const ridges = computed(() => climbs.value.map(({ climb, pass }) => ({
  * above them all and the ridge the readout shows drawn heavier.
  */
 const stacked = computed(() => ridges.value
-  .map(ridge => ({ ...ridge, raised: ridge.pass === sky.shown.value }))
+  .map(ridge => ({ ...ridge, heavy: ridge.pass === sky.shown.value }))
   .toSorted((a, b) =>
     Number(a.pass === sky.held.value) - Number(b.pass === sky.held.value) || b.pass.peak - a.pass.peak))
 const strip = ref<SVGSVGElement>()
@@ -212,7 +212,7 @@ useRafFn(() => cursor.value?.setAttribute('transform', `translate(${xOf(sky.seco
         @blur="leave"
       >
         <g
-          v-for="{ pass, outline, seen, unseen, peak, raised } in stacked"
+          v-for="{ pass, outline, seen, unseen, peak, heavy } in stacked"
           :key="pass.key"
           class="cursor-pointer"
           :style="{ '--ridge': kindColor(pass.kind) }"
@@ -222,7 +222,7 @@ useRafFn(() => cursor.value?.setAttribute('transform', `translate(${xOf(sky.seco
         >
           <path
             :d="outline"
-            :class="raised
+            :class="heavy
               ? 'fill-[color-mix(in_oklab,var(--ridge)_30%,var(--panel))]'
               : 'fill-[color-mix(in_oklab,var(--ridge)_14%,var(--panel))]'"
           />
@@ -231,7 +231,7 @@ useRafFn(() => cursor.value?.setAttribute('transform', `translate(${xOf(sky.seco
             stroke="var(--ridge)"
             stroke-linecap="round"
             stroke-linejoin="round"
-            :stroke-width="raised ? 2.5 : 1.5"
+            :stroke-width="heavy ? 2.5 : 1.5"
           >
             <path :d="seen" />
             <path :d="unseen" stroke-dasharray="1 3" />

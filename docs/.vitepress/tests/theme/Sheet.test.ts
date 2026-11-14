@@ -134,13 +134,14 @@ it('leaves the sheet where it stands once a drag turns across the page', async (
 })
 
 it('draws the pinned pass’s climb over its rise, peak, and set, its full readout in the list', async () => {
-  const { wrapper } = await mounted(true)
-  const climb       = wrapper.get('svg[role="img"]')
-  const times       = [...climb.element.nextElementSibling!.children].map(time => time.textContent!)
+  const { sky, wrapper } = await mounted(true)
+  const climb            = wrapper.get('svg[role="img"]')
+  const times            = [...climb.element.nextElementSibling!.children].map(time => time.textContent!)
   expect([
     climb.get('path').attributes('d')!.startsWith('M'),
-    times.length,
-    times[1].startsWith('60°'),
+    climb.get('path[stroke-dasharray]').attributes('d')!.startsWith('M'),
+    climb.get('circle').attributes('cy'),
+    times,
     wrapper.find('.overflow-y-auto pass-readout-stub').exists()
-  ]).toEqual([true, 3, true, true])
+  ]).toEqual([true, true, '8', [sky.clockOf(300), `60° ${sky.clockOf(600)}`, sky.clockOf(900)], true])
 })
