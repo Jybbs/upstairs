@@ -80,7 +80,7 @@ const mounted = async () => {
   vi.stubGlobal('requestAnimationFrame', () => 0)
   Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } })
   document.head.append(Object.assign(document.createElement('link'), { href: SHEETS.map.href }))
-  const { component: SkyMap, sky } = await freshSky(() => import('../../theme/SkyMap.vue'))
+  const { component: SkyMap, sky } = await freshSky(() => import('../../theme/SkyMap.tsx'))
   const wrapper                    = mount(SkyMap)
   await flushPromises()
   const pass                       = passOf(1)

@@ -14,7 +14,7 @@ import { addScanned, lateSky } from '../fixtures/sky.ts'
  * scan, after `set` has changed what else the state holds.
  */
 const mounted = async (passes: Pass[], set: (sky: typeof Sky) => void = () => {}) => {
-  const { component: PassList, sky } = await lateSky(() => import('../../theme/PassList.vue'))
+  const { component: PassList, sky } = await lateSky(() => import('../../theme/PassList.tsx'))
   addScanned(sky, passes)
   sky.scope.value = 'sky'
   set(sky)
@@ -36,8 +36,8 @@ describe('the rows', () => {
 
   it('reads each pass’s peak time, name, crossing, and highest elevation to a whole degree', async () => {
     const { wrapper }    = await mounted([passOf(7, { peak: 59.6 })])
-    const [time, , peak] = wrapper.findAll('button > span')
-    const [name, path]   = wrapper.findAll('button > span > span')
+    const [time, , peak] = wrapper.findAll('[role="option"] > span')
+    const [name, path]   = wrapper.findAll('[role="option"] > span > span')
     expect([time, name, path, peak].map(found => found.text()))
       .toEqual(['11:57 PM', 'CRAFT 7', 'N → S', '60°'])
   })
@@ -51,9 +51,9 @@ describe('the rows', () => {
       { current: 'false', faded: false, lifted: false }]
   ])('%s', async (_, set, shown) => {
     const { wrapper } = await mounted([passOf(7)], set)
-    const row         = wrapper.get('button')
+    const row         = wrapper.get('[role="option"]')
     expect({
-      current : row.attributes('aria-current'),
+      current : row.attributes('aria-selected'),
       faded   : row.classes('opacity-55'),
       lifted  : row.classes('bg-lift')
     }).toEqual(shown)
@@ -62,8 +62,44 @@ describe('the rows', () => {
   it('focuses the map on a pass whose row is clicked', async () => {
     const { sky, wrapper } = await mounted(weatherOf(2))
     const pass             = sky.tracks.passes[1]
-    await wrapper.findAll('button')[1].trigger('click')
+    await wrapper.findAll('[role="option"]')[1].trigger('click')
     expect([sky.selected.value, sky.pinned.value, sky.at.value]).toEqual([pass, pass, pass.peakAt])
+  })
+
+  it.each([
+    ['highlights the first row on the down arrow', ['ArrowDown'], 0],
+    ['highlights the row below on a second down arrow', ['ArrowDown', 'ArrowDown'], 1],
+    ['highlights the row above on the up arrow', ['End', 'ArrowUp'], 1],
+    ['highlights the last row on End', ['End'], 2],
+    ['highlights the first row on Home', ['End', 'Home'], 0]
+  ] as const)('%s', async (_, keys, highlighted) => {
+    const { wrapper } = await mounted(weatherOf(3))
+    for (const key of keys) await wrapper.get('[role="listbox"]').trigger('keydown', { key })
+    expect(wrapper.findAll('[role="option"]').map(row => row.attributes('data-highlighted') !== undefined))
+      .toEqual([0, 1, 2].map(index => index === highlighted))
+  })
+
+  it.each([
+    ['a second click on its row', undefined],
+    ['Enter', 'Enter'],
+    ['Space', ' ']
+  ])('focuses the map again on the selected pass on %s', async (_, key) => {
+    const { sky, wrapper } = await mounted(weatherOf(2))
+    const pass             = sky.tracks.passes[1]
+    const row              = wrapper.findAll('[role="option"]')[1]
+    await row.trigger('click')
+    sky.at.value = 0
+    await (key ? wrapper.get('[role="listbox"]').trigger('keydown', { key }) : row.trigger('click'))
+    expect(sky.at.value).toBe(pass.peakAt)
+  })
+
+  it('focuses the map on the highlighted pass on Enter', async () => {
+    const { sky, wrapper } = await mounted(weatherOf(3))
+    const pass             = sky.tracks.passes[1]
+    const list             = wrapper.get('[role="listbox"]')
+    for (const key of ['ArrowDown', 'ArrowDown', 'Enter']) await list.trigger('keydown', { key })
+    expect([sky.selected.value, wrapper.findAll('[role="option"]')[1].attributes('aria-selected')])
+      .toEqual([pass, 'true'])
   })
 })
 

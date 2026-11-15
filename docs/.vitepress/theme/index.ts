@@ -7,9 +7,9 @@ import DefaultTheme                         from 'vitepress/theme-without-fonts'
 import { h, onMounted }                     from 'vue'
 
 import { followFootnotes } from '../lib/site/landing.ts'
-import NotFound            from './NotFound.vue'
-import Shield              from './Shield.vue'
-import SiteMark            from './SiteMark.vue'
+import NotFound            from './NotFound.tsx'
+import Shield              from './Shield.tsx'
+import SiteMark            from './SiteMark.tsx'
 import './style.css'
 import './credit.css'
 import './footnotes.css'
@@ -24,10 +24,10 @@ export default {
   }),
 
   enhanceApp: ({ app }) => {
-    app.component('HomeMap', defineClientComponent(() => import('./HomeMap.vue')))
-    app.component('LookAngles', defineClientComponent(() => import('./LookAngles.vue')))
-    app.component('OrbitAges', defineClientComponent(() => import('./OrbitAges.vue')))
-    app.component('PeakSearch', defineClientComponent(() => import('./PeakSearch.vue')))
+    app.component('HomeMap', defineClientComponent(() => import('./HomeMap.tsx')))
+    app.component('LookAngles', defineClientComponent(() => import('./LookAngles.tsx')))
+    app.component('OrbitAges', defineClientComponent(() => import('./OrbitAges.tsx')))
+    app.component('PeakSearch', defineClientComponent(() => import('./PeakSearch.tsx')))
   },
 
   setup: () => onMounted(() => followFootnotes(document))

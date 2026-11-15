@@ -49,7 +49,7 @@ const mounted = async (reduced: boolean, phone = false, passes = [passOf(1)], wi
     matches: reduced && query.includes('reduce') || phone && query.includes('40rem'),
     removeEventListener() {}
   }))
-  const { component: TimeStrip, sky } = await freshSky(() => import('../../theme/TimeStrip.vue'))
+  const { component: TimeStrip, sky } = await freshSky(() => import('../../theme/TimeStrip.tsx'))
   const [pass]                        = passes
   addScanned(sky, passes)
   sky.scope.value = 'sky'
@@ -143,6 +143,22 @@ it.each([
   expect(sky.held.value).toBe(passes[raised])
 })
 
+it.each([
+  ['moves the time a minute on with the right arrow', 'ArrowRight', 150],
+  ['moves the time a minute back with the left arrow', 'ArrowLeft', 30],
+  ['moves the time ten minutes on with Page Up', 'PageUp', 690],
+  ['holds the time at the window’s start with Page Down', 'PageDown', 0],
+  ['moves the time to the start of the window on Home', 'Home', 0],
+  ['moves the time to the end of the window on End', 'End', null]
+] as const)('%s, from a minute and a half in', async (_, key, at) => {
+  const { sky, wrapper } = await mounted(false)
+  const strip            = wrapper.get<SVGElement>('svg[role="slider"]')
+  sky.seek(90)
+  strip.element.focus()
+  await strip.trigger('keydown', { key })
+  expect(sky.at.value).toBe(at ?? sky.span)
+})
+
 it('raises nothing before the first ridge when no ridge peaks earlier', async () => {
   const { sky, wrapper } = await mounted(false, false, THREE)
   await wrapper.get('svg[role="slider"]').trigger('keydown', { key: 'ArrowDown' })
@@ -193,7 +209,9 @@ it('raises each pass’s own ridge to its peak elevation', async () => {
 })
 
 it('colors each ridge by its pass’s kind and dots the crest where it cannot be seen', async () => {
-  const passes      = [passOf(1), passOf(2, { key: '2/900', kind: 'weather', peakAt: 1200, riseAt: 900, setAt: 1500 })]
+  const passes      = [
+    passOf(1), passOf(2, { key: '2/900', kind: 'weather', peakAt: 1200, riseAt: 900, setAt: 1500 })
+  ]
   const { wrapper } = await mounted(false, false, passes)
   const ridges      = wrapper.findAll('g.cursor-pointer')
   expect(ridges.map(ridge => {
@@ -204,7 +222,7 @@ it('colors each ridge by its pass’s kind and dots the crest where it cannot be
 
 it('draws the crest solid where the satellite can be seen by eye', async () => {
   vi.doMock('../../lib/orbit/seen.ts', () => ({ seenAt: () => true }))
-  const { component: TimeStrip, sky } = await freshSky(() => import('../../theme/TimeStrip.vue'))
+  const { component: TimeStrip, sky } = await freshSky(() => import('../../theme/TimeStrip.tsx'))
   vi.doUnmock('../../lib/orbit/seen.ts')
   sky.tracks.add([passOf(1)], new Float32Array(TRACK_WIDTH * 2), new Uint32Array(1), 2)
   sky.version.value++

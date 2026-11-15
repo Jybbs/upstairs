@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { expect, it, vi }         from 'vitest'
+import { defineComponent, h }     from 'vue'
 
 import { kindOrder } from '../../lib/orbit/kinds.ts'
 import { passOf }    from '../fixtures/passes.ts'
@@ -22,7 +23,7 @@ const lineOf = (wrapper: VueWrapper) => wrapper.get('p.truncate')
  */
 const mounted = async (seconds: number, reduced = false) => {
   vi.stubGlobal('matchMedia', (query: string) => ({ matches: reduced && query.includes('reduce') }))
-  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.vue'))
+  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.tsx'))
   sky.done.value   = true
   sky.spoken.value = '5 satellites above the horizon'
   sky.at.value     = seconds
@@ -114,6 +115,26 @@ it('keeps the pinned pass on Escape while the spot chooser is open', async () =>
   sky.choose()
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
   expect(sky.pinned.value).toBe(pass)
+})
+
+it('keeps the pinned pass on Escape when the spot chooser beside it shuts', async () => {
+  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.tsx'))
+  const { default: SpotChooser }    = await import('../../theme/SpotChooser.tsx')
+  const { provideChooser }          = await import('../../lib/site/chooser.ts')
+  const pass                        = passOf(1)
+  vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: false, removeEventListener() {} }))
+  sky.pin(pass)
+  sky.choose()
+  const wrapper = mount(defineComponent(() => {
+    provideChooser()
+    return () => h('div', [h(Readout), h(SpotChooser)])
+  }), { attachTo: document.body })
+  await new Promise(requestAnimationFrame)
+  await new Promise(requestAnimationFrame)
+  await new Promise(resolve => setTimeout(resolve))
+  document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }))
+  wrapper.unmount()
+  expect([sky.choosing.value, sky.pinned.value]).toEqual(['shut', pass])
 })
 
 it('settles the name of the place in letter by letter only once the spot moves', async () => {

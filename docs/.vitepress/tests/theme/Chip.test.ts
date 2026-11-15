@@ -3,7 +3,7 @@ import { shallowMount } from '@vue/test-utils'
 import { expect, it }   from 'vitest'
 
 import type { Kind } from '../../lib/orbit/kinds.ts'
-import Chip          from '../../theme/Chip.vue'
+import Chip          from '../../theme/Chip.tsx'
 
 it.each<[string, { kind?: Kind, on: boolean }, (string | null)[]]>([
   ['marks a chip pressed and sets its kind’s icon in the panel’s color', { kind: 'crewed', on: true },

@@ -1,22 +1,24 @@
 // @vitest-environment happy-dom
-import { flushPromises, mount }      from '@vue/test-utils'
-import { afterEach, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { afterEach, expect, it, vi }                 from 'vitest'
 
 import type { sky as Sky } from '../../lib/state/sky.ts'
 import { passOf }          from '../fixtures/passes.ts'
 import photon              from '../fixtures/photon.json' with { type: 'json' }
 import { freshSky }        from '../fixtures/sky.ts'
 
+enableAutoUnmount(afterEach)
+
 /**
- * Mounts the search over a fresh copy of the shared state, after `set` has
- * changed what the state holds.
+ * Mounts the search in the page over a fresh copy of the shared state, after
+ * `set` has changed what the state holds.
  */
 const mounted = async (set: (sky: typeof Sky) => void = () => {}) => {
   vi.useFakeTimers()
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
-  const { component: PlaceSearch, sky } = await freshSky(() => import('../../theme/PlaceSearch.vue'))
+  const { component: PlaceSearch, sky } = await freshSky(() => import('../../theme/PlaceSearch.tsx'))
   set(sky)
-  return { sky, wrapper: mount(PlaceSearch) }
+  return { sky, wrapper: mount(PlaceSearch, { attachTo: document.body }) }
 }
 
 /**
@@ -26,6 +28,7 @@ const mounted = async (set: (sky: typeof Sky) => void = () => {}) => {
 const searched = async (words: string, reply: () => Promise<Response>) => {
   vi.stubGlobal('fetch', vi.fn(reply))
   const search = await mounted()
+  await search.wrapper.get('input').trigger('focusin')
   await search.wrapper.get('input').setValue(words)
   await vi.advanceTimersByTimeAsync(350)
   await flushPromises()
@@ -55,6 +58,7 @@ it('lists the highest pass of each satellite the words typed name, and holds the
   ]
   const { sky, wrapper } = await mounted(state =>
     state.tracks.add(passes, new Float32Array(9), Uint32Array.of(0, 3, 6), 1))
+  await wrapper.get('input').trigger('focusin')
   await wrapper.get('input').setValue('iss')
   const results = wrapper.findAll('li button')
   expect(results.map(result => result.text())).toEqual(['ISS (ZARYA)'])
@@ -81,6 +85,7 @@ it.each([
 it('sends no search where the words fall below three letters before the wait ends', async () => {
   vi.stubGlobal('fetch', vi.fn())
   const input = (await mounted()).wrapper.get('input')
+  await input.trigger('focusin')
   await input.setValue('lon')
   await input.setValue('lo')
   await vi.advanceTimersByTimeAsync(350)
@@ -93,4 +98,38 @@ it('searches for the words typed and moves to the place chosen, named by its fir
   expect(fetch).toHaveBeenCalledWith('https://photon.komoot.io/api/?limit=5&lang=en&q=new%20london')
   expect([sky.place.value, sky.spot.value, wrapper.find('li').exists()])
     .toEqual(['London', { latitude: 42.9836747, longitude: -81.2496068 }, false])
+})
+
+it.each([
+  ['highlights the first result on the down arrow', ['ArrowDown'], [true, false]],
+  ['highlights the result below on a second down arrow', ['ArrowDown', 'ArrowDown'], [false, true]],
+  ['highlights the result above on the up arrow', ['ArrowDown', 'ArrowDown', 'ArrowUp'], [true, false]]
+] as const)('%s', async (_, keys, highlighted) => {
+  const { wrapper } = await searched('new london', async () => Response.json(photon))
+  for (const key of keys) await wrapper.get('input').trigger('keydown', { key })
+  expect(wrapper.findAll('li button').map(result => result.attributes('data-highlighted') !== undefined))
+    .toEqual(highlighted)
+})
+
+it('moves to the place highlighted on Enter', async () => {
+  const { sky, wrapper } = await searched('new london', async () => Response.json(photon))
+  const input            = wrapper.get('input')
+  for (const key of ['ArrowDown', 'ArrowDown', 'Enter']) await input.trigger('keydown', { key })
+  expect([sky.place.value, sky.spot.value, wrapper.find('li').exists()])
+    .toEqual(['London', { latitude: 42.9836747, longitude: -81.2496068 }, false])
+})
+
+it('clears the words and the results on Escape', async () => {
+  const { wrapper } = await searched('new london', async () => Response.json(photon))
+  await vi.advanceTimersByTimeAsync(50)
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+  await flushPromises()
+  expect([(wrapper.get('input').element as HTMLInputElement).value, wrapper.find('li').exists()])
+    .toEqual(['', false])
+})
+
+it('clears words too short to search on Escape', async () => {
+  const { wrapper } = await searched('ne', async () => Response.json(photon))
+  await wrapper.get('input').trigger('keydown', { key: 'Escape' })
+  expect((wrapper.get('input').element as HTMLInputElement).value).toBe('')
 })

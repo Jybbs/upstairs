@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
-import { mount }      from '@vue/test-utils'
-import { expect, it } from 'vitest'
+import { enableAutoUnmount, mount } from '@vue/test-utils'
+import { afterEach, expect, it }    from 'vitest'
 
-import { KINDS, type Kind }     from '../../lib/orbit/kinds.ts'
-import { passOf }               from '../fixtures/passes.ts'
-import { addScanned, freshSky } from '../fixtures/sky.ts'
+import { KINDS, kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
+import { passOf }                     from '../fixtures/passes.ts'
+import { addScanned, freshSky }       from '../fixtures/sky.ts'
+
+enableAutoUnmount(afterEach)
 
 /**
  * A pass of each of three kinds traced from the start and of one left out,
@@ -24,7 +26,7 @@ const PASSES = [
  * reads the passes the list shows and whether each dot draws at full strength.
  */
 const mounted = async () => {
-  const { component: Filters, sky } = await freshSky(() => import('../../theme/Filters.vue'))
+  const { component: Filters, sky } = await freshSky(() => import('../../theme/Filters.tsx'))
   addScanned(sky, PASSES)
   sky.inFrame.value = Uint8Array.of(1, 0, 1, 1)
   const wrapper     = mount(Filters)
@@ -69,4 +71,20 @@ it.each([
   const filters = await mounted()
   await filters.press(other)
   expect([await filters.press(text), filters.shown().listed]).toEqual(['true', listed])
+})
+
+it.each([
+  ['moves to the next kind on the right arrow', 0, 'ArrowRight', 1],
+  ['moves to the kind before on the left arrow', 1, 'ArrowLeft', 0],
+  ['moves to the last kind on End', 0, 'End', kindOrder.length - 1],
+  ['moves to the first kind on Home', kindOrder.length - 1, 'Home', 0]
+] as const)('%s, the kinds one tab stop between them', async (_, from, key, to) => {
+  const { component: Filters } = await freshSky(() => import('../../theme/Filters.tsx'))
+  const wrapper                = mount(Filters, { attachTo: document.body })
+  const chips                  = wrapper.get('[role="group"]').findAll<HTMLButtonElement>('button')
+  chips[from].element.focus()
+  await chips[from].trigger('keydown', { key })
+  await new Promise(requestAnimationFrame)
+  expect([document.activeElement, chips.filter(chip => chip.attributes('tabindex') === '0').length])
+    .toEqual([chips[to].element, 1])
 })

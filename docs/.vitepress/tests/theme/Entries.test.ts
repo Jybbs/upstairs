@@ -5,7 +5,7 @@ import { expect, it, vi } from 'vitest'
 import { data as entries } from '../../lib/site/entries.data.ts'
 import { kindColor }       from '../../lib/site/palette.ts'
 import { SECTIONS }        from '../../lib/site/sections.ts'
-import Entries             from '../../theme/Entries.vue'
+import Entries             from '../../theme/Entries.tsx'
 
 vi.mock('../../lib/site/entries.data.ts', async () => {
   const sections = await import('../../lib/site/sections.ts')

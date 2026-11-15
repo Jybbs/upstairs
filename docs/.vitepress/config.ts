@@ -1,4 +1,5 @@
 import tailwindcss        from '@tailwindcss/vite'
+import vueJsx             from '@vitejs/plugin-vue-jsx'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 import { defineConfig }   from 'vitepress'
 
@@ -14,7 +15,7 @@ import { SHEETS }         from './lib/site/sheets.ts'
 import { navOf }          from './lib/site/sections.ts'
 
 const LICENSES = 'licenses.txt'
-const home     = preloadOf('/theme/HomeMap.vue', 'index.md')
+const home     = preloadOf('/theme/HomeMap.tsx', 'index.md')
 const notices  = licensesOf(
   LICENSES,
   new URL('../../rust/Cargo.toml', import.meta.url),
@@ -47,6 +48,7 @@ export default defineConfig({
     worker       : { format: 'es' },
     plugins      : [
       tailwindcss(),
+      vueJsx(),
       home.plugin,
       notices,
       viteStaticCopy({ targets: Object.values(SHEETS).map(sheet => sheet.copy) })

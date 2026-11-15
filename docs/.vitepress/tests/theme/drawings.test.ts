@@ -7,9 +7,9 @@ import { SPREADS, ringGapOf, spreadOf } from '../../lib/map/overlay.ts'
 import { AGES, UNLOADED }              from '../../lib/orbit/catalog.ts'
 import { UNDRAWN }                     from '../../lib/state/drawings.ts'
 import { TRACK_STEP }                  from '../../lib/orbit/scan.ts'
-import LookAngles                      from '../../theme/LookAngles.vue'
-import OrbitAges                       from '../../theme/OrbitAges.vue'
-import PeakSearch                      from '../../theme/PeakSearch.vue'
+import LookAngles                      from '../../theme/LookAngles.tsx'
+import OrbitAges                       from '../../theme/OrbitAges.tsx'
+import PeakSearch                      from '../../theme/PeakSearch.tsx'
 import { drawingsOf }                  from '../fixtures/drawings.ts'
 
 /**
@@ -93,7 +93,8 @@ describe('the look angles', () => {
     wrapper.unmount()
   })
 
-  it('moves to the setting look nearest the horizon for a point level with the plane past the peak', async () => {
+  it('moves to the setting look nearest the horizon for a point level with the plane '
+   + 'past the peak', async () => {
     const wrapper = mount(LookAngles)
     await flushPromises()
     const svg     = wrapper.get('svg')
@@ -162,6 +163,21 @@ describe('the peak search', () => {
     vi.advanceTimersByTime(100)
     await svg.trigger('pointerup', { pointerId: 1 })
     expect(svg.attributes('aria-valuenow')).toBe('3')
+    wrapper.unmount()
+    vi.useRealTimers()
+  })
+
+  it('carries a drag thrown on its release past the pointer to the next stop', async () => {
+    vi.useFakeTimers({ toFake: ['performance'] })
+    const wrapper = mount(PeakSearch)
+    await flushPromises()
+    const svg = wrapper.get('svg')
+    const x   = (stop: number) => 16 + stop / 9 * (640 - 32)
+    await svg.trigger('pointerdown', { clientX: x(1), pointerId: 1 })
+    vi.advanceTimersByTime(20)
+    await svg.trigger('pointermove', { clientX: x(3.3), pointerId: 1 })
+    await svg.trigger('pointerup', { pointerId: 1 })
+    expect(svg.attributes('aria-valuenow')).toBe('4')
     wrapper.unmount()
     vi.useRealTimers()
   })
@@ -236,5 +252,33 @@ describe('a drawing whose values failed', () => {
     wrapper.unmount()
     aged.failure = undefined
     expect(shown).toEqual([line, false])
+  })
+})
+
+describe('the keys of a drawing on a slider', () => {
+  const page = (last: number) => Math.max(1, Math.round((last + 1) / 10))
+
+  it.each([PeakSearch, OrbitAges].flatMap(component => ([
+    ['Home', 'ArrowRight', () => 1],
+    ['Home', 'ArrowUp', () => 1],
+    ['End', 'ArrowLeft', last => last - 1],
+    ['End', 'ArrowDown', last => last - 1],
+    ['Home', 'PageUp', page],
+    ['End', 'PageDown', last => last - page(last)],
+    ['End', 'Home', () => 0],
+    ['Home', 'End', last => last]
+  ] as const satisfies [string, string, (last: number) => number][]).map(([from, key, to]) => ({
+    component, from, key, name: component.name, to
+  }))))('moves $name from $from on $key', async ({ component, from, key, to }) => {
+    const wrapper = mount(component)
+    await flushPromises()
+    const svg  = wrapper.get('svg')
+    const last = Number(svg.attributes('aria-valuemax'))
+    await svg.trigger('keydown', { key: from })
+    await svg.trigger('keydown', { key })
+    await flushPromises()
+    const now = svg.attributes('aria-valuenow')
+    wrapper.unmount()
+    expect(now).toBe(String(to(last)))
   })
 })

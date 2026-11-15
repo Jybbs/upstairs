@@ -12,15 +12,20 @@ vi.mock('@vueuse/core', async original => ({
 
 /**
  * Mounts the spot chooser, 240 pixels tall and opened, over a fresh copy of
- * the shared state and a stand-in worker, on a phone where `phone` is set.
+ * the shared state and a stand-in worker, on a phone where `phone` is set,
+ * once its dialog listens for Escape and for presses outside it.
  */
 const mounted = async (phone = false) => {
   vi.stubGlobal('matchMedia', (query: string) => ({
     addEventListener() {}, matches: phone && query.includes('40rem'), removeEventListener() {}
   }))
-  const { component: SpotChooser, sky } = await freshSky(() => import('../../theme/SpotChooser.vue'))
+  const { component: SpotChooser, sky } = await freshSky(() => import('../../theme/SpotChooser.tsx'))
   sky.choose()
-  return { sky, wrapper: mount(SpotChooser, { attachTo: document.body }) }
+  const wrapper = mount(SpotChooser, { attachTo: document.body })
+  await new Promise(requestAnimationFrame)
+  await new Promise(requestAnimationFrame)
+  await new Promise(resolve => setTimeout(resolve))
+  return { sky, wrapper }
 }
 
 it.each([
@@ -40,7 +45,11 @@ it.each([
 it.each([
   ['sets the spot under the pin', (wrapper: VueWrapper) => wrapper.get('button').trigger('click'), 'land'],
   ['leaves on Cancel', (wrapper: VueWrapper) => wrapper.findAll('button')[1].trigger('click'), 'shut'],
-  ['leaves on Escape', () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })), 'shut']
+  [
+    'leaves on Escape',
+    () => document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' })),
+    'shut'
+  ]
 ] as const)('%s', async (_, act, leave) => {
   const { sky, wrapper } = await mounted()
   const left             = vi.spyOn(sky, leave)
@@ -57,6 +66,7 @@ it.each([
   if (marked) outside.setAttribute(marked, '')
   outside.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
   outside.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  await new Promise(requestAnimationFrame)
   expect(sky.choosing.value).toBe(choosing)
   outside.remove()
 })

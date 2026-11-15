@@ -2,7 +2,7 @@
 import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
-import Shield from '../../theme/Shield.vue'
+import Shield from '../../theme/Shield.tsx'
 
 vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
 

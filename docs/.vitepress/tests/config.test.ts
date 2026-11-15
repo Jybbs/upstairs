@@ -16,7 +16,7 @@ vi.mock('../lib/site/licenses.ts', () =>
 
 const BUNDLE = {
   home: {
-    facadeModuleId : '/site/.vitepress/theme/HomeMap.vue',
+    facadeModuleId : '/site/.vitepress/theme/HomeMap.tsx',
     fileName       : 'assets/chunks/HomeMap.abc.js',
     type           : 'chunk'
   }
