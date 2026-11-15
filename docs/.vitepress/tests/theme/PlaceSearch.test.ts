@@ -92,18 +92,51 @@ it.each([
 
 it.each([
   ['keeps the message for the words now typed where an earlier search fails later',
-    'london', ['No place by that name.']],
-  ['shows nothing where a search fails once the words fall below three letters', 'lo', []]
-])('%s', async (_, words, lines) => {
+    'london', { ...photon, features: [] }, ['No place by that name.']],
+  ['keeps the places for the words now typed where an earlier search fails later',
+    'london', photon, ['London, England, United Kingdom', 'London, Ontario, Canada']],
+  ['shows nothing where a search fails once the words fall below three letters',
+    'lo', { ...photon, features: [] }, []]
+])('%s', async (_, words, answer, lines) => {
   let fail: (reason: Error) => void = () => {}
   const reply                       = vi.fn<() => Promise<Response>>()
     .mockReturnValueOnce(new Promise((_, reject) => { fail = reject }))
-    .mockResolvedValueOnce(Response.json({ ...photon, features: [] }))
+    .mockResolvedValueOnce(Response.json(answer))
   const { wrapper } = await searched('lond', reply)
   await typed(wrapper, words)
   fail(new TypeError('fetch failed'))
   await flushPromises()
   expect(wrapper.findAll('li').map(line => line.text())).toEqual(lines)
+})
+
+it('keeps the message for the words now typed where an earlier search answers later', async () => {
+  let answer: (response: Response) => void = () => {}
+  const reply                               = vi.fn<() => Promise<Response>>()
+    .mockReturnValueOnce(new Promise(resolve => { answer = resolve }))
+    .mockRejectedValueOnce(new TypeError('fetch failed'))
+  const { wrapper } = await searched('lond', reply)
+  await typed(wrapper, 'london')
+  answer(Response.json(photon))
+  await flushPromises()
+  expect(wrapper.findAll('li').map(line => line.text())).toEqual(['The place search is not answering.'])
+})
+
+it('drops the places an earlier search listed where the search for the words now typed fails', async () => {
+  const reply = vi.fn<() => Promise<Response>>()
+    .mockResolvedValueOnce(Response.json(photon))
+    .mockRejectedValueOnce(new TypeError('fetch failed'))
+  const { wrapper } = await searched('london', reply)
+  await typed(wrapper, 'londres')
+  expect(wrapper.findAll('li').map(line => line.text())).toEqual(['The place search is not answering.'])
+})
+
+it('lists only the satellites the words name where the place search fails beside them', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed') }))
+  const { wrapper } = await mounted(state =>
+    state.tracks.add([passOf(25544, { name: 'ISS (ZARYA)' })], new Float32Array(3), Uint32Array.of(0), 1))
+  await wrapper.get('input').trigger('focusin')
+  await typed(wrapper, 'iss')
+  expect(wrapper.findAll('li').map(line => line.text())).toEqual(['ISS (ZARYA)'])
 })
 
 it('sends no search where the words fall below three letters before the wait ends', async () => {

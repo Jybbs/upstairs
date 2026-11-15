@@ -9,6 +9,7 @@ interface Category {
 }
 
 interface Job {
+  if?       : string
   name?     : string
   needs?    : string | string[]
   steps?    : Step[]
@@ -69,12 +70,25 @@ const FRONTMATTER   = /^---\n([\s\S]*?)\n---\n/
 const KEYS          = 'color, description, name'
 const LABEL_GAP     = 15
 const LABEL_LENGTH  = 100
+const MAIN          = "github.ref == 'refs/heads/main'"
 const MATRIX_TOOLS  = '${{ matrix.tools }}'
 const PIN           = /^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/
 const PROVISION     = '/.github/actions/provision'
 const ROW_KEYS      = new Set(['name', 'task', 'tools'])
 const TASK_RUN      = /\bmise run (\w[\w:-]*)/g
 const colorDistance = differenceEuclidean('oklab')
+/**
+ * The one condition each job that publishes runs under, by the workflow holding
+ * it and the job's name.
+ */
+const GUARDS = {
+  '.github/workflows/draft.yml'  : { '🏷️ Cut': MAIN },
+  '.github/workflows/deploy.yml' : {
+    '🌐 Site'    : `${MAIN} || (github.event_name == 'pull_request' && github.head_ref != 'main' `
+                 + '&& github.event.pull_request.head.repo.full_name == github.repository)',
+    '📡 Catalog' : MAIN
+  }
+}
 /**
  * The parser for each extension `parseFile` reads, a Markdown file yielding
  * its YAML frontmatter.
@@ -184,9 +198,9 @@ export class Repository {
    */
   get problems(): string[] {
     return [
-      ...this.categoryProblems, ...this.endingProblems, ...this.gateProblems, ...this.guideProblems,
-      ...this.labelProblems, ...this.pinProblems, ...this.rowProblems, ...this.sweepProblems,
-      ...this.taskProblems, ...this.templateProblems, ...this.toolProblems
+      ...this.categoryProblems, ...this.endingProblems, ...this.gateProblems, ...this.guardProblems,
+      ...this.guideProblems, ...this.labelProblems, ...this.pinProblems, ...this.rowProblems,
+      ...this.sweepProblems, ...this.taskProblems, ...this.templateProblems, ...this.toolProblems
     ]
   }
 
@@ -234,6 +248,22 @@ export class Repository {
     return required
       .filter(context => !gates.has(context))
       .map(context => `A ruleset requires ${context}, which no workflow every pull request runs ends on`)
+  }
+
+  /**
+   * Each job `GUARDS` names that is missing from its workflow, and each job of
+   * that name running under a condition other than the one `GUARDS` gives it.
+   */
+  private get guardProblems(): string[] {
+    const jobs = jobsOf(this.workflows)
+    return Object.entries(GUARDS).flatMap(([file, guards]) => Object.entries(guards)
+      .flatMap(([name, guard]) => {
+        const named = jobs.filter(found => found.path.endsWith(file) && found.job.name === name)
+        if (!named.length) return [`${file} holds no ${name} job`]
+        return named
+          .filter(({ job }) => job.if !== guard)
+          .map(({ job }) => `${file} runs ${name} under ${job.if ?? 'no condition'} rather than ${guard}`)
+      }))
   }
 
   private get guideProblems(): string[] {
