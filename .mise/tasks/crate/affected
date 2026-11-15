@@ -10,12 +10,15 @@ rust_entries() {
   "$1" .mise/mise.lock | awk '/^\[/ { table = $0 } table ~ /^\[\[?tools\.rust[].]/'
 }
 
-base=$(git merge-base origin/main HEAD)
+base=$(git merge-base origin/main HEAD) || {
+  echo "crate:affected found no merge base between origin/main and HEAD" >&2
+  exit 1
+}
 paths=(docs/.vitepress/tests/fixtures/{answers,records}.json rust)
 changed=$(git diff --name-only "$base" -- "${paths[@]}")
 untracked=$(git ls-files --exclude-standard --others -- "${paths[@]}")
-entries=$(rust_entries cat)
-base_entries=$(rust_entries at_base)
+entries=$(rust_entries cat || true)
+base_entries=$(rust_entries at_base || true)
 
 if [[ -z "$changed$untracked" && "$entries" == "$base_entries" ]]; then
   echo "crate:affected found no change since origin/main under rust/, in the records and known answers, or in the Rust toolchain"
