@@ -44,14 +44,13 @@ const dragged = async (wrapper: VueWrapper, path: number[][]) => {
 
 /**
  * Mounts a phone's sheet over a fresh copy of the shared state and a stand-in
- * worker, its panels stubbed, with one pass in the scan, pinned where `pinned`
- * is set.
+ * worker, its panels stubbed, with `pass` in the scan, one crewed pass unless a
+ * case names another, pinned where `pinned` is set.
  */
-const mounted = async (pinned: boolean) => {
+const mounted = async (pinned: boolean, pass = passOf(1)) => {
   vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: false, removeEventListener() {} }))
   HEIGHTS.measured                = []
   const { component: Sheet, sky } = await freshSky(() => import('../../theme/Sheet.tsx'))
-  const pass                      = passOf(1)
   const stubs                     = {
     Filters: true, PassList: true, PassReadout: true, Readout: true, TimeStrip: true
   }
@@ -187,18 +186,19 @@ it('draws the pinned pass’s climb over its rise, peak, and set, its full reado
 })
 
 it('colors the pinned ridge by kind, with a 2 px crest dotted where unseen and an inked peak', async () => {
-  const { wrapper }   = await mounted(true)
+  const { wrapper }   = await mounted(true, passOf(1, { kind: 'weather' }))
   const climb         = wrapper.get('svg[role="img"]')
   const [crest, peak] = [climb.get('g'), climb.get('circle')]
   expect([
     climb.get('path').attributes('fill'),
+    crest.attributes('fill'),
     crest.attributes('stroke'),
     crest.attributes('stroke-width'),
     climb.get('path[stroke-dasharray]').attributes('stroke-dasharray'),
     peak.attributes('r'),
-    peak.classes('fill-ink')
+    peak.attributes('class')
   ]).toEqual([
-    'color-mix(in oklab, var(--kind-crewed) 18%, var(--panel))', 'var(--kind-crewed)', '2', '1 3.5',
-    '3.5', true
+    'color-mix(in oklab, var(--kind-weather) 18%, var(--panel))', 'none', 'var(--kind-weather)', '2',
+    '1 3.5', '3.5', 'fill-ink stroke-panel'
   ])
 })
