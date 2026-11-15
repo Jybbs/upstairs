@@ -48,7 +48,7 @@ Each pull request runs `🛰️ CI`, one row per check below, and the `📓 Logb
 | `🔗 Links` | `mise run site:links` | *A link, an asset, or a heading fragment in the pressed site names nothing the build wrote* |
 | `⚓ Oxlint` | `mise run site:lint` | *Oxlint reports a finding in the TypeScript* |
 | `📰 Press` | `mise run site:press` | *The site fails to build* |
-| `🚩 Types` | `mise run site:typecheck` | *`vue-tsc` reports a type error in the TypeScript against the DOM types, the components included, or `tsc` reports one in the catalog service against the Workers runtime types* |
+| `🚩 Types` | `mise run site:typecheck` | *`vue-tsc` reports a type error in the TypeScript against the DOM types, the components included, or `tsc` reports one in the catalog service, the preview's Pages Function, or their tests against the Workers runtime types* |
 
 ## Deploying
 

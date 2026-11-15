@@ -1,7 +1,7 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "typecheck"
 #MISE depends     = ["crate:compile", "site:install"]
-#MISE description = "Type-check the site's TypeScript and TSX components against the DOM and the catalog service against the Workers runtime"
+#MISE description = "Type-check the site's TypeScript and TSX components against the DOM, and the catalog service, the preview's Pages Function, and their tests against the Workers runtime"
 #MISE dir         = "{{config_root}}/docs"
 
 status=0
