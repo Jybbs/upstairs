@@ -1,3 +1,9 @@
 #!/bin/sh
 (IFS=$(printf '\t'); printf '%s\n' "$*") >> "$STAND_IN_CALLS"
-exit "$STAND_IN_EXIT"
+call=$(wc -l < "$STAND_IN_CALLS")
+set -- $STAND_IN_EXIT
+while [ "$#" -gt 1 ] && [ "$call" -gt 1 ]; do
+  shift
+  call=$((call - 1))
+done
+exit "$1"

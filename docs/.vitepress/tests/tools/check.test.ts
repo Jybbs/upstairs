@@ -8,7 +8,7 @@ import { describe, expect, test } from 'vitest'
 import { ROOT } from '../common/gh.ts'
 
 type Change = (repo: Repo) => Promise<unknown>
-type Task   = 'crate/affected' | 'site/affected' | 'site/check'
+type Task   = 'crate/affected' | 'site/affected' | 'site/check' | 'site/typecheck'
 
 const ANSWERS = 'docs/.vitepress/tests/fixtures/answers.json'
 const CHECKED = [
@@ -17,6 +17,10 @@ const CHECKED = [
 const PHOTON  = 'docs/.vitepress/tests/fixtures/photon.json'
 const RECORDS = 'docs/.vitepress/tests/fixtures/records.json'
 const SKIPPED = /^crate:affected found no change since origin\/main\b/
+const TYPED   = [
+  ['run', '--bun', 'vue-tsc', '--noEmit', '--project', '.vitepress'],
+  ['run', '--bun', 'tsc', '--noEmit', '--project', '.vitepress/catalog']
+]
 const standIn = join(import.meta.dirname, '../common/check')
 const SEEDED  = {
   '.gitignore'      : '.cache/\nrust/pkg/\n',
@@ -28,8 +32,8 @@ const SEEDED  = {
 }
 
 /**
- * One run of a task, holding each call it made to the stand-in for `mise` as
- * its arguments, its exit status, and what it printed.
+ * One run of a task, holding each call it made to the stand-in for `mise` or
+ * `bun` as its arguments, its exit status, and what it printed.
  */
 interface Run {
   calls  : string[][]
@@ -39,7 +43,8 @@ interface Run {
 
 /**
  * A scratch repository holding `SEEDED` in one commit on `main`, which
- * `origin/main` names, where each task runs against the stand-in for `mise`.
+ * `origin/main` names, where each task runs against the stand-ins for `mise`
+ * and `bun`.
  */
 class Repo {
   private readonly calls : string
@@ -97,13 +102,14 @@ class Repo {
 
   /**
    * Runs the task at `.mise/tasks/<task>` of the worktree from the root of the
-   * repository, every call it makes to `mise` exiting with `exit`.
+   * repository, each call it makes to `mise` or `bun` exiting with the next
+   * status in `exit`, the last repeating once the list runs out.
    */
-  async run(task: Task, args: string[] = [], exit = 0): Promise<Run> {
+  async run(task: Task, args: string[] = [], exit: number | number[] = 0): Promise<Run> {
     await Bun.write(this.calls, '')
     const result = await $`${join(ROOT, '.mise/tasks', task)} ${args}`
       .cwd(this.root)
-      .env({ ...this.env, STAND_IN_EXIT: String(exit) })
+      .env({ ...this.env, STAND_IN_EXIT: [exit].flat().join(' ') })
       .nothrow()
       .quiet()
     return {
@@ -212,4 +218,17 @@ describe('crate:affected', () => {
     expect([run.calls.filter(([command]) => command === 'run'), run.stdout])
       .toEqual(runs ? [[['run', 'crate:test']], ''] : [[], expect.stringMatching(SKIPPED)])
   })
+})
+
+describe('site:typecheck', () => {
+  it.for<[number, number, number]>([
+    [0, 0, 0],
+    [2, 2, 0],
+    [2, 0, 2],
+    [1, 2, 1]
+  ])(
+    'runs tsc on the catalog service after vue-tsc on the site, exiting %i where they exit %i and %i',
+    async ([code, ...exits], { repo }) =>
+      expect(await repo.run('site/typecheck', [], exits)).toMatchObject({ calls: TYPED, code })
+  )
 })
