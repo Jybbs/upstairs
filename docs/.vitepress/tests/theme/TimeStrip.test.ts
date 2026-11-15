@@ -114,6 +114,18 @@ it('picks on a phone the pass in the column a tap lands on', async () => {
   expect(sky.pinned.value).toBe(pass)
 })
 
+it.each([0, 1, 2])('picks on a phone pass %i when a tap lands on its peak', async index => {
+  const { passes, sky, wrapper } = await mounted(false, true, THREE)
+  const strip                    = wrapper.get('svg[role="slider"]')
+  const x                        = wrapper.findAll('g.cursor-pointer circle')
+    .map(peak => Number(peak.attributes('cx')))
+    .toSorted((a, b) => a - b)[index]
+  Object.assign(strip.element, { setPointerCapture() {} })
+  await strip.trigger('pointerdown', { clientX: x, clientY: 40 })
+  await strip.trigger('pointerup', { clientX: x, clientY: 40 })
+  expect(sky.pinned.value).toBe(passes[index])
+})
+
 it('draws each pass as a ridge with its outline, its crest, and its peak, and no stem', async () => {
   const { wrapper } = await mounted(false)
   const ridge       = wrapper.get('g.cursor-pointer')
@@ -197,6 +209,15 @@ it('keeps a pinned ridge in its place among the rest, so each lower peak stays p
   expect([stackOf(wrapper), crests]).toEqual([[1, 0, 2], ['2.5', '1.5', '1.5']])
 })
 
+it('shades the outline of the ridge the readout shows deeper than the rest', async () => {
+  const { passes, sky, wrapper } = await mounted(false, false, THREE)
+  sky.pin(passes[1])
+  await wrapper.vm.$nextTick()
+  expect(wrapper.findAll('g.cursor-pointer > path').map(outline => outline.attributes('fill'))).toEqual(
+    ['30%', '14%', '14%'].map(shade => expect.stringContaining(` ${shade}, var(--panel))`))
+  )
+})
+
 it('raises each pass’s own ridge to its peak elevation', async () => {
   const { wrapper } = await mounted(false, false, THREE)
   const ridges      = wrapper.findAll('g.cursor-pointer')
@@ -215,9 +236,12 @@ it('colors each ridge by its pass’s kind and dots the crest where it cannot be
   const { wrapper } = await mounted(false, false, passes)
   const ridges      = wrapper.findAll('g.cursor-pointer')
   expect(ridges.map(ridge => {
-    const unseen = ridge.get('path[stroke-dasharray="1 3"]')
-    return [ridge.attributes('style'), unseen.attributes('d')!.startsWith('M')]
-  })).toEqual(passes.map(({ kind }) => [`--ridge: var(--kind-${kind});`, true]))
+    const [outline, crest] = [ridge.get('path'), ridge.get('g')]
+    const unseen           = ridge.get('path[stroke-dasharray="1 3"]')
+    return [outline.attributes('fill'), crest.attributes('stroke'), unseen.attributes('d')!.startsWith('M')]
+  })).toEqual(passes.map(({ kind }) => [
+    `color-mix(in oklab, var(--kind-${kind}) 14%, var(--panel))`, `var(--kind-${kind})`, true
+  ]))
 })
 
 it('draws the crest solid where the satellite can be seen by eye', async () => {

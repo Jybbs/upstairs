@@ -4,9 +4,9 @@
  * by eye and where it cannot.
  */
 
-import { TRACK_STEP, type Spot } from '../orbit/scan.ts'
-import { seenAt }                from '../orbit/seen.ts'
-import type { Tracks }           from '../state/tracks.ts'
+import { TRACK_STEP, type Pass, type Spot } from '../orbit/scan.ts'
+import { seenAt }                           from '../orbit/seen.ts'
+import type { Tracks }                      from '../state/tracks.ts'
 
 /**
  * One moment of a pass's climb, `at` seconds into the window, with how high the
@@ -39,11 +39,12 @@ export const footholdsOf = (index: number, span: number, spot: Spot, start: numb
 /**
  * Returns the paths of a climb drawn as a ridge, meaning its outline closed
  * along the ground and its crest split into the stretches where the satellite
- * can be seen at both ends and the rest, with `x` placing a moment and `y` an
- * elevation.
+ * can be seen at both ends and the rest, beside the point where `pass` peaks,
+ * with `x` placing a moment and `y` an elevation.
  */
 export const ridgeOf = (
   climb : readonly Foothold[],
+  pass  : Pick<Pass, 'peak' | 'peakAt'>,
   x     : (at: number) => number,
   y     : (elevation: number) => number
 ) => {
@@ -58,6 +59,7 @@ export const ridgeOf = (
   }
   return {
     ...crest,
-    outline : `M${point(climb[0].at, 0)}L${points.join('L')}L${point(climb.at(-1)!.at, 0)}Z`
+    outline : `M${point(climb[0].at, 0)}L${points.join('L')}L${point(climb.at(-1)!.at, 0)}Z`,
+    peak    : [x(pass.peakAt), y(pass.peak)] as const
   }
 }
