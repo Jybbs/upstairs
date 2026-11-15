@@ -19,7 +19,7 @@ const RECORDS = 'docs/.vitepress/tests/fixtures/records.json'
 const SKIPPED = /^crate:affected found no change since origin\/main\b/
 const standIn = join(import.meta.dirname, '../fixtures/check')
 const SEEDED  = {
-  '.gitignore'      : '.cache/\n',
+  '.gitignore'      : '.cache/\nrust/pkg/\n',
   'README.md'       : 'Upstairs\n',
   [ANSWERS]         : '{}\n',
   [PHOTON]          : '{}\n',
@@ -167,8 +167,8 @@ describe('site:check', () => {
   })
 
   it('records nothing for a run whose tasks fail, exiting with their status', async ({ repo }) => {
-    const run = await repo.run('site/check', [], 1)
-    expect([run.code, await repo.passed()]).toEqual([1, []])
+    const run = await repo.run('site/check', [], 3)
+    expect([run.code, await repo.passed()]).toEqual([3, []])
   })
 
   it.for<[string, Change, string[][]]>([
@@ -183,9 +183,12 @@ describe('site:check', () => {
 })
 
 describe('site:affected', () => {
-  it.for([[], ['tests/tools/check.test.ts', '--bail', '1']])(
-    'runs the suite with --changed origin/main and the arguments %j',
-    async (args, { repo }) =>
+  it.for<[string, string[]]>([
+    ['no further arguments', []],
+    ['a case file and --bail 1', ['tests/tools/check.test.ts', '--bail', '1']]
+  ])(
+    'runs the suite with --changed origin/main given %s',
+    async ([, args], { repo }) =>
       expect((await repo.run('site/affected', args)).calls)
         .toEqual([['run', '--skip-deps', 'site:test', '--changed', 'origin/main', ...args]])
   )
@@ -201,11 +204,12 @@ describe('crate:affected', () => {
     ['no change', edit(), false],
     ['an edit and an untracked file outside rust/ and the fixtures', edit('README.md', 'docs/new.md'), false],
     ['an edit to another fixture', edit(PHOTON), false],
+    ['a build of the crate under the ignored rust/pkg/', edit('rust/pkg/orbit.js'), false],
     ['a commit under rust/ that only origin/main holds', advanced('rust/src/lib.rs'), false]
   ])('runs the crate tests or prints its skip line given %s', async ([, change, runs], { repo }) => {
     await change(repo)
     const run = await repo.run('crate/affected')
-    expect([run.calls, run.stdout])
+    expect([run.calls.filter(([command]) => command === 'run'), run.stdout])
       .toEqual(runs ? [[['run', 'crate:test']], ''] : [[], expect.stringMatching(SKIPPED)])
   })
 })
