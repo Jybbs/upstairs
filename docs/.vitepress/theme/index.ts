@@ -7,11 +7,13 @@ import DefaultTheme                         from 'vitepress/theme-without-fonts'
 import { h, onMounted }                     from 'vue'
 
 import { followFootnotes } from '../lib/site/landing.ts'
+import Credits             from './Credits.tsx'
 import NotFound            from './NotFound.tsx'
 import Shield              from './Shield.tsx'
 import SiteMark            from './SiteMark.tsx'
 import './style.css'
 import './credit.css'
+import './credits.css'
 import './footnotes.css'
 
 export default {
@@ -24,6 +26,7 @@ export default {
   }),
 
   enhanceApp: ({ app }) => {
+    app.component('Credits', Credits)
     app.component('HomeMap', defineClientComponent(() => import('./HomeMap.tsx')))
     app.component('LookAngles', defineClientComponent(() => import('./LookAngles.tsx')))
     app.component('OrbitAges', defineClientComponent(() => import('./OrbitAges.tsx')))

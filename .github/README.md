@@ -54,8 +54,10 @@ mise serve
 
 ## ©️ Attribution
 
-*Upstairs* is released under the MIT License, which [`LICENSE`](../LICENSE) carries. The map draws the data below, and [Data](https://upstairs.fyi/data/) credits each source in full.
+*Upstairs* is released under the MIT License, which [`LICENSE`](../LICENSE) carries. The map draws data whose terms require the credits below, and each seal opens its source's notice and license on [Data](https://upstairs.fyi/data/#credits).
 
-- The orbital elements come from [CelesTrak](https://celestrak.org/), which publishes no license for them and makes them freely available to all users
-- The map data comes from [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) under the [Open Database License](https://opendatacommons.org/licenses/odbl/) and reaches the map through [OpenFreeMap](https://openfreemap.org/) in the [OpenMapTiles](https://openmaptiles.org/) schema, whose design is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-- The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset, whose sources each carry their own license, with 3DEP, GMTED2010, and ETOPO1 in the public domain, SRTM in the public domain within the United States, and ArcticDEM free to use without permission. The data for Australia and Norway is under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), for Austria under [CC BY 3.0 Austria](https://creativecommons.org/licenses/by/3.0/at/), for New Zealand under [CC BY 3.0 New Zealand](https://creativecommons.org/licenses/by/3.0/nz/), for Canada under the [Open Government Licence – Canada](https://open.canada.ca/en/open-government-licence-canada), for the United Kingdom under the [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/), and for Mexico under INEGI's free use of information terms, while EU-DEM carries the credit the European Environment Agency sets
+<p align="center">
+<a href="https://upstairs.fyi/data/#credits-osm"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/seals/osm-night.svg"><img src="../docs/public/seals/osm-day.svg" alt="OpenStreetMap" width="94"></picture></a>
+<a href="https://upstairs.fyi/data/#credits-omt"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/seals/omt-night.svg"><img src="../docs/public/seals/omt-day.svg" alt="OpenMapTiles" width="94"></picture></a>
+<a href="https://upstairs.fyi/data/#credits-tt"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/seals/tt-night.svg"><img src="../docs/public/seals/tt-day.svg" alt="Terrain Tiles" width="94"></picture></a>
+</p>

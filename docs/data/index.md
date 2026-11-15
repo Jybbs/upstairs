@@ -17,27 +17,21 @@ The orbital elements come from [CelesTrak](https://celestrak.org/), which redist
 
 ## The Map
 
-The map combines terrain from the sources under Terrain below with map data from [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) in the [OpenMapTiles](https://openmaptiles.org/) schema, served through [OpenFreeMap](https://openfreemap.org/) and drawn by [MapLibre](https://maplibre.org/). OpenStreetMap's data is licensed under the [Open Database License](https://opendatacommons.org/licenses/odbl/), the OpenMapTiles schema's design under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), and OpenFreeMap builds its tiles from a full run over the planet each week. The map's credit opens in its lower-right corner, listing each source on its own line, and stays open until the reader presses, scrolls, or types on the map, or until {{ HOLD.wait / 1000 }} seconds after the OpenStreetMap line shows. It then folds into the button marked i, which opens it again.
+The map combines terrain from the Terrain Tiles dataset, set out under Terrain below, with map data from [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) in the [OpenMapTiles](https://openmaptiles.org/) schema, served through [OpenFreeMap](https://openfreemap.org/) and drawn by [MapLibre](https://maplibre.org/). OpenFreeMap builds its tiles from a full run over the planet each week, and [Credits](#credits) below sets out the notice and the license of each source the map draws. The map's credit opens in its lower-right corner, listing each source on its own line, and stays open until the reader presses, scrolls, or types on the map, or until {{ HOLD.wait / 1000 }} seconds after the OpenStreetMap line shows. It then folds into the button marked i, which opens it again.
 
 ## Terrain
 
-The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset, which [Mapzen](https://github.com/tilezen/joerd) built from the sources below and which takes in new data as its users ask for it. Each source carries its own license, set out in the attribution the dataset's registry page links, with 3DEP, GMTED2010, and ETOPO1 in the public domain, SRTM in the public domain within the United States, and ArcticDEM free to use without permission:
+The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset, which [Mapzen](https://github.com/tilezen/joerd) built from sources that each carry a license of their own. The dataset takes in new data as its users ask for it, and [Credits](#credits-tt) below lists the statement each license requires.
 
-- ArcticDEM terrain data DEM(s) were created from DigitalGlobe, Inc., imagery and funded under National Science Foundation awards 1043681, 1559691, and 1542736
-- Australia terrain data © Commonwealth of Australia (Geoscience Australia) 2017
-- Austria terrain data © offene Daten Österreichs – Digitales Geländemodell (DGM) Österreich
-- Canada terrain data contains information licensed under the Open Government Licence – Canada
-- Europe terrain data produced using Copernicus data and information funded by the European Union - EU-DEM layers
-- Global ETOPO1 terrain data U.S. National Oceanic and Atmospheric Administration
-- Mexico terrain data source: INEGI, Continental relief, 2016
-- New Zealand terrain data Copyright 2011 Crown copyright (c) Land Information New Zealand and the New Zealand Government (All rights reserved)
-- Norway terrain data © Kartverket
-- United Kingdom terrain data © Environment Agency copyright and/or database right 2015. All rights reserved
-- United States 3DEP (formerly NED) and global GMTED2010 and SRTM terrain data courtesy of the U.S. Geological Survey
+## Credits
+
+The map draws on the sources below, whose terms require a credit, and each seal opens the source's notice and the license that sets it.
+
+<Credits />
 
 ## Place Search
 
-The search box finds places through [Photon](https://photon.komoot.io/), run by komoot, which searches OpenStreetMap's data under the same [Open Database License](https://opendatacommons.org/licenses/odbl/) and keeps it up to date by the minute.
+The search box finds places through [Photon](https://photon.komoot.io/), run by komoot, which searches OpenStreetMap's data under the [Open Database License](https://opendatacommons.org/licenses/odbl/) and keeps it up to date by the minute.
 
 ## Requests
 
