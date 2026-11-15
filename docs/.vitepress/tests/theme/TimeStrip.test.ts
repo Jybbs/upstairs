@@ -114,20 +114,16 @@ it('picks on a phone the pass in the column a tap lands on', async () => {
   expect(sky.pinned.value).toBe(pass)
 })
 
-it('picks on a phone each pass whose peak a tap lands on', async () => {
+it.each([0, 1, 2])('picks on a phone pass %i when a tap lands on its peak', async index => {
   const { passes, sky, wrapper } = await mounted(false, true, THREE)
   const strip                    = wrapper.get('svg[role="slider"]')
-  const peaks                    = wrapper.findAll('g.cursor-pointer circle')
+  const x                        = wrapper.findAll('g.cursor-pointer circle')
     .map(peak => Number(peak.attributes('cx')))
-    .toSorted((a, b) => a - b)
+    .toSorted((a, b) => a - b)[index]
   Object.assign(strip.element, { setPointerCapture() {} })
-  const picked: unknown[] = []
-  for (const x of peaks) {
-    await strip.trigger('pointerdown', { clientX: x, clientY: 40 })
-    await strip.trigger('pointerup', { clientX: x, clientY: 40 })
-    picked.push(sky.pinned.value)
-  }
-  expect(picked).toEqual(passes)
+  await strip.trigger('pointerdown', { clientX: x, clientY: 40 })
+  await strip.trigger('pointerup', { clientX: x, clientY: 40 })
+  expect(sky.pinned.value).toBe(passes[index])
 })
 
 it('draws each pass as a ridge with its outline, its crest, and its peak, and no stem', async () => {
