@@ -1,7 +1,10 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "typecheck"
 #MISE depends     = ["crate:compile", "site:install"]
-#MISE description = "Type-check the TypeScript and the TSX components"
+#MISE description = "Type-check the site's TypeScript and TSX components against the DOM, and the catalog service, the preview's Pages Function, and their tests against the Workers runtime"
 #MISE dir         = "{{config_root}}/docs"
 
-bun run --bun vue-tsc --noEmit --project .vitepress "$@"
+status=0
+bun run --bun vue-tsc --noEmit --project .vitepress || status=$?
+bun run --bun tsc --noEmit --project .vitepress/catalog || status=$?
+exit "$status"

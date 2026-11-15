@@ -36,20 +36,19 @@ Each pull request runs `🛰️ CI`, one row per check below, and the `📓 Logb
 
 | **Row** | **Local Command** | **Fails When** |
 |---|---|---|
-| `📦 Catalog Bundle` | `mise run catalog:bundle` | *Wrangler fails to compile the catalog service as a deploy would, or a binding in `docs/.vitepress/catalog/wrangler.json` names a class the service does not export* |
-| `🧷 Catalog Types` | `mise run catalog:typecheck` | *`tsc` reports a type error in the catalog service under the Workers runtime types* |
+| `🎒 Bundle` | `mise run catalog:bundle` | *Wrangler fails to compile the catalog service as a deploy would, or a binding in `docs/.vitepress/catalog/wrangler.json` names a class the service does not export* |
 | `📎 Clippy` | `mise run crate:lint` | *Clippy reports a warning in the orbit crate under `rust/`, or rustfmt would reformat it* |
-| `🦀 Crate Tests` | `mise run crate:test` | *A position, a sighting, or a pass the crate computes for the records under `docs/.vitepress/tests/fixtures/` strays past 10 meters or a thousandth of a degree from the known answers, a position's azimuth taking that thousandth divided by the cosine of its elevation* |
+| `🪚 Suite` | `mise run crate:test` | *A position, a sighting, or a pass the crate computes for the records under `docs/.vitepress/tests/fixtures/` strays past 10 meters or a thousandth of a degree from the known answers, a position's azimuth taking that thousandth divided by the cosine of its elevation* |
 | `🩺 Advisories` | `mise run lock:audit` | *`bun audit` finds an advisory for a package `docs/bun.lock` resolves, `osv-scanner` finds one for a crate `rust/Cargo.lock` resolves, or either cannot reach its advisory database* |
 | `🔐 Lockfiles` | `mise run lock:check` | *`.mise/mise.lock`, `docs/bun.lock`, or `rust/Cargo.lock` drifts from its manifest* |
 | `📋 Audit` | `mise run repo:audit` | *The release categories, the issue templates, or this guide disagree with the label registry, this guide misses the gate or a row beside the task it runs, a ruleset requires a check other than the gate, `repo:ci` and the rows run different tasks, a workflow or an action runs a task `.mise/tasks/` does not declare, a job restores a tool set that no `🛰️ Warm` row saves, a label in `.github/labels.toml` breaks the registry's form in its keys, color, description, or order, shares another label's name, or comes under 15 from another label's color in OKLab, an action from outside the repository names no full commit or two different ones, a matrix row holds a key other than `name`, `task`, and `tools`, a workflow ends on no job that needs every other job, or `🏷️ Cut`, `📡 Catalog`, or `🌐 Site` is missing from its workflow or runs under a condition other than the one the audit sets for it* |
 | `🔦 Workflows` | `mise run repo:lint` | *zizmor reports a finding in a workflow or an action manifest* |
-| `🎯 Site Coverage` | `mise run site:coverage`, then `mise run gha:total -- .cache/coverage` | *A test fails, the coverage falls below the thresholds `docs/.vitepress/vitest.config.ts` declares, or the suite writes no summary for the coverage figure to read* |
+| `☂️ Coverage` | `mise run site:coverage`, then `mise run gha:total -- .cache/coverage` | *A test fails, the coverage falls below the thresholds `docs/.vitepress/vitest.config.ts` declares, or the suite writes no summary for the coverage figure to read* |
 | `✂️ Knip` | `mise run site:cruft` | *knip reports an unused file, export, or dependency* |
 | `🔗 Links` | `mise run site:links` | *A link, an asset, or a heading fragment in the pressed site names nothing the build wrote* |
 | `⚓ Oxlint` | `mise run site:lint` | *Oxlint reports a finding in the TypeScript* |
 | `📰 Press` | `mise run site:press` | *The site fails to build* |
-| `🧷 Types` | `mise run site:typecheck` | *`vue-tsc` reports a type error in the TypeScript, the components included* |
+| `🚩 Types` | `mise run site:typecheck` | *`vue-tsc` reports a type error in the TypeScript against the DOM types, the components included, or `tsc` reports one in the catalog service, the preview's Pages Function, or their tests against the Workers runtime types* |
 
 ## Deploying
 
