@@ -8,9 +8,15 @@ import { ROOT }        from '../fixtures/gh.ts'
 type Change = (base: repository.Repository) => Partial<repository.Repository>
 type Job    = repository.Workflow['jobs'][string]
 
-const CHECKOUT_PIN = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-const PROVISION    = '$/.github/actions/provision'
-const SPLIT_ROW    = { Rust: null, name: '🔥 Bun', tools: 'bun' }
+const CHECKOUT_PIN  = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+const DEPLOY        = '.github/workflows/deploy.yml'
+const DRAFT         = '.github/workflows/draft.yml'
+const HEAD_NOT_MAIN = " && github.head_ref != 'main'"
+const MAIN          = "github.ref == 'refs/heads/main'"
+const PROVISION     = '$/.github/actions/provision'
+const SPLIT_ROW     = { Rust: null, name: '🔥 Bun', tools: 'bun' }
+const SITE          = `${MAIN} || (github.event_name == 'pull_request'${HEAD_NOT_MAIN} `
+                    + '&& github.event.pull_request.head.repo.full_name == github.repository)'
 
 let base: repository.Repository
 
@@ -20,8 +26,15 @@ const action = (uses: string) =>
 const job = (added: Job): Change => ({ workflows }) =>
   ({ workflows: [...workflows, { jobs: { added }, on: {}, path: 'added.yml' }] })
 
+const rejob = (change: Job, file: string, id: string) => rework(file, workflow =>
+  ({ ...workflow, jobs: { ...workflow.jobs, [id]: { ...workflow.jobs[id], ...change } } }))
+
 const relabel = (change: object, index: number): Change => ({ labels }) =>
   ({ labels: labels.with(index, { ...labels[index], ...change }) })
+
+const rework = (file: string, change: (workflow: repository.Workflow) => repository.Workflow): Change =>
+  ({ workflows }) =>
+    ({ workflows: workflows.map(workflow => workflow.path.endsWith(file) ? change(workflow) : workflow) })
 
 const variant = (change: Change): repository.Repository =>
   Object.assign(Object.create(repository.Repository.prototype), base, change(base))
@@ -88,6 +101,13 @@ describe('Repository', () => {
       ({ jobs: { a: {}, gate: { needs: 'a' } }, on: { pull_request: null }, path })
     expect(variant(() => ({ workflows: [workflow('ci.yml'), workflow('deploy.yml')] })).gates)
       .toEqual(['gate'])
+  })
+
+  it('reports a second job of a guarded name that runs without the guard', () => {
+    const again = rework(DRAFT, workflow =>
+      ({ ...workflow, jobs: { ...workflow.jobs, again: { name: '🏷️ Cut' } } }))
+    expect(variant(again).problems)
+      .toContain(`${DRAFT} runs 🏷️ Cut under no condition rather than ${MAIN}`)
   })
 
   it.each<[string, Change, string]>([
@@ -262,6 +282,31 @@ describe('Repository', () => {
         strategy : { matrix: { include: [{ name: 'a', tools: 'bun lychee' }] } }
       }),
       'added.yml restores the tools bun lychee, which no .github/workflows/warm.yml row saves'
+    ],
+    [
+      'a publishing job with its guard removed',
+      rejob({ if: undefined }, DRAFT, 'cut'),
+      `${DRAFT} runs 🏷️ Cut under no condition rather than ${MAIN}`
+    ],
+    [
+      'a publishing job whose guard widens past main',
+      rejob({ if: `${MAIN} || always()` }, DEPLOY, 'catalog'),
+      `${DEPLOY} runs 📡 Catalog under ${MAIN} || always() rather than ${MAIN}`
+    ],
+    [
+      'a site guard letting a pull request from main run it',
+      rejob({ if: SITE.replace(HEAD_NOT_MAIN, '') }, DEPLOY, 'site'),
+      `${DEPLOY} runs 🌐 Site under ${SITE.replace(HEAD_NOT_MAIN, '')} rather than ${SITE}`
+    ],
+    [
+      'a publishing job renamed out of the rule',
+      rejob({ name: '🏷️ Tag' }, DRAFT, 'cut'),
+      `${DRAFT} holds no 🏷️ Cut job`
+    ],
+    [
+      'a publishing job moved to another workflow',
+      rework(DRAFT, workflow => ({ ...workflow, path: 'moved.yml' })),
+      `${DRAFT} holds no 🏷️ Cut job`
     ],
     [
       'an action pinned to a tag',
