@@ -224,9 +224,12 @@ it('colors each ridge by its pass’s kind and dots the crest where it cannot be
   const { wrapper } = await mounted(false, false, passes)
   const ridges      = wrapper.findAll('g.cursor-pointer')
   expect(ridges.map(ridge => {
-    const unseen = ridge.get('path[stroke-dasharray="1 3"]')
-    return [ridge.get('g').attributes('stroke'), unseen.attributes('d')!.startsWith('M')]
-  })).toEqual(passes.map(({ kind }) => [`var(--kind-${kind})`, true]))
+    const [outline, crest] = [ridge.get('path'), ridge.get('g')]
+    const unseen           = ridge.get('path[stroke-dasharray="1 3"]')
+    return [outline.attributes('fill'), crest.attributes('stroke'), unseen.attributes('d')!.startsWith('M')]
+  })).toEqual(passes.map(({ kind }) => [
+    `color-mix(in oklab, var(--kind-${kind}) 14%, var(--panel))`, `var(--kind-${kind})`, true
+  ]))
 })
 
 it('draws the crest solid where the satellite can be seen by eye', async () => {

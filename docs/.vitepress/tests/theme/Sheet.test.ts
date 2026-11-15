@@ -186,16 +186,19 @@ it('draws the pinned pass’s climb over its rise, peak, and set, its full reado
   ]).toEqual([true, true, '8', [sky.clockOf(300), `60° ${sky.clockOf(600)}`, sky.clockOf(900)], true])
 })
 
-it('draws the pinned ridge in its kind’s color with a 2 px crest dotted where unseen', async () => {
-  const { wrapper } = await mounted(true)
-  const climb       = wrapper.get('svg[role="img"]')
-  const crest       = climb.get('g')
+it('colors the pinned ridge by kind, with a 2 px crest dotted where unseen and an inked peak', async () => {
+  const { wrapper }   = await mounted(true)
+  const climb         = wrapper.get('svg[role="img"]')
+  const [crest, peak] = [climb.get('g'), climb.get('circle')]
   expect([
     climb.get('path').attributes('fill'),
     crest.attributes('stroke'),
     crest.attributes('stroke-width'),
-    climb.get('path[stroke-dasharray]').attributes('stroke-dasharray')
+    climb.get('path[stroke-dasharray]').attributes('stroke-dasharray'),
+    peak.attributes('r'),
+    peak.classes('fill-ink')
   ]).toEqual([
-    'color-mix(in oklab, var(--kind-crewed) 18%, var(--panel))', 'var(--kind-crewed)', '2', '1 3.5'
+    'color-mix(in oklab, var(--kind-crewed) 18%, var(--panel))', 'var(--kind-crewed)', '2', '1 3.5',
+    '3.5', true
   ])
 })
