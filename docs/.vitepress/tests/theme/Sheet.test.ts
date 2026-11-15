@@ -185,3 +185,17 @@ it('draws the pinned pass’s climb over its rise, peak, and set, its full reado
     wrapper.find('.overflow-y-auto pass-readout-stub').exists()
   ]).toEqual([true, true, '8', [sky.clockOf(300), `60° ${sky.clockOf(600)}`, sky.clockOf(900)], true])
 })
+
+it('draws the pinned ridge in its kind’s color with a 2 px crest dotted where unseen', async () => {
+  const { wrapper } = await mounted(true)
+  const climb       = wrapper.get('svg[role="img"]')
+  const crest       = climb.get('g')
+  expect([
+    climb.get('path').attributes('fill'),
+    crest.attributes('stroke'),
+    crest.attributes('stroke-width'),
+    climb.get('path[stroke-dasharray]').attributes('stroke-dasharray')
+  ]).toEqual([
+    'color-mix(in oklab, var(--kind-crewed) 18%, var(--panel))', 'var(--kind-crewed)', '2', '1 3.5'
+  ])
+})

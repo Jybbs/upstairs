@@ -8,11 +8,11 @@ import type { Pass }                from '../lib/orbit/scan.ts'
 import { columnsOf, pickAt }        from '../lib/site/columns.ts'
 import { turnOf }                   from '../lib/site/drag.ts'
 import type { IconName }            from '../lib/site/icons.ts'
-import { kindColor }                from '../lib/site/palette.ts'
 import { usePhone }                 from '../lib/site/phone.ts'
 import { ridgeOf }                  from '../lib/site/ridges.ts'
 import { CLOCK, minuteFormat, sky } from '../lib/state/sky.ts'
 import Icon                         from './Icon.tsx'
+import Ridge                        from './Ridge.tsx'
 
 /**
  * A label's width per character in ems, JetBrains Mono's advance of 0.6 beside
@@ -69,9 +69,8 @@ export default defineComponent(
      * its crest seen and unseen, and its peak.
      */
     const ridges = computed(() => climbs.value.map(({ climb, pass }) => ({
-      pass : pass,
-      peak : [xOf(pass.peakAt), yOf(pass.peak)] as const,
-      ...ridgeOf(climb, xOf, yOf)
+      pass  : pass,
+      ridge : ridgeOf(climb, pass, xOf, yOf)
     })))
     /**
      * The ridges from the highest to the lowest, so a lower ridge stands in
@@ -114,7 +113,7 @@ export default defineComponent(
      * from.
      */
     const columns = computed(() =>
-      columnsOf(ridges.value.map(({ pass, peak }) => ({ item: pass, x: peak[0] })), width.value))
+      columnsOf(ridges.value.map(({ pass, ridge }) => ({ item: pass, x: ridge.peak[0] })), width.value))
 
     /**
      * Where a press on a phone's strip went down, and whether it has turned
@@ -273,32 +272,21 @@ export default defineComponent(
               onPointermove={drag}
               onPointerup={lift}
             >
-              {stacked.value.map(({ pass, outline, seen, unseen, peak, heavy }) => (
+              {stacked.value.map(({ heavy, pass, ridge }) => (
                 <g
                   key={pass.key}
                   class="cursor-pointer"
-                  style={{ '--ridge': kindColor(pass.kind) }}
                   onPointerdown={(event: PointerEvent) => pressRidge(event, pass)}
                   onPointerenter={() => phone.value || (sky.held.value = pass)}
                   onPointerleave={() => phone.value || (sky.held.value = null)}
                 >
-                  <path
-                    d={outline}
-                    class={heavy
-                      ? 'fill-[color-mix(in_oklab,var(--ridge)_30%,var(--panel))]'
-                      : 'fill-[color-mix(in_oklab,var(--ridge)_14%,var(--panel))]'}
+                  <Ridge
+                    dash="1 3"
+                    kind={pass.kind}
+                    ridge={ridge}
+                    shade={heavy ? 30 : 14}
+                    weight={heavy ? 2.5 : 1.5}
                   />
-                  <g
-                    fill="none"
-                    stroke="var(--ridge)"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width={heavy ? 2.5 : 1.5}
-                  >
-                    <path d={seen} />
-                    <path d={unseen} stroke-dasharray="1 3" />
-                  </g>
-                  <circle cx={peak[0]} cy={peak[1]} r="3.5" stroke-width="2" class="fill-ink stroke-panel" />
                 </g>
               ))}
               <line

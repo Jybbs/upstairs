@@ -11,7 +11,7 @@ type Slots = Record<'doc-after' | 'nav-bar-title-before' | 'not-found', () => VN
 
 vi.mock('../../lib/site/landing.ts', () => ({ followFootnotes: vi.fn() }))
 vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
-vi.mock('vitepress', () => ({ defineClientComponent: () => ({}) }))
+vi.mock('vitepress', () => ({ defineClientComponent: () => ({ render: () => null }) }))
 vi.mock('vitepress/theme-without-fonts', () => ({ default: { Layout: {} } }))
 
 const slotOf = (name: keyof Slots) => mount({ render: ((theme.Layout() as VNode).children as Slots)[name] })

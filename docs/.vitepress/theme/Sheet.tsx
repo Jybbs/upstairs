@@ -5,7 +5,6 @@ import { computed, defineComponent, onBeforeUnmount, ref, useId, watch } from 'v
 
 import { turnOf }    from '../lib/site/drag.ts'
 import { clamp }     from '../lib/site/motion.ts'
-import { kindColor } from '../lib/site/palette.ts'
 import { ridgeOf }   from '../lib/site/ridges.ts'
 import { sky }       from '../lib/state/sky.ts'
 import Filters       from './Filters.tsx'
@@ -13,6 +12,7 @@ import KindTag       from './KindTag.tsx'
 import PassList      from './PassList.tsx'
 import PassReadout   from './PassReadout.tsx'
 import Readout       from './Readout.tsx'
+import Ridge         from './Ridge.tsx'
 import SatelliteName from './SatelliteName.tsx'
 import Stamp         from './Stamp.tsx'
 import TimeStrip     from './TimeStrip.tsx'
@@ -93,9 +93,9 @@ export default defineComponent(
       sheetHeight.value
     ])
     /**
-     * The pinned pass's climb from its rise to its set, filling the width its
-     * line takes and rising to its peak at the top, beside the color it is
-     * drawn in and the times it rises, peaks, and sets.
+     * The pinned pass's climb from its rise to its set as a ridge, filling the
+     * width its line takes and rising to its peak at the top, beside the times
+     * it rises, peaks, and sets.
      */
     const pinned = computed(() => {
       const pass = sky.shown.value
@@ -106,13 +106,11 @@ export default defineComponent(
       const x            = (at: number) => CLIMB.inset + (at - from) / (to - from || 1) * across
       const y            = (elevation: number) => CLIMB.height - elevation / pass.peak * up
       return {
-        color : kindColor(pass.kind),
         pass  : pass,
-        peak  : [x(pass.peakAt), y(pass.peak)] as const,
+        ridge : ridgeOf(steps, pass, x, y),
         times : [
           sky.clockOf(from), `${Math.round(pass.peak)}° ${sky.clockOf(pass.peakAt)}`, sky.clockOf(to)
-        ],
-        ...ridgeOf(steps, x, y)
+        ]
       }
     })
 
@@ -262,24 +260,7 @@ export default defineComponent(
                   role="img"
                   aria-label={`The pass climbs to ${Math.round(held.pass.peak)}° from its rise to its set`}
                 >
-                  <path d={held.outline} fill={`color-mix(in oklab, ${held.color} 18%, var(--panel))`} />
-                  <g
-                    fill="none"
-                    stroke={held.color}
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d={held.seen} />
-                    <path d={held.unseen} stroke-dasharray="1 3.5" />
-                  </g>
-                  <circle
-                    cx={held.peak[0]}
-                    cy={held.peak[1]}
-                    r="3.5"
-                    stroke-width="2"
-                    class="fill-ink stroke-panel"
-                  />
+                  <Ridge dash="1 3.5" kind={held.pass.kind} ridge={held.ridge} shade={18} weight={2} />
                 </svg>
                 <p class="caps flex justify-between gap-2 text-soft">
                   {held.times.map(time => <span key={time}>{time}</span>)}

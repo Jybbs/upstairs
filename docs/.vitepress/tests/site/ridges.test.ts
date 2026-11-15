@@ -49,13 +49,16 @@ describe('footholdsOf', () => {
 })
 
 describe('ridgeOf', () => {
-  const ridge = ridgeOf(footholdsOf(0, 180, SPOT, START, tracksOf()), at => at, elevation => 100 - elevation)
+  const tracks = tracksOf()
+  const climb  = footholdsOf(0, 180, SPOT, START, tracks)
+  const ridge  = ridgeOf(climb, tracks.passes[0], at => at, elevation => 100 - elevation)
 
   it.each([
     ['closes the outline along the ground', 'outline',
       'M60.0 100.0L60.0 100.0L90.0 75.0L120.0 50.0L150.0 75.0L180.0 100.0L180.0 100.0Z'],
     ['draws the crest seen at both ends of each stretch as one line', 'seen',
       'M90.0 75.0L120.0 50.0L150.0 75.0'],
-    ['draws every other stretch apart', 'unseen', 'M60.0 100.0L90.0 75.0M150.0 75.0L180.0 100.0']
-  ] as const)('%s', (_, path, expected) => expect(ridge[path]).toBe(expected))
+    ['draws every other stretch apart', 'unseen', 'M60.0 100.0L90.0 75.0M150.0 75.0L180.0 100.0'],
+    ['places the peak at the moment and elevation the scan found', 'peak', [120, 50]]
+  ] as const)('%s', (_, part, expected) => expect(ridge[part]).toEqual(expected))
 })
