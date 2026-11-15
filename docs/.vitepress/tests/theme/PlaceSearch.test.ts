@@ -105,6 +105,24 @@ it.each([
   expect(wrapper.findAll('li').map(line => line.text())).toEqual(lines)
 })
 
+it('drops the places an earlier search listed where the search for the words now typed fails', async () => {
+  const reply = vi.fn<() => Promise<Response>>()
+    .mockResolvedValueOnce(Response.json(photon))
+    .mockRejectedValueOnce(new TypeError('fetch failed'))
+  const { wrapper } = await searched('london', reply)
+  await typed(wrapper, 'londres')
+  expect(wrapper.findAll('li').map(line => line.text())).toEqual(['The place search is not answering.'])
+})
+
+it('lists only the satellites the words name where the place search fails beside them', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed') }))
+  const { wrapper } = await mounted(state =>
+    state.tracks.add([passOf(25544, { name: 'ISS (ZARYA)' })], new Float32Array(3), Uint32Array.of(0), 1))
+  await wrapper.get('input').trigger('focusin')
+  await typed(wrapper, 'iss')
+  expect(wrapper.findAll('li').map(line => line.text())).toEqual(['ISS (ZARYA)'])
+})
+
 it('sends no search where the words fall below three letters before the wait ends', async () => {
   vi.stubGlobal('fetch', vi.fn())
   const input = (await mounted()).wrapper.get('input')

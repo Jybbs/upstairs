@@ -28,6 +28,24 @@ const SEARCH = 'https://photon.komoot.io/api/'
 const SHOWN  = 5
 const WAIT   = 350
 
+/**
+ * Reads the places Photon finds for `query`, each labeled by its name, city,
+ * state, and country with repeats dropped, rejecting where Photon cannot be
+ * reached or answers with an error.
+ */
+const placesFor = async (query: string): Promise<Found[]> => {
+  const response = await fetch(`${SEARCH}?limit=${SHOWN}&lang=en&q=${encodeURIComponent(query)}`)
+  if (!response.ok) throw new Error()
+  const { features } = await response.json() as { features: Feature[] }
+  return features.map(({ geometry, properties }) => ({
+    latitude  : geometry.coordinates[1],
+    longitude : geometry.coordinates[0],
+    label     : [properties.name, properties.city, properties.state, properties.country]
+      .filter((part, index, all) => part && all.indexOf(part) === index)
+      .join(', ')
+  }))
+}
+
 const valueOf = (result: Result) =>
   'craft' in result ? `craft:${result.craft.key}` : `place:${result.place.label}`
 
@@ -65,23 +83,12 @@ export default defineComponent(
     )
 
     const look = async (query: string) => {
-      const asked = ++latest
-      try {
-        const response = await fetch(`${SEARCH}?limit=${SHOWN}&lang=en&q=${encodeURIComponent(query)}`)
-        if (!response.ok) throw new Error()
-        const { features } = await response.json() as { features: Feature[] }
-        if (asked !== latest) return
-        found.value = features.map(({ geometry, properties }) => ({
-          latitude  : geometry.coordinates[1],
-          longitude : geometry.coordinates[0],
-          label     : [properties.name, properties.city, properties.state, properties.country]
-            .filter((part, index, all) => part && all.indexOf(part) === index)
-            .join(', ')
-        }))
-        trouble.value = features.length ? null : 'No place by that name.'
-      } catch {
-        if (asked === latest) trouble.value = 'The place search is not answering.'
-      }
+      const asked  = ++latest
+      const places = await placesFor(query).catch(() => null)
+      if (asked !== latest) return
+      found.value   = places ?? []
+      trouble.value = places?.length ? null
+        : places ? 'No place by that name.' : 'The place search is not answering.'
     }
 
     watch(typed, value => {
