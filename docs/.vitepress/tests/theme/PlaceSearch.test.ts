@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
-import { afterEach, expect, it, vi }                 from 'vitest'
+import { type VueWrapper, enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { afterEach, expect, it, vi }                                   from 'vitest'
 
 import type { sky as Sky } from '../../lib/state/sky.ts'
 import { passOf }          from '../fixtures/passes.ts'
@@ -29,10 +29,17 @@ const searched = async (words: string, reply: () => Promise<Response>) => {
   vi.stubGlobal('fetch', vi.fn(reply))
   const search = await mounted()
   await search.wrapper.get('input').trigger('focusin')
-  await search.wrapper.get('input').setValue(words)
+  await typed(search.wrapper, words)
+  return search
+}
+
+/**
+ * Types `words` into the search and lets the search's wait pass.
+ */
+const typed = async (wrapper: VueWrapper, words: string) => {
+  await wrapper.get('input').setValue(words)
   await vi.advanceTimersByTimeAsync(350)
   await flushPromises()
-  return search
 }
 
 afterEach(() => {
@@ -79,6 +86,22 @@ it.each([
     async () => Response.json(photon, { status: 502 }), ['The place search is not answering.']]
 ])('%s', async (_, reply, lines) => {
   const { wrapper } = await searched('london', reply)
+  expect(wrapper.findAll('li').map(line => line.text())).toEqual(lines)
+})
+
+it.each([
+  ['keeps the message for the words now typed where an earlier search fails later',
+    'london', ['No place by that name.']],
+  ['shows nothing where a search fails once the words fall below three letters', 'lo', []]
+])('%s', async (_, words, lines) => {
+  let fail: (reason: Error) => void = () => {}
+  const reply                       = vi.fn<() => Promise<Response>>()
+    .mockReturnValueOnce(new Promise((_, reject) => { fail = reject }))
+    .mockResolvedValueOnce(Response.json({ ...photon, features: [] }))
+  const { wrapper } = await searched('lond', reply)
+  await typed(wrapper, words)
+  fail(new TypeError('fetch failed'))
+  await flushPromises()
   expect(wrapper.findAll('li').map(line => line.text())).toEqual(lines)
 })
 
