@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 import type { Pass }           from '../../lib/orbit/scan.ts'
 import type { sky as Sky }     from '../../lib/state/sky.ts'
-import { passOf }              from '../fixtures/passes.ts'
-import { addScanned, lateSky } from '../fixtures/sky.ts'
+import { passOf }              from '../common/passes.ts'
+import { addScanned, lateSky } from '../common/sky.ts'
 
 /**
  * Mounts the pass list over a fresh copy of the shared state and a stand-in

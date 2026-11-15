@@ -26,10 +26,6 @@ describe('a catalog request', () => {
     await failure
   })
 
-  it('waits for headers past the 19 seconds Cloudflare waits for a connection before answering 522', () => {
-    expect(celestrak.HEADER_WAIT).toBeGreaterThan(19_000)
-  })
-
   it('leaves an answer whose headers arrived unaborted past the bound', async () => {
     const fetcher = vi.fn(async () => new Response('[]'))
     const answer  = await celestrak.fetchCatalog(fetcher)

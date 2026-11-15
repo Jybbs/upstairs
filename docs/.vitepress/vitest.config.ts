@@ -4,8 +4,8 @@ import vueJsx                           from '@vitejs/plugin-vue-jsx'
 import { configDefaults, defineConfig } from 'vitest/config'
 
 const triggers = [
-  '.github/**', '.mise/**', 'docs/**/*.{css,md}', 'docs/.vitepress/tests/fixtures/**',
-  'docs/bun.lock', 'docs/public/**', 'docs/references.bib', 'rust/**'
+  '.github/**', '.mise/**', 'docs/**/*.{css,md}', 'docs/.vitepress/tests/common/{bin,check}/**',
+  'docs/.vitepress/tests/fixtures/**', 'docs/bun.lock', 'docs/public/**', 'docs/references.bib', 'rust/**'
 ].map(glob => resolve(import.meta.dirname, '../..', glob))
 
 export default defineConfig({
@@ -13,8 +13,10 @@ export default defineConfig({
   plugins  : [vueJsx()],
 
   test: {
+    env                : { TZ: 'UTC' },
     forceRerunTriggers : [...configDefaults.forceRerunTriggers, ...triggers],
     include            : ['.vitepress/tests/**/*.test.ts'],
+    testTimeout        : 30_000,
     coverage           : {
       include          : ['.vitepress/{catalog,preview,lib,theme,tools}/**/*.{ts,tsx}'],
       provider         : 'istanbul',

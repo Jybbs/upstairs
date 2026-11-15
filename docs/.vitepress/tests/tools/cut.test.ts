@@ -30,13 +30,11 @@ describe('outcomeOf', () => {
     expect(read).not.toHaveBeenCalled()
   })
 
-  it('fails where the releases cannot be read', () =>
-    expect(outcomeOf(() => Promise.reject(new Error('HTTP 502')), async () => {}, '0.2.0', '0.1.0'))
-      .rejects.toThrow('HTTP 502'))
-
-  it('fails where the draft cannot be created', () =>
-    expect(outcomeOf(async () => [], () => Promise.reject(new Error('HTTP 422')), '0.2.0', '0.1.0'))
-      .rejects.toThrow('HTTP 422'))
+  it.each([
+    ['the releases cannot be read', () => Promise.reject(new Error('HTTP 502')), async () => {}, 'HTTP 502'],
+    ['the draft cannot be created', async () => [], () => Promise.reject(new Error('HTTP 422')), 'HTTP 422']
+  ])('fails where %s', (_, read, create, message) =>
+    expect(outcomeOf(read, create, '0.2.0', '0.1.0')).rejects.toThrow(message))
 })
 
 describe('draftOf', () => {

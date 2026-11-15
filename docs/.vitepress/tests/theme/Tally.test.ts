@@ -3,7 +3,8 @@ import { enableAutoUnmount, mount }  from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
-import { freshSky }             from '../fixtures/sky.ts'
+import { fakeClock, framesOf }  from '../common/frames.ts'
+import { freshSky }             from '../common/sky.ts'
 
 enableAutoUnmount(afterEach)
 
@@ -88,9 +89,10 @@ it.each([
 ] as const)('%s', async (_, from, key, to, named) => {
   const { sky, wrapper } = await mounted()
   const groups           = wrapper.findAll<HTMLButtonElement>('button')
+  fakeClock()
   vi.spyOn(groups[to].element, 'matches').mockReturnValue(true)
   groups[from].element.focus()
   await groups[from].trigger('keydown', { key })
-  await new Promise(requestAnimationFrame)
+  await framesOf(1)
   expect([document.activeElement, sky.named.value]).toEqual([groups[to].element, named])
 })

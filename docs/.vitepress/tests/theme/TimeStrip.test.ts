@@ -5,8 +5,9 @@ import { ref }                            from 'vue'
 
 import { TRACK_WIDTH }          from '../../lib/orbit/scan.ts'
 import type { sky as Sky }      from '../../lib/state/sky.ts'
-import { passOf }               from '../fixtures/passes.ts'
-import { addScanned, freshSky } from '../fixtures/sky.ts'
+import { passOf }               from '../common/passes.ts'
+import { addScanned, freshSky } from '../common/sky.ts'
+import { stubMatchMedia }       from '../common/stubs.ts'
 
 /**
  * The width the strip measures, 800 px unless a case narrows it.
@@ -44,11 +45,7 @@ const THREE = [
  */
 const mounted = async (reduced: boolean, phone = false, passes = [passOf(1)], width = 800) => {
   WIDTH.value = width
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    addEventListener() {},
-    matches: reduced && query.includes('reduce') || phone && query.includes('40rem'),
-    removeEventListener() {}
-  }))
+  stubMatchMedia(query => reduced && query.includes('reduce') || phone && query.includes('40rem'))
   const { component: TimeStrip, sky } = await freshSky(() => import('../../theme/TimeStrip.tsx'))
   const [pass]                        = passes
   addScanned(sky, passes)

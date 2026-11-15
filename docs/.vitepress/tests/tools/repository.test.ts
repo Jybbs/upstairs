@@ -3,7 +3,7 @@ import { basename, join } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import * as repository from '../../tools/repository.ts'
-import { ROOT }        from '../fixtures/gh.ts'
+import { ROOT }        from '../common/gh.ts'
 
 type Change = (base: repository.Repository) => Partial<repository.Repository>
 type Job    = repository.Workflow['jobs'][string]

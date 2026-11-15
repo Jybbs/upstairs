@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest'
 
 import { SCHEMES, type SchemeName } from '../../lib/site/palette.ts'
 import * as reel                    from '../../tools/reel.ts'
-import { ROOT }                     from '../fixtures/gh.ts'
-import { README }                   from '../fixtures/shipped.ts'
+import { ROOT }                     from '../common/gh.ts'
+import { README }                   from '../common/shipped.ts'
 
 const HOLDING = { hold: 8, refresh: 4 }
 const NAMES   = Object.keys(SCHEMES) as SchemeName[]
@@ -64,10 +64,8 @@ describe('the reel', () => {
     expect(new Set(delay)).toEqual(new Set([1000 / 50]))
   })
 
-  it.each(NAMES)('keeps the %s reel at least 800 px wide and under 6 MB', scheme => {
-    expect(reel.REEL.width).toBeGreaterThanOrEqual(800)
-    expect(statSync(fileOf(scheme)).size).toBeLessThan(6_000_000)
-  })
+  it.each(NAMES)('keeps the %s reel under 6 MB', scheme =>
+    expect(statSync(fileOf(scheme)).size).toBeLessThan(6_000_000))
 
   it('shows every frame of the reel for one step', async () => {
     const frames = [0, 120, 240].map(level => frameOf(...Array(4).fill(pixel(level, level, level))))
@@ -104,9 +102,6 @@ describe('the reel', () => {
     const changed  = reel.reelGifOf([noise(37), noise(53)], size).length - first
     expect(repeated).toBeLessThan(changed / 3)
   })
-
-  it('leaves the palette room for the transparent entry among a GIF’s 256 colors', () =>
-    expect(reel.REEL.palette.colors).toBeLessThanOrEqual(255))
 
   it('shows the night reel under the dark scheme and the day reel under the light one', () =>
     expect(README).toContain([

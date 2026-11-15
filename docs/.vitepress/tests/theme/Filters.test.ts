@@ -3,8 +3,9 @@ import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { afterEach, expect, it }    from 'vitest'
 
 import { KINDS, kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
-import { passOf }                     from '../fixtures/passes.ts'
-import { addScanned, freshSky }       from '../fixtures/sky.ts'
+import { fakeClock, framesOf }         from '../common/frames.ts'
+import { passOf }                      from '../common/passes.ts'
+import { addScanned, freshSky }        from '../common/sky.ts'
 
 enableAutoUnmount(afterEach)
 
@@ -82,9 +83,10 @@ it.each([
   const { component: Filters } = await freshSky(() => import('../../theme/Filters.tsx'))
   const wrapper                = mount(Filters, { attachTo: document.body })
   const chips                  = wrapper.get('[role="group"]').findAll<HTMLButtonElement>('button')
+  fakeClock()
   chips[from].element.focus()
   await chips[from].trigger('keydown', { key })
-  await new Promise(requestAnimationFrame)
+  await framesOf(1)
   expect([document.activeElement, chips.filter(chip => chip.attributes('tabindex') === '0').length])
     .toEqual([chips[to].element, 1])
 })

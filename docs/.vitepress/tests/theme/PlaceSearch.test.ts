@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 import { type VueWrapper, enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
-import { afterEach, expect, it, vi }                                   from 'vitest'
+import { afterEach, expect, it, vi }                                from 'vitest'
 
 import type { sky as Sky } from '../../lib/state/sky.ts'
-import { passOf }          from '../fixtures/passes.ts'
+import { passOf }          from '../common/passes.ts'
+import { freshSky }        from '../common/sky.ts'
+import { stubMatchMedia }  from '../common/stubs.ts'
 import photon              from '../fixtures/photon.json' with { type: 'json' }
-import { freshSky }        from '../fixtures/sky.ts'
 
 enableAutoUnmount(afterEach)
 
@@ -15,7 +16,7 @@ enableAutoUnmount(afterEach)
  */
 const mounted = async (set: (sky: typeof Sky) => void = () => {}) => {
   vi.useFakeTimers()
-  vi.stubGlobal('matchMedia', () => ({ matches: false }))
+  stubMatchMedia(() => false)
   const { component: PlaceSearch, sky } = await freshSky(() => import('../../theme/PlaceSearch.tsx'))
   set(sky)
   return { sky, wrapper: mount(PlaceSearch, { attachTo: document.body }) }

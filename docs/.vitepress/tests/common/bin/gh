@@ -1,0 +1,39 @@
+#!/bin/sh
+set -eu
+cd "$GH_STAND_IN"
+if [ "$1" = label ]; then
+  case " $* " in
+    *' --jq .[].name '*)
+      while IFS= read -r name; do printf '%s\n' "$name"; done < labels
+      ;;
+    *)
+      printf '['
+      sep=
+      while IFS= read -r name; do
+        printf '%s{"name":"%s"}' "$sep" "$name"
+        sep=,
+      done < labels
+      printf ']\n'
+      ;;
+  esac
+  exit 0
+fi
+method=GET body=null
+if [ "$2" = --method ]; then
+  method=$3
+fi
+case " $* " in
+  *' --input - '*) IFS= read -r body || : ;;
+esac
+for path; do :; done
+printf '{"method":"%s","path":"%s","body":%s}\n' "$method" "$path" "$body" >> calls.jsonl
+while IFS='	' read -r request message; do
+  if [ "$request" = "$method $path" ]; then
+    printf '%s\n' "$message" >&2
+    exit 1
+  fi
+done < failures
+case $path in
+  */rulesets) IFS= read -r rulesets < rulesets && printf '%s\n' "$rulesets" ;;
+  *) printf '{}\n' ;;
+esac

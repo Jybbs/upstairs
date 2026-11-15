@@ -5,7 +5,7 @@ import { delimiter, join }   from 'node:path'
 import { $ }                      from 'bun'
 import { describe, expect, test } from 'vitest'
 
-import { ROOT } from '../fixtures/gh.ts'
+import { ROOT } from '../common/gh.ts'
 
 type Change = (repo: Repo) => Promise<unknown>
 type Task   = 'crate/affected' | 'site/affected' | 'site/check'
@@ -17,7 +17,7 @@ const CHECKED = [
 const PHOTON  = 'docs/.vitepress/tests/fixtures/photon.json'
 const RECORDS = 'docs/.vitepress/tests/fixtures/records.json'
 const SKIPPED = /^crate:affected found no change since origin\/main\b/
-const standIn = join(import.meta.dirname, '../fixtures/check')
+const standIn = join(import.meta.dirname, '../common/check')
 const SEEDED  = {
   '.gitignore'      : '.cache/\nrust/pkg/\n',
   'README.md'       : 'Upstairs\n',

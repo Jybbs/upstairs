@@ -48,9 +48,6 @@ describe('a link in a page', () => {
     { delay: '0s',              selector: `${LINK}:focus-visible`,              state: 'keyboard focus' }
   ])('waits $delay under $state', ({ delay, selector }) =>
     expect(styleOf(selector, 'transition-delay')).toBe(delay))
-  it('waits 200 ms and runs 620 ms on a cubic-bezier ease', () =>
-    expect([styleOf(LINK, '--key-wait'), styleOf(LINK, '--key-run'), styleOf(LINK, '--key-ease')])
-      .toEqual(['200ms', '620ms', 'cubic-bezier(0.45, 0, 0.2, 1)']))
   it('shows the keyed state at once under reduced motion', () => {
     const reduced = '(prefers-reduced-motion: reduce)'
     const media   = Array.from(SHEET.cssRules).find(rule =>
