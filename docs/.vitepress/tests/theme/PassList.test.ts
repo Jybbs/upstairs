@@ -38,11 +38,11 @@ describe('the rows', () => {
     const { wrapper } = await mounted([passOf(7)])
     const header      = wrapper.get('section > p')
     expect({
-      below   : header.classes('top-0'),
-      offset  : header.classes('min-[60rem]:top-(--vp-nav-height)'),
       scrolls : wrapper.get('section').classes().some(name => name.includes('overflow')),
-      sticky  : header.classes('sticky')
-    }).toEqual({ below: true, offset: true, scrolls: false, sticky: true })
+      sticky  : header.classes('sticky'),
+      top     : header.classes('top-0'),
+      under   : header.classes('min-[60rem]:top-(--vp-nav-height)')
+    }).toEqual({ scrolls: false, sticky: true, top: true, under: true })
   })
 
   it('reads each pass’s peak time, name, crossing, and highest elevation to a whole degree', async () => {
