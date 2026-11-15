@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs'
 
-import { wcagContrast }         from 'culori'
-import { describe, expect, it } from 'vitest'
+import { wcagContrast }                    from 'culori'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 import { Resvg } from '@resvg/resvg-js'
 
 import { CARD, NET_LAYOUT, cardsOf, fileOf, sectionColorOf, sectionLineOf } from '../../../lib/site/cards.ts'
-import type { Lines }               from '../../../lib/site/cards.ts'
+import type { Card, Lines }         from '../../../lib/site/cards.ts'
 import { Face }                     from '../../../lib/site/faces.ts'
 import { SCHEMES, type SchemeName } from '../../../lib/site/palette.ts'
 import { folderOf, sectionsOf }     from '../../../lib/site/sections.ts'
@@ -46,7 +46,6 @@ const sizeOf   = (file: string) => file === CARD.repository.file
 const faces = await Face.faces()
 const cards = cardsOf(faces, LINES)
 const days  = cardsOf(faces, LINES, { ...CARD, scheme: 'day' })
-const pages = cardsOf(faces, PAGES)
 
 describe('the cards', () => {
   it('writes the home card, the repository’s preview, and one card per section', () =>
@@ -85,6 +84,10 @@ describe('a section’s card', () => {
 })
 
 describe('a section’s line', () => {
+  let pages: Card[]
+
+  beforeAll(() => { pages = cardsOf(faces, PAGES) })
+
   it('fits every page’s own line on its card', () => expect(pages.map(({ file }) => file)).toEqual(FILES))
   it.each(SETS)('sets “$text” at $size px on the baselines $bases', ({ bases, section, size, text }) => {
     const set = sectionLineOf(faces, text, section)
