@@ -47,10 +47,10 @@ export default defineComponent(
     }
 
     return () => (
-      <section class="xl:overflow-y-auto" aria-label="Passes">
+      <section aria-label="Passes">
         <p
           class="caps sticky top-0 z-10 flex justify-between border-b border-rule bg-panel px-4 py-2
-                 text-soft"
+                 text-soft min-[60rem]:top-(--vp-nav-height)"
         >
           <span {...passes.value.getLabelProps()}>
             {sky.rows.value.list.length + sky.rows.value.more} passes
