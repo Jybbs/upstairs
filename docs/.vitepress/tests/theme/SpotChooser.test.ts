@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
-import { mount, type VueWrapper } from '@vue/test-utils'
-import { expect, it, vi }         from 'vitest'
-import { ref }                    from 'vue'
+import { mount, type VueWrapper }         from '@vue/test-utils'
+import { expect, it, onTestFinished, vi } from 'vitest'
+import { ref }                            from 'vue'
 
-import { freshSky }       from '../common/sky.ts'
-import { stubMatchMedia } from '../common/stubs.ts'
+import { dialogListens, fakeClock, framesOf } from '../common/frames.ts'
+import { freshSky }                           from '../common/sky.ts'
+import { stubMatchMedia }                     from '../common/stubs.ts'
 
 vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
@@ -14,16 +15,22 @@ vi.mock('@vueuse/core', async original => ({
 /**
  * Mounts the spot chooser, 240 pixels tall and opened, over a fresh copy of
  * the shared state and a stand-in worker, on a phone where `phone` is set,
- * once its dialog listens for Escape and for presses outside it.
+ * on the fake clock once its dialog listens for Escape and for presses
+ * outside it. Once the case finishes, it unmounts the chooser and runs the
+ * two frames its dialog's layer takes to leave the shared layer stack, before
+ * the clock turns real.
  */
 const mounted = async (phone = false) => {
   stubMatchMedia(query => phone && query.includes('40rem'))
   const { component: SpotChooser, sky } = await freshSky(() => import('../../theme/SpotChooser.tsx'))
+  fakeClock()
   sky.choose()
   const wrapper = mount(SpotChooser, { attachTo: document.body })
-  await new Promise(requestAnimationFrame)
-  await new Promise(requestAnimationFrame)
-  await new Promise(resolve => setTimeout(resolve))
+  onTestFinished(async () => {
+    wrapper.unmount()
+    await framesOf(2)
+  })
+  await dialogListens()
   return { sky, wrapper }
 }
 
@@ -64,10 +71,9 @@ it.each([
   const outside = document.body.appendChild(document.createElement('div'))
   if (marked) outside.setAttribute(marked, '')
   outside.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
-  outside.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-  await new Promise(requestAnimationFrame)
-  expect(sky.choosing.value).toBe(choosing)
+  await framesOf(1)
   outside.remove()
+  expect(sky.choosing.value).toBe(choosing)
 })
 
 it.each([
