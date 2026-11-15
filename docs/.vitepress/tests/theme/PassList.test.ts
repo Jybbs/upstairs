@@ -34,6 +34,17 @@ describe('the rows', () => {
     expect(wrapper.get('p > span').text()).toBe('201 passes')
   })
 
+  it('pins the header to the page’s scroll, at the top or under the bar once the bar is fixed', async () => {
+    const { wrapper } = await mounted([passOf(7)])
+    const header      = wrapper.get('section > p')
+    expect({
+      below   : header.classes('top-0'),
+      offset  : header.classes('min-[60rem]:top-(--vp-nav-height)'),
+      scrolls : wrapper.get('section').classes().some(name => name.includes('overflow')),
+      sticky  : header.classes('sticky')
+    }).toEqual({ below: true, offset: true, scrolls: false, sticky: true })
+  })
+
   it('reads each pass’s peak time, name, crossing, and highest elevation to a whole degree', async () => {
     const { wrapper }    = await mounted([passOf(7, { peak: 59.6 })])
     const [time, , peak] = wrapper.findAll('[role="option"] > span')
