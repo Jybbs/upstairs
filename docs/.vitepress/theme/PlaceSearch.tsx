@@ -80,7 +80,7 @@ export default defineComponent(
         }))
         trouble.value = features.length ? null : 'No place by that name.'
       } catch {
-        trouble.value = 'The place search is not answering.'
+        if (asked === latest) trouble.value = 'The place search is not answering.'
       }
     }
 
