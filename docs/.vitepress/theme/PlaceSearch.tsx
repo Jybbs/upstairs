@@ -31,7 +31,8 @@ const WAIT   = 350
 /**
  * Reads the places Photon finds for `query`, each labeled by its name, city,
  * state, and country with repeats dropped, rejecting where Photon cannot be
- * reached or answers with an error.
+ * reached, answers with an error status, or answers with a body that is no
+ * feature collection.
  */
 const placesFor = async (query: string): Promise<Found[]> => {
   const response = await fetch(`${SEARCH}?limit=${SHOWN}&lang=en&q=${encodeURIComponent(query)}`)
