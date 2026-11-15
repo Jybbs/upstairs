@@ -269,7 +269,8 @@
 .vp-doc .credits-address {
   color          : var(--soft);
   font           : 400 13px / 1.6 var(--font-mono);
-  letter-spacing : 0.02em;
+  letter-spacing : 0.1em;
+  text-transform : uppercase;
 }
 
 .vp-doc .credits-providers {

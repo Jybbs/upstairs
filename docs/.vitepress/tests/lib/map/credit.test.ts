@@ -6,6 +6,7 @@ import type { Map }                                        from 'maplibre-gl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CREDITS, GROUPS, HOLD, holdCredit } from '../../../lib/map/credit.ts'
+import { SOURCES, sealAnchorOf }             from '../../../lib/site/seals.ts'
 import { stubMatchMedia }                    from '../../common/stubs.ts'
 
 const DATA  = readFileSync(resolve(import.meta.dirname, '../../../../data/index.md'), 'utf8')
@@ -13,9 +14,9 @@ const TILES = '<a href="https://openfreemap.org">OpenFreeMap</a> '
             + '<a href="https://www.openmaptiles.org/">© OpenMapTiles</a> '
             + 'Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 
-it.each(CREDITS)('links %s to a section the Data page carries', credit => {
-  const heading = credit.match(/#(\w+)"/)![1]
-  expect(DATA).toMatch(new RegExp(`^## ${heading}$`, 'im'))
+it.each(CREDITS)('links %s to a section or a seal the Data page carries', credit => {
+  const anchor = credit.match(/#([\w-]+)"/)![1]!
+  expect(new RegExp(`^## ${anchor}$`, 'im').test(DATA) || SOURCES.map(sealAnchorOf).includes(anchor)).toBe(true)
 })
 
 describe.each([true, false])('the map credit with reduced motion %s', reduced => {

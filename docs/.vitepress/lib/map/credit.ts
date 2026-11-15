@@ -24,7 +24,7 @@ interface Row {
  */
 export const CREDITS = [
   `<a href="${import.meta.env.BASE_URL}data/#orbits">Orbits from CelesTrak and Space-Track</a>`,
-  `<a href="${import.meta.env.BASE_URL}data/#terrain">Terrain from Mapzen and its sources</a>`
+  `<a href="${import.meta.env.BASE_URL}data/#credits-tt">Terrain from Mapzen and its sources</a>`
 ]
 
 /**
@@ -32,7 +32,7 @@ export const CREDITS = [
  * links under it in the order `links` gives.
  */
 export const GROUPS = [
-  { heading: 'Sources', links: ['[href$="#orbits"]', '[href$="#terrain"]', '[href*="openstreetmap.org"]'] },
+  { heading: 'Sources', links: ['[href$="#orbits"]', '[href$="#credits-tt"]', '[href*="openstreetmap.org"]'] },
   { heading: 'Tiles', links: ['[href*="openfreemap.org"]', '[href*="openmaptiles.org"]'] }
 ]
 

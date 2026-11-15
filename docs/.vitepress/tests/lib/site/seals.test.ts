@@ -24,6 +24,8 @@ describe('the seals’ images', () => {
     const anchor = README.slice(README.lastIndexOf('<a ', at))
     expect(anchor.match(/^<a href="([^"]+)"/)?.[1]).toBe(seals.sealLinkOf(source).href)
     expect(README).toContain(`${seals.sealFileOf(source, 'day')}" alt="${source.name}"`)
+    expect(README).toContain(
+      `<source media="(prefers-color-scheme: dark)" srcset="../docs/public/${seals.sealFileOf(source, 'night')}">`)
   })
 
   it('sets the seals in the README in the order of the strip', () => {

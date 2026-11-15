@@ -27,10 +27,10 @@ export interface Source {
  * where it is `clipped`.
  */
 export interface Stroke {
-  at?      : string
-  clipped? : boolean
   d        : string
   kind     : 'border' | 'lake' | 'land' | 'line'
+  at?      : string
+  clipped? : boolean
 }
 
 const COAST = 'M7 -30 C3 -20 11 -14 8 -6 C5 2 -3 3 0 11 C3 19 11 21 7 30'
@@ -202,7 +202,7 @@ export const GLYPHS = {
 const round = (value: number) => Math.round(value * 100) / 100
 
 /**
- * Returns the attributes a stroke takes in an image drawn in `colors`, whose
+ * Returns the `<path>` a stroke draws as in an image drawn in `colors`, whose
  * clip path is `clip`.
  */
 const strokeOf = ({ at, clipped, d, kind }: Stroke, clip: string, colors: Colors) => {

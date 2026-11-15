@@ -17,11 +17,11 @@ The orbital elements come from [CelesTrak](https://celestrak.org/), which redist
 
 ## The Map
 
-The map combines terrain from the sources under Terrain below with map data from [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) in the [OpenMapTiles](https://openmaptiles.org/) schema, served through [OpenFreeMap](https://openfreemap.org/) and drawn by [MapLibre](https://maplibre.org/). OpenFreeMap builds its tiles from a full run over the planet each week, and [Credits](#credits) below sets out the notice and the license of each source the map draws. The map's credit opens in its lower-right corner, listing each source on its own line, and stays open until the reader presses, scrolls, or types on the map, or until {{ HOLD.wait / 1000 }} seconds after the OpenStreetMap line shows. It then folds into the button marked i, which opens it again.
+The map combines terrain from the Terrain Tiles dataset, set out under Terrain below, with map data from [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) in the [OpenMapTiles](https://openmaptiles.org/) schema, served through [OpenFreeMap](https://openfreemap.org/) and drawn by [MapLibre](https://maplibre.org/). OpenFreeMap builds its tiles from a full run over the planet each week, and [Credits](#credits) below sets out the notice and the license of each source the map draws. The map's credit opens in its lower-right corner, listing each source on its own line, and stays open until the reader presses, scrolls, or types on the map, or until {{ HOLD.wait / 1000 }} seconds after the OpenStreetMap line shows. It then folds into the button marked i, which opens it again.
 
 ## Terrain
 
-The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset, which [Mapzen](https://github.com/tilezen/joerd) built from sources that each carry a license of their own. The dataset takes in new data as its users ask for it, and [Credits](#credits) below lists the statement each license requires.
+The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset, which [Mapzen](https://github.com/tilezen/joerd) built from sources that each carry a license of their own. The dataset takes in new data as its users ask for it, and [Credits](#credits-tt) below lists the statement each license requires.
 
 ## Credits
 

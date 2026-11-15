@@ -1,12 +1,15 @@
-import { useEventListener }                      from '@vueuse/core'
-import { defineComponent, onMounted, ref, useId } from 'vue'
+import { useEventListener }                  from '@vueuse/core'
+import * as tabs                            from '@zag-js/tabs'
+import { normalizeProps, useMachine }       from '@zag-js/vue'
+import { computed, defineComponent, onMounted, ref, useId } from 'vue'
 
 import * as seals from '../lib/site/seals.ts'
-import { tabOf }  from '../lib/site/tabs.ts'
 import Seal       from './Seal.tsx'
 import Strokes    from './Strokes.tsx'
 
 type Mark = keyof typeof seals.CHIP_MARKS
+
+const chip = (label: string, mark?: Mark) => <li class="credits-chip caps">{mark && markOf(mark)}{label}</li>
 
 const markOf = (name: Mark) => (
   <svg class="credits-mark" viewBox="0 0 16 16" aria-hidden="true">
@@ -14,7 +17,24 @@ const markOf = (name: Mark) => (
   </svg>
 )
 
-const chip = (label: string, mark?: Mark) => <li class="credits-chip caps">{mark && markOf(mark)}{label}</li>
+const openMapTiles = (source: seals.Source) => (
+  <>
+    <p class="credits-title">{source.name}</p>
+    <dl class="credits-rows">
+      <dt class="caps">Supplies</dt>
+      <dd>The schema the map’s tiles follow, served through OpenFreeMap</dd>
+      <dt class="caps">Notice</dt>
+      <dd><q>© OpenMapTiles</q></dd>
+      <dt class="caps">License</dt>
+      <dd>
+        <a href="https://creativecommons.org/licenses/by/4.0/">{source.license}</a>,
+        § 3(a)(1) sets the notice
+        <br />
+        <a class="credits-address" href="https://openmaptiles.org/">openmaptiles.org</a>
+      </dd>
+    </dl>
+  </>
+)
 
 const openStreetMap = (source: seals.Source) => (
   <>
@@ -56,24 +76,6 @@ const openStreetMap = (source: seals.Source) => (
   </>
 )
 
-const openMapTiles = (source: seals.Source) => (
-  <>
-    <p class="credits-title">{source.name}</p>
-    <dl class="credits-rows">
-      <dt class="caps">Supplies</dt>
-      <dd>The schema the map’s tiles follow, served through OpenFreeMap</dd>
-      <dt class="caps">Notice</dt>
-      <dd><q>© OpenMapTiles</q></dd>
-      <dt class="caps">License</dt>
-      <dd>
-        <a href="https://creativecommons.org/licenses/by/4.0/">{source.license}</a>, § 3(a)(1) sets the notice
-        <br />
-        <a class="credits-address" href="https://openmaptiles.org/">openmaptiles.org</a>
-      </dd>
-    </dl>
-  </>
-)
-
 const terrainTiles = (source: seals.Source) => (
   <>
     <p class="credits-title">{source.name}</p>
@@ -99,7 +101,7 @@ const terrainTiles = (source: seals.Source) => (
     </ul>
     <p class="credits-free">
       The United States’ 3DEP and the global GMTED2010 and ETOPO1 data are in the public domain, and SRTM
-      is in the public domain within the United States, so none of them requires a statement.
+      is in the public domain within the United States, its specification asserting copyright outside it.
     </p>
   </>
 )
@@ -118,20 +120,24 @@ const RECORDS = {
  */
 export default defineComponent(
   () => {
-    const id     = useId()
-    const chosen = ref(seals.SOURCES[0].id)
-    const tabs   = ref<HTMLButtonElement[]>([])
+    const id      = useId()
+    const chosen  = ref<string>(seals.SOURCES[0].id)
+    const anchors = Object.fromEntries(seals.SOURCES.map(source => [source.id, seals.sealAnchorOf(source)]))
+    const service = useMachine(tabs.machine, computed(() => ({
+      id            : id,
+      ids           : {
+        content : (value: string) => `${id}-${value}`,
+        trigger : (value: string) => anchors[value]!
+      },
+      onValueChange : ({ value }: tabs.ValueChangeDetails) => { chosen.value = value },
+      translations  : { listLabel: 'The sources credited' },
+      value         : chosen.value
+    })))
+    const strip = computed(() => tabs.connect(service, normalizeProps))
 
     const follow = () => {
-      const source = seals.SOURCES.find(source => location.hash === `#${seals.sealAnchorOf(source)}`)
+      const source = seals.SOURCES.find(source => location.hash === `#${anchors[source.id]}`)
       if (source) chosen.value = source.id
-    }
-    const step = (event: KeyboardEvent, index: number) => {
-      const to = tabOf(event.key, index, seals.SOURCES.length)
-      if (to === undefined) return
-      event.preventDefault()
-      chosen.value = seals.SOURCES[to].id
-      tabs.value[to].focus()
     }
 
     onMounted(follow)
@@ -139,20 +145,9 @@ export default defineComponent(
 
     return () => (
       <div class="credits">
-        <div class="credits-strip" role="tablist" aria-label="The sources credited">
-          {seals.SOURCES.map((source, index) => (
-            <button
-              ref={tab => { tabs.value[index] = tab as HTMLButtonElement }}
-              type="button"
-              role="tab"
-              class="credits-tab"
-              id={seals.sealAnchorOf(source)}
-              aria-controls={`${id}-${source.id}`}
-              aria-selected={chosen.value === source.id}
-              tabindex={chosen.value === source.id ? 0 : -1}
-              onClick={() => { chosen.value = source.id }}
-              onKeydown={(event: KeyboardEvent) => step(event, index)}
-            >
+        <div class="credits-strip" {...strip.value.getListProps()}>
+          {seals.SOURCES.map(source => (
+            <button class="credits-tab" {...strip.value.getTriggerProps({ value: source.id })}>
               <Seal source={source} />
               <span class="credits-name caps">{source.name}</span>
             </button>
@@ -161,9 +156,8 @@ export default defineComponent(
         <div class="credits-records">
           {seals.SOURCES.map(source => (
             <div
-              role="tabpanel"
-              id={`${id}-${source.id}`}
-              aria-labelledby={seals.sealAnchorOf(source)}
+              {...strip.value.getContentProps({ value: source.id })}
+              hidden={false}
               inert={chosen.value !== source.id}
             >
               {RECORDS[source.id](source)}
