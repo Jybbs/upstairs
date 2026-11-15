@@ -1,0 +1,3 @@
+#!/bin/sh
+(IFS=$(printf '\t'); printf '%s\n' "$*") >> "$STAND_IN_CALLS"
+exit "$STAND_IN_EXIT"
