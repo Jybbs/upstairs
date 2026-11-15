@@ -6,12 +6,12 @@ import { fileURLToPath } from 'node:url'
 import { createMarkdownRenderer, type MarkdownEnv } from 'vitepress'
 import { beforeAll, describe, expect, it }          from 'vitest'
 
-import { citationsOf, markdownOf } from '../../lib/site/markdown.ts'
-import { SHEETS }                  from '../../lib/site/sheets.ts'
+import { citationsOf, markdownOf } from '../../../lib/site/markdown.ts'
+import { SHEETS }                  from '../../../lib/site/sheets.ts'
 
 type Rendered = { env: MarkdownEnv, html: string }
 
-const ROOT  = fileURLToPath(new URL('../../..', import.meta.url))
+const ROOT  = fileURLToPath(new URL('../../../..', import.meta.url))
 const PAGES = ['*.md', '*/*.md'].flatMap(pattern => Array.from(new Glob(pattern).scanSync(ROOT))).sort()
 
 let render: (src: string) => Promise<Rendered>

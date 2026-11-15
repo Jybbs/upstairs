@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { Face }                     from '../../lib/site/faces.ts'
-import { SCHEMES, type SchemeName } from '../../lib/site/palette.ts'
-import * as start                   from '../../lib/site/start.ts'
-import { README, publicOf }         from '../fixtures/shipped.ts'
+import { Face }                     from '../../../lib/site/faces.ts'
+import { SCHEMES, type SchemeName } from '../../../lib/site/palette.ts'
+import * as start                   from '../../../lib/site/start.ts'
+import { README, publicOf }         from '../../common/shipped.ts'
 
 const faces = await Face.faces()
 const CARDS = start.startPagesOf().flatMap(page =>

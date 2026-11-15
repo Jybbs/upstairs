@@ -2,14 +2,14 @@ import { readFile } from 'node:fs/promises'
 
 import { describe, expect, it, vi } from 'vitest'
 
-import init, * as orbit from '../../../../rust/pkg/orbit.js'
-import { encode }       from '../../catalog/encode.ts'
-import type { Record }  from '../../lib/orbit/catalog.ts'
-import * as catalog     from '../../lib/orbit/catalog.ts'
-import { kindOf }       from '../../lib/orbit/kinds.ts'
-import { satellitesOf } from '../../lib/orbit/scan.ts'
-import answers          from '../fixtures/answers.json' with { type: 'json' }
-import full             from '../fixtures/records.json' with { type: 'json' }
+import init, * as orbit from '../../../../../rust/pkg/orbit.js'
+import { encode }       from '../../../catalog/encode.ts'
+import type { Record }  from '../../../lib/orbit/catalog.ts'
+import * as catalog     from '../../../lib/orbit/catalog.ts'
+import { kindOf }       from '../../../lib/orbit/kinds.ts'
+import { satellitesOf } from '../../../lib/orbit/scan.ts'
+import answers          from '../../fixtures/answers.json' with { type: 'json' }
+import full             from '../../fixtures/records.json' with { type: 'json' }
 
 const records = full as unknown as Record[]
 const fetched = Date.parse('2026-11-06T18:53:57.264Z')
@@ -37,7 +37,8 @@ describe('the catalog file', () => {
   })
 
   it('places each record, segment by segment, where the known answers do', async () => {
-    await init({ module_or_path: await readFile(new URL('../../../../rust/pkg/orbit_bg.wasm', import.meta.url)) })
+    const wasm = new URL('../../../../../rust/pkg/orbit_bg.wasm', import.meta.url)
+    await init({ module_or_path: await readFile(wasm) })
     const orbits = new orbit.Orbits()
     for (const segment of segments) {
       orbits.extend(segment.records.map(record => record.EPOCH), catalog.elementsOf(segment.records))
@@ -98,7 +99,7 @@ describe('the catalog file', () => {
   })
 
   it(`stays under ${LIMIT.toLocaleString()} bytes for the whole active catalog`, async () => {
-    const file  = await readFile(new URL('../fixtures/catalog.bin', import.meta.url))
+    const file  = await readFile(new URL('../../fixtures/catalog.bin', import.meta.url))
     const whole = (await read(file)).flatMap(segment => segment.records)
     expect(whole.length).toBeGreaterThan(10_000)
     expect(encode(fetched, whole).length).toBeLessThan(LIMIT)

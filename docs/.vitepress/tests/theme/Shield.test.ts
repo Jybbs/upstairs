@@ -4,7 +4,7 @@ import { expect, it, vi } from 'vitest'
 
 import Shield from '../../theme/Shield.tsx'
 
-vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
+vi.mock('../../lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
 
 const readings = () => mount(Shield).findAll('text').map(text => ({
   href  : text.find('a').exists() ? text.get('a').attributes('href') : undefined,

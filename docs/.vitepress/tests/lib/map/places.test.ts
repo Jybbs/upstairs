@@ -1,9 +1,9 @@
-import type { Map }              from 'maplibre-gl'
+import type { Map }             from 'maplibre-gl'
 import { describe, expect, it } from 'vitest'
 
-import { View }               from '../../lib/map/mercator.ts'
-import type { Label }         from '../../lib/map/overlay.ts'
-import { namesOn, placeNear } from '../../lib/map/places.ts'
+import { View }               from '../../../lib/map/mercator.ts'
+import type { Label }         from '../../../lib/map/overlay.ts'
+import { namesOn, placeNear } from '../../../lib/map/places.ts'
 
 interface Feature {
   geometry   : { coordinates: [number, number], type: string }

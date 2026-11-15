@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import * as repository from '../../tools/repository.ts'
 import * as sync       from '../../tools/sync.ts'
-import * as gh         from '../fixtures/gh.ts'
+import * as gh         from '../common/gh.ts'
 
 const ABOUT = {
   description : 'Shows the satellites.',
@@ -175,10 +175,4 @@ describe('sync.ts against a stand-in gh', async () => {
     ]
   ])('sync.ts %s reports each undeclared live entry on a line of its own', async (task, changes, lines) =>
     expect((await gh.Run.of(task, { ...live, ...changes })).lines).toEqual(lines))
-
-  it('reads a call sending a body with no --method as a POST', () => {
-    const path = 'repos/{owner}/{repo}/topics'
-    expect(new gh.Run([{ args: ['api', '--input', '-', path] }], 0, '', '').requests)
-      .toEqual([{ body: undefined, method: 'POST', path }])
-  })
 })

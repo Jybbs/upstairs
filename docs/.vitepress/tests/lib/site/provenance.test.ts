@@ -4,12 +4,13 @@ import { readFileSync } from 'node:fs'
 
 import { afterEach, expect, it, vi } from 'vitest'
 
-import manifest from '../../../package.json' with { type: 'json' }
-import loader   from '../../lib/site/provenance.data.ts'
+import manifest from '../../../../package.json' with { type: 'json' }
+import loader   from '../../../lib/site/provenance.data.ts'
 
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn(() => 'ec695b9\n') }))
 
-const LOCKED = TOML.parse(readFileSync(new URL('../../../../rust/Cargo.lock', import.meta.url), 'utf8')) as {
+const LOCK   = new URL('../../../../../rust/Cargo.lock', import.meta.url)
+const LOCKED = TOML.parse(readFileSync(LOCK, 'utf8')) as {
   package: { name: string, version: string }[]
 }
 

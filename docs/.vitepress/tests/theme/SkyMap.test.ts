@@ -3,10 +3,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi }       from 'vitest'
 import { ref }                  from 'vue'
 
-import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
-import { SHEETS }      from '../../lib/site/sheets.ts'
-import { passOf }      from '../fixtures/passes.ts'
-import { freshSky }    from '../fixtures/sky.ts'
+import { TRACK_WIDTH }    from '../../lib/orbit/scan.ts'
+import { SHEETS }         from '../../lib/site/sheets.ts'
+import { passOf }         from '../common/passes.ts'
+import { freshSky }       from '../common/sky.ts'
+import { stubMatchMedia } from '../common/stubs.ts'
 
 const { TOWN, cameraForBounds, easeTo, fitBounds, gather, handlers } = vi.hoisted(() => ({
   TOWN            : 10 * 360 / (512 * 2 ** 5),
@@ -76,7 +77,7 @@ vi.mock('../../lib/map/overlay.ts', async () => {
  * stylesheet already linked.
  */
 const mounted = async () => {
-  vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: false, removeEventListener() {} }))
+  stubMatchMedia(() => false)
   vi.stubGlobal('requestAnimationFrame', () => 0)
   Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } })
   document.head.append(Object.assign(document.createElement('link'), { href: SHEETS.map.href }))

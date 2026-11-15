@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { TALLY, tallyOf } from '../../lib/site/tally.ts'
+import { TALLY, tallyOf } from '../../../lib/site/tally.ts'
 
 const WIDTH  = 326
 const COUNTS = [
@@ -15,11 +15,9 @@ describe('the tally', () => {
     expect(tallyOf(counts, WIDTH).width).toBeLessThanOrEqual(WIDTH)
   })
 
-  it.each(COUNTS)('gives each group of %s a target at least 24 px wide', (_, counts) => {
-    for (const { left, right, width } of tallyOf(counts, WIDTH).groups) {
-      expect(left + width + right).toBeGreaterThanOrEqual(TALLY.target - 0.01)
-    }
-  })
+  it.each(COUNTS)('gives each group of %s a target at least 24 px wide', (_, counts) =>
+    expect(tallyOf(counts, WIDTH).groups.filter(({ left, right, width }) =>
+      left + width + right < TALLY.target - 0.01)).toStrictEqual([]))
 
   it('draws a few satellites at the widest pitch and tick', () => {
     expect(tallyOf([3, 2], WIDTH)).toMatchObject({ pitch: TALLY.pitch, tick: TALLY.tick })

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { TRACK_WIDTH }          from '../../lib/orbit/scan.ts'
-import { footholdsOf, ridgeOf } from '../../lib/site/ridges.ts'
-import { Tracks }               from '../../lib/state/tracks.ts'
-import { passOf }               from '../fixtures/passes.ts'
+import { TRACK_WIDTH }          from '../../../lib/orbit/scan.ts'
+import { footholdsOf, ridgeOf } from '../../../lib/site/ridges.ts'
+import { Tracks }               from '../../../lib/state/tracks.ts'
+import { passOf }               from '../../common/passes.ts'
 
 /**
  * How high the satellite stands at each sample, 30 seconds apart, over the

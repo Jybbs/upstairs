@@ -1,13 +1,13 @@
 import { expect, it, vi } from 'vitest'
 
-import { BEADS, fadeOf, nearnessOf, openOf, Overlay } from '../../lib/map/overlay.ts'
-import { DAY }                                        from '../../lib/orbit/catalog.ts'
-import { kindOrder, type Kind }                       from '../../lib/orbit/kinds.ts'
-import { iconOf }                                     from '../../lib/site/icons.ts'
-import { SCHEMES }                                    from '../../lib/site/palette.ts'
-import { TRACK_WIDTH }                                from '../../lib/orbit/scan.ts'
-import { Tracks }                                     from '../../lib/state/tracks.ts'
-import { passOf }                                     from '../fixtures/passes.ts'
+import { BEADS, fadeOf, nearnessOf, openOf, Overlay } from '../../../lib/map/overlay.ts'
+import { DAY }                                        from '../../../lib/orbit/catalog.ts'
+import { kindOrder, type Kind }                       from '../../../lib/orbit/kinds.ts'
+import { iconOf }                                     from '../../../lib/site/icons.ts'
+import { SCHEMES }                                    from '../../../lib/site/palette.ts'
+import { TRACK_WIDTH }                                from '../../../lib/orbit/scan.ts'
+import { Tracks }                                     from '../../../lib/state/tracks.ts'
+import { passOf }                                     from '../../common/passes.ts'
 
 const BOSTON = { latitude: 42.36, longitude: -71.06 }
 const CRAFT  = { latitude: 41.86, longitude: -70.56 }
@@ -332,8 +332,8 @@ const beadsAt = (seconds: number) => {
 it('lays its beads at least 9 px apart and under twice that', () => {
   const beads = beadsAt(1800)
   const gaps  = beads.slice(1).map(([x, y], index) => Math.hypot(x - beads[index][0], y - beads[index][1]))
-  expect([beads.length, gaps.every(gap => gap >= BEADS.gap && gap < 2 * BEADS.gap)])
-    .toEqual([BEADS.count, true])
+  expect([beads.length, gaps.filter(gap => gap < BEADS.gap || gap >= 2 * BEADS.gap)])
+    .toStrictEqual([BEADS.count, []])
 })
 
 it('holds each bead at its place on the ground as the satellite moves on', () => {

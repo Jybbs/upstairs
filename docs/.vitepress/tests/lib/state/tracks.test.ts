@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { TRACK_WIDTH } from '../../lib/orbit/scan.ts'
-import { Tracks }      from '../../lib/state/tracks.ts'
-import { passOf }      from '../fixtures/passes.ts'
+import { TRACK_WIDTH } from '../../../lib/orbit/scan.ts'
+import { Tracks }      from '../../../lib/state/tracks.ts'
+import { passOf }      from '../../common/passes.ts'
 
 describe('docked craft', () => {
   it('folds craft flying together into the first, and keeps a separate station apart', () => {

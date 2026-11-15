@@ -3,9 +3,9 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import { SHEETS } from '../../lib/site/sheets.ts'
+import { SHEETS } from '../../../lib/site/sheets.ts'
 
-const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
+const ROOT = fileURLToPath(new URL('../../../..', import.meta.url))
 
 describe('Sheet', () => {
   it.each(Object.entries(SHEETS))('copies a file that exists for each source of the %s sheet', (_, sheet) =>

@@ -2,7 +2,7 @@ import { Window, type Document }  from 'happy-dom'
 import { createMarkdownRenderer } from 'vitepress'
 import { beforeAll, expect, it }  from 'vitest'
 
-import { drawFootnotes, morseOf, nameOf } from '../../lib/site/footnotes.ts'
+import { drawFootnotes, morseOf, nameOf } from '../../../lib/site/footnotes.ts'
 
 const PAGE = 'A model[^vallado2006], its revision[^vallado2006], and a check[^kelso2007].\n\n'
            + '[^vallado2006]: Vallado.\n\n[^kelso2007]: Kelso.'

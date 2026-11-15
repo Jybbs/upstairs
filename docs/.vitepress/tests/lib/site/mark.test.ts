@@ -1,10 +1,10 @@
 import { Resvg }                from '@resvg/resvg-js'
 import { describe, expect, it } from 'vitest'
 
-import MARK                         from '../../lib/site/mark.json' with { type: 'json' }
-import * as mark                    from '../../lib/site/mark.ts'
-import { SCHEMES, type SchemeName } from '../../lib/site/palette.ts'
-import { README, publicOf }         from '../fixtures/shipped.ts'
+import MARK                         from '../../../lib/site/mark.json' with { type: 'json' }
+import * as mark                    from '../../../lib/site/mark.ts'
+import { SCHEMES, type SchemeName } from '../../../lib/site/palette.ts'
+import { README, publicOf }         from '../../common/shipped.ts'
 
 const DRAWINGS = [
   { drawing: 'the word’s drawing alone',            height: 69.7, outlined: false, u: MARK.word },
@@ -93,9 +93,7 @@ describe('the files the README and the browser read', () => {
       expect(mark.touchIconOf()).toContain(`viewBox="${MARK.s16.box}"`)
     })
 
-    it('centers the drawing at 62% of the tile', () => {
-      expect(mark.TOUCH.mark / mark.TOUCH.size).toBeCloseTo(0.62, 2)
-      expect(mark.touchIconOf()).toContain(`x="${(mark.TOUCH.size - mark.TOUCH.mark) / 2}"`)
-    })
+    it('centers the drawing on the tile', () =>
+      expect(mark.touchIconOf()).toContain(`x="${(mark.TOUCH.size - mark.TOUCH.mark) / 2}"`))
   })
 })

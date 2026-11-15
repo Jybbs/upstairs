@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { columnsOf, pickAt } from '../../lib/site/columns.ts'
+import { columnsOf, pickAt } from '../../../lib/site/columns.ts'
 
 /**
  * Returns peaks named by letter at each of `xs`.

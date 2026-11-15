@@ -3,7 +3,8 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { expect, it, vi }         from 'vitest'
 import { ref }                    from 'vue'
 
-import { freshSky } from '../fixtures/sky.ts'
+import { freshSky }       from '../common/sky.ts'
+import { stubMatchMedia } from '../common/stubs.ts'
 
 vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
@@ -16,9 +17,7 @@ vi.mock('@vueuse/core', async original => ({
  * once its dialog listens for Escape and for presses outside it.
  */
 const mounted = async (phone = false) => {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    addEventListener() {}, matches: phone && query.includes('40rem'), removeEventListener() {}
-  }))
+  stubMatchMedia(query => phone && query.includes('40rem'))
   const { component: SpotChooser, sky } = await freshSky(() => import('../../theme/SpotChooser.tsx'))
   sky.choose()
   const wrapper = mount(SpotChooser, { attachTo: document.body })

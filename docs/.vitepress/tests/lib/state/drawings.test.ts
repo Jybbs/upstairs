@@ -3,12 +3,12 @@ import { flushPromises, mount }     from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent }          from 'vue'
 
-import { encode }                       from '../../catalog/encode.ts'
-import { UNLOADED, agesOf, type Record } from '../../lib/orbit/catalog.ts'
-import { ISS }                          from '../../lib/orbit/looks.ts'
-import { UNDRAWN, useDrawings }         from '../../lib/state/drawings.ts'
-import { START, drawingsOf }           from '../fixtures/drawings.ts'
-import full                            from '../fixtures/records.json' with { type: 'json' }
+import { encode }                        from '../../../catalog/encode.ts'
+import { UNLOADED, agesOf, type Record } from '../../../lib/orbit/catalog.ts'
+import { ISS }                           from '../../../lib/orbit/looks.ts'
+import { UNDRAWN, useDrawings }          from '../../../lib/state/drawings.ts'
+import { START, drawingsOf }             from '../../common/drawings.ts'
+import full                              from '../../fixtures/records.json' with { type: 'json' }
 
 const expected    = await drawingsOf()
 const fetched     = START + 17_000

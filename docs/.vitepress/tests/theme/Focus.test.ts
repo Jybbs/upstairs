@@ -6,8 +6,8 @@ import { DAY }                  from '../../lib/orbit/catalog.ts'
 import { KINDS, NOTES }         from '../../lib/orbit/kinds.ts'
 import type { Pass }            from '../../lib/orbit/scan.ts'
 import type { sky as Sky }      from '../../lib/state/sky.ts'
-import { passOf }               from '../fixtures/passes.ts'
-import { addScanned, freshSky } from '../fixtures/sky.ts'
+import { passOf }               from '../common/passes.ts'
+import { addScanned, freshSky } from '../common/sky.ts'
 
 const NOW = Date.parse('2026-11-06T18:37:00Z')
 

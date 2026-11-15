@@ -3,8 +3,9 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { expect, it, vi }         from 'vitest'
 import { type Ref, ref }          from 'vue'
 
-import { passOf }               from '../fixtures/passes.ts'
-import { addScanned, freshSky } from '../fixtures/sky.ts'
+import { passOf }               from '../common/passes.ts'
+import { addScanned, freshSky } from '../common/sky.ts'
+import { stubMatchMedia }       from '../common/stubs.ts'
 
 /**
  * The heights the sheet measures, in the order it measures them: its peek, the
@@ -14,7 +15,12 @@ import { addScanned, freshSky } from '../fixtures/sky.ts'
  */
 const HEIGHTS = vi.hoisted(() => ({ measured: [] as Ref<number>[], of: [100, 60, 420, 600, 104] }))
 
-vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
+vi.mock('../../lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
+vi.mock('../../theme/Filters.tsx', async () => (await import('../common/stubs.ts')).stubOf('Filters'))
+vi.mock('../../theme/PassList.tsx', async () => (await import('../common/stubs.ts')).stubOf('PassList'))
+vi.mock('../../theme/PassReadout.tsx', async () => (await import('../common/stubs.ts')).stubOf('PassReadout'))
+vi.mock('../../theme/Readout.tsx', async () => (await import('../common/stubs.ts')).stubOf('Readout'))
+vi.mock('../../theme/TimeStrip.tsx', async () => (await import('../common/stubs.ts')).stubOf('TimeStrip'))
 vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
   useElementSize: () => {
@@ -48,7 +54,7 @@ const dragged = async (wrapper: VueWrapper, path: number[][]) => {
  * case names another, pinned where `pinned` is set.
  */
 const mounted = async (pinned: boolean, pass = passOf(1)) => {
-  vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: false, removeEventListener() {} }))
+  stubMatchMedia(() => false)
   HEIGHTS.measured                = []
   const { component: Sheet, sky } = await freshSky(() => import('../../theme/Sheet.tsx'))
   const stubs                     = {

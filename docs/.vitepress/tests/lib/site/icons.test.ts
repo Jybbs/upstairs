@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 
-import ICONS      from '../../lib/site/icons.json' with { type: 'json' }
-import { iconOf } from '../../lib/site/icons.ts'
+import ICONS      from '../../../lib/site/icons.json' with { type: 'json' }
+import { iconOf } from '../../../lib/site/icons.ts'
 
 it.each([
   ['draws a mark 22 px across or more with the broad nib', 'north', 22, ICONS.north.big],

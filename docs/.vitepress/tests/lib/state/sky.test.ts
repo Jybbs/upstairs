@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as catalog           from '../../lib/orbit/catalog.ts'
-import * as scan              from '../../lib/orbit/scan.ts'
-import type { Answer, Asked } from '../../lib/orbit/worker.ts'
+import * as catalog           from '../../../lib/orbit/catalog.ts'
+import * as scan              from '../../../lib/orbit/scan.ts'
+import type { Answer, Asked } from '../../../lib/orbit/worker.ts'
+import { stubMatchMedia }     from '../../common/stubs.ts'
 
 const NOW       = Date.parse('2026-11-06T18:37:00Z')
 const OTHER     = { epoch: 0, id: 2, kind: 'crewed', name: 'CRAFT 2' } as const
@@ -40,13 +41,13 @@ const passAt = (riseAt: number, peak: number, satellite: scan.Satellite = SATELL
 const loaded = async (fragment = '', reduced = false) => {
   history.replaceState(null, '', `/somewhere?at=1${fragment}`)
   posted = []
-  vi.stubGlobal('matchMedia', () => ({ matches: reduced }))
+  stubMatchMedia(() => reduced)
   vi.stubGlobal('Worker', class {
     set onmessage(listener: typeof listen) { listen = listener }
     postMessage(asked: Asked) { posted.push(asked) }
   })
   vi.resetModules()
-  const { sky } = await import('../../lib/state/sky.ts')
+  const { sky } = await import('../../../lib/state/sky.ts')
   hear({ count: 1, fetched: NOW, type: 'loaded' })
   return sky
 }

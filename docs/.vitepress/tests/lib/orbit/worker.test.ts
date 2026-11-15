@@ -2,23 +2,30 @@ import { readFile } from 'node:fs/promises'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { encode }             from '../../catalog/encode.ts'
-import type { Record }        from '../../lib/orbit/catalog.ts'
-import { kindOf }             from '../../lib/orbit/kinds.ts'
-import type { Answer, Asked } from '../../lib/orbit/worker.ts'
-import answers                from '../fixtures/answers.json' with { type: 'json' }
-import full                   from '../fixtures/records.json' with { type: 'json' }
+import { encode }             from '../../../catalog/encode.ts'
+import type { Record }        from '../../../lib/orbit/catalog.ts'
+import { kindOf }             from '../../../lib/orbit/kinds.ts'
+import type { Answer, Asked } from '../../../lib/orbit/worker.ts'
+import answers                from '../../fixtures/answers.json' with { type: 'json' }
+import full                   from '../../fixtures/records.json' with { type: 'json' }
 
 const FETCHED = Date.parse('2026-11-06T18:53:57.264Z')
 const START   = Date.parse(answers.start)
 const file    = encode(FETCHED, full as unknown as Record[])
-const whole   = await readFile(new URL('../fixtures/catalog.bin', import.meta.url))
+/**
+ * The committed records copied under new catalog numbers until more of them
+ * rise over the spot than the 100 the worker traces in one batch.
+ */
+const batches = encode(FETCHED, Array.from(
+  { length: Math.ceil(101 / answers.grid.risen.length) },
+  (_, copy) => full.map(record => ({ ...record, NORAD_CAT_ID: record.NORAD_CAT_ID + copy * 100_000 }))
+).flat() as unknown as Record[])
 
 const built = vi.hoisted(() => ({ grids: 0 }))
 
-vi.mock('../../../../rust/pkg/orbit.js', async importOriginal => {
-  const crate = await importOriginal<typeof import('../../../../rust/pkg/orbit.js')>()
-  const wasm  = new URL('../../../../rust/pkg/orbit_bg.wasm', import.meta.url)
+vi.mock('../../../../../rust/pkg/orbit.js', async importOriginal => {
+  const crate = await importOriginal<typeof import('../../../../../rust/pkg/orbit.js')>()
+  const wasm  = new URL('../../../../../rust/pkg/orbit_bg.wasm', import.meta.url)
   return {
     ...crate,
     default : async () => crate.default({ module_or_path: await readFile(wasm) }),
@@ -70,7 +77,7 @@ const loaded = async (answer = () => new Response(file)) => {
   vi.stubGlobal('fetch', vi.fn(async () => answer()))
   vi.stubGlobal('MessageChannel', Channel)
   vi.resetModules()
-  await import('../../lib/orbit/worker.ts')
+  await import('../../../lib/orbit/worker.ts')
   hear = data => (scope.onmessage as (event: { data: Asked }) => Promise<void>)({ data })
   await hear({ type: 'load', url: '/catalog.bin' })
 }
@@ -88,11 +95,12 @@ const scanOf = (id: number, spot = answers.spot, start = START): Extract<Asked, 
 const typesOf = (id: number) =>
   heard.filter(answer => 'id' in answer && answer.id === id).map(({ type }) => type)
 
-beforeEach(() => loaded())
 afterEach(() => vi.unstubAllGlobals())
 
 describe('loading the catalog', () => {
-  it('counts the satellites loaded so far as each segment arrives, beside the catalog’s fetch time', () => {
+  it('counts the satellites loaded so far as each segment arrives, '
+   + 'beside the catalog’s fetch time', async () => {
+    await loaded()
     const first = full.filter(record => kindOf(record.OBJECT_NAME) !== 'starlink').length
     expect(heard).toEqual([first, full.length].map(count => ({ count, fetched: FETCHED, type: 'loaded' })))
   })
@@ -110,6 +118,8 @@ describe('loading the catalog', () => {
 })
 
 describe('a scan', () => {
+  beforeEach(() => loaded())
+
   it('counts the sky over the spot as the known answers do, then traces each pass and finishes', async () => {
     await hear(scanOf(1))
     const [counts] = heard.filter(answer => answer.type === 'counts')
@@ -135,8 +145,19 @@ describe('a scan', () => {
     expect([typesOf(2), typesOf(3).at(-1)]).toEqual([older, 'done'])
   })
 
-  it('stops a scan of more than one batch after the batch under way once a newer scan arrives', async () => {
-    await loaded(() => new Response(whole))
+  it.each([
+    ['keeps the grid for another spot in the same window', { latitude: -33.87, longitude: 151.21 }, START, 1],
+    ['builds a new grid for a window opening at another time', answers.spot, START + 60_000, 2]
+  ])('%s', async (_, spot, start, grids) => {
+    await hear(scanOf(1))
+    await hear(scanOf(2, spot, start))
+    expect([built.grids, typesOf(2).at(-1)]).toEqual([grids, 'done'])
+  })
+})
+
+describe('a scan of more than one batch', () => {
+  it('stops after the batch under way once a newer scan arrives', async () => {
+    await loaded(() => new Response(batches))
     let newer = Promise.resolve()
     heed      = answer => {
       if (answer.type !== 'passes') return
@@ -148,14 +169,5 @@ describe('a scan', () => {
     const [first] = heard.filter(answer => answer.type === 'passes')
     expect([typesOf(1), first.done < first.total, typesOf(2).at(-1)])
       .toEqual([['counts', 'passes'], true, 'done'])
-  })
-
-  it.each([
-    ['keeps the grid for another spot in the same window', { latitude: -33.87, longitude: 151.21 }, START, 1],
-    ['builds a new grid for a window opening at another time', answers.spot, START + 60_000, 2]
-  ])('%s', async (_, spot, start, grids) => {
-    await hear(scanOf(1))
-    await hear(scanOf(2, spot, start))
-    expect([built.grids, typesOf(2).at(-1)]).toEqual([grids, 'done'])
   })
 })

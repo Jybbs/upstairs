@@ -1,22 +1,17 @@
-import { appendFile, cp, mkdtempDisposable } from 'node:fs/promises'
-import { STATUS_CODES }                      from 'node:http'
-import { tmpdir }                            from 'node:os'
-import { delimiter, dirname, join }          from 'node:path'
+import { cp, mkdtempDisposable }    from 'node:fs/promises'
+import { STATUS_CODES }             from 'node:http'
+import { tmpdir }                   from 'node:os'
+import { delimiter, dirname, join } from 'node:path'
 
 import { $ } from 'bun'
 
 import * as repository from '../../tools/repository.ts'
 import type { Live }   from '../../tools/sync.ts'
 
-interface Answer {
-  code    : number
-  stderr? : string
-  stdout? : string
-}
-
-interface Call {
-  args  : string[]
-  body? : unknown
+interface Request {
+  body   : unknown
+  method : string
+  path   : string
 }
 
 /**
@@ -29,55 +24,18 @@ export interface Remote {
   rulesets : Live[]
 }
 
-const BODY_FLAGS = ['-F', '-f', '--field', '--input', '--raw-field']
-const FIXTURES   = import.meta.dirname
+const COMMON = import.meta.dirname
 /**
  * The root of the worktree the suite runs in.
  */
-export const ROOT = join(FIXTURES, '../../../..')
+export const ROOT = join(COMMON, '../../../..')
 /**
  * The settings `sync.ts rulesets` reads in place of `.github/settings.toml`,
  * which turn `pages` on.
  */
-export const SETTINGS = join(FIXTURES, 'settings.toml')
-const PATH            = [join(FIXTURES, 'bin'), dirname(Bun.which('mise')!)].join(delimiter)
+export const SETTINGS = join(COMMON, '../fixtures/settings.toml')
+const PATH            = [join(COMMON, 'bin'), dirname(Bun.which('mise')!)].join(delimiter)
 const SCRIPT          = join(ROOT, 'docs/.vitepress/tools/sync.ts')
-
-/**
- * Answers one `gh` call from `remote`, failing a request `remote.failures`
- * names, printing the live label names for `gh label list` and the live
- * rulesets for a `GET` of the rulesets, and printing an empty object for every
- * other call.
- */
-const answer = (args: string[], remote: Remote): Answer => {
-  const { method, path } = requestOf(args)
-  const status           = remote.failures[`${method} ${path}`]
-  if (status) return { code: 1, stderr: `gh: ${STATUS_CODES[status]} (HTTP ${status})` }
-  if (args[0] === 'label') return { code: 0, stdout: labelListOf(args, remote.labels) }
-  const rulesets = method === 'GET' && path.endsWith('/rulesets')
-  return { code: 0, stdout: JSON.stringify(rulesets ? remote.rulesets : {}) }
-}
-
-/**
- * Prints the live label names the way `gh label list --json name` does, as a
- * JSON array, or as one name per line ending in a newline once `--jq .[].name`
- * reads the names out of it.
- */
-const labelListOf = (args: string[], names: string[]) => args.includes('.[].name')
-  ? names.map(name => `${name}\n`).join('')
-  : JSON.stringify(names.map(name => ({ name })))
-
-/**
- * Reads the method and path of one `gh` call from its arguments, taking the
- * method `--method` names, or else `POST` for a call sending a body or a field
- * and `GET` for any other.
- */
-const requestOf = (args: string[]) => ({
-  method : args.includes('--method')
-    ? args[args.indexOf('--method') + 1]
-    : BODY_FLAGS.some(flag => args.includes(flag)) ? 'POST' : 'GET',
-  path   : args.at(-1) ?? ''
-})
 
 /**
  * One run of `sync.ts` against the stand-in, holding every call it made to
@@ -85,7 +43,7 @@ const requestOf = (args: string[]) => ({
  */
 export class Run {
   constructor(
-    private readonly calls : Call[],
+    private readonly calls : Request[],
     readonly code          : number,
     readonly stderr        : string,
     readonly stdout        : string
@@ -104,14 +62,18 @@ export class Run {
     await cp(join(ROOT, '.github'), join(root, '.github'), { recursive: true })
     await cp(join(ROOT, repository.FILES.sweep), join(root, repository.FILES.sweep))
     await cp(SETTINGS, join(root, repository.FILES.settings))
-    await Bun.write(join(dir, 'remote.json'), JSON.stringify(remote))
+    await Bun.write(join(dir, 'calls.jsonl'), '')
+    await Bun.write(join(dir, 'failures'), Object.entries(remote.failures)
+      .map(([request, status]) => `${request}\tgh: ${STATUS_CODES[status]} (HTTP ${status})\n`).join(''))
+    await Bun.write(join(dir, 'labels'), remote.labels.map(name => `${name}\n`).join(''))
+    await Bun.write(join(dir, 'rulesets'), `${JSON.stringify(remote.rulesets)}\n`)
     const result = await $`${process.execPath} ${SCRIPT} ${task}`
       .cwd(root)
-      .env({ BUN: process.execPath, GH_STAND_IN: dir, PATH })
+      .env({ GH_STAND_IN: dir, PATH })
       .nothrow()
       .quiet()
     return new Run(
-      Bun.JSONL.parse(await Bun.file(join(dir, 'calls.jsonl')).text()) as Call[],
+      Bun.JSONL.parse(await Bun.file(join(dir, 'calls.jsonl')).text()) as Request[],
       result.exitCode,
       result.stderr.toString(),
       result.stdout.toString()
@@ -128,20 +90,7 @@ export class Run {
   /**
    * Every request the run sent but a `GET`, in the order sent.
    */
-  get requests(): { body: unknown, method: string, path: string }[] {
-    return this.calls
-      .map(({ args, body }) => ({ body, ...requestOf(args) }))
-      .filter(request => request.method !== 'GET')
+  get requests(): Request[] {
+    return this.calls.filter(request => request.method !== 'GET')
   }
-}
-
-if (import.meta.main) {
-  const dir  = process.env.GH_STAND_IN ?? ''
-  const args = process.argv.slice(2)
-  const body = args.includes('--input') ? await Bun.stdin.json() : undefined
-  await appendFile(join(dir, 'calls.jsonl'), `${JSON.stringify({ args, body })}\n`)
-  const { code, stderr = '', stdout = '' } = answer(args, await Bun.file(join(dir, 'remote.json')).json())
-  process.stdout.write(stdout)
-  process.stderr.write(stderr)
-  process.exit(code)
 }

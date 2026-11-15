@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { endsOf, pathOf } from '../../lib/site/paths.ts'
+import { endsOf, pathOf } from '../../../lib/site/paths.ts'
 
 describe('a path through points', () => {
   it('moves to the first point and draws a line to each after it, to a tenth of a pixel', () => {

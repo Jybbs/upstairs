@@ -1,9 +1,9 @@
 import { wcagContrast }         from 'culori'
 import { describe, expect, it } from 'vitest'
 
-import { FLOORS }                                 from '../../lib/map/style.ts'
-import { KINDS, type Kind }                       from '../../lib/orbit/kinds.ts'
-import { SCHEMES, cssOf, kindColor, type Scheme } from '../../lib/site/palette.ts'
+import { FLOORS }                                 from '../../../lib/map/style.ts'
+import { KINDS, type Kind }                       from '../../../lib/orbit/kinds.ts'
+import { SCHEMES, cssOf, kindColor, type Scheme } from '../../../lib/site/palette.ts'
 
 const SELECTORS: Readonly<Record<string, string>> = { day: ':root', night: 'html.dark' }
 const SURFACES                                    = ['page', 'panel', 'lift'] as const

@@ -2,10 +2,19 @@
 import { shallowMount }   from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
-import { freshSky } from '../fixtures/sky.ts'
+import { freshSky }       from '../common/sky.ts'
+import { stubMatchMedia } from '../common/stubs.ts'
 
-vi.mock('../../lib/site/entries.data.ts', () => ({ data: [] }))
-vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenance.ts'))
+vi.mock('../../theme/Entries.tsx', async () => (await import('../common/stubs.ts')).stubOf('Entries'))
+vi.mock('../../theme/Filters.tsx', async () => (await import('../common/stubs.ts')).stubOf('Filters'))
+vi.mock('../../theme/Focus.tsx', async () => (await import('../common/stubs.ts')).stubOf('Focus'))
+vi.mock('../../theme/PassList.tsx', async () => (await import('../common/stubs.ts')).stubOf('PassList'))
+vi.mock('../../theme/Readout.tsx', async () => (await import('../common/stubs.ts')).stubOf('Readout'))
+vi.mock('../../theme/Sheet.tsx', async () => (await import('../common/stubs.ts')).stubOf('Sheet'))
+vi.mock('../../theme/SkyMap.tsx', async () => (await import('../common/stubs.ts')).stubOf('SkyMap'))
+vi.mock('../../theme/SpotChooser.tsx', async () => (await import('../common/stubs.ts')).stubOf('SpotChooser'))
+vi.mock('../../theme/Stamp.tsx', async () => (await import('../common/stubs.ts')).stubOf('Stamp'))
+vi.mock('../../theme/TimeStrip.tsx', async () => (await import('../common/stubs.ts')).stubOf('TimeStrip'))
 
 /**
  * Mounts the home page over a fresh copy of the shared state, every component
@@ -13,7 +22,7 @@ vi.mock('../../lib/site/provenance.data.ts', () => import('../fixtures/provenanc
  * with the spot chooser open where `choosing` is set.
  */
 const mounted = async (choosing: boolean, phone: boolean) => {
-  vi.stubGlobal('matchMedia', () => ({ addEventListener() {}, matches: phone, removeEventListener() {} }))
+  stubMatchMedia(() => phone)
   const { component: HomeMap, sky } = await freshSky(() => import('../../theme/HomeMap.tsx'))
   if (choosing) sky.choose()
   return shallowMount(HomeMap)

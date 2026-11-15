@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
-import { mount, type VueWrapper }   from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { mount, type VueWrapper } from '@vue/test-utils'
+import { describe, expect, it }   from 'vitest'
 
 import { TRACK_STEP, TRACK_WIDTH, type Pass } from '../../lib/orbit/scan.ts'
-import { passOf }                             from '../fixtures/passes.ts'
-import { lateSky }                            from '../fixtures/sky.ts'
+import { passOf }                             from '../common/passes.ts'
+import { lateSky }                            from '../common/sky.ts'
+import { stubMatchMedia }                     from '../common/stubs.ts'
 
 /**
  * Matches the outline of a rise tick or a set arrowhead.
@@ -20,7 +21,7 @@ const END = /^M[^L]*L[^L]*(L[^L]*Z)?$/
  * seconds from its rise to its peak.
  */
 const mounted = async (seconds: number, changes: Partial<Pass> = {}, drift = 0) => {
-  vi.stubGlobal('matchMedia', () => ({ matches: false }))
+  stubMatchMedia(() => false)
   const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.tsx'))
   const pass                        = passOf(1, changes)
   const samples                     = sky.span / TRACK_STEP + 1
@@ -54,14 +55,14 @@ const startOf = (outline: string) => outline.slice(1)
   .map(Number)
 
 describe('the held pass', () => {
-  it('reads how far, how high it peaks, and how high it stands while it is up', async () => {
-    const { wrapper } = await mounted(600)
-    expect(readingsOf(wrapper)).toEqual([['470', 'Km away'], ['60°', 'Peaks'], ['60°', 'Now']])
-  })
-
-  it('reads its nearest and that it is down before it rises', async () => {
-    const { wrapper } = await mounted(100)
-    expect(readingsOf(wrapper)).toEqual([['450', 'Km nearest'], ['60°', 'Peaks'], ['Down', 'Now']])
+  it.each([
+    ['how far, how high it peaks, and how high it stands while it is up', 600,
+      [['470', 'Km away'], ['60°', 'Peaks'], ['60°', 'Now']]],
+    ['its nearest and that it is down before it rises', 100,
+      [['450', 'Km nearest'], ['60°', 'Peaks'], ['Down', 'Now']]]
+  ])('reads %s', async (_, seconds, readings) => {
+    const { wrapper } = await mounted(seconds)
+    expect(readingsOf(wrapper)).toEqual(readings)
   })
 
   it.each([

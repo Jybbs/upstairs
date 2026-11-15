@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it, vi } from 'vitest'
 
-import { NUMERAL, numeralIn, slotsOf, type Room } from '../../lib/map/numeral.ts'
+import { NUMERAL, numeralIn, slotsOf, type Room } from '../../../lib/map/numeral.ts'
 
 /**
  * Sets the numeral through a stand-in canvas that measures it 200 pixels wide
@@ -38,7 +38,7 @@ it('spaces the points on a staggered grid so the count just covers the shape, or
 })
 
 it('keeps only the points inside the shape', () =>
-  expect(slotsOf(50, 100, 100, x => x < 50).every(([x]) => x < 50)).toBe(true))
+  expect(slotsOf(50, 100, 100, x => x < 50).filter(([x]) => x >= 50)).toStrictEqual([]))
 
 it(`keeps ${NUMERAL.least} px between points however many the shape is asked to hold`, () => {
   const [[x, y], [u, v]] = slotsOf(10_000, 4, 20, () => true)

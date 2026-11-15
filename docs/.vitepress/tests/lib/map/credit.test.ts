@@ -5,9 +5,10 @@ import { resolve }      from 'node:path'
 import type { Map }                                        from 'maplibre-gl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { CREDITS, GROUPS, HOLD, holdCredit } from '../../lib/map/credit.ts'
+import { CREDITS, GROUPS, HOLD, holdCredit } from '../../../lib/map/credit.ts'
+import { stubMatchMedia }                    from '../../common/stubs.ts'
 
-const DATA  = readFileSync(resolve(import.meta.dirname, '../../../data/index.md'), 'utf8')
+const DATA  = readFileSync(resolve(import.meta.dirname, '../../../../data/index.md'), 'utf8')
 const TILES = '<a href="https://openfreemap.org">OpenFreeMap</a> '
             + '<a href="https://www.openmaptiles.org/">© OpenMapTiles</a> '
             + 'Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -38,7 +39,7 @@ describe.each([true, false])('the map credit with reduced motion %s', reduced =>
 
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.stubGlobal('matchMedia', (query: string) => ({ matches: reduced && query.includes('reduce') }))
+    stubMatchMedia(query => reduced && query.includes('reduce'))
     document.body.innerHTML = '<div><details class="maplibregl-ctrl-attrib maplibregl-compact maplibregl-compact-show"'
                             + ' open><summary class="maplibregl-ctrl-attrib-button"></summary>'
                             + `<div class="maplibregl-ctrl-attrib-inner">${CREDITS.join(' | ')}</div></details>`

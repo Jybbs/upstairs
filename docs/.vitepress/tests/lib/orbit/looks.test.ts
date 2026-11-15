@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import * as catalog       from '../../lib/orbit/catalog.ts'
-import * as looks         from '../../lib/orbit/looks.ts'
-import { TRACK_STEP }     from '../../lib/orbit/scan.ts'
-import { HOME }           from '../../lib/state/address.ts'
-import { START, watchOf } from '../fixtures/drawings.ts'
+import * as catalog       from '../../../lib/orbit/catalog.ts'
+import * as looks         from '../../../lib/orbit/looks.ts'
+import { TRACK_STEP }     from '../../../lib/orbit/scan.ts'
+import { HOME }           from '../../../lib/state/address.ts'
+import { START, watchOf } from '../../common/drawings.ts'
 
 const STEPS = [1, 10, TRACK_STEP, 120, 240]
 
@@ -27,7 +27,7 @@ describe('the passes of a day', () => {
   ])('leaves out a pass %s', async (_, shift) => {
     const cut = await watchOf(HOME.spot, watch.passes[0].peakAt + shift)
     const end = cut.start + catalog.DAY
-    expect(cut.passes.every(pass => pass.riseAt > cut.start && pass.setAt < end)).toBe(true)
+    expect(cut.passes.filter(pass => pass.riseAt <= cut.start || pass.setAt >= end)).toStrictEqual([])
   })
 
   it('reads the highest pass as the one with the greatest peak', () => {
@@ -50,8 +50,8 @@ describe('a watched pass', () => {
 
   it('keeps each look above the horizon, a look step apart', () => {
     const step = looks.LOOK_STEP * 1000
-    expect(watched.looks.every(look => look.elevation >= 0)).toBe(true)
-    expect(watched.looks.every(look => (look.time - watched.from) % step === 0)).toBe(true)
+    expect(watched.looks.filter(look => look.elevation < 0 || (look.time - watched.from) % step !== 0))
+      .toStrictEqual([])
   })
 
   it.each([
@@ -70,9 +70,10 @@ describe('a watched pass', () => {
 
   it.each(STEPS)('samples every %i seconds from the start of the day, keeping only samples above the horizon', step => {
     const times = watched.comb(step)
-    expect(times.every(time => (time - START) % (step * 1000) === 0)).toBe(true)
-    expect(times.every(time => watched.elevationAt(time) >= 0)).toBe(true)
-    expect(times.slice(1).every((time, index) => time - times[index] === step * 1000)).toBe(true)
+    expect(times.filter((time, index) =>
+      (time - START) % (step * 1000) !== 0
+      || watched.elevationAt(time) < 0
+      || index > 0 && time - times[index - 1] !== step * 1000)).toStrictEqual([])
   })
 
   it.each(STEPS)('takes the highest of the samples every %i seconds, falling no higher than the peak', step => {
@@ -90,7 +91,7 @@ describe('a watched pass', () => {
 describe('a spot the station never climbs high over', () => {
   it('reads the highest pass as the scanned pass where none climbs to STEEP', async () => {
     const far = await watchOf({ latitude: 64, longitude: 0 })
-    expect(far.passes.every(pass => pass.peak < looks.STEEP)).toBe(true)
+    expect(far.passes.filter(pass => pass.peak >= looks.STEEP)).toStrictEqual([])
     expect(far.scanned!.pass).toEqual(far.highest!.pass)
   })
 

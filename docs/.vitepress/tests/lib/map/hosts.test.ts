@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { HOSTS, Hosts } from '../../lib/map/hosts.ts'
-import { styleOf }      from '../../lib/map/style.ts'
-import { SCHEMES }      from '../../lib/site/palette.ts'
+import { HOSTS, Hosts } from '../../../lib/map/hosts.ts'
+import { styleOf }      from '../../../lib/map/style.ts'
+import { SCHEMES }      from '../../../lib/site/palette.ts'
 
 describe('the hosts the map reads from', () => {
   it('names a host for every source the style declares', () => {
