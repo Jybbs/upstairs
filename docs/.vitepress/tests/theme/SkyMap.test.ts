@@ -9,19 +9,27 @@ import { passOf }             from '../common/passes.ts'
 import { freshSky }           from '../common/sky.ts'
 import { stubMatchMedia }     from '../common/stubs.ts'
 
-const { TOWN, cameraForBounds, easeTo, fitBounds, gather, handlers } = vi.hoisted(() => ({
+const {
+  GPU, TOWN, cameraForBounds, caught, draw, easeTo, fitBounds, frame, gather, handlers, thrown
+} = vi.hoisted(() => ({
+  GPU             : class extends Error {},
   TOWN            : 10 * 360 / (512 * 2 ** 5),
+  caught          : vi.fn(),
+  draw            : vi.fn(),
   easeTo          : vi.fn(),
   fitBounds       : vi.fn(),
+  frame           : vi.fn((_loop: FrameRequestCallback) => 0),
   gather          : vi.fn(),
   handlers        : new Map<string, (event: unknown) => void>(),
+  thrown          : { value: null as Error | null },
   cameraForBounds : vi.fn((_bounds: { points: unknown[] }, _options: object) =>
     ({ center: [-71, 42], zoom: 8 }))
 }))
 
 vi.mock('maplibre-gl', () => ({
-  LngLat       : { convert: ([lng, lat]: [number, number]) => ({ lat, lng }) },
-  LngLatBounds : class {
+  GPUInitializationError : GPU,
+  LngLat                 : { convert: ([lng, lat]: [number, number]) => ({ lat, lng }) },
+  LngLatBounds           : class {
     points: unknown[]
     constructor(...corners: unknown[]) { this.points = corners }
     extend(point: unknown) {
@@ -30,12 +38,13 @@ vi.mock('maplibre-gl', () => ({
     }
     isEmpty() { return !this.points.length }
   },
-  Map          : class {
+  Map                    : class {
     keyboard        = { disableRotation() {} }
     touchZoomRotate = { disableRotation() {} }
     cameraForBounds = cameraForBounds
     easeTo          = easeTo
     fitBounds       = fitBounds
+    constructor() { if (thrown.value) throw thrown.value }
     getCenter()    { return { lat: 0, lng: 0 } }
     getContainer() { return { clientHeight: 600, clientWidth: 800 } }
     getZoom()      { return 5 }
@@ -60,8 +69,10 @@ vi.mock('../../lib/map/overlay.ts', async () => {
   const { View } = await import('../../lib/map/mercator.ts')
   return {
     Overlay: class {
+      draw   = draw
       gather = gather
       labels = [{ latitude: 0, longitude: TOWN, name: 'Town', tier: 'city' }]
+      onMap  = new Uint16Array()
       view   = new View()
       crossing()   { return new Uint8Array(1) }
       invalidate() {}
@@ -74,21 +85,24 @@ vi.mock('../../lib/map/overlay.ts', async () => {
 /**
  * Mounts the map over a fresh copy of the shared state holding one pass on the
  * horizon and a stand-in worker, its frame 600 pixels tall, with its
- * stylesheet already linked.
+ * stylesheet already linked, the map's constructor throwing `error` where one
+ * is given and every error the mount raises passed to `caught`.
  */
-const mounted = async () => {
+const mounted = async (error: Error | null = null) => {
+  thrown.value = error
+  caught.mockClear()
   stubMatchMedia(() => false)
-  vi.stubGlobal('requestAnimationFrame', () => 0)
+  vi.stubGlobal('requestAnimationFrame', frame)
   Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } })
   document.head.append(Object.assign(document.createElement('link'), { href: SHEETS.map.href }))
   const { component: SkyMap, sky } = await freshSky(() => import('../../theme/SkyMap.tsx'))
-  const wrapper                    = mount(SkyMap)
+  const wrapper                    = mount(SkyMap, { global: { config: { errorHandler: caught } } })
   await flushPromises()
   const pass                       = passOf(1)
   sky.tracks.add([pass], new Float32Array(2 * TRACK_WIDTH), Uint32Array.of(0), 2)
   cameraForBounds.mockClear()
   easeTo.mockClear()
-  return { pass, sky, wrapper }
+  return { SkyMap, pass, sky, wrapper }
 }
 
 it('gives each pass its point in the numeral again once a scan lands while the sky is gathered', async () => {
@@ -201,4 +215,74 @@ it('takes the spot into the high stretch of a pass climbing past STEEP', async (
   const { latitude, longitude } = sky.spot.value
   expect(cameraForBounds.mock.calls.map(([{ points }]) => points.at(-1)))
     .toEqual([[longitude, latitude], [45, 45]])
+})
+
+it.each([
+  ['the browser offers no WebGL2 context', new GPU(), () => {}],
+  ['a lost context fails to come back', null, () => handlers.get('error')!({ error: new GPU() })]
+])('marks the map blank with no text over it where %s, its zoom raising no error', async (_, error, lose) => {
+  const { sky, wrapper } = await mounted(error)
+  lose()
+  await flushPromises()
+  await wrapper.get('button[aria-label="Zoom in"]').trigger('click')
+  await wrapper.get('[data-map] > div').trigger('keydown', { key: '-' })
+  expect([wrapper.find('[role="alert"]').exists(), sky.blank.value, easeTo.mock.calls])
+    .toEqual([false, true, []])
+})
+
+it.each([
+  ['draws each frame while the map can draw', () => {}, 1],
+  ['draws no frame once a lost context fails to come back', () => {
+    handlers.get('error')!({ error: new GPU() })
+  }, 0]
+])('%s', async (_, lose, drawn) => {
+  await mounted()
+  const loop = frame.mock.lastCall![0]
+  lose()
+  draw.mockClear()
+  loop(1000)
+  expect(draw).toHaveBeenCalledTimes(drawn)
+})
+
+it('names the host a source fails to reach', async () => {
+  const { wrapper } = await mounted()
+  handlers.get('error')!({ error: new Error('Failed to fetch'), sourceId: 'base' })
+  await flushPromises()
+  expect(wrapper.get('[role="alert"]').text()).toBe('Could not reach OpenFreeMap')
+})
+
+it.each([
+  ['grays the map where the catalog did not load', null, true],
+  ['leaves the map in color where the catalog failed partway', { count: 9, fetched: 0 }, false]
+])('%s', async (_, loaded, grayed) => {
+  const { sky, wrapper } = await mounted()
+  sky.loaded.value       = loaded
+  sky.failed.value       = 'TypeError: Failed to fetch'
+  await flushPromises()
+  expect(wrapper.find('.backdrop-grayscale').exists()).toBe(grayed)
+})
+
+it('leaves the wheel to the page once a lost context fails to come back, whatever the pass', async () => {
+  const { pass, sky, wrapper } = await mounted()
+  sky.selected.value           = pass
+  sky.done.value               = true
+  handlers.get('error')!({ error: new GPU() })
+  await flushPromises()
+  const wheel = new WheelEvent('wheel', { cancelable: true, deltaY: -100 })
+  wrapper.get('[data-map] > div').element.dispatchEvent(wheel)
+  expect(wheel.defaultPrevented).toBe(false)
+})
+
+it('draws again on a later mount where the browser can draw', async () => {
+  const { SkyMap, sky } = await mounted(new GPU())
+  thrown.value          = null
+  mount(SkyMap)
+  await flushPromises()
+  expect(sky.blank.value).toBe(false)
+})
+
+it('passes on any other error the map throws as it is made, leaving the map drawable', async () => {
+  const error   = new Error('Invalid style')
+  const { sky } = await mounted(error)
+  expect([caught.mock.lastCall?.[0], sky.blank.value]).toEqual([error, false])
 })

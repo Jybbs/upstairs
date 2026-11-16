@@ -10,6 +10,7 @@ import { footholdsOf }                    from '../site/ridges.ts'
 import * as address                       from './address.ts'
 import { CLOCK }                          from './clock.ts'
 import { Tracks }                         from './tracks.ts'
+import { type Stage, momentOf }           from './words.ts'
 
 /**
  * What the clock does: follow the present, run the rest of the hour at
@@ -132,6 +133,11 @@ class Sky {
    * The kind the tally names, every other kind drawing dimmed while it is set.
    */
   readonly named    = ref<kinds.Kind | null>(null)
+  /**
+   * Whether the map cannot draw, where the browser offers no WebGL2 context
+   * or a lost one fails to come back.
+   */
+  readonly blank    = ref(false)
 
   /**
    * Seconds into the window, read every frame, written to `at` a few times a
@@ -144,18 +150,19 @@ class Sky {
    */
   readonly now = ref(this.seconds)
 
-  readonly loaded  = ref<{ count: number, fetched: number } | null>(null)
-  readonly failed  = ref<string | null>(null)
-  readonly done    = ref(false)
-  readonly share   = ref(0)
-  readonly version = ref(0)
-  readonly inFrame = shallowRef<Uint8Array>(new Uint8Array())
-  readonly up      = ref(0)
-  readonly reading = shallowRef<Reading>({ above: 0, aboveKinds: zeros, kinds: zeros, onMap: 0 })
+  readonly loaded   = ref<{ count: number, fetched: number } | null>(null)
+  readonly failed   = ref<string | null>(null)
+  readonly done     = ref(false)
+  readonly untraced = ref(false)
+  readonly share    = ref(0)
+  readonly version  = ref(0)
+  readonly inFrame  = shallowRef<Uint8Array>(new Uint8Array())
+  readonly up       = ref(0)
+  readonly reading  = shallowRef<Reading>({ above: 0, aboveKinds: zeros, kinds: zeros, onMap: 0 })
   /**
    * The count of what is up as a screen reader last announced it.
    */
-  readonly spoken  = ref('')
+  readonly spoken   = ref('')
 
   private aboveKinds                 = new Uint16Array(kinds.kindOrder.length)
   private counts: Uint16Array | null = null
@@ -163,8 +170,7 @@ class Sky {
   private latchedAt                  = -Infinity
   private scanId                     = 0
   private spokenAt                   = 0
-
-  private worker = new Worker(new URL('../orbit/worker.ts', import.meta.url), { type: 'module' })
+  private worker: Worker | null      = null
 
   /**
    * Returns whether the filters keep the pass at `index`, leaving out each
@@ -195,6 +201,39 @@ class Sky {
   })
   readonly expired = computed(() => this.age.value > catalog.AGES.limit)
 
+  readonly stage = computed<Stage>(() => {
+    if (!this.loaded.value) return this.failed.value ? 'unloaded' : 'fetching'
+    if (this.expired.value) return 'expired'
+    if (this.failed.value) return 'partial'
+    if (this.untraced.value) return 'untraced'
+    return this.done.value ? 'traced' : 'tracing'
+  })
+
+  /**
+   * Whether the scan has placed its first satellite or finished.
+   */
+  readonly placed = computed(() => this.done.value || this.share.value > 0)
+
+  /**
+   * Where each step the map waits on stands, and what the readout and the
+   * Focus panel say of it.
+   */
+  readonly moment = computed(() => momentOf({
+    above : this.reading.value.above,
+    blank : this.blank.value,
+    count : this.loaded.value?.count ?? 0,
+    done  : this.done.value,
+    share : this.share.value,
+    stage : this.stage.value
+  }))
+
+  /**
+   * Whether the readout and the Focus panel show the steps the map waits on,
+   * from the download until the scan finishes, and at any failure.
+   */
+  readonly waiting = computed(() => this.moment.value.failure !== null
+    || this.stage.value === 'fetching' || this.stage.value === 'tracing')
+
   readonly focus = computed<Pass | null>(() => this.kept(this.selected.value))
 
   /**
@@ -209,17 +248,41 @@ class Sky {
    */
   readonly away = computed(() => Math.floor(this.at.value / 60) - Math.floor(this.now.value / 60))
 
-  constructor() {
-    this.worker.onmessage = ({ data }: MessageEvent<Answer>) => this.hear(data)
-    this.ask({ type: 'load', url: `${import.meta.env.BASE_URL}${catalog.FILE}` })
-  }
+  constructor() { this.load() }
 
   /**
    * Seconds into the window the present stands at.
    */
   get present(): number { return (Date.now() - this.start.value) / 1000 }
 
-  private ask(asked: Asked) { this.worker.postMessage(asked) }
+  private ask(asked: Asked) { this.worker?.postMessage(asked) }
+
+  /**
+   * Loads the site's catalog file from the start, dropping every pass traced
+   * so far and starting the worker again where it failed to start.
+   */
+  load() {
+    this.clear()
+    this.failed.value = null
+    this.loaded.value = null
+    this.worker     ??= this.started()
+    this.ask({ type: 'load', url: `${import.meta.env.BASE_URL}${catalog.FILE}` })
+  }
+
+  /**
+   * Starts the worker, reading a failure to start as the catalog failing to
+   * load.
+   */
+  private started() {
+    const worker     = new Worker(new URL('../orbit/worker.ts', import.meta.url), { type: 'module' })
+    worker.onmessage = ({ data }: MessageEvent<Answer>) => this.hear(data)
+    worker.onerror   = () => {
+      worker.terminate()
+      this.worker       = null
+      this.failed.value = 'The worker did not start'
+    }
+    return worker
+  }
 
   private hear(answer: Answer) {
     if (answer.type === 'loaded') {
@@ -237,6 +300,8 @@ class Sky {
       this.tracks.add(answer.passes, answer.track, answer.offsets, answer.samples)
       this.share.value = answer.done / answer.total
       this.version.value++
+    } else if (answer.type === 'untraced') {
+      this.untraced.value = true
     } else {
       this.done.value = true
       this.chooseFocus()
@@ -251,13 +316,7 @@ class Sky {
    * catalog has expired.
    */
   scan() {
-    this.scanId++
-    this.tracks.clear()
-    this.done.value    = false
-    this.share.value   = 0
-    this.counts        = null
-    this.inFrame.value = new Uint8Array()
-    this.version.value++
+    this.clear()
     if (this.expired.value) return
     this.ask({
       id      : this.scanId,
@@ -266,6 +325,20 @@ class Sky {
       start   : this.start.value,
       type    : 'scan'
     })
+  }
+
+  /**
+   * Drops the scan under way and every pass it traced.
+   */
+  private clear() {
+    this.scanId++
+    this.tracks.clear()
+    this.done.value     = false
+    this.untraced.value = false
+    this.share.value    = 0
+    this.counts         = null
+    this.inFrame.value  = new Uint8Array()
+    this.version.value++
   }
 
   /**

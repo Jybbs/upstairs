@@ -1,8 +1,9 @@
 /**
  * Runs the pass scan off the page, holding the catalog's propagators in the
  * WebAssembly module and adding each segment of the catalog file as it
- * arrives. Each scan posts its counts and then its passes in batches, and
- * stops once a newer scan arrives.
+ * arrives, a new load dropping the catalog held before. Each scan posts its
+ * counts and then its passes in batches, stops once a newer scan arrives, and
+ * posts `untraced` where it throws.
  */
 
 import init, * as orbit                   from '../../../../rust/pkg/orbit.js'
@@ -24,6 +25,7 @@ export type Answer =
       type    : 'passes'
     }
   | { type: 'done', id: number }
+  | { type: 'untraced', id: number }
 
 export type Asked =
   | { type: 'load', url: string }
@@ -50,6 +52,18 @@ const breathe = () => new Promise<void>(resolve => {
   waiting.push(resolve)
   channel.port2.postMessage(null)
 })
+
+/**
+ * Drops the catalog and the grid held, stopping any scan under way.
+ */
+const drop = () => {
+  latest = 0
+  held?.grid.free()
+  orbits?.free()
+  held       = null
+  orbits     = null
+  satellites = []
+}
 
 /**
  * The rough grid of a window over the records loaded so far, kept between
@@ -121,6 +135,7 @@ const run = async (orbits: orbit.Orbits, id: number, minutes: number, spot: scan
 
 self.onmessage = async ({ data }: MessageEvent<Asked>) => {
   if (data.type === 'load') {
+    drop()
     try {
       const body = await bodyOf(data.url)
       await ready
@@ -137,5 +152,9 @@ self.onmessage = async ({ data }: MessageEvent<Asked>) => {
   }
   if (!orbits) return
   latest = data.id
-  await run(orbits, data.id, data.minutes, data.spot, data.start)
+  try {
+    await run(orbits, data.id, data.minutes, data.spot, data.start)
+  } catch {
+    post({ id: data.id, type: 'untraced' })
+  }
 }

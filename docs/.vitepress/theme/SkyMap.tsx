@@ -29,7 +29,7 @@ const ZOOM    = 5
 /**
  * Draws the map around the spot under the satellites and their tracks, with
  * the pin of the spot chooser, the zoom buttons, and a notice where a host
- * the map reads fails.
+ * the map reads fails, graying the map where the catalog did not load.
  */
 export default defineComponent(
   () => {
@@ -67,6 +67,14 @@ export default defineComponent(
         sky.latch(overlay.onMap)
       }
     }, { immediate: false })
+
+    /**
+     * Marks the map as unable to draw and stops the frame loop.
+     */
+    const blanked = () => {
+      sky.blank.value = true
+      frames.pause()
+    }
 
     /**
      * Finds the bounds of a pass's stretch above `STEEP` degrees beside the
@@ -107,7 +115,7 @@ export default defineComponent(
      * it.
      */
     const wheel = (event: WheelEvent) => {
-      if (!detents.steps.length) return
+      if (sky.blank.value || !detents.steps.length) return
       event.preventDefault()
       event.stopPropagation()
       const delta  = -event.deltaY * (event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 40 : 1) / DETENT.wheel
@@ -134,6 +142,7 @@ export default defineComponent(
      * by a doubling about the map's center where no step stands that way.
      */
     const zoomBy = (sign: 1 | -1) => {
+      if (sky.blank.value) return
       const step = detents.next(map.getZoom(), sign)
       if (!step) return map.easeTo({ zoom: map.getZoom() + sign })
       map.easeTo({ center: [step.longitude, step.latitude], zoom: step.zoom })
@@ -268,19 +277,25 @@ export default defineComponent(
         }
       })
       const { latitude, longitude } = sky.spot.value
-      map                           = new maplibregl.Map({
-        attributionControl : { compact: true, customAttribution: CREDITS },
-        center             : [longitude, latitude],
-        container          : frame.value!,
-        dragRotate         : false,
-        maxPitch           : 0,
-        maxZoom            : 12,
-        minZoom            : 1.5,
-        pitchWithRotate    : false,
-        style              : styleOf(contourTiles, demTiles, scheme.value),
-        touchPitch         : false,
-        zoom               : ZOOM
-      })
+      sky.blank.value               = false
+      try {
+        map = new maplibregl.Map({
+          attributionControl : { compact: true, customAttribution: CREDITS },
+          center             : [longitude, latitude],
+          container          : frame.value!,
+          dragRotate         : false,
+          maxPitch           : 0,
+          maxZoom            : 12,
+          minZoom            : 1.5,
+          pitchWithRotate    : false,
+          style              : styleOf(contourTiles, demTiles, scheme.value),
+          touchPitch         : false,
+          zoom               : ZOOM
+        })
+      } catch (error) {
+        if (!(error instanceof maplibregl.GPUInitializationError)) throw error
+        return blanked()
+      }
       map.touchZoomRotate.disableRotation()
       map.keyboard.disableRotation()
       holdCredit(map)
@@ -299,7 +314,10 @@ export default defineComponent(
       overlay.scheme = scheme.value
       fit()
 
-      map.on('error', ({ sourceId }: maplibregl.ErrorEvent & { sourceId?: string }) => hosts.fail(sourceId))
+      map.on('error', ({ error, sourceId }: maplibregl.ErrorEvent & { sourceId?: string }) => {
+        if (!(error instanceof maplibregl.GPUInitializationError)) return hosts.fail(sourceId)
+        blanked()
+      })
       map.on('sourcedata', ({ sourceId, tile }) => tile && hosts.load(sourceId))
       map.on('move', placed)
       map.on('move', aimed)
@@ -426,6 +444,9 @@ export default defineComponent(
         {hosts.message.value && <div class="pointer-events-none absolute inset-0 bg-panel/62" />}
         <canvas ref={lower} class="pointer-events-none absolute inset-0 size-full" />
         <canvas ref={upper} class="pointer-events-none absolute inset-0 size-full" />
+        {sky.stage.value === 'unloaded' && (
+          <div class="pointer-events-none absolute inset-0 bg-panel/70 backdrop-grayscale" aria-hidden="true" />
+        )}
         {hosts.message.value && (
           <div
             class="pointer-events-none absolute inset-0 grid items-end justify-items-center p-6 pb-[8%]

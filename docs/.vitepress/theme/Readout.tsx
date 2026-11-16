@@ -1,13 +1,14 @@
 import { useEventListener }                      from '@vueuse/core'
 import { computed, defineComponent, ref, watch } from 'vue'
 
-import { UNLOADED }                               from '../lib/orbit/catalog.ts'
 import { coordinatesOf }                          from '../lib/orbit/compass.ts'
 import { KINDS, kindSlots }                       from '../lib/orbit/kinds.ts'
 import { useChooser }                             from '../lib/site/chooser.ts'
 import { CLOCK }                                  from '../lib/state/clock.ts'
 import { minuteFormat, secondFormat, sky }        from '../lib/state/sky.ts'
+import { WORDS }                                  from '../lib/state/words.ts'
 import Icon                                       from './Icon.tsx'
+import Orbits                                     from './Orbits.tsx'
 import PassReadout                                from './PassReadout.tsx'
 import PlaceSearch                                from './PlaceSearch.tsx'
 import Tally                                      from './Tally.tsx'
@@ -17,7 +18,9 @@ const weekdayFormat = new Intl.DateTimeFormat([], { weekday: 'short' })
 
 /**
  * Reads the spot, the time, and the count of satellites on the map, or the
- * pinned pass in the count's place, over the place search.
+ * pinned pass in the count's place, over the place search, with the steps the
+ * map waits on under the count from the download until the scan finishes and
+ * at any failure.
  *
  * `folded` folds the readout into the head of a phone's sheet, the count and
  * the time over the search, where the sheet shows the pinned pass below.
@@ -29,9 +32,15 @@ export default defineComponent(
     const dated   = computed(() => later.value
       ? `The time read is on ${sky.dayOf(sky.at.value, dateFormat)}.`
       : '')
+    /**
+     * The count of satellites on the map, a dash where the map cannot draw or
+     * nothing can be placed, and dots until the scan places its first.
+     */
     const figure = computed(() => {
-      if (sky.expired.value) return '—'
-      return sky.loaded.value ? sky.reading.value.onMap.toLocaleString() : '···'
+      const stage = sky.stage.value
+      if (sky.blank.value || stage === 'expired' || stage === 'unloaded') return '—'
+      if (sky.placed.value) return sky.reading.value.onMap.toLocaleString()
+      return stage === 'untraced' ? '—' : '···'
     })
     /**
      * The kind the tally names, in its color beside how many of it the map
@@ -83,15 +92,55 @@ export default defineComponent(
     }, { capture: true })
 
     /**
-     * Sets the line under the tally: the catalog's trouble, the scan's
-     * progress, the kind the tally names, or how many stand above the horizon.
+     * Sets the line under the tally: the orbits' age once the catalog has
+     * expired, the kind the tally names, or how many stand above the horizon.
      */
     const status = () => {
-      if (sky.failed.value) return UNLOADED
-      if (sky.expired.value) return `Orbits ${Math.floor(sky.age.value)} days old, too old to draw`
-      if (!sky.done.value) return `Tracing passes ${Math.round(sky.share.value * 100)}%`
+      if (sky.stage.value === 'expired') {
+        return `Orbits ${Math.floor(sky.age.value)} days old, too old to draw`
+      }
       if (named.value) return [<Icon name={named.value.kind} />, named.value.line]
       return `Of ${sky.reading.value.above.toLocaleString()} above the horizon`
+    }
+
+    /**
+     * Sets the foot under the orbits: the line of the step under way, or the
+     * failure under an ink rule with its note and the way back from it.
+     */
+    const foot = () => {
+      const { failure, line, next, note, retry } = sky.moment.value
+      if (!failure) {
+        return (
+          <div class={['flex min-h-8 items-center', props.folded || 'border-t border-rule pt-2.5']}>
+            <p class={['leading-snug text-ink', props.folded ? 'text-[17px]' : 'text-base']} role="status">
+              {line}
+            </p>
+          </div>
+        )
+      }
+      return (
+        <div class="flex flex-col gap-2.5 border-t-[1.5px] border-ink pt-3" role="alert">
+          <p
+            class={[
+              'font-display leading-tight font-bold text-ink',
+              props.folded ? 'text-[19px]' : 'text-lg'
+            ]}
+          >
+            {line}
+          </p>
+          <p class="text-[15px] leading-snug text-ink">{note}.</p>
+          {retry
+            ? (
+              <button
+                type="button"
+                class="caps h-10 w-full cursor-pointer rounded-sm border-[1.5px] border-ink text-ink
+                       transition-colors hover:bg-ink hover:text-panel max-sm:h-11"
+                onClick={() => sky.load()}
+              >{WORDS.retry}</button>
+            )
+            : <p class="text-[15px] leading-snug text-soft">{next}</p>}
+        </div>
+      )
     }
 
     return () => (
@@ -125,7 +174,7 @@ export default defineComponent(
           </button>
           {' · '}<span class="text-ink">{when.value}</span>
         </p>
-        {!props.folded && sky.shown.value
+        {!props.folded && sky.shown.value && !sky.moment.value.failure
           ? <PassReadout key={sky.shown.value.key} pass={sky.shown.value} />
           : [
             <div class="flex items-baseline gap-2.5">
@@ -133,7 +182,7 @@ export default defineComponent(
                 {figure.value}
               </output>
               <span class="caps text-soft">On this map</span>
-              {sky.reduced
+              {figure.value === '—' || (sky.reduced
                 ? (
                   <button
                     type="button"
@@ -152,12 +201,14 @@ export default defineComponent(
                   >
                     {tag.value}
                   </span>
-                )}
+                ))}
             </div>,
-            !props.folded && [
-              <Tally />,
-              <p class="caps flex h-3 items-center gap-2 text-soft">{status()}</p>
-            ]
+            sky.waiting.value
+              ? [<Orbits moment={sky.moment.value} size={props.folded ? 72 : 80} />, foot()]
+              : !props.folded && [
+                <Tally />,
+                <p class="caps flex h-3 items-center gap-2 text-soft">{status()}</p>
+              ]
           ]}
         <p class="sr-only" aria-live="polite">{sky.spoken.value}</p>
         <p class="sr-only" aria-live="polite">{dated.value}</p>

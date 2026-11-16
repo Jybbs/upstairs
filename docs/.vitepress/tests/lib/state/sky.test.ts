@@ -11,12 +11,19 @@ const OTHER     = { epoch: 0, id: 2, kind: 'crewed', name: 'CRAFT 2' } as const
 const SATELLITE = { epoch: 0, id: 1, kind: 'crewed', name: 'CRAFT 1' } as const
 const SAMPLES   = scan.samplesFor(60, scan.TRACK_STEP)
 
+let fail: () => void
 let listen: (event: MessageEvent<Answer>) => void
 let posted: Asked[]
+let workers: { terminated: boolean }[]
 
 type Sky = Awaited<ReturnType<typeof loaded>>
 
 const hear = (answer: Answer) => listen({ data: answer } as MessageEvent<Answer>)
+
+/**
+ * Returns the id of the latest scan asked for.
+ */
+const scanned = () => (posted.at(-1) as Extract<Asked, { type: 'scan' }>).id
 
 const passAt = (riseAt: number, peak: number, satellite: scan.Satellite = SATELLITE) =>
   scan.passOf(satellite, {
@@ -36,18 +43,32 @@ const passAt = (riseAt: number, peak: number, satellite: scan.Satellite = SATELL
 /**
  * Loads a fresh copy of the shared state over a stand-in worker on a page
  * addressed by `fragment`, on a device reducing motion where `reduced` is set,
- * with the catalog loaded and the first scan asked for.
+ * with the catalog asked for, each worker started kept in `workers`.
  */
-const loaded = async (fragment = '', reduced = false) => {
+const opened = async (fragment = '', reduced = false) => {
   history.replaceState(null, '', `/somewhere?at=1${fragment}`)
-  posted = []
+  posted  = []
+  workers = []
   stubMatchMedia(() => reduced)
   vi.stubGlobal('Worker', class {
+    terminated = false
+    constructor() { workers.push(this) }
+    set onerror(listener: typeof fail) { fail = listener }
     set onmessage(listener: typeof listen) { listen = listener }
     postMessage(asked: Asked) { posted.push(asked) }
+    terminate() { this.terminated = true }
   })
   vi.resetModules()
   const { sky } = await import('../../../lib/state/sky.ts')
+  return sky
+}
+
+/**
+ * Loads a fresh copy of the shared state as `opened` does, with the catalog
+ * loaded and the first scan asked for.
+ */
+const loaded = async (fragment = '', reduced = false) => {
+  const sky = await opened(fragment, reduced)
   hear({ count: 1, fetched: NOW, type: 'loaded' })
   return sky
 }
@@ -57,7 +78,7 @@ const loaded = async (fragment = '', reduced = false) => {
  * finishes it.
  */
 const traced = (passes: scan.Pass[]) => {
-  const { id }  = posted.at(-1) as Extract<Asked, { type: 'scan' }>
+  const id      = scanned()
   const offsets = new Uint32Array(passes.length)
   const total   = passes.length
   const track   = new Float32Array(SAMPLES * scan.TRACK_WIDTH).map((_, index) => index % 3 === 2 ? 45 : 0)
@@ -80,7 +101,7 @@ describe('the count a screen reader hears', () => {
 
   it('announces the count once the grid arrives, and a changed count only after 20 seconds', async () => {
     const sky      = await loaded()
-    const { id }   = posted.at(-1) as Extract<Asked, { type: 'scan' }>
+    const id       = scanned()
     const countsOf = (count: number) => new Uint16Array(scan.samplesFor(60, scan.GRID_STEP)).fill(count)
     hear({ counts: countsOf(5), id, step: scan.GRID_STEP, type: 'counts' })
     expect(sky.spoken.value).toBe('5 satellites above the horizon')
@@ -408,5 +429,96 @@ describe('the reading', () => {
     sky.seek(500)
     sky.latch(ON_MAP)
     expect(sky.reading.value).toMatchObject({ above: 2, aboveKinds: [1, 0, 0, 1, 0, 0, 0, 0] })
+  })
+})
+
+describe('the stage', () => {
+  const arrived = () => hear({ count: 1, fetched: NOW, type: 'loaded' })
+  const failed  = () => hear({ reason: 'Error: The catalog answered 503', type: 'failed' })
+
+  it.each([
+    ['fetches the catalog until it arrives', () => {}, 'fetching'],
+    ['reads a catalog failing before any of it arrived as unloaded', failed, 'unloaded'],
+    ['reads a worker failing to start as unloaded', () => fail(), 'unloaded'],
+    ['reads a catalog failing partway as partial', () => {
+      arrived()
+      failed()
+    }, 'partial'],
+    ['traces once the catalog arrives', arrived, 'tracing'],
+    ['reads a scan that threw as untraced', () => {
+      arrived()
+      hear({ id: scanned(), type: 'untraced' })
+    }, 'untraced'],
+    ['finishes once the traces do', () => {
+      arrived()
+      traced([])
+    }, 'traced'],
+    ['places nothing from a catalog more than 14 days old', () => {
+      hear({ count: 1, fetched: NOW - 15 * catalog.DAY, type: 'loaded' })
+    }, 'expired'],
+    ['reads a catalog more than 14 days old failing partway as expired', () => {
+      hear({ count: 1, fetched: NOW - 15 * catalog.DAY, type: 'loaded' })
+      failed()
+    }, 'expired']
+  ] as const)('%s', async (_, answer, stage) => {
+    const sky = await opened()
+    answer()
+    expect(sky.stage.value).toBe(stage)
+  })
+
+  it('ignores a failure of a scan a newer one replaced', async () => {
+    const sky = await loaded()
+    const id  = scanned()
+    sky.scan()
+    hear({ id, type: 'untraced' })
+    expect(sky.stage.value).toBe('tracing')
+  })
+
+  it('scans a new spot after a scan that threw', async () => {
+    const sky = await loaded()
+    hear({ id: scanned(), type: 'untraced' })
+    sky.pick({ latitude: 10, longitude: 20 }, null)
+    expect([sky.stage.value, posted.at(-1)])
+      .toMatchObject(['tracing', { spot: { latitude: 10 }, type: 'scan' }])
+  })
+
+  it('keeps the passes drawn where the catalog fails partway', async () => {
+    const sky = await loaded()
+    traced([passAt(0, 30)])
+    failed()
+    expect([sky.stage.value, sky.tracks.passes.length, sky.placed.value]).toEqual(['partial', 1, true])
+  })
+
+  it('places nothing until the first passes arrive', async () => {
+    const sky    = await loaded()
+    const before = sky.placed.value
+    hear({
+      done    : 1,
+      id      : scanned(),
+      offsets : new Uint32Array(),
+      passes  : [],
+      samples : SAMPLES,
+      total   : 2,
+      track   : new Float32Array(),
+      type    : 'passes'
+    })
+    expect([before, sky.placed.value]).toEqual([false, true])
+  })
+
+  it('loads the site’s catalog file again from the start, dropping the passes drawn', async () => {
+    const sky = await loaded()
+    traced([passAt(0, 30)])
+    failed()
+    sky.load()
+    expect([sky.stage.value, sky.tracks.passes.length, posted.at(-1), workers.length])
+      .toEqual(['fetching', 0, { type: 'load', url: `/${catalog.FILE}` }, 1])
+  })
+
+  it('starts a new worker to load again where the first failed to start', async () => {
+    const sky = await opened()
+    fail()
+    sky.load()
+    expect([workers.map(({ terminated }) => terminated), sky.stage.value])
+      .toEqual([[true, false], 'fetching'])
   })
 })
