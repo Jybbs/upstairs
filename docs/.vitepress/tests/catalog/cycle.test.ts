@@ -399,18 +399,21 @@ describe('a download cycle', () => {
   it.each([
     ['a refusal', refused(403)],
     ['a 403 for data that has not updated', unchanged(start - EVERY)]
-  ])('keeps the time of the last download through %s', async (_, answer) => {
-    const { cycle, state } = cycleOf(answer)
-    state.set('downloaded', start - EVERY)
-    await cycle.run(start)
-    expect(state.get('downloaded')).toBe(start - EVERY)
-  })
+  ])('keeps the time of the last download and of the last request that timed out through %s',
+    async (_, answer) => {
+      const { cycle, state } = cycleOf(answer)
+      state.set('aborted', start - EVERY)
+      state.set('downloaded', start - EVERY)
+      await cycle.run(start)
+      expect([state.get('aborted'), state.get('downloaded')]).toEqual([start - EVERY, start - EVERY])
+    })
 
   it('moves past a 403 naming a download the cycle did not make on the run after one whose next region '
    + 'timed out', async () => {
     vi.useFakeTimers()
-    const other  = unchanged(start - EVERY / 4)
-    let answer   = (region: Region, init?: RequestInit) => region === REGIONS[0] ? other() : stall(region, init)
+    const other = unchanged(start - EVERY / 4)
+    let answer  = (region: Region, init?: RequestInit) =>
+      region === REGIONS[0] ? other() : stall(region, init)
     const { cycle, state, fetcher } = cycleOf((region, init) => answer(region, init))
     state.set('downloaded', start - EVERY)
     const outcome = cycle.run(start)
@@ -423,18 +426,24 @@ describe('a download cycle', () => {
     expect(fetcher.mock.calls.map(([region]) => region)).toEqual(REGIONS.slice(0, 2))
   })
 
-  it('waits on a 403 naming a download within a minute of a request that timed out, trying no other '
-   + 'region', async () => {
+  it.each([
+    ['a minute after', 1, MINUTE],
+    ['a minute before', 1, -MINUTE],
+    ['a minute and a second after', REGIONS.length, MINUTE + 1000],
+    ['a minute and a second before', REGIONS.length, -MINUTE - 1000]
+  ])('reads a 403 naming a download %s a request a late run sent that timed out as its own only within '
+   + 'a minute of it', async (_, asked, offset) => {
     vi.useFakeTimers()
+    const late = 24 * MINUTE
     let answer: Parameters<typeof cycleOf>[0] = stall
     const { cycle, fetcher } = cycleOf((region, init) => answer(region, init))
-    const outcome = cycle.run(start)
+    const outcome = cycle.run(start, late)
     await vi.advanceTimersByTimeAsync(celestrak.HEADER_WAIT)
     expect(await outcome).toBe('waiting')
-    answer = unchanged(start + 30_000)
+    answer = unchanged(start + late + offset)
     fetcher.mockClear()
     expect(await cycle.run(start + EVERY)).toBe('waiting')
-    expect(fetcher).toHaveBeenCalledOnce()
+    expect(fetcher).toHaveBeenCalledTimes(asked)
   })
 
   it('downloads from the next region after a 403 naming a download the cycle did not make, and starts '

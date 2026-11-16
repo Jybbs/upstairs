@@ -61,10 +61,10 @@ export const LONGEST = DAY
 export const REGIONS = ['weur', 'apac', 'enam', 'wnam', 'eeur'] as const satisfies DurableObjectLocationHint[]
 /**
  * How far, in milliseconds, a run may fall short of `EVERY` after the last
- * attempt, or of the end of a wait, and still download, covering the seconds
- * by which the time a scheduled run reads varies past the hour, and how far
- * after `downloaded`, or to either side of `aborted`, the download a 403 names
- * may fall and still count as the download of the cycle.
+ * attempt, or of the end of a wait, and still download, covering the seconds by
+ * which the time a scheduled run reads varies past the hour, and how far after
+ * `downloaded`, or to either side of `aborted`, the download a 403 names may
+ * fall and still count as the download of the cycle.
  */
 const SLACK = 60_000
 
@@ -178,8 +178,8 @@ export class Cycle {
    * waiting for headers. A region that fails to connect, or whose 403 names a
    * download the cycle did not make, passes to the next, and any other failure
    * returns the fault that starts a wait, as a failed write does. Where no
-   * region is left, the fault is the last such 403 beside each region's
-   * result, or `unreached` where there was none.
+   * region is left, the fault is the last such 403 beside each region's result,
+   * or `unreached` where there was none.
    */
   private async refresh(time: number): Promise<Fault | undefined> {
     const downloaded      = this.state.get<number>('downloaded') ?? -Infinity
