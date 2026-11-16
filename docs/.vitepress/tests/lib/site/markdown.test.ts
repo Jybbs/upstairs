@@ -63,7 +63,10 @@ describe('markdownOf', () => {
     ['a code span', 'Write `[^surname2024]` after the claim.', []],
     ['a code span between double backticks', 'Write ``[^surname2024]`` after the claim.', []],
     ['a fenced block', '```md\nA claim[^surname2024].\n```\n\nA check[^kelso2007].', ['kelso2007']],
-    ['a block fenced by tildes', '~~~md\nA claim[^surname2024].\n~~~\n\nA check[^kelso2007].', ['kelso2007']]
+    ['a block fenced by tildes', '~~~md\nA claim[^surname2024].\n~~~\n\nA check[^kelso2007].', ['kelso2007']],
+    ['a fenced block in a list item',
+      '- item\n\n  ```md\n  A[^surname2024].\n\n  A[^surname2024].\n  ```\n\nA check[^kelso2007].',
+      ['kelso2007']]
   ])('reads no footnote key inside %s', async (_, src, keys) =>
     expect([...(await render(src)).html.matchAll(/data-csl-entry-id="(\w+)"/g)].map(([, key]) => key))
       .toEqual(keys))
@@ -88,7 +91,16 @@ describe('markdownOf', () => {
       '- item\n\n  ```md\n  {{ home }}\n\n  {{ home }}\n  ```\n\nRead at {{ steep }}.'],
     ['an HTML comment', '<!-- {{ home }} -->\n\nRead at {{ steep }}.'],
     ['a v-pre container', '::: v-pre\n{{ home }}\n:::\n\nRead at {{ steep }}.'],
-    ['an element marked v-pre', '<div v-pre>\n\n{{ home }}\n\n</div>\n\nRead at {{ steep }}.']
+    ['an element marked v-pre', '<div v-pre>\n\n{{ home }}\n\n</div>\n\nRead at {{ steep }}.'],
+    ['an element marked v-pre around another',
+      '<div v-pre>\n<b>A</b>\n\n{{ home }}\n\n</div>\n\nRead at {{ steep }}.'],
+    ['an element marked v-pre holding a void element',
+      '<div v-pre>\n<br>\n\n{{ home }}\n\n</div>\n\nRead at {{ steep }}.'],
+    ['an element marked v-pre holding one of its tag',
+      '<div v-pre>\n<div>A</div>\n\n{{ home }}\n\n</div>\n\nRead at {{ steep }}.'],
+    ['an inline element marked v-pre', 'Write <span v-pre>{{ home }}</span> at {{ steep }}.'],
+    ['inline math', 'Write $\\text{{{ home }}}$ at {{ steep }}.'],
+    ['display math', '$$\n\\text{{{ home }}}\n$$\n\nRead at {{ steep }}.']
   ])('writes no figure inside %s', async (_, src) => {
     const { html } = await render(src)
     expect(html).toContain(`at ${FIGURES.steep}.`)
@@ -118,13 +130,24 @@ describe('markdownOf', () => {
 
   it.each([
     ['inline between single dollars', 'A square $x^{{2}}$ at {{ steep }}.'],
-    ['on its own line between double dollars', '$$\nx^{{2}}\n$$\n\nRead at {{ steep }}.']
+    ['on its own line between double dollars', '$$\nx^{{2}}\n$$\n\nRead at {{ steep }}.'],
+    ['inline closing after a space', 'A square $x^{{2}} $ at {{ steep }}.'],
+    ['inline across a line break', 'A square $x^{{2}}\ny$ at {{ steep }}.'],
+    ['inline holding an escaped dollar', 'A square $x^{{2}} \\$ 1$ at {{ steep }}.']
   ])('sets a formula %s holding double braces as TeX', async (_, src) => {
     const { html } = await render(src)
     expect(html).toContain('<annotation encoding="application/x-tex">x^{{2}}')
     expect(html).toContain(`at ${FIGURES.steep}.`)
     expect(html).not.toContain('katex-error')
   })
+
+  it.each([
+    ['an escaped dollar', 'Costs \\$5 at {{ steep }}$ each.'],
+    ['a dollar after a letter', 'A a$x at {{ steep }}$ b.'],
+    ['a dollar before a letter', 'A $x at {{ steep }}$s b.'],
+    ['three dollars', 'A $$$x at {{ steep }}$ b.']
+  ])('writes a figure beside %s that opens no formula', async (_, src) =>
+    expect((await render(src)).html).toContain(`at ${FIGURES.steep}$`))
 
   it('marks a formula KaTeX cannot set', async () =>
     expect((await render('A broken $\\frac{1}$ formula.')).html).toContain('<span class="katex-error"'))

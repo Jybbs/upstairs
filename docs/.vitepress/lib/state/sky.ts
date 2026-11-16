@@ -8,7 +8,7 @@ import type { Answer, Asked }             from '../orbit/worker.ts'
 import { clamp }                          from '../site/motion.ts'
 import { footholdsOf }                    from '../site/ridges.ts'
 import * as address                       from './address.ts'
-import { CLOCK }                           from './clock.ts'
+import { CLOCK }                          from './clock.ts'
 import { Tracks }                         from './tracks.ts'
 
 /**

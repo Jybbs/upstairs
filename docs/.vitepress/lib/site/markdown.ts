@@ -34,12 +34,10 @@ export const FIGURES = {
   steep         : STEEP,
   trackSeconds  : TRACK_STEP
 } as const
+const FIGURE     = /\{\{ *(?<name>.+?) *\}\}/g
 const FOOTNOTE   = /\[\^(\w+)\](?!:)/g
 const REFERENCES = new URL('../../../references.bib', import.meta.url)
-const VERBATIM   = String.raw`\$\$[\s\S]*?\$\$|\$[^\s$](?:[^$\n]*?[^\s$\\])?\$(?!\d)|<!--[\s\S]*?-->`
-                 + String.raw`|^:::[^\S\n]*v-pre\b[\s\S]*?^:::[^\S\n]*$`
-                 + String.raw`|<(?<tag>\w+)\b[^>]*\sv-pre\b[^>]*>[\s\S]*?<\/\k<tag>>`
-const FIGURE     = new RegExp(String.raw`${CODE.source}|${VERBATIM}|\{\{ *(?<name>.+?) *\}\}`, 'gm')
+const TAG        = /<!--[\s\S]*?-->|<(?<close>\/?)(?<tag>[a-z][\w-]*)(?<attrs>[^>]*)>/gi
 
 /**
  * Appends a definition for each footnote a page keys to an entry of
@@ -59,17 +57,37 @@ const cite = (md: MarkdownRenderer, citations: Map<string, string>) =>
   })
 
 /**
- * Writes the value `FIGURES` holds for each `{{ name }}` outside code, math,
- * HTML comments, and `v-pre` regions, failing on a name it holds no value for.
+ * The element marked `v-pre` still open after `html`, and how many elements of
+ * its tag are open inside it, given the one open before.
+ */
+const preAfter = (html: string, pre?: { depth: number, tag: string }) => {
+  for (const { groups: { attrs = '', close, tag } = {} } of html.matchAll(TAG)) {
+    if (!tag || attrs.endsWith('/')) continue
+    if (pre?.tag === tag.toLowerCase()) pre.depth += close ? -1 : 1
+    else if (!pre && !close && /\sv-pre\b/.test(attrs)) pre = { depth: 1, tag: tag.toLowerCase() }
+    if (pre?.depth === 0) pre = undefined
+  }
+  return pre
+}
+
+/**
+ * Writes the value `FIGURES` holds for each `{{ name }}` in a text token
+ * outside a `v-pre` container or element, failing on a name it holds no value
+ * for.
  */
 const figure = (md: MarkdownRenderer) =>
-  md.core.ruler.after('normalize', 'upstairs:figure', state => {
-    state.src = state.src.replace(FIGURE, (match, ...rest) => {
-      const { name } = rest.at(-1) as { name?: string }
-      if (name === undefined) return match
-      if (!Object.hasOwn(FIGURES, name)) throw new Error(`The figure ${name} names no entry in FIGURES`)
-      return String(FIGURES[name as keyof typeof FIGURES])
-    })
+  md.core.ruler.after('text_join', 'upstairs:figure', state => {
+    let container = 0
+    let element: Parameters<typeof preAfter>[1]
+    for (const token of state.tokens.flatMap(token => [token, ...token.children ?? []])) {
+      if (token.type.startsWith('html_')) element = preAfter(token.content, element)
+      container += Number(token.type === 'container_v-pre_open') - Number(token.type === 'container_v-pre_close')
+      if (token.type !== 'text' || container || element) continue
+      token.content = token.content.replace(FIGURE, (_, name: string) => {
+        if (!Object.hasOwn(FIGURES, name)) throw new Error(`The figure ${name} names no entry in FIGURES`)
+        return String(FIGURES[name as keyof typeof FIGURES])
+      })
+    }
   })
 
 /**
