@@ -26,6 +26,11 @@ it.each([
     ['stroke-rule', 'stroke-u', 'stroke-dim', 'stroke-u']]
 ] as const)('%s', (_, changes, strokes) => expect(strokesOf(changes)).toEqual(strokes))
 
+it('rings the failed orbit in a dashed ink stroke where the scan threw', () => {
+  const wrapper = mount(Orbits, { props: { moment: momentOf({ ...TRACING, stage: 'untraced' }), size: 80 } })
+  expect(wrapper.get('circle.stroke-ink').attributes('stroke-dasharray')).toBe('3 2.5')
+})
+
 it('spins the catalog’s orbit while its size is unknown', () => {
   const wrapper = mount(Orbits, { props: { moment: momentOf({ ...TRACING, stage: 'fetching' }), size: 80 } })
   expect(wrapper.findAll('circle[class*="animate-"]')).toHaveLength(1)

@@ -10,13 +10,15 @@ import { freshSky }       from '../common/sky.ts'
 import { stubMatchMedia } from '../common/stubs.ts'
 
 const {
-  GPU, TOWN, cameraForBounds, caught, easeTo, fitBounds, gather, handlers, thrown
+  GPU, TOWN, cameraForBounds, caught, draw, easeTo, fitBounds, frame, gather, handlers, thrown
 } = vi.hoisted(() => ({
   GPU             : class extends Error {},
   TOWN            : 10 * 360 / (512 * 2 ** 5),
   caught          : vi.fn(),
+  draw            : vi.fn(),
   easeTo          : vi.fn(),
   fitBounds       : vi.fn(),
+  frame           : vi.fn((_loop: FrameRequestCallback) => 0),
   gather          : vi.fn(),
   handlers        : new Map<string, (event: unknown) => void>(),
   thrown          : { value: null as Error | null },
@@ -67,8 +69,10 @@ vi.mock('../../lib/map/overlay.ts', async () => {
   const { View } = await import('../../lib/map/mercator.ts')
   return {
     Overlay: class {
+      draw   = draw
       gather = gather
       labels = [{ latitude: 0, longitude: TOWN, name: 'Town', tier: 'city' }]
+      onMap  = new Uint16Array()
       view   = new View()
       crossing()   { return new Uint8Array(1) }
       invalidate() {}
@@ -88,7 +92,7 @@ const mounted = async (error: Error | null = null) => {
   thrown.value = error
   caught.mockClear()
   stubMatchMedia(() => false)
-  vi.stubGlobal('requestAnimationFrame', () => 0)
+  vi.stubGlobal('requestAnimationFrame', frame)
   Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } })
   document.head.append(Object.assign(document.createElement('link'), { href: SHEETS.map.href }))
   const { component: SkyMap, sky } = await freshSky(() => import('../../theme/SkyMap.tsx'))
@@ -218,6 +222,20 @@ it.each([
   await wrapper.get('[data-map] > div').trigger('keydown', { key: '-' })
   expect([wrapper.find('[role="alert"]').exists(), sky.blank.value, easeTo.mock.calls])
     .toEqual([false, true, []])
+})
+
+it.each([
+  ['draws each frame while the map can draw', () => {}, 1],
+  ['draws no frame once a lost context fails to come back', () => {
+    handlers.get('error')!({ error: new GPU() })
+  }, 0]
+])('%s', async (_, lose, drawn) => {
+  await mounted()
+  const loop = frame.mock.lastCall![0]
+  lose()
+  draw.mockClear()
+  loop(1000)
+  expect(draw).toHaveBeenCalledTimes(drawn)
 })
 
 it('names the host a source fails to reach', async () => {

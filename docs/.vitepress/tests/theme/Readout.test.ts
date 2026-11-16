@@ -196,6 +196,17 @@ it.each([
     .toEqual(readings)
 })
 
+it.each([
+  ['the scan threw', (sky: typeof Sky) => { sky.untraced.value = true }],
+  ['the map cannot draw', (sky: typeof Sky) => { sky.blank.value = true }]
+])('sets the failure in the title face and closes on the way back where %s', async (_, set) => {
+  const { sky, wrapper } = await mounted(0)
+  set(sky)
+  await wrapper.vm.$nextTick()
+  const lines = wrapper.get('[role="alert"]').findAll('p')
+  expect([lines[0].classes('font-display'), lines.at(-1)!.text()]).toEqual([true, sky.moment.value.next])
+})
+
 it('reads no count and the orbits’ age once the catalog has expired', async () => {
   const { sky, wrapper } = await mounted(0)
   sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }

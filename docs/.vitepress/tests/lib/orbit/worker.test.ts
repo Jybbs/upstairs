@@ -184,12 +184,12 @@ describe('a scan', () => {
 describe('a scan that throws', () => {
   beforeEach(() => loaded())
 
-  it('answers that the passes could not be traced, and the next scan finishes', async () => {
+  it('answers that the passes could not be traced, and the next scan reuses its grid', async () => {
     built.throws = true
     await hear(scanOf(1))
     built.throws = false
     await hear(scanOf(2))
-    expect([typesOf(1), typesOf(2).at(-1)]).toEqual([['counts', 'untraced'], 'done'])
+    expect([typesOf(1), typesOf(2).at(-1), built.grids]).toEqual([['counts', 'untraced'], 'done', 1])
   })
 })
 

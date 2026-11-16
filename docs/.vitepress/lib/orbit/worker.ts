@@ -155,8 +155,6 @@ self.onmessage = async ({ data }: MessageEvent<Asked>) => {
   try {
     await run(orbits, data.id, data.minutes, data.spot, data.start)
   } catch {
-    // The held grid may stand half filled after a throw, so the next scan builds its own.
-    held = null
     post({ id: data.id, type: 'untraced' })
   }
 }

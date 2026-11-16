@@ -209,9 +209,9 @@ class Sky {
   readonly expired = computed(() => this.age.value > catalog.AGES.limit)
 
   readonly stage = computed<Stage>(() => {
-    if (this.failed.value) return this.loaded.value ? 'partial' : 'unloaded'
-    if (!this.loaded.value) return 'fetching'
+    if (!this.loaded.value) return this.failed.value ? 'unloaded' : 'fetching'
     if (this.expired.value) return 'expired'
+    if (this.failed.value) return 'partial'
     if (this.untraced.value) return 'untraced'
     return this.done.value ? 'traced' : 'tracing'
   })

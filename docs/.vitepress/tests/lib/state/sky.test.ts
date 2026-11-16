@@ -455,6 +455,10 @@ describe('the stage', () => {
     }, 'traced'],
     ['places nothing from a catalog more than 14 days old', () => {
       hear({ count: 1, fetched: NOW - 15 * catalog.DAY, type: 'loaded' })
+    }, 'expired'],
+    ['reads a catalog more than 14 days old failing partway as expired', () => {
+      hear({ count: 1, fetched: NOW - 15 * catalog.DAY, type: 'loaded' })
+      failed()
     }, 'expired']
   ] as const)('%s', async (_, answer, stage) => {
     const sky = await opened()
