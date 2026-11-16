@@ -328,7 +328,7 @@ describe('a download cycle', () => {
     expect(await cycle.run(start)).toBe('stored')
     expect(fetcher).toHaveBeenCalledOnce()
     expect([state.has('halted'), state.has('wait')]).toEqual([false, false])
-    expect(console.log).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ event: 'catalog.recovered' }))
+    expect(console.log)
+      .toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ event: 'catalog.recovered' }))
   })
 })

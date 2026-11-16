@@ -16,8 +16,8 @@ const TILES = '<a href="https://openfreemap.org">OpenFreeMap</a> '
 
 it.each(CREDITS)('links %s to a section or a seal the Data page carries', credit => {
   const anchor = credit.match(/#([\w-]+)"/)![1]!
-  expect(new RegExp(`^## ${anchor}$`, 'im').test(DATA)
-    || SOURCES.map(sealAnchorOf).includes(anchor)).toBe(true)
+  expect(new RegExp(`^## ${anchor}$`, 'im').test(DATA) || SOURCES.map(sealAnchorOf).includes(anchor))
+    .toBe(true)
 })
 
 describe.each([true, false])('the map credit with reduced motion %s', reduced => {
