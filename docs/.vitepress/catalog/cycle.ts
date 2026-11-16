@@ -1,7 +1,8 @@
 /**
  * Runs the download cycle, sending the request from each region in turn until
- * one reaches CelesTrak and storing each catalog in Workers KV. A refusal, a
- * 403 for data that has not updated, a catalog that fails its check, no region
+ * one reaches CelesTrak with an answer other than a 403 naming a download the
+ * cycle did not make, and storing each catalog in Workers KV. A refusal, a 403
+ * for data that has not updated, a catalog that fails its check, no region
  * reaching CelesTrak, no headers within the wait, or a failed write to Workers
  * KV starts a wait the cycle ends on its own, and the wait is logged once and
  * kept in the storage of the Durable Object until a download succeeds. Any
@@ -16,7 +17,7 @@ export interface Bindings {
 }
 
 type Fault =
-  | (celestrak.Failure | { kind: 'unstored', reason: string }) & { region: Region }
+  | (celestrak.Failure & { regions?: Misses } | { kind: 'unstored', reason: string }) & { region: Region }
   | { kind: 'unreached', reason: string, regions: Misses }
 
 /**
@@ -26,7 +27,8 @@ type Fault =
 type Halted = { halt: unknown, kind: 'halted', reason: string }
 
 /**
- * The result of each region that failed to reach CelesTrak.
+ * The result of each region that failed to reach CelesTrak or reached it
+ * through an address another client had downloaded from.
  */
 type Misses = { [region in Region]?: string }
 
@@ -34,9 +36,10 @@ export type Region = typeof REGIONS[number]
 
 /**
  * The record of a wait, naming the kind of failure, the reason, and the region
- * the failure came through, or the result of each region where none reached
- * CelesTrak, beside the refusals since the last download that succeeded and the
- * time it ends.
+ * the failure came through, with the result of each region where none reached
+ * CelesTrak or each reached it through an address another client had
+ * downloaded from, beside the refusals since the last download that succeeded
+ * and the time it ends.
  */
 export type Wait = (Fault | Halted)
   & { event: 'catalog.waiting', refusals: number, time: string, until: string }
@@ -58,8 +61,10 @@ export const LONGEST = DAY
 export const REGIONS = ['weur', 'apac', 'enam', 'wnam', 'eeur'] as const satisfies DurableObjectLocationHint[]
 /**
  * How far, in milliseconds, a run may fall short of `EVERY` after the last
- * attempt, or of the end of a wait, and still download, covering the seconds
- * by which the time a scheduled run reads varies past the hour.
+ * attempt, or of the end of a wait, and still download, covering the seconds by
+ * which the time a scheduled run reads varies past the hour, and how far after
+ * `downloaded`, or to either side of `aborted`, the download a 403 names may
+ * fall and still count as the download of the cycle.
  */
 const SLACK = 60_000
 
@@ -79,12 +84,32 @@ const askedOf = (value: string | undefined, time: number) =>
  * Returns how long the cycle waits after `fault`, where a refusal waits
  * `EVERY`, doubled for each refusal before it since the last download that
  * succeeded, or as long as its `retry-after` asks where that is longer, up to
- * `LONGEST`, and every other fault, a 403 for data that has not updated
- * included, waits for the next scheduled run.
+ * `LONGEST`, a 403 for data that has not updated waits until `EVERY` after the
+ * download it names, ending at once where that has passed and lasting `EVERY`
+ * at most, and every other fault waits for the next scheduled run.
  */
-const delayOf = (fault: Fault | Halted, refusals: number, time: number) => fault.kind === 'refused'
-  ? Math.min(Math.max(EVERY * 2 ** (refusals - 1), askedOf(fault.headers['retry-after'], time)), LONGEST)
-  : EVERY
+const delayOf = (fault: Fault | Halted, refusals: number, time: number) => {
+  if (fault.kind === 'refused') {
+    const asked = askedOf(fault.headers['retry-after'], time)
+    return Math.min(Math.max(EVERY * 2 ** (refusals - 1), asked), LONGEST)
+  }
+  if (fault.kind === 'unchanged' && fault.since !== undefined)
+    return Math.min(Math.max(Date.parse(fault.since) + EVERY - time, 0), EVERY)
+  return EVERY
+}
+
+/**
+ * Returns whether `failure` is a 403 for data that has not updated naming a
+ * download more than `SLACK` after `downloaded`, the time of the last download
+ * of the cycle, and more than `SLACK` from `aborted`, the time of its last
+ * request that timed out waiting for headers, which marks a download by another
+ * client sharing the address. A 403 naming any other time means the data has
+ * not updated since a download of the cycle, so it starts a wait.
+ */
+const elsewhere = (downloaded: number, aborted: number, failure: celestrak.Failure) =>
+  failure.kind === 'unchanged' && failure.since !== undefined
+    && Date.parse(failure.since) - downloaded > SLACK
+    && Math.abs(Date.parse(failure.since) - aborted) > SLACK
 
 /**
  * Returns the time a stored halt records, or `time` where it records none, as
@@ -95,9 +120,9 @@ const haltedAt = (halt: unknown, time: number): number => Date.parse(Object(halt
 const isoOf = (time: number) => new Date(time).toISOString()
 
 /**
- * Runs one download each cycle, keeping the time of the last attempt, the
- * region that last reached CelesTrak, and the wait in the storage of the
- * Durable Object.
+ * Runs one download each cycle, keeping the time of the last attempt and of
+ * the last download, the region that last reached CelesTrak, and the wait in
+ * the storage of the Durable Object.
  */
 export class Cycle {
   constructor(
@@ -147,27 +172,46 @@ export class Cycle {
 
   /**
    * Downloads the catalog from the first region that reaches CelesTrak,
-   * starting from the one that last did, and stores it, returning the fault
-   * that starts a wait where the download or the write fails.
+   * starting from the one that last did, and stores it, keeping the time the
+   * request was sent under `downloaded` for each 200, one whose catalog fails
+   * its check included, and under `aborted` for each request that timed out
+   * waiting for headers. A region that fails to connect, or whose 403 names a
+   * download the cycle did not make, passes to the next, and any other failure
+   * returns the fault that starts a wait, as a failed write does. Where no
+   * region is left, the fault is the last such 403 beside each region's result,
+   * or `unreached` where there was none.
    */
   private async refresh(time: number): Promise<Fault | undefined> {
+    const downloaded      = this.state.get<number>('downloaded') ?? -Infinity
+    const aborted         = this.state.get<number>('aborted') ?? -Infinity
     const reached         = this.state.get<Region>('reached')
     const regions: Misses = {}
+    let shared: celestrak.Failure & { region: Region } | undefined
     for (const region of REGIONS.toSorted((a, b) => Number(b === reached) - Number(a === reached))) {
+      const sent = Date.now()
       try {
         const records = await celestrak.download(this.send(region))
+        this.state.put('downloaded', sent)
         this.state.put('reached', region)
         return await this.env.CATALOG.put(FILE, encode(time, records)).then(
           () => undefined,
           (error: unknown) => ({ kind: 'unstored', reason: String(error), region }) as const
         )
       } catch (error) {
-        if (error instanceof celestrak.Failed) return { ...error.failure, region }
-        if (!(error instanceof celestrak.Unreachable)) throw error
+        if (!(error instanceof celestrak.Failed || error instanceof celestrak.Unreachable)) throw error
+        if (error instanceof celestrak.Failed) {
+          const { kind } = error.failure
+          if (kind === 'unanswered') this.state.put('aborted', sent)
+          if (kind === 'unchecked') this.state.put('downloaded', sent)
+          shared = { ...error.failure, region }
+          if (!elsewhere(downloaded, aborted, error.failure)) return shared
+        }
         regions[region] = error.message
       }
     }
-    return { kind: 'unreached', reason: 'No region reached CelesTrak', regions }
+    return shared === undefined
+      ? { kind: 'unreached', reason: 'No region reached CelesTrak', regions }
+      : { ...shared, regions }
   }
 
   /**

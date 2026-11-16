@@ -9,7 +9,8 @@ import type { Record } from '../lib/orbit/catalog.ts'
  * What starts a wait of the download cycle once a request reaches CelesTrak,
  * where a refusal or a 403 for data that has not updated keeps the status, the
  * headers in `KEPT`, and the first `EXCERPT` characters of the body CelesTrak
- * answered with.
+ * answered with, and a 403 for data that has not updated keeps the time of the
+ * download its body names under `since`.
  */
 export type Failure =
   | {
@@ -17,6 +18,7 @@ export type Failure =
       headers : { [name: string]: string }
       kind    : 'refused' | 'unchanged'
       reason  : string
+      since?  : string
       status  : number
     }
   | { kind: 'unanswered' | 'unchecked', reason: string }
@@ -39,10 +41,12 @@ export const KEPT   = ['cf-ray', 'content-type', 'location', 'retry-after']
 export const SOURCE = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json'
 /**
  * The message of the 403 CelesTrak answers while its data has not updated
- * since the last download, per its GP data documentation at
- * https://celestrak.org/NORAD/documentation/gp-data-formats.php.
+ * since the last download from the same address, per its GP data documentation
+ * at https://celestrak.org/NORAD/documentation/gp-data-formats.php, matched
+ * once each run of whitespace in the body reads as one space and capturing the
+ * day and the time of that download in UTC.
  */
-const UNCHANGED = 'GP data has not updated since your last successful download'
+const UNCHANGED = /GP data has not updated since your last successful download(?: of \S+ at (\S+) (\S+) UTC)?/
 /**
  * The statuses Cloudflare answers with when it cannot open a connection to
  * CelesTrak.
@@ -68,8 +72,9 @@ export class Unreachable extends Error {}
 /**
  * Reads the refusal out of an answer other than 200, canceling its body once
  * `EXCERPT` characters have arrived, and marks a 403 whose body holds
- * `UNCHANGED` as unchanged. Where reading the body fails, the refusal keeps the
- * characters already read and names the error in its reason.
+ * `UNCHANGED` as unchanged, keeping the time of the download it names where
+ * that time reads as a date. Where reading the body fails, the refusal keeps
+ * the characters already read and names the error in its reason.
  */
 const refusalOf = async (response: Response): Promise<Failure> => {
   let body   = ''
@@ -82,12 +87,15 @@ const refusalOf = async (response: Response): Promise<Failure> => {
   } catch (error) {
     reason += `, and reading its body failed with ${String(error)}`
   }
+  const unchanged = response.status === 403 ? UNCHANGED.exec(body.replaceAll(/\s+/g, ' ')) : null
+  const since     = Date.parse(`${unchanged?.[1]}T${unchanged?.[2]}Z`)
   return {
     body    : body.slice(0, EXCERPT),
     headers : Object.fromEntries([...response.headers].filter(([name]) => KEPT.includes(name))),
-    kind    : response.status === 403 && body.includes(UNCHANGED) ? 'unchanged' : 'refused',
+    kind    : unchanged === null ? 'refused' : 'unchanged',
     reason  : reason,
-    status  : response.status
+    status  : response.status,
+    ...Number.isNaN(since) ? {} : { since: new Date(since).toISOString() }
   }
 }
 
