@@ -3,11 +3,11 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { expect, it, vi }         from 'vitest'
 import { defineComponent, h }     from 'vue'
 
-import { kindOrder }                from '../../lib/orbit/kinds.ts'
-import { dialogListens, fakeClock } from '../common/frames.ts'
-import { passOf }                   from '../common/passes.ts'
-import { lateSky }                  from '../common/sky.ts'
-import { stubMatchMedia }           from '../common/stubs.ts'
+import { kindOrder }                                 from '../../lib/orbit/kinds.ts'
+import { dialogListens, fakeClock, unmountOnFinish } from '../common/frames.ts'
+import { passOf }                                    from '../common/passes.ts'
+import { lateSky }                                   from '../common/sky.ts'
+import { stubMatchMedia }                            from '../common/stubs.ts'
 
 /**
  * Returns the line naming the place and the time, its spacing collapsed.
@@ -132,9 +132,9 @@ it('keeps the pinned pass on Escape when the spot chooser beside it shuts', asyn
     provideChooser()
     return () => h('div', [h(Readout), h(SpotChooser)])
   }), { attachTo: document.body })
+  unmountOnFinish(wrapper)
   await dialogListens()
   document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }))
-  wrapper.unmount()
   expect([sky.choosing.value, sky.pinned.value]).toEqual(['shut', pass])
 })
 
