@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url'
 import { createMarkdownRenderer, type MarkdownEnv } from 'vitepress'
 import { beforeAll, describe, expect, it }          from 'vitest'
 
-import { citationsOf, markdownOf } from '../../../lib/site/markdown.ts'
-import { SHEETS }                  from '../../../lib/site/sheets.ts'
+import { FIGURES, citationsOf, markdownOf } from '../../../lib/site/markdown.ts'
+import { SHEETS }                           from '../../../lib/site/sheets.ts'
 
 type Rendered = { env: MarkdownEnv, html: string }
 
@@ -72,6 +72,25 @@ describe('markdownOf', () => {
     expect((await render('A check[^kelso2007].\n\n```md\n[^kelso2007]: Kelso.\n```')).html)
       .toContain('<div data-csl-entry-id="kelso2007"'))
 
+  it.each(Object.entries(FIGURES))('writes the figure %s as the value %s', async (name, value) =>
+    expect((await render(`A figure of {{ ${name} }} and {{${name}}}.`)).html)
+      .toContain(`<p>A figure of ${value} and ${value}.</p>`))
+
+  it.each(['nobody', 'toString', 'AGES.limit', '$frontmatter.title'])('fails on the figure %s', name =>
+    expect(render(`A guess of {{ ${name} }}.`))
+      .rejects.toThrow(`The figure ${name} names no entry in FIGURES`))
+
+  it.each([
+    ['a code span', 'Write `{{ home }}` at {{ steep }}.'],
+    ['a fenced block', '```md\n{{ home }}\n```\n\nRead at {{ steep }}.'],
+    ['a block fenced by tildes', '~~~md\n{{ home }}\n~~~\n\nRead at {{ steep }}.']
+  ])('writes no figure inside %s', async (_, src) => {
+    const { html } = await render(src)
+    expect(html).toContain(`at ${FIGURES.steep}.`)
+    expect(html).toContain('{{ home }}')
+    expect(html).not.toContain(FIGURES.home)
+  })
+
   it.each([
     ['inline between single dollars', 'An angle $\\theta$ rises.'],
     ['on its own line between double dollars', '$$\n\\theta = 90^\\circ\n$$']
@@ -95,9 +114,9 @@ describe('markdownOf', () => {
   it('marks a formula KaTeX cannot set', async () =>
     expect((await render('A broken $\\frac{1}$ formula.')).html).toContain('<span class="katex-error"'))
 
-  it.each(PAGES)('sets every formula and footnote on %s', async page => {
+  it.each(PAGES)('sets every formula, footnote, and figure on %s', async page => {
     const { html } = await render(readFileSync(join(ROOT, page), 'utf8'))
     expect(html).not.toContain('katex-error')
-    expect(html.replace(/<code>[\s\S]*?<\/code>/g, '')).not.toMatch(/\[\^\w+\]/)
+    expect(html.replace(/<code>[\s\S]*?<\/code>/g, '')).not.toMatch(/\[\^\w+\]|\{\{/)
   })
 })
