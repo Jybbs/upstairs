@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import * as catalog       from '../../../lib/orbit/catalog.ts'
-import * as looks         from '../../../lib/orbit/looks.ts'
-import { TRACK_STEP }     from '../../../lib/orbit/scan.ts'
-import { HOME }           from '../../../lib/state/address.ts'
-import { START, watchOf } from '../../common/drawings.ts'
+import * as catalog          from '../../../lib/orbit/catalog.ts'
+import * as looks            from '../../../lib/orbit/looks.ts'
+import { STEEP, TRACK_STEP } from '../../../lib/orbit/scan.ts'
+import { HOME }              from '../../../lib/state/address.ts'
+import { START, watchOf }    from '../../common/drawings.ts'
 
 const STEPS = [1, 10, TRACK_STEP, 120, 240]
 
@@ -36,9 +36,9 @@ describe('the passes of a day', () => {
   })
 
   it('reads the scanned pass as the steep pass whose track scan misses its peak by the most', () => {
-    const steep = watch.passes.filter(pass => pass.peak >= looks.STEEP).map(pass => watch.watched(pass))
+    const steep = watch.passes.filter(pass => pass.peak >= STEEP).map(pass => watch.watched(pass))
     const miss  = Math.max(...steep.map(pass => pass.miss(TRACK_STEP)))
-    expect(watch.scanned!.pass.peak).toBeGreaterThanOrEqual(looks.STEEP)
+    expect(watch.scanned!.pass.peak).toBeGreaterThanOrEqual(STEEP)
     expect(watch.scanned!.miss(TRACK_STEP)).toBe(miss)
   })
 })
@@ -94,7 +94,7 @@ describe('a watched pass', () => {
 describe('a spot the station never climbs high over', () => {
   it('reads the highest pass as the scanned pass where none climbs to STEEP', async () => {
     const far = await watchOf({ latitude: 64, longitude: 0 })
-    expect(far.passes.filter(pass => pass.peak >= looks.STEEP)).toStrictEqual([])
+    expect(far.passes.filter(pass => pass.peak >= STEEP)).toStrictEqual([])
     expect(far.scanned!.pass).toEqual(far.highest!.pass)
   })
 

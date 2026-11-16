@@ -91,14 +91,6 @@ describe('markdownOf', () => {
       '- item\n\n  ```md\n  {{ home }}\n\n  {{ home }}\n  ```\n\nRead at {{ steep }}.'],
     ['an HTML comment', '<!-- {{ home }} -->\n\nRead at {{ steep }}.'],
     ['a v-pre container', '::: v-pre\n{{ home }}\n:::\n\nRead at {{ steep }}.'],
-    ['an element marked v-pre', '<div v-pre>\n\n{{ home }}\n\n</div>\n\nRead at {{ steep }}.'],
-    ['an element marked v-pre around another',
-      '<div v-pre>\n<b>A</b>\n\n{{ home }}\n\n</div>\n\nRead at {{ steep }}.'],
-    ['an element marked v-pre holding a void element',
-      '<div v-pre>\n<br>\n\n{{ home }}\n\n</div>\n\nRead at {{ steep }}.'],
-    ['an element marked v-pre holding one of its tag',
-      '<div v-pre>\n<div>A</div>\n\n{{ home }}\n\n</div>\n\nRead at {{ steep }}.'],
-    ['an inline element marked v-pre', 'Write <span v-pre>{{ home }}</span> at {{ steep }}.'],
     ['inline math', 'Write $\\text{{{ home }}}$ at {{ steep }}.'],
     ['display math', '$$\n\\text{{{ home }}}\n$$\n\nRead at {{ steep }}.']
   ])('writes no figure inside %s', async (_, src) => {
@@ -107,6 +99,19 @@ describe('markdownOf', () => {
     expect(html).toContain('{{ home }}')
     expect(html).not.toContain(FIGURES.home)
   })
+
+  it('writes a figure whose first brace is escaped', async () =>
+    expect((await render('A figure of \\{{ steep }}.')).html)
+      .toContain(`<p>A figure of ${FIGURES.steep}.</p>`))
+
+  it.each([
+    ['a block element', '<div v-pre>\n\nA sign.\n\n</div>\n\nRead at {{ steep }}.'],
+    ['an inline element', 'Write <span v-pre>{{ home }}</span> at {{ steep }}.']
+  ])('fails on a figure beside %s marked v-pre', (_, src) =>
+    expect(render(src)).rejects.toThrow('A page writing a figure marks verbatim text with ::: v-pre'))
+
+  it('keeps the braces inside an element marked v-pre on a page writing no figure', async () =>
+    expect((await render('<div v-pre>{{ home }}</div>')).html).toContain('<div v-pre>{{ home }}</div>'))
 
   it.each([
     ['inline between single dollars', 'An angle $\\theta$ rises.'],

@@ -46,6 +46,10 @@ export type Traced = Omit<Pass, keyof Satellite | 'heading' | 'key'> & { heading
  */
 export const GRID_STEP = 120
 /**
+ * The elevation in degrees a pass climbs to before it counts as high.
+ */
+export const STEEP = 30
+/**
  * Seconds between samples of a track.
  */
 export const TRACK_STEP = 30

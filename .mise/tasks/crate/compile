@@ -11,4 +11,3 @@ wasm-bindgen \
   --out-dir rust/pkg \
   --target web \
   "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/orbit.wasm"
-printf '{"type": "module"}\n' > rust/pkg/package.json
