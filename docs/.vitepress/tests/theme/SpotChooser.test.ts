@@ -16,9 +16,9 @@ vi.mock('@vueuse/core', async original => ({
  * Mounts the spot chooser, 240 pixels tall and opened, over a fresh copy of
  * the shared state and a stand-in worker, on a phone where `phone` is set,
  * on the fake clock once its dialog listens for Escape and for presses
- * outside it. Once the case finishes, it unmounts the chooser and runs the
- * two frames its dialog's layer takes to leave the shared layer stack, before
- * the clock turns real.
+ * outside it. Once the case finishes, it unmounts the chooser, runs the two
+ * frames its dialog's layer takes to leave the shared layer stack, and checks
+ * the chooser left the document, before the clock turns real.
  */
 const mounted = async (phone = false) => {
   stubMatchMedia(query => phone && query.includes('40rem'))
@@ -29,6 +29,7 @@ const mounted = async (phone = false) => {
   onTestFinished(async () => {
     wrapper.unmount()
     await framesOf(2)
+    expect(document.body).not.toContain(wrapper.element)
   })
   await dialogListens()
   return { sky, wrapper }
