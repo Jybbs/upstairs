@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as celestrak from '../../catalog/celestrak.ts'
-import { Cycle, EVERY, LONGEST, REGIONS, type Region, SLACK, type Wait } from '../../catalog/cycle.ts'
+import { Cycle, EVERY, LONGEST, REGIONS, type Region, type Wait } from '../../catalog/cycle.ts'
 import * as catalog   from '../../lib/orbit/catalog.ts'
 import full           from '../fixtures/records.json' with { type: 'json' }
 
@@ -10,9 +10,10 @@ const records = Array.from({ length: 5000 }, (_, row) => ({
   ...fixture[row % fixture.length],
   NORAD_CAT_ID: 100_000 + row
 }))
-const start = Date.parse('2026-11-10T00:00:00Z')
+const start  = Date.parse('2026-11-10T00:00:00Z')
+const MINUTE = 60_000
 
-const SPACINGS = [[EVERY - SLACK - 1, 'early'], [EVERY - SLACK, 'stored']] as const
+const SPACINGS = [[EVERY - MINUTE - 1, 'early'], [EVERY - MINUTE, 'stored']] as const
 const BACKOFF  = [EVERY, 2 * EVERY, 4 * EVERY, 8 * EVERY, LONGEST, LONGEST]
 const ASKED    = [
   ['the doubled wait', '60', EVERY],
@@ -31,7 +32,9 @@ const HALTS    = [
 ] as const
 const REFUSALS  = [301, 403, 404, 500, 503, 520]
 const refused   = (status: number) => () => new Response(null, { status })
-const unchanged = () => new Response(`<p>${celestrak.UNCHANGED}.</p>`, { status: 403 })
+const UNCHANGED = 'GP data has not updated since your last successful download'
+const unchanged = () =>
+  new Response(`<p>${UNCHANGED} of GROUP=active at 2026-11-10 00:00:00 UTC.</p>`, { status: 403 })
 const MISSES    = [
   ['Cloudflare answers 521', refused(521), '521'],
   ['Cloudflare answers 522', refused(522), '522'],
@@ -128,7 +131,7 @@ describe('a download cycle', () => {
     })
     const { cycle, state, fetcher } = cycleOf(() => new Response(body(), { status: 403 }))
     expect(await cycle.run(start)).toBe('waiting')
-    expect(await cycle.run(start + EVERY - SLACK - 1)).toBe('waiting')
+    expect(await cycle.run(start + EVERY - MINUTE - 1)).toBe('waiting')
     expect(fetcher).toHaveBeenCalledOnce()
     expect(state.get('wait')).toMatchObject({ kind: 'refused', region: REGIONS[0], status: 403 })
   })
@@ -263,7 +266,7 @@ describe('a download cycle', () => {
       await cycle.run(start)
       const wait = state.get('wait')
       expect(await cycle.run(start + 1)).toBe('waiting')
-      expect(await cycle.run(start + EVERY - SLACK - 1)).toBe('waiting')
+      expect(await cycle.run(start + EVERY - MINUTE - 1)).toBe('waiting')
       expect(fetcher).toHaveBeenCalledOnce()
       expect(logged()).toEqual([wait, ...Array(2).fill({ event: 'catalog.blocked', wait })])
     })
@@ -326,7 +329,7 @@ describe('a download cycle', () => {
   it('waits for the next scheduled run after a 403 for data that has not updated, whatever retry-after '
    + 'reads', async () => {
     const headers           = { 'retry-after': String(LONGEST / 1000) }
-    const { cycle, waited } = cycleOf(() => new Response(celestrak.UNCHANGED, { status: 403, headers }))
+    const { cycle, waited } = cycleOf(() => new Response(UNCHANGED, { status: 403, headers }))
     await cycle.run(start)
     expect(waited()).toMatchObject({ kind: 'unchanged', until: new Date(start + EVERY).toISOString() })
   })
@@ -363,14 +366,17 @@ describe('a download cycle', () => {
       until    : new Date(at + EVERY).toISOString()
     })
     expect(logged()).toEqual([wait])
-    expect(await cycle.run(at + EVERY - SLACK - 1)).toBe('waiting')
-    expect(await cycle.run(at + EVERY - SLACK)).toBe('stored')
+    expect(await cycle.run(at + EVERY - MINUTE - 1)).toBe('waiting')
+    expect(await cycle.run(at + EVERY - MINUTE)).toBe('stored')
   })
 
-  it('downloads on the first run after a halt recorded more than two hours before it', async () => {
+  it.each([
+    ['more than two hours', EVERY + 1],
+    ['seconds short of two hours', EVERY - 11_000]
+  ])('downloads on the first run after a halt recorded %s before it', async (_, age) => {
     const { cycle, state, fetcher } = cycleOf(good)
     state.set('attempted', start - 3 * EVERY)
-    state.set('halted', { ...halted, time: new Date(start - EVERY - 1).toISOString() })
+    state.set('halted', { ...halted, time: new Date(start - age).toISOString() })
     expect(await cycle.run(start)).toBe('stored')
     expect(fetcher).toHaveBeenCalledOnce()
     expect([state.has('halted'), state.has('wait')]).toEqual([false, false])
