@@ -4,8 +4,8 @@
  * how far a scan sampling that pass at a given spacing falls below its peak.
  */
 
-import * as orbit                            from '../../../../rust/pkg/orbit.js'
-import { TRACK_STEP, samplesFor, type Spot } from './scan.ts'
+import * as orbit from '../../../../rust/pkg/orbit.js'
+import * as scan  from './scan.ts'
 
 export interface Look { azimuth: number, elevation: number, time: number }
 
@@ -23,10 +23,6 @@ export const ISS       = 25544
  * Seconds between the looks a pass is drawn from.
  */
 export const LOOK_STEP = 5
-/**
- * The elevation in degrees a pass climbs to before it counts as high.
- */
-export const STEEP     = 30
 
 /**
  * One pass and the looks around it, from one track sample before it rises to
@@ -102,11 +98,11 @@ export class Watch {
   constructor(
     private readonly orbits : orbit.Orbits,
     private readonly row    : number,
-    private readonly spot   : Spot,
+    private readonly spot   : scan.Spot,
     readonly start          : number
   ) {
-    const samples = samplesFor(24 * 60, TRACK_STEP)
-    const tracer  = new orbit.Tracer(spot.latitude, spot.longitude, start, samples, TRACK_STEP)
+    const samples = scan.samplesFor(24 * 60, scan.TRACK_STEP)
+    const tracer  = new orbit.Tracer(spot.latitude, spot.longitude, start, samples, scan.TRACK_STEP)
     const trace   = tracer.trace(orbits, [row])
     const passes  = trace.passes
     this.passes   = passes
@@ -137,10 +133,10 @@ export class Watch {
    */
   get scanned(): Watched | undefined {
     const steep = this.passes
-      .filter(pass => pass.peak >= STEEP)
+      .filter(pass => pass.peak >= scan.STEEP)
       .map(pass => this.watched(pass))
     if (!steep.length) return this.highest
-    const misses = steep.map(pass => pass.miss(TRACK_STEP))
+    const misses = steep.map(pass => pass.miss(scan.TRACK_STEP))
     return steep[misses.indexOf(Math.max(...misses))]
   }
 
@@ -149,8 +145,8 @@ export class Watch {
    * seconds above the horizon.
    */
   watched(pass: Peaked): Watched {
-    const from  = pass.riseAt - TRACK_STEP * 1000
-    const to    = pass.setAt + TRACK_STEP * 1000
+    const from  = pass.riseAt - scan.TRACK_STEP * 1000
+    const to    = pass.setAt + scan.TRACK_STEP * 1000
     const seen  = this.looks(from, to, LOOK_STEP)
     const looks = Array.from(seen.elevations, (elevation, index) => ({
       azimuth   : seen.azimuths[index],

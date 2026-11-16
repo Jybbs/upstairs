@@ -5,23 +5,22 @@ import mapWorker                         from 'maplibre-gl/dist/maplibre-gl-work
 import { useData }                       from 'vitepress'
 import { computed, defineComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { CREDITS, holdCredit }        from '../lib/map/credit.ts'
-import { DETENT, Detents, type Step } from '../lib/map/detents.ts'
-import { Hosts }                      from '../lib/map/hosts.ts'
-import { namesOn, placeNear }         from '../lib/map/places.ts'
-import { numeralIn }                  from '../lib/map/numeral.ts'
-import { Overlay }                    from '../lib/map/overlay.ts'
-import { styleOf }                    from '../lib/map/style.ts'
-import { TRACK_STEP, type Pass }      from '../lib/orbit/scan.ts'
-import { clamp }                      from '../lib/site/motion.ts'
-import { SCHEMES }                    from '../lib/site/palette.ts'
-import { SHEETS }                     from '../lib/site/sheets.ts'
-import { sky }                        from '../lib/state/sky.ts'
-import Icon                           from './Icon.tsx'
+import { CREDITS, holdCredit }          from '../lib/map/credit.ts'
+import { DETENT, Detents, type Step }   from '../lib/map/detents.ts'
+import { Hosts }                        from '../lib/map/hosts.ts'
+import { namesOn, placeNear }           from '../lib/map/places.ts'
+import { numeralIn }                    from '../lib/map/numeral.ts'
+import { Overlay }                      from '../lib/map/overlay.ts'
+import { styleOf }                      from '../lib/map/style.ts'
+import { STEEP, TRACK_STEP, type Pass } from '../lib/orbit/scan.ts'
+import { clamp }                        from '../lib/site/motion.ts'
+import { SCHEMES }                      from '../lib/site/palette.ts'
+import { SHEETS }                       from '../lib/site/sheets.ts'
+import { sky }                          from '../lib/state/sky.ts'
+import Icon                             from './Icon.tsx'
 
 const DEM     = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
 const FLY_MS  = 900
-const HIGH    = 30
 const PADDING = 48
 const PULL_MS = 120
 const SYNC_MS = 250
@@ -70,7 +69,7 @@ export default defineComponent(
     }, { immediate: false })
 
     /**
-     * Finds the bounds of a pass's stretch above `HIGH` degrees beside the
+     * Finds the bounds of a pass's stretch above `STEEP` degrees beside the
      * spot, and of its whole crossing.
      */
     const boundsOf = (pass: Pass) => {
@@ -81,7 +80,7 @@ export default defineComponent(
       for (let at = pass.riseAt; at <= pass.setAt; at += TRACK_STEP) {
         if (!sky.tracks.at(index, at)) continue
         whole.extend([sky.tracks.longitude, sky.tracks.latitude])
-        if (sky.tracks.elevation > HIGH) high.extend([sky.tracks.longitude, sky.tracks.latitude])
+        if (sky.tracks.elevation > STEEP) high.extend([sky.tracks.longitude, sky.tracks.latitude])
       }
       if (!high.isEmpty()) high.extend([longitude, latitude])
       return { high, whole }
@@ -89,7 +88,7 @@ export default defineComponent(
 
     /**
      * Lays out the chosen pass's steps: the camera standing back until the
-     * stretch above `HIGH` degrees lies beside the spot, where the pass climbs
+     * stretch above `STEEP` degrees lies beside the spot, where the pass climbs
      * that high, and the camera fitting the whole crossing.
      */
     const stepsOf = (pass: Pass): Step[] => {

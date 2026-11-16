@@ -2,14 +2,9 @@
 description: Where the orbits, the map, and the place search come from, and what each request sends.
 ---
 
-<script setup lang="ts">
-import { HOLD }     from '../.vitepress/lib/map/credit.ts'
-import { DECIMALS } from '../.vitepress/lib/state/address.ts'
-</script>
-
 # Data
 
-*Upstairs* keeps a spot set on the map or found through the search in the page's address, each coordinate rounded to {{ DECIMALS }} decimals, so a link copied from it carries the spot. A spot found through Near me stays out of the address, so a link copied while it shows carries no spot until the reader sets one on the map or through the search.
+*Upstairs* keeps a spot set on the map or found through the search in the page's address, each coordinate rounded to {{ decimals }} decimals, so a link copied from it carries the spot. A spot found through Near me stays out of the address, so a link copied while it shows carries no spot until the reader sets one on the map or through the search.
 
 ## Orbits
 
@@ -17,7 +12,7 @@ The orbital elements come from [CelesTrak](https://celestrak.org/), which redist
 
 ## The Map
 
-The map combines terrain from the Terrain Tiles dataset, set out under Terrain below, with map data from [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) in the [OpenMapTiles](https://openmaptiles.org/) schema, served through [OpenFreeMap](https://openfreemap.org/) and drawn by [MapLibre](https://maplibre.org/). OpenFreeMap builds its tiles from a full run over the planet each week, and [Credits](#credits) below sets out the notice and the license of each source the map draws. The map's credit opens in its lower-right corner, listing each source on its own line, and stays open until the reader presses, scrolls, or types on the map, or until {{ HOLD.wait / 1000 }} seconds after the OpenStreetMap line shows. It then folds into the button marked i, which opens it again.
+The map combines terrain from the Terrain Tiles dataset, set out under Terrain below, with map data from [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) in the [OpenMapTiles](https://openmaptiles.org/) schema, served through [OpenFreeMap](https://openfreemap.org/) and drawn by [MapLibre](https://maplibre.org/). OpenFreeMap builds its tiles from a full run over the planet each week, and [Credits](#credits) below sets out the notice and the license of each source the map draws. The map's credit opens in its lower-right corner, listing each source on its own line, and stays open until the reader presses, scrolls, or types on the map, or until {{ holdSeconds }} seconds after the OpenStreetMap line shows. It then folds into the button marked i, which opens it again.
 
 ## Terrain
 
