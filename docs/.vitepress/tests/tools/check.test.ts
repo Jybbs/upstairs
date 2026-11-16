@@ -118,7 +118,9 @@ class Repo {
   /**
    * Runs the task at `.mise/tasks/<task>` of the worktree from the root of the
    * repository, each call it makes to `mise` or `bun` exiting with the next
-   * status in `exit`, the last repeating once the list runs out.
+   * status in `exit`, the last repeating once the list runs out, save that a
+   * `mise config get --file` call takes its place in that order but exits zero
+   * only where the file holds the entry it names.
    */
   async run(task: Task, args: string[] = [], exit: number | number[] = 0): Promise<Run> {
     await Bun.write(this.calls, '')
