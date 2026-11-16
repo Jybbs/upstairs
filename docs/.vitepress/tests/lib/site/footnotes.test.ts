@@ -14,7 +14,8 @@ beforeAll(async () => {
   page     = new new Window().DOMParser().parseFromString(await md.renderAsync(PAGE, {}), 'text/html')
 })
 
-const labels = (selector: string) => [...page.querySelectorAll(selector)].map(node => node.getAttribute('aria-label'))
+const labels = (selector: string) =>
+  [...page.querySelectorAll(selector)].map(node => node.getAttribute('aria-label'))
 
 it.each([['vallado2006', 'Vallado 2006'], ['kelso2007', 'Kelso 2007']])('names %s as %s', (key, name) =>
   expect(nameOf(key)).toBe(name))
@@ -22,7 +23,8 @@ it.each([['vallado2006', 'Vallado 2006'], ['kelso2007', 'Kelso 2007']])('names %
 it('labels each marker with its figure and its source, setting the figure on the disc', () => {
   expect(labels('.footnote-ref > a:first-child')).toEqual(
     ['Source 1, Vallado 2006', 'Source 1, Vallado 2006', 'Source 2, Kelso 2007'])
-  expect([...page.querySelectorAll('.footnote-ref .fn-mark b')].map(node => node.textContent)).toEqual(['1', '1', '2'])
+  expect([...page.querySelectorAll('.footnote-ref .fn-mark b')].map(node => node.textContent)).toEqual(
+    ['1', '1', '2'])
 })
 
 it('opens the list on the Sources title beside the emblem over the column of trails', () => {

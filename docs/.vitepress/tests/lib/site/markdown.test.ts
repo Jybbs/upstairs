@@ -25,7 +25,8 @@ beforeAll(async () => {
 })
 
 describe('citationsOf', () => {
-  it.each([...citationsOf()])('keys %s by surname and year and links its DOI or its publisher page', (key, citation) => {
+  it.each([...citationsOf()])('keys %s by surname and year '
+                            + 'and links its DOI or its publisher page', (key, citation) => {
     expect(key).toMatch(/^[a-z]+\d{4}$/)
     expect(citation).toMatch(/<a href="https:\/\/[^"]+">/)
   })
