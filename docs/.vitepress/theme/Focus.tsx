@@ -3,8 +3,19 @@ import { computed, defineComponent } from 'vue'
 import { BOUNDS, boundOf, crossingOf } from '../lib/orbit/compass.ts'
 import { KINDS, NOTES }                from '../lib/orbit/kinds.ts'
 import { sky }                         from '../lib/state/sky.ts'
+import { WORDS }                       from '../lib/state/words.ts'
 import Icon                            from './Icon.tsx'
 import SatelliteName                   from './SatelliteName.tsx'
+
+/**
+ * The line the panel shows for each stage while it follows no pass.
+ */
+const LINES = {
+  ...WORDS,
+  expired : 'The orbits are too old to draw',
+  traced  : 'No satellite matches these filters',
+  tracing : 'Tracing passes'
+}
 
 const distance = (kilometers: number) => `${Math.round(kilometers).toLocaleString()} km`
 
@@ -23,10 +34,7 @@ export default defineComponent(
         : note
     })
     const bound = computed(() => pass.value && boundOf(pass.value))
-    const empty = computed(() => {
-      if (sky.expired.value) return 'The orbits are too old to draw'
-      return sky.done.value ? 'No satellite matches these filters' : 'Tracing passes'
-    })
+    const empty = computed(() => LINES[sky.stage.value])
 
     return () => (
       <section class="flex h-[218px] shrink-0 flex-col border-b border-rule bg-lift p-4" aria-live="polite">

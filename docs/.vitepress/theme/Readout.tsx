@@ -1,11 +1,11 @@
 import { useEventListener }                      from '@vueuse/core'
 import { computed, defineComponent, ref, watch } from 'vue'
 
-import { UNLOADED }                               from '../lib/orbit/catalog.ts'
 import { coordinatesOf }                          from '../lib/orbit/compass.ts'
 import { KINDS, kindSlots }                       from '../lib/orbit/kinds.ts'
 import { useChooser }                             from '../lib/site/chooser.ts'
 import { CLOCK, minuteFormat, secondFormat, sky } from '../lib/state/sky.ts'
+import { WORDS }                                  from '../lib/state/words.ts'
 import Icon                                       from './Icon.tsx'
 import PassReadout                                from './PassReadout.tsx'
 import PlaceSearch                                from './PlaceSearch.tsx'
@@ -28,9 +28,15 @@ export default defineComponent(
     const dated   = computed(() => later.value
       ? `The time read is on ${sky.dayOf(sky.at.value, dateFormat)}.`
       : '')
+    /**
+     * The count of satellites on the map, a dash where the map cannot draw or
+     * nothing can be placed, and dots until the scan places its first.
+     */
     const figure = computed(() => {
-      if (sky.expired.value) return '—'
-      return sky.loaded.value ? sky.reading.value.onMap.toLocaleString() : '···'
+      const stage = sky.stage.value
+      if (sky.blank.value || stage === 'expired' || stage === 'unloaded') return '—'
+      if (sky.placed.value) return sky.reading.value.onMap.toLocaleString()
+      return stage === 'untraced' ? '—' : '···'
     })
     /**
      * The kind the tally names, in its color beside how many of it the map
@@ -81,14 +87,23 @@ export default defineComponent(
       if (event.key === 'Escape' && sky.choosing.value === 'shut') sky.release()
     }, { capture: true })
 
+    const retry = () => (
+      <button type="button" class="caps cursor-pointer text-ink underline" onClick={() => sky.load()}>
+        {WORDS.retry}
+      </button>
+    )
+
     /**
-     * Sets the line under the tally: the catalog's trouble, the scan's
-     * progress, the kind the tally names, or how many stand above the horizon.
+     * Sets the line under the tally: the catalog's download or its trouble,
+     * the scan's progress or its failure, the kind the tally names, or how
+     * many stand above the horizon.
      */
     const status = () => {
-      if (sky.failed.value) return UNLOADED
-      if (sky.expired.value) return `Orbits ${Math.floor(sky.age.value)} days old, too old to draw`
-      if (!sky.done.value) return `Tracing passes ${Math.round(sky.share.value * 100)}%`
+      const stage = sky.stage.value
+      if (stage === 'unloaded' || stage === 'partial') return [WORDS[stage], retry()]
+      if (stage === 'expired') return `Orbits ${Math.floor(sky.age.value)} days old, too old to draw`
+      if (stage === 'fetching' || stage === 'untraced') return WORDS[stage]
+      if (stage === 'tracing') return `Tracing passes ${Math.round(sky.share.value * 100)}%`
       if (named.value) return [<Icon name={named.value.kind} />, named.value.line]
       return `Of ${sky.reading.value.above.toLocaleString()} above the horizon`
     }

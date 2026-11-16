@@ -6,6 +6,7 @@ import { DAY }                  from '../../lib/orbit/catalog.ts'
 import { KINDS, NOTES }         from '../../lib/orbit/kinds.ts'
 import type { Pass }            from '../../lib/orbit/scan.ts'
 import type { sky as Sky }      from '../../lib/state/sky.ts'
+import { WORDS }                from '../../lib/state/words.ts'
 import { passOf }               from '../common/passes.ts'
 import { addScanned, freshSky } from '../common/sky.ts'
 
@@ -13,12 +14,13 @@ const NOW = Date.parse('2026-11-06T18:37:00Z')
 
 /**
  * Mounts the focus panel over a fresh copy of the shared state, its icons and
- * names stubbed, with `passes` in the scan, the first of them chosen, after
- * `set` has changed what else the state holds.
+ * names stubbed, with a catalog fetched now and `passes` in the scan, the first
+ * of them chosen, after `set` has changed what else the state holds.
  */
 const mounted = async (passes: Pass[], set: (sky: typeof Sky) => void = () => {}) => {
   vi.useFakeTimers({ now: NOW })
   const { component: Focus, sky } = await freshSky(() => import('../../theme/Focus.tsx'))
+  sky.loaded.value                = { count: 1, fetched: NOW }
   addScanned(sky, passes)
   if (passes.length) sky.pin(passes[0])
   set(sky)
@@ -33,7 +35,17 @@ it.each([
     (sky: typeof Sky) => { sky.done.value = true }, 'No satellite matches these filters'],
   ['says the orbits are too old to draw once the catalog has expired',
     (sky: typeof Sky) => { sky.loaded.value = { count: 1, fetched: NOW - 15 * DAY } },
-    'The orbits are too old to draw']
+    'The orbits are too old to draw'],
+  ['says the catalog is downloading until it arrives', (sky: typeof Sky) => { sky.loaded.value = null },
+    WORDS.fetching],
+  ['says the catalog did not load where none of it arrived', (sky: typeof Sky) => {
+    sky.loaded.value = null
+    sky.failed.value = 'Error: The catalog answered 503'
+  }, WORDS.unloaded],
+  ['says the rest of the catalog did not load where it failed partway',
+    (sky: typeof Sky) => { sky.failed.value = 'Error: The catalog answered 503' }, WORDS.partial],
+  ['says the passes could not be traced where the scan threw',
+    (sky: typeof Sky) => { sky.untraced.value = true }, WORDS.untraced]
 ])('%s', async (_, set, line) => expect((await mounted([], set)).text()).toBe(line))
 
 it.each([

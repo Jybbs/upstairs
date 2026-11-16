@@ -21,7 +21,7 @@ const batches = encode(FETCHED, Array.from(
   (_, copy) => full.map(record => ({ ...record, NORAD_CAT_ID: record.NORAD_CAT_ID + copy * 100_000 }))
 ).flat() as unknown as Record[])
 
-const built = vi.hoisted(() => ({ grids: 0 }))
+const built = vi.hoisted(() => ({ grids: 0, throws: false }))
 
 vi.mock('../../../../../rust/pkg/orbit.js', async importOriginal => {
   const crate = await importOriginal<typeof import('../../../../../rust/pkg/orbit.js')>()
@@ -33,6 +33,12 @@ vi.mock('../../../../../rust/pkg/orbit.js', async importOriginal => {
       constructor(...made: ConstructorParameters<typeof crate.Grid>) {
         super(...made)
         built.grids++
+      }
+    },
+    Tracer  : class extends crate.Tracer {
+      override trace(...traced: Parameters<typeof crate.Tracer.prototype.trace>) {
+        if (built.throws) throw new Error('unreachable')
+        return super.trace(...traced)
       }
     }
   }
@@ -64,8 +70,9 @@ class Channel {
  */
 const loaded = async (answer = () => new Response(file)) => {
   heard       = []
-  heed        = () => {}
-  built.grids = 0
+  heed         = () => {}
+  built.grids  = 0
+  built.throws = false
   const scope = {
     onmessage   : null as unknown,
     postMessage : (posted: Answer) => {
@@ -110,6 +117,13 @@ describe('loading the catalog', () => {
     expect(heard).toEqual([{ reason: 'Error: The catalog answered 503', type: 'failed' }])
   })
 
+  it('counts each satellite once on a second load, after dropping the catalog it held', async () => {
+    await loaded()
+    const first = heard.length
+    await hear({ type: 'load', url: '/catalog.bin' })
+    expect(heard.slice(first)).toEqual(heard.slice(0, first))
+  })
+
   it('answers no scan asked for before a catalog has loaded', async () => {
     await loaded(() => new Response(null, { status: 503 }))
     await hear(scanOf(1))
@@ -136,6 +150,11 @@ describe('a scan', () => {
     expect(new Set(starlink)).toEqual(new Set([false, true]))
   })
 
+  it('stops a scan under way once a new load arrives, posting neither its end nor a failure', async () => {
+    await Promise.all([hear(scanOf(1)), hear({ type: 'load', url: '/catalog.bin' })])
+    expect(typesOf(1)).toEqual([])
+  })
+
   it.each([
     ['while it builds the grid, before it posts anything', false, []],
     ['over a grid it holds, before it finishes', true, ['counts', 'passes']]
@@ -145,6 +164,13 @@ describe('a scan', () => {
     expect([typesOf(2), typesOf(3).at(-1)]).toEqual([older, 'done'])
   })
 
+  it('builds a new grid for the same window once a new load drops the catalog', async () => {
+    await hear(scanOf(1))
+    await hear({ type: 'load', url: '/catalog.bin' })
+    await hear(scanOf(2))
+    expect([built.grids, typesOf(2).at(-1)]).toEqual([2, 'done'])
+  })
+
   it.each([
     ['keeps the grid for another spot in the same window', { latitude: -33.87, longitude: 151.21 }, START, 1],
     ['builds a new grid for a window opening at another time', answers.spot, START + 60_000, 2]
@@ -152,6 +178,18 @@ describe('a scan', () => {
     await hear(scanOf(1))
     await hear(scanOf(2, spot, start))
     expect([built.grids, typesOf(2).at(-1)]).toEqual([grids, 'done'])
+  })
+})
+
+describe('a scan that throws', () => {
+  beforeEach(() => loaded())
+
+  it('answers that the passes could not be traced, and the next scan finishes', async () => {
+    built.throws = true
+    await hear(scanOf(1))
+    built.throws = false
+    await hear(scanOf(2))
+    expect([typesOf(1), typesOf(2).at(-1)]).toEqual([['counts', 'untraced'], 'done'])
   })
 })
 

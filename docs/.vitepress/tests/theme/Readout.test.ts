@@ -3,11 +3,16 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { expect, it, vi }         from 'vitest'
 import { defineComponent, h }     from 'vue'
 
+import { DAY }                      from '../../lib/orbit/catalog.ts'
 import { kindOrder }                from '../../lib/orbit/kinds.ts'
+import type { sky as Sky }          from '../../lib/state/sky.ts'
+import { WORDS }                    from '../../lib/state/words.ts'
 import { dialogListens, fakeClock } from '../common/frames.ts'
 import { passOf }                   from '../common/passes.ts'
 import { lateSky }                  from '../common/sky.ts'
 import { stubMatchMedia }           from '../common/stubs.ts'
+
+const FAILED = 'Error: The catalog answered 503'
 
 /**
  * Returns the line naming the place and the time, its spacing collapsed.
@@ -18,7 +23,8 @@ const lineOf = (wrapper: VueWrapper) => wrapper.get('p.truncate')
 
 /**
  * Mounts the readout over a fresh copy of the shared state and a stand-in
- * worker, with the scan finished, a count announced, and the window opening at
+ * worker, with a catalog loaded, the scan finished, a count announced, and the
+ * window opening at
  * 11:47 PM on Tuesday, November 10, 2026 in New York's time zone, read at
  * `seconds` into it, the device asking for reduced motion where `reduced` is
  * set.
@@ -26,6 +32,7 @@ const lineOf = (wrapper: VueWrapper) => wrapper.get('p.truncate')
 const mounted = async (seconds: number, reduced = false) => {
   stubMatchMedia(query => reduced && query.includes('reduce'))
   const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.tsx'))
+  sky.loaded.value = { count: 9, fetched: sky.start.value }
   sky.done.value   = true
   sky.spoken.value = '5 satellites above the horizon'
   sky.at.value     = seconds
@@ -85,7 +92,6 @@ it('names the kind the tally holds last, with how many the map draws of how many
 
 it('sets the figure to what the map draws and the last line to what stands above the horizon', async () => {
   const { sky, wrapper } = await mounted(0)
-  sky.loaded.value       = { count: 9, fetched: sky.start.value }
   sky.up.value           = 12
   sky.reading.value      = { ...sky.reading.value, above: 9, onMap: 5 }
   await wrapper.vm.$nextTick()
@@ -146,4 +152,47 @@ it('settles the name of the place in letter by letter only once the spot moves',
   sky.place.value        = 'Paris'
   await wrapper.vm.$nextTick()
   expect([before, settling()]).toEqual([before.map(() => false), [true, true, true, true, true]])
+})
+
+it.each([
+  ['waits with no count while the catalog downloads', (sky: typeof Sky) => {
+    sky.loaded.value = null
+    sky.done.value   = false
+  }, ['···', WORDS.fetching]],
+  ['waits with no count until the scan places its first satellite',
+    (sky: typeof Sky) => { sky.done.value = false }, ['···', 'Tracing passes 0%']],
+  ['counts the satellites placed while the scan traces the rest', (sky: typeof Sky) => {
+    sky.done.value  = false
+    sky.share.value = 0.25
+  }, ['5', 'Tracing passes 25%']],
+  ['reads no count and offers a retry where the catalog did not load', (sky: typeof Sky) => {
+    sky.loaded.value = null
+    sky.failed.value = FAILED
+  }, ['—', `${WORDS.unloaded}${WORDS.retry}`]],
+  ['keeps the count and offers a retry where the catalog failed partway',
+    (sky: typeof Sky) => { sky.failed.value = FAILED }, ['5', `${WORDS.partial}${WORDS.retry}`]],
+  ['reads no count where the scan threw before placing anything', (sky: typeof Sky) => {
+    sky.done.value     = false
+    sky.untraced.value = true
+  }, ['—', WORDS.untraced]],
+  ['reads no count and the orbits’ age once the catalog has expired',
+    (sky: typeof Sky) => { sky.loaded.value = { count: 9, fetched: sky.start.value - 15 * DAY } },
+    ['—', 'Orbits 15 days old, too old to draw']],
+  ['reads no count where the map cannot draw', (sky: typeof Sky) => { sky.blank.value = true },
+    ['—', 'Of 9 above the horizon']]
+])('%s', async (_, set, readings) => {
+  const { sky, wrapper } = await mounted(0)
+  sky.reading.value      = { ...sky.reading.value, above: 9, onMap: 5 }
+  set(sky)
+  await wrapper.vm.$nextTick()
+  expect([wrapper.get('output').text(), wrapper.findAll('p.caps').at(-1)!.text()]).toEqual(readings)
+})
+
+it('loads the catalog again on a press of the retry', async () => {
+  const { sky, wrapper } = await mounted(0)
+  sky.failed.value       = FAILED
+  const load             = vi.spyOn(sky, 'load').mockImplementation(() => {})
+  await wrapper.vm.$nextTick()
+  await wrapper.findAll('p.caps').at(-1)!.get('button').trigger('click')
+  expect(load).toHaveBeenCalledOnce()
 })
