@@ -139,9 +139,10 @@ export const wordOf = (name: string) => name.split(' ').at(-1) ?? ''
  * Holds the declarations under `.github/` and `.mise/` that name one another,
  * meaning the label registry, the release categories, the issue templates, the
  * contributor guide, the workflows and the action manifests, the rulesets, the
- * tasks, and the task the local sweep runs, and reports each place two of them
- * disagree, each label, action, matrix row, or workflow breaking a rule of its
- * own, and each publishing job missing or running under another condition.
+ * tasks, and the task the local sweep runs. It reports where two of them
+ * disagree, where a label, an action, a matrix row, or a workflow breaks a
+ * rule of its own, and where a publishing job is missing or runs under
+ * another condition.
  */
 export class Repository {
   constructor(
@@ -201,12 +202,13 @@ export class Repository {
    *   label registry, or the guide missing a gate or a row beside its task
    * - A ruleset requiring a check other than a gate, or `repo:ci` and the rows
    *   running different tasks
-   * - A job running a task `.mise/tasks/` does not declare, or restoring a tool
-   *   set no `🛰️ Warm` row saves
+   * - A workflow or an action running a task `.mise/tasks/` does not declare,
+   *   or a job restoring a tool set no `🛰️ Warm` row saves
    * - A label breaking the registry's form, or sharing a name or a near color
    *   with another
-   * - An action naming no full commit or two different ones
-   * - A matrix row key outside `name`, `task`, and `tools`
+   * - An action from outside the repository naming no full commit or two
+   *   different ones
+   * - A matrix row holding a key other than `name`, `task`, and `tools`
    * - A workflow ending on no job that needs every other job
    * - A `GUARDS` job missing or running under another condition
    */
