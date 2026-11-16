@@ -42,7 +42,7 @@ export const SOURCE = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&
  * since the last download, per its GP data documentation at
  * https://celestrak.org/NORAD/documentation/gp-data-formats.php.
  */
-export const UNCHANGED = 'GP data has not updated since your last successful download'
+const UNCHANGED = 'GP data has not updated since your last successful download'
 /**
  * The statuses Cloudflare answers with when it cannot open a connection to
  * CelesTrak.

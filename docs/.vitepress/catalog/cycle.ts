@@ -61,7 +61,7 @@ export const REGIONS = ['weur', 'apac', 'enam', 'wnam', 'eeur'] as const satisfi
  * attempt, or of the end of a wait, and still download, covering the seconds
  * by which the time a scheduled run reads varies past the hour.
  */
-export const SLACK = 60_000
+const SLACK = 60_000
 
 /**
  * Returns whether `time` falls more than `SLACK` before `end`.
