@@ -3,11 +3,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi }       from 'vitest'
 import { ref }                  from 'vue'
 
-import { TRACK_WIDTH }    from '../../lib/orbit/scan.ts'
-import { SHEETS }         from '../../lib/site/sheets.ts'
-import { passOf }         from '../common/passes.ts'
-import { freshSky }       from '../common/sky.ts'
-import { stubMatchMedia } from '../common/stubs.ts'
+import { STEEP, TRACK_WIDTH } from '../../lib/orbit/scan.ts'
+import { SHEETS }             from '../../lib/site/sheets.ts'
+import { passOf }             from '../common/passes.ts'
+import { freshSky }           from '../common/sky.ts'
+import { stubMatchMedia }     from '../common/stubs.ts'
 
 const {
   GPU, TOWN, cameraForBounds, caught, draw, easeTo, fitBounds, frame, gather, handlers, thrown
@@ -191,15 +191,21 @@ it('eases the map back to the spot once the pinned pass is let go', async () => 
   expect(easeTo.mock.calls).toEqual([[{ center: [longitude, latitude] }]])
 })
 
-it('gives a pass that never climbs past 30° only the step fitting its whole crossing', async () => {
-  const { pass, sky } = await mounted()
-  sky.selected.value  = pass
-  sky.done.value      = true
+it.each([
+  ['on the horizon only the step fitting its whole crossing', 0, 1],
+  ['at the steep elevation only the step fitting its whole crossing', STEEP, 1],
+  ['one degree past it the step into its high stretch as well', STEEP + 1, 2]
+] as const)('gives a pass held %s', async (_, elevation, steps) => {
+  const { sky } = await mounted()
+  const pass    = passOf(2)
+  sky.tracks.add([pass], new Float32Array(2 * TRACK_WIDTH).fill(elevation), Uint32Array.of(0), 2)
+  sky.selected.value = pass
+  sky.done.value     = true
   await flushPromises()
-  expect(cameraForBounds).toHaveBeenCalledTimes(1)
+  expect(cameraForBounds).toHaveBeenCalledTimes(steps)
 })
 
-it('takes the spot into the high stretch of a pass climbing past 30°', async () => {
+it('takes the spot into the high stretch of a pass climbing past STEEP', async () => {
   const { sky } = await mounted()
   const pass    = passOf(2)
   sky.tracks.add([pass], new Float32Array(2 * TRACK_WIDTH).fill(45), Uint32Array.of(0), 2)

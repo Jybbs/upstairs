@@ -3,14 +3,14 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { expect, it, vi }         from 'vitest'
 import { defineComponent, h }     from 'vue'
 
-import { DAY }                      from '../../lib/orbit/catalog.ts'
-import { kindOrder }                from '../../lib/orbit/kinds.ts'
-import type { sky as Sky }          from '../../lib/state/sky.ts'
-import { WORDS }                    from '../../lib/state/words.ts'
-import { dialogListens, fakeClock } from '../common/frames.ts'
-import { passOf }                   from '../common/passes.ts'
-import { addScanned, lateSky }      from '../common/sky.ts'
-import { stubMatchMedia }           from '../common/stubs.ts'
+import { DAY }                                       from '../../lib/orbit/catalog.ts'
+import { kindOrder }                                 from '../../lib/orbit/kinds.ts'
+import type { sky as Sky }                          from '../../lib/state/sky.ts'
+import { WORDS }                                    from '../../lib/state/words.ts'
+import { dialogListens, fakeClock, unmountOnFinish } from '../common/frames.ts'
+import { passOf }                                    from '../common/passes.ts'
+import { addScanned, lateSky }                       from '../common/sky.ts'
+import { stubMatchMedia }                            from '../common/stubs.ts'
 
 const FAILED = 'Error: The catalog answered 503'
 
@@ -138,9 +138,9 @@ it('keeps the pinned pass on Escape when the spot chooser beside it shuts', asyn
     provideChooser()
     return () => h('div', [h(Readout), h(SpotChooser)])
   }), { attachTo: document.body })
+  unmountOnFinish(wrapper)
   await dialogListens()
   document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }))
-  wrapper.unmount()
   expect([sky.choosing.value, sky.pinned.value]).toEqual(['shut', pass])
 })
 

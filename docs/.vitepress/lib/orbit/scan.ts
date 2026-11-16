@@ -1,6 +1,7 @@
 /**
  * Declares the shape of a scan, meaning the spot it reads, the satellites and
- * passes it reports, and the steps its samples are taken at.
+ * passes it reports, the steps its samples are taken at, and the elevation a
+ * pass climbs to before it counts as high.
  */
 
 import { timeOf, type Record } from './catalog.ts'
@@ -45,6 +46,10 @@ export type Traced = Omit<Pass, keyof Satellite | 'heading' | 'key'> & { heading
  * Seconds between samples of the rough scan that finds what rises at all.
  */
 export const GRID_STEP = 120
+/**
+ * The elevation in degrees a pass climbs to before it counts as high.
+ */
+export const STEEP = 30
 /**
  * Seconds between samples of a track.
  */

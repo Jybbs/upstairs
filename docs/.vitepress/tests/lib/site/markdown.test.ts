@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url'
 import { createMarkdownRenderer, type MarkdownEnv } from 'vitepress'
 import { beforeAll, describe, expect, it }          from 'vitest'
 
-import { citationsOf, markdownOf } from '../../../lib/site/markdown.ts'
-import { SHEETS }                  from '../../../lib/site/sheets.ts'
+import { FIGURES, citationsOf, markdownOf } from '../../../lib/site/markdown.ts'
+import { SHEETS }                           from '../../../lib/site/sheets.ts'
 
 type Rendered = { env: MarkdownEnv, html: string }
 
@@ -63,7 +63,10 @@ describe('markdownOf', () => {
     ['a code span', 'Write `[^surname2024]` after the claim.', []],
     ['a code span between double backticks', 'Write ``[^surname2024]`` after the claim.', []],
     ['a fenced block', '```md\nA claim[^surname2024].\n```\n\nA check[^kelso2007].', ['kelso2007']],
-    ['a block fenced by tildes', '~~~md\nA claim[^surname2024].\n~~~\n\nA check[^kelso2007].', ['kelso2007']]
+    ['a block fenced by tildes', '~~~md\nA claim[^surname2024].\n~~~\n\nA check[^kelso2007].', ['kelso2007']],
+    ['a fenced block in a list item',
+      '- item\n\n  ```md\n  A[^surname2024].\n\n  A[^surname2024].\n  ```\n\nA check[^kelso2007].',
+      ['kelso2007']]
   ])('reads no footnote key inside %s', async (_, src, keys) =>
     expect([...(await render(src)).html.matchAll(/data-csl-entry-id="(\w+)"/g)].map(([, key]) => key))
       .toEqual(keys))
@@ -71,6 +74,51 @@ describe('markdownOf', () => {
   it('sets the entry for a key whose only definition sits inside code', async () =>
     expect((await render('A check[^kelso2007].\n\n```md\n[^kelso2007]: Kelso.\n```')).html)
       .toContain('<div data-csl-entry-id="kelso2007"'))
+
+  it.each(Object.entries(FIGURES))('writes the figure %s as the value %s', async (name, value) =>
+    expect((await render(`A figure of {{ ${name} }} and {{${name}}}.`)).html)
+      .toContain(`<p>A figure of ${value} and ${value}.</p>`))
+
+  it.each(['nobody', 'toString', 'AGES.limit', '$frontmatter.title'])('fails on the figure %s', name =>
+    expect(render(`A guess of {{ ${name} }}.`))
+      .rejects.toThrow(`The figure ${name} names no entry in FIGURES`))
+
+  it.each([
+    ['a code span', 'Write `{{ home }}` at {{ steep }}.'],
+    ['a fenced block', '```md\n{{ home }}\n```\n\nRead at {{ steep }}.'],
+    ['a block fenced by tildes', '~~~md\n{{ home }}\n~~~\n\nRead at {{ steep }}.'],
+    ['a fenced block in a list item',
+      '- item\n\n  ```md\n  {{ home }}\n\n  {{ home }}\n  ```\n\nRead at {{ steep }}.'],
+    ['an HTML comment', '<!-- {{ home }} -->\n\nRead at {{ steep }}.'],
+    ['a v-pre container', '::: v-pre\n{{ home }}\n:::\n\nRead at {{ steep }}.'],
+    ['inline math', 'Write $\\text{{{ home }}}$ at {{ steep }}.'],
+    ['display math', '$$\n\\text{{{ home }}}\n$$\n\nRead at {{ steep }}.']
+  ])('writes no figure inside %s', async (_, src) => {
+    const { html } = await render(src)
+    expect(html).toContain(`at ${FIGURES.steep}.`)
+    expect(html).toContain('{{ home }}')
+    expect(html).not.toContain(FIGURES.home)
+  })
+
+  it('writes a figure whose first brace is escaped', async () =>
+    expect((await render('A figure of \\{{ steep }}.')).html)
+      .toContain(`<p>A figure of ${FIGURES.steep}.</p>`))
+
+  it.each([
+    ['a block element', '<div v-pre>\n\nA sign.\n\n</div>\n\n{{ steep }} degrees is steep.'],
+    ['an inline element', 'Write <span v-pre>{{ home }}</span> at {{ steep }}.']
+  ])('fails on a figure beside %s marked v-pre', (_, src) =>
+    expect(render(src)).rejects.toThrow('A page writing a figure marks verbatim text with ::: v-pre'))
+
+  it.each([
+    ['writing no figure', '<div v-pre>{{ home }}</div>'],
+    ['writing braces only in a v-pre container', '::: v-pre\n{{ home }}\n:::\n\n<div v-pre>{{ home }}</div>']
+  ])('keeps the braces inside an element marked v-pre on a page %s', async (_, src) =>
+    expect((await render(src)).html).toContain('<div v-pre>{{ home }}</div>'))
+
+  it('writes a figure beside the attributes data-v-pre and v-prefix', async () =>
+    expect((await render('<div data-v-pre v-prefix>\n\nRead at {{ steep }}.\n\n</div>')).html)
+      .toContain(`at ${FIGURES.steep}.`))
 
   it.each([
     ['inline between single dollars', 'An angle $\\theta$ rises.'],
@@ -92,12 +140,33 @@ describe('markdownOf', () => {
   it('links no stylesheet from a page setting no formula', async () =>
     expect((await render('Twelve dollars, $12, buy no formula.')).env.frontmatter?.head).toBeUndefined())
 
+  it.each([
+    ['inline between single dollars', 'A square $x^{{2}}$ at {{ steep }}.'],
+    ['on its own line between double dollars', '$$\nx^{{2}}\n$$\n\nRead at {{ steep }}.'],
+    ['inline closing after a space', 'A square $x^{{2}} $ at {{ steep }}.'],
+    ['inline across a line break', 'A square $x^{{2}}\ny$ at {{ steep }}.'],
+    ['inline holding an escaped dollar', 'A square $x^{{2}} \\$ 1$ at {{ steep }}.']
+  ])('sets a formula %s holding double braces as TeX', async (_, src) => {
+    const { html } = await render(src)
+    expect(html).toContain('<annotation encoding="application/x-tex">x^{{2}}')
+    expect(html).toContain(`at ${FIGURES.steep}.`)
+    expect(html).not.toContain('katex-error')
+  })
+
+  it.each([
+    ['an escaped dollar', 'Costs \\$5 at {{ steep }}$ each.'],
+    ['a dollar after a letter', 'A a$x at {{ steep }}$ b.'],
+    ['a dollar before a letter', 'A $x at {{ steep }}$s b.'],
+    ['three dollars', 'A $$$x at {{ steep }}$ b.']
+  ])('writes a figure beside %s that opens no formula', async (_, src) =>
+    expect((await render(src)).html).toContain(`at ${FIGURES.steep}$`))
+
   it('marks a formula KaTeX cannot set', async () =>
     expect((await render('A broken $\\frac{1}$ formula.')).html).toContain('<span class="katex-error"'))
 
-  it.each(PAGES)('sets every formula and footnote on %s', async page => {
+  it.each(PAGES)('sets every formula, footnote, and figure on %s', async page => {
     const { html } = await render(readFileSync(join(ROOT, page), 'utf8'))
     expect(html).not.toContain('katex-error')
-    expect(html.replace(/<code>[\s\S]*?<\/code>/g, '')).not.toMatch(/\[\^\w+\]/)
+    expect(html.replace(/<code>[\s\S]*?<\/code>/g, '')).not.toMatch(/\[\^\w+\]|\{\{/)
   })
 })

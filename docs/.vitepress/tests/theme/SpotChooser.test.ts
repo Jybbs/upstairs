@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
-import { mount, type VueWrapper }         from '@vue/test-utils'
-import { expect, it, onTestFinished, vi } from 'vitest'
-import { ref }                            from 'vue'
+import { mount, type VueWrapper } from '@vue/test-utils'
+import { expect, it, vi }         from 'vitest'
+import { ref }                    from 'vue'
 
-import { dialogListens, fakeClock, framesOf } from '../common/frames.ts'
-import { freshSky }                           from '../common/sky.ts'
-import { stubMatchMedia }                     from '../common/stubs.ts'
+import { dialogListens, fakeClock, framesOf, unmountOnFinish } from '../common/frames.ts'
+import { freshSky }                                            from '../common/sky.ts'
+import { stubMatchMedia }                                      from '../common/stubs.ts'
 
 vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
@@ -16,9 +16,7 @@ vi.mock('@vueuse/core', async original => ({
  * Mounts the spot chooser, 240 pixels tall and opened, over a fresh copy of
  * the shared state and a stand-in worker, on a phone where `phone` is set,
  * on the fake clock once its dialog listens for Escape and for presses
- * outside it. Once the case finishes, it unmounts the chooser, runs the two
- * frames its dialog's layer takes to leave the shared layer stack, and checks
- * the chooser left the document, before the clock turns real.
+ * outside it, unmounting it through `unmountOnFinish` once the case finishes.
  */
 const mounted = async (phone = false) => {
   stubMatchMedia(query => phone && query.includes('40rem'))
@@ -26,11 +24,7 @@ const mounted = async (phone = false) => {
   fakeClock()
   sky.choose()
   const wrapper = mount(SpotChooser, { attachTo: document.body })
-  onTestFinished(async () => {
-    wrapper.unmount()
-    await framesOf(2)
-    expect(document.body).not.toContain(wrapper.element)
-  })
+  unmountOnFinish(wrapper)
   await dialogListens()
   return { sky, wrapper }
 }

@@ -8,6 +8,7 @@ import type { Answer, Asked }             from '../orbit/worker.ts'
 import { clamp }                          from '../site/motion.ts'
 import { footholdsOf }                    from '../site/ridges.ts'
 import * as address                       from './address.ts'
+import { CLOCK }                          from './clock.ts'
 import { Tracks }                         from './tracks.ts'
 import { type Stage, momentOf }           from './words.ts'
 
@@ -29,17 +30,9 @@ interface Reading {
   onMap      : number
 }
 
-/**
- * The clock's tuning in seconds, except `lapse` as a multiple of real speed
- * and `latch` in milliseconds: how far into the window the present stands as
- * it opens, how far a press moves a held frame on under reduced motion, the
- * fast-forward's speed, and how long the readout holds a reading.
- */
-export const CLOCK   = { ahead: 300, lapse: 60, latch: 30_000, lead: 300 } as const
 export const HEIGHTS = [0, 30, 60, 80] as const
 const MINUTES        = 60
 const ROWS           = 200
-const SPOKEN         = 20_000
 const WORTH          = 20
 const clockFormat    = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' })
 const dayFormat      = new Intl.DateTimeFormat([], { day: 'numeric', month: 'short', weekday: 'short' })
@@ -584,11 +577,11 @@ class Sky {
   }
 
   /**
-   * Writes the count to `spoken` at most once every `SPOKEN` milliseconds.
+   * Writes the count to `spoken` at most once every `CLOCK.spoken` milliseconds.
    */
   private speak() {
     const now = Date.now()
-    if (now - this.spokenAt < SPOKEN) return
+    if (now - this.spokenAt < CLOCK.spoken) return
     this.spokenAt     = now
     this.spoken.value = `${this.up.value.toLocaleString()} satellites above the horizon`
   }
