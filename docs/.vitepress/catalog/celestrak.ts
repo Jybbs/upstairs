@@ -7,11 +7,18 @@ import type { Record } from '../lib/orbit/catalog.ts'
 
 /**
  * What starts a wait of the download cycle once a request reaches CelesTrak,
- * where a refusal keeps the status, the headers in `KEPT`, and the first
- * `EXCERPT` characters of the body CelesTrak answered with.
+ * where a refusal or a 403 for data that has not updated keeps the status, the
+ * headers in `KEPT`, and the first `EXCERPT` characters of the body CelesTrak
+ * answered with.
  */
 export type Failure =
-  | { kind: 'refused', reason: string, body: string, headers: { [name: string]: string }, status: number }
+  | {
+      body    : string
+      headers : { [name: string]: string }
+      kind    : 'refused' | 'unchanged'
+      reason  : string
+      status  : number
+    }
   | { kind: 'unanswered' | 'unchecked', reason: string }
 
 const AGENT    = 'upstairs-catalog'
@@ -30,6 +37,12 @@ export const HEADER_WAIT = 30_000
  */
 export const KEPT   = ['cf-ray', 'content-type', 'location', 'retry-after']
 export const SOURCE = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json'
+/**
+ * The message of the 403 CelesTrak answers while its data has not updated
+ * since the last download, per its GP data documentation at
+ * https://celestrak.org/NORAD/documentation/gp-data-formats.php.
+ */
+export const UNCHANGED = 'GP data has not updated since your last successful download'
 /**
  * The statuses Cloudflare answers with when it cannot open a connection to
  * CelesTrak.
@@ -54,8 +67,9 @@ export class Unreachable extends Error {}
 
 /**
  * Reads the refusal out of an answer other than 200, canceling its body once
- * `EXCERPT` characters have arrived. Where reading the body fails, the refusal
- * keeps the characters already read and names the error in its reason.
+ * `EXCERPT` characters have arrived, and marks a 403 whose body holds
+ * `UNCHANGED` as unchanged. Where reading the body fails, the refusal keeps the
+ * characters already read and names the error in its reason.
  */
 const refusalOf = async (response: Response): Promise<Failure> => {
   let body   = ''
@@ -71,7 +85,7 @@ const refusalOf = async (response: Response): Promise<Failure> => {
   return {
     body    : body.slice(0, EXCERPT),
     headers : Object.fromEntries([...response.headers].filter(([name]) => KEPT.includes(name))),
-    kind    : 'refused',
+    kind    : response.status === 403 && body.includes(UNCHANGED) ? 'unchanged' : 'refused',
     reason  : reason,
     status  : response.status
   }

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as celestrak from '../../catalog/celestrak.ts'
-import { Cycle, EVERY, LONGEST, REGIONS, type Region, type Wait } from '../../catalog/cycle.ts'
+import { Cycle, EVERY, LONGEST, REGIONS, type Region, SLACK, type Wait } from '../../catalog/cycle.ts'
 import * as catalog   from '../../lib/orbit/catalog.ts'
 import full           from '../fixtures/records.json' with { type: 'json' }
 
@@ -12,7 +12,7 @@ const records = Array.from({ length: 5000 }, (_, row) => ({
 }))
 const start = Date.parse('2026-11-10T00:00:00Z')
 
-const SPACINGS = [[EVERY - 1, 'early'], [EVERY, 'stored']] as const
+const SPACINGS = [[EVERY - SLACK - 1, 'early'], [EVERY - SLACK, 'stored']] as const
 const BACKOFF  = [EVERY, 2 * EVERY, 4 * EVERY, 8 * EVERY, LONGEST, LONGEST]
 const ASKED    = [
   ['the doubled wait', '60', EVERY],
@@ -29,9 +29,10 @@ const HALTS    = [
   ['a record holding no time', halted, start],
   ['text', 'Error: CelesTrak answered 403', start]
 ] as const
-const REFUSALS = [301, 403, 404, 500, 503, 520]
-const refused  = (status: number) => () => new Response(null, { status })
-const MISSES   = [
+const REFUSALS  = [301, 403, 404, 500, 503, 520]
+const refused   = (status: number) => () => new Response(null, { status })
+const unchanged = () => new Response(`<p>${celestrak.UNCHANGED}.</p>`, { status: 403 })
+const MISSES    = [
   ['Cloudflare answers 521', refused(521), '521'],
   ['Cloudflare answers 522', refused(522), '522'],
   ['Cloudflare answers 523', refused(523), '523'],
@@ -127,7 +128,7 @@ describe('a download cycle', () => {
     })
     const { cycle, state, fetcher } = cycleOf(() => new Response(body(), { status: 403 }))
     expect(await cycle.run(start)).toBe('waiting')
-    expect(await cycle.run(start + EVERY - 1)).toBe('waiting')
+    expect(await cycle.run(start + EVERY - SLACK - 1)).toBe('waiting')
     expect(fetcher).toHaveBeenCalledOnce()
     expect(state.get('wait')).toMatchObject({ kind: 'refused', region: REGIONS[0], status: 403 })
   })
@@ -262,7 +263,7 @@ describe('a download cycle', () => {
       await cycle.run(start)
       const wait = state.get('wait')
       expect(await cycle.run(start + 1)).toBe('waiting')
-      expect(await cycle.run(start + EVERY - 1)).toBe('waiting')
+      expect(await cycle.run(start + EVERY - SLACK - 1)).toBe('waiting')
       expect(fetcher).toHaveBeenCalledOnce()
       expect(logged()).toEqual([wait, ...Array(2).fill({ event: 'catalog.blocked', wait })])
     })
@@ -297,6 +298,51 @@ describe('a download cycle', () => {
       expect(state.get('wait')).toMatchObject({ refusals: 2, until })
     })
 
+  it('waits for the next scheduled run after a 403 for data that has not updated, keeping the refusal '
+   + 'count where it stood', async () => {
+    let answer = unchanged
+    const { cycle, waited } = cycleOf(() => answer())
+    expect(await cycle.run(start)).toBe('waiting')
+    expect(logged()).toEqual([waited()])
+    expect(waited()).toMatchObject({
+      kind     : 'unchanged',
+      reason   : 'CelesTrak answered 403',
+      refusals : 0,
+      status   : 403,
+      until    : new Date(start + EVERY).toISOString()
+    })
+    answer = refused(403)
+    await cycle.run(start + EVERY)
+    answer = unchanged
+    await cycle.run(start + 2 * EVERY)
+    const after = new Date(start + 3 * EVERY).toISOString()
+    expect(waited()).toMatchObject({ kind: 'unchanged', refusals: 1, until: after })
+    answer = refused(403)
+    await cycle.run(start + 3 * EVERY)
+    const doubled = new Date(start + 5 * EVERY).toISOString()
+    expect(waited()).toMatchObject({ kind: 'refused', refusals: 2, until: doubled })
+  })
+
+  it('waits for the next scheduled run after a 403 for data that has not updated, whatever retry-after '
+   + 'reads', async () => {
+    const headers           = { 'retry-after': String(LONGEST / 1000) }
+    const { cycle, waited } = cycleOf(() => new Response(celestrak.UNCHANGED, { status: 403, headers }))
+    await cycle.run(start)
+    expect(waited()).toMatchObject({ kind: 'unchanged', until: new Date(start + EVERY).toISOString() })
+  })
+
+  it.each([
+    ['the last attempt', good, 'stored'],
+    ['the end of a wait', refused(403), 'waiting']
+  ])('downloads on a scheduled run seconds short of two hours after %s', async (_, answer, first) => {
+    let next = answer
+    const { cycle, fetcher } = cycleOf(() => next())
+    expect(await cycle.run(start + 11_000)).toBe(first)
+    next = good
+    expect(await cycle.run(start + EVERY)).toBe('stored')
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
   it.each(HALTS)('turns a halt stored as %s into a wait ending two hours after the halt, '
                + 'deleting the old keys', async (_, halt, at) => {
     const { cycle, state, fetcher } = cycleOf(good)
@@ -317,8 +363,8 @@ describe('a download cycle', () => {
       until    : new Date(at + EVERY).toISOString()
     })
     expect(logged()).toEqual([wait])
-    expect(await cycle.run(at + EVERY - 1)).toBe('waiting')
-    expect(await cycle.run(at + EVERY)).toBe('stored')
+    expect(await cycle.run(at + EVERY - SLACK - 1)).toBe('waiting')
+    expect(await cycle.run(at + EVERY - SLACK)).toBe('stored')
   })
 
   it('downloads on the first run after a halt recorded more than two hours before it', async () => {

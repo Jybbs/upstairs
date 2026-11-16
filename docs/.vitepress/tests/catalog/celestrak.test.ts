@@ -64,6 +64,17 @@ describe('a download', () => {
     })
   })
 
+  it.each([
+    [403, `<p>${celestrak.UNCHANGED}.</p>`, 'unchanged'],
+    [403, celestrak.UNCHANGED.toLowerCase(), 'refused'],
+    [429, celestrak.UNCHANGED, 'refused']
+  ])('marks a %i whose body reads %j as %s', async (status, body, kind) => {
+    const answer = new Response(body, { status })
+    await expect(celestrak.download(Promise.resolve(answer))).rejects.toMatchObject({
+      failure: { body, kind, status }
+    })
+  })
+
   it('keeps an empty body of a refusal that carries none', async () => {
     const answer = new Response(null, { status: 304 })
     await expect(celestrak.download(Promise.resolve(answer))).rejects.toMatchObject({
