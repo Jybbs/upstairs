@@ -1,17 +1,18 @@
-import { Window, type Document }  from 'happy-dom'
-import { createMarkdownRenderer } from 'vitepress'
-import { beforeAll, expect, it }  from 'vitest'
+import { Window, type Document }                         from 'happy-dom'
+import { type MarkdownRenderer, createMarkdownRenderer } from 'vitepress'
+import { beforeAll, expect, it }                         from 'vitest'
 
 import { drawFootnotes, morseOf, nameOf } from '../../../lib/site/footnotes.ts'
 
 const PAGE = 'A model[^vallado2006], its revision[^vallado2006], and a check[^kelso2007].\n\n'
            + '[^vallado2006]: Vallado.\n\n[^kelso2007]: Kelso.'
 
+let md: MarkdownRenderer
 let page: Document
 
 beforeAll(async () => {
-  const md = await createMarkdownRenderer('.', { config: drawFootnotes })
-  page     = new new Window().DOMParser().parseFromString(await md.renderAsync(PAGE, {}), 'text/html')
+  md   = await createMarkdownRenderer('.', { config: drawFootnotes })
+  page = new new Window().DOMParser().parseFromString(await md.renderAsync(PAGE, {}), 'text/html')
 })
 
 const labels = (selector: string) =>
@@ -52,6 +53,17 @@ it('points each return at the anchor beside the marker it came from', () => {
   expect(targets).toEqual(anchors)
   expect(new Set(targets).size).toBe(targets.length)
 })
+
+it.each([
+  ['alone', 'A claim^[a *note*].'],
+  ['beside a citation', `A claim^[a *note*] and ${PAGE}`],
+  ['inside the alt text of an image', '![A claim^[a *note*]](/x.png)']
+])('fails on an inline footnote %s, naming it and the citation to write', (_, src) =>
+  expect(md.renderAsync(src, {})).rejects.toThrow('The inline footnote ^[a *note*] names no entry in '
+                                                + 'docs/references.bib, so cite one as [^key] instead'))
+
+it('sets an inline footnote written inside a code span as code', async () =>
+  expect(await md.renderAsync('Write `^[a note]` after the claim.', {})).toContain('<code>^[a note]</code>'))
 
 it('spells SOURCES in Morse code', () =>
   expect(morseOf('SOURCES')).toBe('. . .   - - -   . . -   . - .   - . - .   .   . . .       '))

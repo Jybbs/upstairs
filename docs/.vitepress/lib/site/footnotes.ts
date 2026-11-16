@@ -111,13 +111,20 @@ export const nameOf = (key: string) => key.replace(/^(\w)([a-z]*)(\d{4})$/, (_, 
  * Sets each footnote marker on the page as the Trails marker and the list at
  * the page's foot as the Spine section, each entry opening on its own marker
  * and each return drawn as the marker with the Northbound shaft on its disc,
- * lettered where a source is cited more than once.
+ * lettered where a source is cited more than once, and failing on an inline
+ * footnote, which names no source.
  */
 export const drawFootnotes = (md: MarkdownRenderer) => {
-  const { rules } = md.renderer
-  const anchor    = rules.footnote_anchor_name!
-  const sub: Rule = (tokens, idx) => tokens[idx].meta.subId > 0 ? `:${tokens[idx].meta.subId}` : ''
-  const note: Rule = (tokens, idx, _, env) => env.footnotes.list[tokens[idx].meta.id].label
+  const { rules }  = md.renderer
+  const anchor     = rules.footnote_anchor_name!
+  const sub: Rule  = (tokens, idx) => tokens[idx].meta.subId > 0 ? `:${tokens[idx].meta.subId}` : ''
+  const note: Rule = (tokens, idx, _, env) => {
+    const { content, label } = env.footnotes.list[tokens[idx].meta.id]
+    if (label === undefined)
+      throw new Error(`The inline footnote ^[${content}] names no entry in docs/references.bib, `
+                    + 'so cite one as [^key] instead')
+    return label
+  }
 
   rules.footnote_ref = (tokens, idx, options, env, self) => {
     const id = anchor(tokens, idx, options, env, self)
