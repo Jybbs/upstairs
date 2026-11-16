@@ -56,7 +56,8 @@ it('points each return at the anchor beside the marker it came from', () => {
 
 it.each([
   ['alone', 'A claim^[a *note*].'],
-  ['beside a citation', `A claim^[a *note*] and ${PAGE}`]
+  ['beside a citation', `A claim^[a *note*] and ${PAGE}`],
+  ['inside the alt text of an image', '![A claim^[a *note*]](/x.png)']
 ])('fails on an inline footnote %s, naming it and the citation to write', (_, src) =>
   expect(md.renderAsync(src, {})).rejects.toThrow('The inline footnote ^[a *note*] names no entry in '
                                                 + 'docs/references.bib, so cite one as [^key] instead'))
