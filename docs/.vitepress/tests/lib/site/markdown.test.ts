@@ -105,13 +105,20 @@ describe('markdownOf', () => {
       .toContain(`<p>A figure of ${FIGURES.steep}.</p>`))
 
   it.each([
-    ['a block element', '<div v-pre>\n\nA sign.\n\n</div>\n\nRead at {{ steep }}.'],
+    ['a block element', '<div v-pre>\n\nA sign.\n\n</div>\n\n{{ steep }} degrees is steep.'],
     ['an inline element', 'Write <span v-pre>{{ home }}</span> at {{ steep }}.']
   ])('fails on a figure beside %s marked v-pre', (_, src) =>
     expect(render(src)).rejects.toThrow('A page writing a figure marks verbatim text with ::: v-pre'))
 
-  it('keeps the braces inside an element marked v-pre on a page writing no figure', async () =>
-    expect((await render('<div v-pre>{{ home }}</div>')).html).toContain('<div v-pre>{{ home }}</div>'))
+  it.each([
+    ['writing no figure', '<div v-pre>{{ home }}</div>'],
+    ['writing braces only in a v-pre container', '::: v-pre\n{{ home }}\n:::\n\n<div v-pre>{{ home }}</div>']
+  ])('keeps the braces inside an element marked v-pre on a page %s', async (_, src) =>
+    expect((await render(src)).html).toContain('<div v-pre>{{ home }}</div>'))
+
+  it('writes a figure beside the attributes data-v-pre and v-prefix', async () =>
+    expect((await render('<div data-v-pre v-prefix>\n\nRead at {{ steep }}.\n\n</div>')).html)
+      .toContain(`at ${FIGURES.steep}.`))
 
   it.each([
     ['inline between single dollars', 'An angle $\\theta$ rises.'],

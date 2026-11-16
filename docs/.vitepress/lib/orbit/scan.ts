@@ -1,6 +1,7 @@
 /**
  * Declares the shape of a scan, meaning the spot it reads, the satellites and
- * passes it reports, and the steps its samples are taken at.
+ * passes it reports, the steps its samples are taken at, and the elevation a
+ * pass climbs to before it counts as high.
  */
 
 import { timeOf, type Record } from './catalog.ts'

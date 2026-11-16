@@ -66,8 +66,9 @@ const valueOf = (_: string, name: string) => {
 
 /**
  * Writes the value `FIGURES` holds for each `{{ name }}` in a text token outside
- * a `v-pre` container, failing on a name it holds no value for and on a page
- * that also marks an HTML element `v-pre`.
+ * a `v-pre` container, failing on a name it holds no value for and on a figure
+ * on a page whose HTML holds `v-pre` after a space, a comment or a quoted value
+ * included.
  */
 const figure = (md: MarkdownRenderer) =>
   md.core.ruler.after('text_join', 'upstairs:figure', state => {
