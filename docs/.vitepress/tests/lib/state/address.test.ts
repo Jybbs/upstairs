@@ -10,7 +10,8 @@ describe('the address', () => {
   ])('writes %o rounded to two decimals as %s', (spot, fragment) => expect(fragmentOf(spot)).toBe(fragment))
   it.each([{ latitude: 51.5, longitude: -0.1246 }, { latitude: -90, longitude: 3.14159 }])(
     'writes each coordinate of %o with the decimals the Data page states',
-    spot => expect(fragmentOf(spot)).toMatch(new RegExp(`^#-?\\d+\\.\\d{${DECIMALS}},-?\\d+\\.\\d{${DECIMALS}}$`))
+    spot => expect(fragmentOf(spot))
+      .toMatch(new RegExp(`^#-?\\d+\\.\\d{${DECIMALS}},-?\\d+\\.\\d{${DECIMALS}}$`))
   )
   it.each([
     ['#42.36,-71.06', { latitude: 42.36, longitude: -71.06 }],

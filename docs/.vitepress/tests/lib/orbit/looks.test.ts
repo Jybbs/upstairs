@@ -16,7 +16,8 @@ describe('the passes of a day', () => {
     expect(watch.passes.length).toBeGreaterThan(1)
   })
 
-  it.each(watch.passes)('places the pass peaking at $peak° inside the day, its peak between its rise and set', pass => {
+  it.each(watch.passes)('places the pass peaking at $peak° inside the day, '
+                      + 'its peak between its rise and set', pass => {
     expect([START, pass.riseAt, pass.peakAt, pass.setAt, START + catalog.DAY]).toEqual(
       [START, pass.riseAt, pass.peakAt, pass.setAt, START + catalog.DAY].sort((a, b) => a - b))
   })
@@ -68,7 +69,8 @@ describe('a watched pass', () => {
     expect(watched.elevationAt(time)).toBe(-90)
   })
 
-  it.each(STEPS)('samples every %i seconds from the start of the day, keeping only samples above the horizon', step => {
+  it.each(STEPS)('samples every %i seconds from the start of the day, '
+               + 'keeping only samples above the horizon', step => {
     const times = watched.comb(step)
     expect(times.filter((time, index) =>
       (time - START) % (step * 1000) !== 0
@@ -76,7 +78,8 @@ describe('a watched pass', () => {
       || index > 0 && time - times[index - 1] !== step * 1000)).toStrictEqual([])
   })
 
-  it.each(STEPS)('takes the highest of the samples every %i seconds, falling no higher than the peak', step => {
+  it.each(STEPS)('takes the highest of the samples every %i seconds, '
+               + 'falling no higher than the peak', step => {
     const highest = watched.elevationAt(watched.highest(step))
     expect(highest).toBe(Math.max(...watched.comb(step).map(time => watched.elevationAt(time))))
     expect(watched.miss(step)).toBe(watched.pass.peak - highest)

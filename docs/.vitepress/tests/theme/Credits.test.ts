@@ -54,7 +54,8 @@ describe('the strip of seals', () => {
     const wrapper = mount(Credits)
     const panels  = wrapper.findAll('[role="tabpanel"]')
     expect(wrapper.findAll('[role="tab"]').map((tab, index) =>
-      [tab.attributes('aria-controls'), panels[index].attributes('aria-labelledby') === tab.attributes('id')]))
+      [tab.attributes('aria-controls'),
+        panels[index].attributes('aria-labelledby') === tab.attributes('id')]))
       .toEqual(SOURCES.map((_, index) => [index ? undefined : panels[0].attributes('id'), true]))
   })
 
@@ -116,7 +117,8 @@ describe('the seals', () => {
   it('scales each stroke of a seal’s glyph by its own transform', () =>
     expect(mount(Credits).findAll('svg.seal').map(seal =>
       seal.findAll('.seal-glyph path').map(path => path.attributes('transform'))))
-      .toEqual(SOURCES.map(source => GLYPHS[source.glyph].map(stroke => 'at' in stroke ? stroke.at : undefined))))
+      .toEqual(SOURCES.map(source =>
+        GLYPHS[source.glyph].map(stroke => 'at' in stroke ? stroke.at : undefined))))
 
   it('centers every letter of each rim on its slot', () =>
     expect(new Set(mount(Credits).findAll('.seal-rim text').map(text => text.attributes('text-anchor'))))
