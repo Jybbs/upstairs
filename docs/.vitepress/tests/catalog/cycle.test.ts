@@ -221,7 +221,7 @@ describe('a download cycle', () => {
     await vi.advanceTimersByTimeAsync(celestrak.HEADER_WAIT)
     expect(await outcome).toBe('waiting')
     expect(fetcher).toHaveBeenCalledOnce()
-    expect(state.get('downloaded')).toBe(start)
+    expect([state.get('aborted'), state.get('downloaded')]).toEqual([start, undefined])
     expect(state.get('wait')).toMatchObject({
       kind   : 'unanswered',
       reason : `No answer within ${celestrak.HEADER_WAIT} ms`,
@@ -404,6 +404,37 @@ describe('a download cycle', () => {
     state.set('downloaded', start - EVERY)
     await cycle.run(start)
     expect(state.get('downloaded')).toBe(start - EVERY)
+  })
+
+  it('moves past a 403 naming a download the cycle did not make on the run after one whose next region '
+   + 'timed out', async () => {
+    vi.useFakeTimers()
+    const other  = unchanged(start - EVERY / 4)
+    let answer   = (region: Region, init?: RequestInit) => region === REGIONS[0] ? other() : stall(region, init)
+    const { cycle, state, fetcher } = cycleOf((region, init) => answer(region, init))
+    state.set('downloaded', start - EVERY)
+    const outcome = cycle.run(start)
+    await vi.advanceTimersByTimeAsync(celestrak.HEADER_WAIT)
+    expect(await outcome).toBe('waiting')
+    expect(fetcher.mock.calls.map(([region]) => region)).toEqual(REGIONS.slice(0, 2))
+    answer = region => region === REGIONS[0] ? other() : good()
+    fetcher.mockClear()
+    expect(await cycle.run(start + EVERY)).toBe('stored')
+    expect(fetcher.mock.calls.map(([region]) => region)).toEqual(REGIONS.slice(0, 2))
+  })
+
+  it('waits on a 403 naming a download within a minute of a request that timed out, trying no other '
+   + 'region', async () => {
+    vi.useFakeTimers()
+    let answer: Parameters<typeof cycleOf>[0] = stall
+    const { cycle, fetcher } = cycleOf((region, init) => answer(region, init))
+    const outcome = cycle.run(start)
+    await vi.advanceTimersByTimeAsync(celestrak.HEADER_WAIT)
+    expect(await outcome).toBe('waiting')
+    answer = unchanged(start + 30_000)
+    fetcher.mockClear()
+    expect(await cycle.run(start + EVERY)).toBe('waiting')
+    expect(fetcher).toHaveBeenCalledOnce()
   })
 
   it('downloads from the next region after a 403 naming a download the cycle did not make, and starts '
