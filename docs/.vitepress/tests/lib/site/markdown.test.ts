@@ -83,7 +83,12 @@ describe('markdownOf', () => {
   it.each([
     ['a code span', 'Write `{{ home }}` at {{ steep }}.'],
     ['a fenced block', '```md\n{{ home }}\n```\n\nRead at {{ steep }}.'],
-    ['a block fenced by tildes', '~~~md\n{{ home }}\n~~~\n\nRead at {{ steep }}.']
+    ['a block fenced by tildes', '~~~md\n{{ home }}\n~~~\n\nRead at {{ steep }}.'],
+    ['a fenced block in a list item',
+      '- item\n\n  ```md\n  {{ home }}\n\n  {{ home }}\n  ```\n\nRead at {{ steep }}.'],
+    ['an HTML comment', '<!-- {{ home }} -->\n\nRead at {{ steep }}.'],
+    ['a v-pre container', '::: v-pre\n{{ home }}\n:::\n\nRead at {{ steep }}.'],
+    ['an element marked v-pre', '<div v-pre>\n\n{{ home }}\n\n</div>\n\nRead at {{ steep }}.']
   ])('writes no figure inside %s', async (_, src) => {
     const { html } = await render(src)
     expect(html).toContain(`at ${FIGURES.steep}.`)
@@ -110,6 +115,16 @@ describe('markdownOf', () => {
 
   it('links no stylesheet from a page setting no formula', async () =>
     expect((await render('Twelve dollars, $12, buy no formula.')).env.frontmatter?.head).toBeUndefined())
+
+  it.each([
+    ['inline between single dollars', 'A square $x^{{2}}$ at {{ steep }}.'],
+    ['on its own line between double dollars', '$$\nx^{{2}}\n$$\n\nRead at {{ steep }}.']
+  ])('sets a formula %s holding double braces as TeX', async (_, src) => {
+    const { html } = await render(src)
+    expect(html).toContain('<annotation encoding="application/x-tex">x^{{2}}')
+    expect(html).toContain(`at ${FIGURES.steep}.`)
+    expect(html).not.toContain('katex-error')
+  })
 
   it('marks a formula KaTeX cannot set', async () =>
     expect((await render('A broken $\\frac{1}$ formula.')).html).toContain('<span class="katex-error"'))
