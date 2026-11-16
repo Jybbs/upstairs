@@ -17,7 +17,6 @@ import { clamp }                      from '../lib/site/motion.ts'
 import { SCHEMES }                    from '../lib/site/palette.ts'
 import { SHEETS }                     from '../lib/site/sheets.ts'
 import { sky }                        from '../lib/state/sky.ts'
-import { WORDS }                      from '../lib/state/words.ts'
 import Icon                           from './Icon.tsx'
 
 const DEM     = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
@@ -31,7 +30,7 @@ const ZOOM    = 5
 /**
  * Draws the map around the spot under the satellites and their tracks, with
  * the pin of the spot chooser, the zoom buttons, and a notice where a host
- * the map reads fails or the browser cannot draw the map.
+ * the map reads fails, graying the map where the catalog did not load.
  */
 export default defineComponent(
   () => {
@@ -53,7 +52,6 @@ export default defineComponent(
     const zoomAt = computed(() => sky.pinned.value && sky.covered.value
       ? { top: `calc((100% - ${sky.covered.value}px) / 2)` }
       : undefined)
-    const notice = computed(() => sky.blank.value ? WORDS.blank : hosts.message.value)
 
     let contourTiles: string
     let demTiles: string
@@ -444,10 +442,13 @@ export default defineComponent(
             <Icon name="zout" />
           </button>
         </div>
-        {notice.value && <div class="pointer-events-none absolute inset-0 bg-panel/62" />}
+        {hosts.message.value && <div class="pointer-events-none absolute inset-0 bg-panel/62" />}
         <canvas ref={lower} class="pointer-events-none absolute inset-0 size-full" />
         <canvas ref={upper} class="pointer-events-none absolute inset-0 size-full" />
-        {notice.value && (
+        {sky.stage.value === 'unloaded' && (
+          <div class="pointer-events-none absolute inset-0 bg-panel/70 backdrop-grayscale" aria-hidden="true" />
+        )}
+        {hosts.message.value && (
           <div
             class="pointer-events-none absolute inset-0 grid items-end justify-items-center p-6 pb-[8%]
                    xl:pl-[calc(var(--spacing-readout)+--spacing(8))]"
@@ -457,7 +458,7 @@ export default defineComponent(
                      text-sm! text-ink"
               role="alert"
             >
-              {notice.value}
+              {hosts.message.value}
             </p>
           </div>
         )}

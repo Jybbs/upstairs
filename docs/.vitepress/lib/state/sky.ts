@@ -9,6 +9,7 @@ import { clamp }                          from '../site/motion.ts'
 import { footholdsOf }                    from '../site/ridges.ts'
 import * as address                       from './address.ts'
 import { Tracks }                         from './tracks.ts'
+import { type Stage, momentOf }           from './words.ts'
 
 /**
  * What the clock does: follow the present, run the rest of the hour at
@@ -27,13 +28,6 @@ interface Reading {
   kinds      : readonly number[]
   onMap      : number
 }
-
-/**
- * Where the catalog and the scan stand: the catalog downloading, failing
- * before any of it arrived or partway, too old to draw, the scan tracing,
- * failing, or finished.
- */
-type Stage = 'expired' | 'fetching' | 'partial' | 'traced' | 'tracing' | 'unloaded' | 'untraced'
 
 /**
  * The clock's tuning in seconds, except `lapse` as a multiple of real speed
@@ -226,6 +220,26 @@ class Sky {
    * Whether the scan has placed its first satellite or finished.
    */
   readonly placed = computed(() => this.done.value || this.share.value > 0)
+
+  /**
+   * Where each step the map waits on stands, and what the readout and the
+   * Focus panel say of it.
+   */
+  readonly moment = computed(() => momentOf({
+    above : this.reading.value.above,
+    blank : this.blank.value,
+    count : this.loaded.value?.count ?? 0,
+    done  : this.done.value,
+    share : this.share.value,
+    stage : this.stage.value
+  }))
+
+  /**
+   * Whether the readout and the Focus panel show the steps the map waits on,
+   * from the download until the scan finishes, and at any failure.
+   */
+  readonly waiting = computed(() => this.moment.value.failure !== null
+    || this.stage.value === 'fetching' || this.stage.value === 'tracing')
 
   readonly focus = computed<Pass | null>(() => this.kept(this.selected.value))
 

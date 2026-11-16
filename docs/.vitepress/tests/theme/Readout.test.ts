@@ -9,7 +9,7 @@ import type { sky as Sky }          from '../../lib/state/sky.ts'
 import { WORDS }                    from '../../lib/state/words.ts'
 import { dialogListens, fakeClock } from '../common/frames.ts'
 import { passOf }                   from '../common/passes.ts'
-import { lateSky }                  from '../common/sky.ts'
+import { addScanned, lateSky }      from '../common/sky.ts'
 import { stubMatchMedia }           from '../common/stubs.ts'
 
 const FAILED = 'Error: The catalog answered 503'
@@ -36,7 +36,7 @@ const mounted = async (seconds: number, reduced = false) => {
   sky.done.value   = true
   sky.spoken.value = '5 satellites above the horizon'
   sky.at.value     = seconds
-  return { sky, wrapper: mount(Readout) }
+  return { Readout, sky, wrapper: mount(Readout) }
 }
 
 it('keeps the visible count silent and reads the spoken count from a polite region', async () => {
@@ -164,28 +164,76 @@ it.each([
   ['counts the satellites placed while the scan traces the rest', (sky: typeof Sky) => {
     sky.done.value  = false
     sky.share.value = 0.25
-  }, ['5', 'Tracing passes 25%']],
-  ['reads no count and offers a retry where the catalog did not load', (sky: typeof Sky) => {
-    sky.loaded.value = null
-    sky.failed.value = FAILED
-  }, ['—', `${WORDS.unloaded}${WORDS.retry}`]],
-  ['keeps the count and offers a retry where the catalog failed partway',
-    (sky: typeof Sky) => { sky.failed.value = FAILED }, ['5', `${WORDS.partial}${WORDS.retry}`]],
-  ['reads no count where the scan threw before placing anything', (sky: typeof Sky) => {
-    sky.done.value     = false
-    sky.untraced.value = true
-  }, ['—', WORDS.untraced]],
-  ['reads no count and the orbits’ age once the catalog has expired',
-    (sky: typeof Sky) => { sky.loaded.value = { count: 9, fetched: sky.start.value - 15 * DAY } },
-    ['—', 'Orbits 15 days old, too old to draw']],
-  ['reads no count where the map cannot draw', (sky: typeof Sky) => { sky.blank.value = true },
-    ['—', 'Of 9 above the horizon']]
+  }, ['5', 'Tracing passes 25%']]
 ])('%s', async (_, set, readings) => {
   const { sky, wrapper } = await mounted(0)
   sky.reading.value      = { ...sky.reading.value, above: 9, onMap: 5 }
   set(sky)
   await wrapper.vm.$nextTick()
-  expect([wrapper.get('output').text(), wrapper.findAll('p.caps').at(-1)!.text()]).toEqual(readings)
+  expect([wrapper.get('output').text(), wrapper.get('[role="status"]').text()]).toEqual(readings)
+})
+
+it.each([
+  ['reads no count and offers a retry where the catalog did not load', (sky: typeof Sky) => {
+    sky.loaded.value = null
+    sky.failed.value = FAILED
+  }, ['—', WORDS.unloaded, true]],
+  ['keeps the count and offers a retry where the catalog failed partway',
+    (sky: typeof Sky) => { sky.failed.value = FAILED }, ['5', WORDS.partial, true]],
+  ['reads no count and the way back where the scan threw before placing anything', (sky: typeof Sky) => {
+    sky.done.value     = false
+    sky.untraced.value = true
+  }, ['—', WORDS.untraced, false]],
+  ['reads no count and the way back where the map cannot draw',
+    (sky: typeof Sky) => { sky.blank.value = true }, ['—', WORDS.blank, false]]
+])('%s', async (_, set, readings) => {
+  const { sky, wrapper } = await mounted(0)
+  sky.reading.value      = { ...sky.reading.value, above: 9, onMap: 5 }
+  set(sky)
+  await wrapper.vm.$nextTick()
+  const alert = wrapper.get('[role="alert"]')
+  expect([wrapper.get('output').text(), alert.get('p').text(), alert.find('button').exists()])
+    .toEqual(readings)
+})
+
+it('reads no count and the orbits’ age once the catalog has expired', async () => {
+  const { sky, wrapper } = await mounted(0)
+  sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
+  await wrapper.vm.$nextTick()
+  expect([wrapper.get('output').text(), wrapper.findAll('p.caps').at(-1)!.text()])
+    .toEqual(['—', 'Orbits 15 days old, too old to draw'])
+})
+
+it.each([
+  ['shows the tag beside a count', false, true],
+  ['drops the tag beside a dash', true, false]
+])('%s', async (_, blank, tagged) => {
+  const { sky, wrapper } = await mounted(0)
+  sky.blank.value        = blank
+  await wrapper.vm.$nextTick()
+  expect(wrapper.find('output + span + span').exists()).toBe(tagged)
+})
+
+it.each([
+  ['reads the pinned pass in place of the count while nothing has failed', false, [false, false]],
+  ['reads the failure in place of the pinned pass', true, [true, true]]
+])('%s', async (_, untraced, shown) => {
+  const { sky, wrapper } = await mounted(0)
+  const pass             = passOf(1)
+  addScanned(sky, [pass])
+  sky.pin(pass)
+  sky.untraced.value = untraced
+  await wrapper.vm.$nextTick()
+  expect([wrapper.find('output').exists(), wrapper.find('[role="alert"]').exists()]).toEqual(shown)
+})
+
+it.each([
+  ['draws the steps under the count of a folded readout while the scan traces', false, 3],
+  ['leaves a folded readout to its count once the scan finishes', true, 0]
+])('%s', async (_, done, steps) => {
+  const { Readout, sky } = await mounted(0)
+  sky.done.value          = done
+  expect(mount(Readout, { props: { folded: true } }).findAll('li')).toHaveLength(steps)
 })
 
 it('loads the catalog again on a press of the retry', async () => {
@@ -193,6 +241,6 @@ it('loads the catalog again on a press of the retry', async () => {
   sky.failed.value       = FAILED
   const load             = vi.spyOn(sky, 'load').mockImplementation(() => {})
   await wrapper.vm.$nextTick()
-  await wrapper.findAll('p.caps').at(-1)!.get('button').trigger('click')
+  await wrapper.get('[role="alert"] button').trigger('click')
   expect(load).toHaveBeenCalledOnce()
 })

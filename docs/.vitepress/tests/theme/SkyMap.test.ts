@@ -5,7 +5,6 @@ import { ref }                  from 'vue'
 
 import { TRACK_WIDTH }    from '../../lib/orbit/scan.ts'
 import { SHEETS }         from '../../lib/site/sheets.ts'
-import { WORDS }          from '../../lib/state/words.ts'
 import { passOf }         from '../common/passes.ts'
 import { freshSky }       from '../common/sky.ts'
 import { stubMatchMedia } from '../common/stubs.ts'
@@ -211,14 +210,14 @@ it('takes the spot into the high stretch of a pass climbing past 30°', async ()
 it.each([
   ['the browser offers no WebGL2 context', new GPU(), () => {}],
   ['a lost context fails to come back', null, () => handlers.get('error')!({ error: new GPU() })]
-])('says the map cannot draw where %s, and its zoom buttons raise no error', async (_, error, lose) => {
+])('marks the map blank with no text over it where %s, its zoom raising no error', async (_, error, lose) => {
   const { sky, wrapper } = await mounted(error)
   lose()
   await flushPromises()
   await wrapper.get('button[aria-label="Zoom in"]').trigger('click')
   await wrapper.get('[data-map] > div').trigger('keydown', { key: '-' })
-  expect([wrapper.get('[role="alert"]').text(), sky.blank.value, easeTo.mock.calls])
-    .toEqual([WORDS.blank, true, []])
+  expect([wrapper.find('[role="alert"]').exists(), sky.blank.value, easeTo.mock.calls])
+    .toEqual([false, true, []])
 })
 
 it('names the host a source fails to reach', async () => {
@@ -228,7 +227,18 @@ it('names the host a source fails to reach', async () => {
   expect(wrapper.get('[role="alert"]').text()).toBe('Could not reach OpenFreeMap')
 })
 
-it('leaves the wheel to the page once a lost context fails to come back, whatever the chosen pass', async () => {
+it.each([
+  ['grays the map where the catalog did not load', null, true],
+  ['leaves the map in color where the catalog failed partway', { count: 9, fetched: 0 }, false]
+])('%s', async (_, loaded, grayed) => {
+  const { sky, wrapper } = await mounted()
+  sky.loaded.value       = loaded
+  sky.failed.value       = 'TypeError: Failed to fetch'
+  await flushPromises()
+  expect(wrapper.find('.backdrop-grayscale').exists()).toBe(grayed)
+})
+
+it('leaves the wheel to the page once a lost context fails to come back, whatever the pass', async () => {
   const { pass, sky, wrapper } = await mounted()
   sky.selected.value           = pass
   sky.done.value               = true

@@ -3,24 +3,17 @@ import { computed, defineComponent } from 'vue'
 import { BOUNDS, boundOf, crossingOf } from '../lib/orbit/compass.ts'
 import { KINDS, NOTES }                from '../lib/orbit/kinds.ts'
 import { sky }                         from '../lib/state/sky.ts'
-import { WORDS }                       from '../lib/state/words.ts'
+import { NAMES }                       from '../lib/state/words.ts'
 import Icon                            from './Icon.tsx'
 import SatelliteName                   from './SatelliteName.tsx'
-
-/**
- * The line the panel shows for each stage while it follows no pass.
- */
-const LINES = {
-  ...WORDS,
-  expired : 'The orbits are too old to draw',
-  traced  : 'No satellite matches these filters',
-  tracing : 'Tracing passes'
-}
+import StepMark                        from './StepMark.tsx'
 
 const distance = (kilometers: number) => `${Math.round(kilometers).toLocaleString()} km`
 
 /**
- * Reads the pass the map follows, or why no pass is followed.
+ * Reads the failure that stopped the map and the way back from it, else the
+ * pass the map follows, else the step the map waits on, or why no pass is
+ * followed once the scan finishes.
  */
 export default defineComponent(
   () => {
@@ -34,11 +27,65 @@ export default defineComponent(
         : note
     })
     const bound = computed(() => pass.value && boundOf(pass.value))
-    const empty = computed(() => LINES[sky.stage.value])
+
+    /**
+     * Reads the step the moment leads with, by its mark, its name, and its
+     * reading.
+     */
+    const kicker = () => {
+      const { lead, ...moment } = sky.moment.value
+      return (
+        <p class={['caps flex items-center gap-2', moment.failure ? 'text-ink' : 'text-soft']}>
+          <StepMark step={moment[lead]} size={10} />
+          <span class="text-ink">{NAMES[lead]}</span>{' · '}{moment[lead].reading}
+        </p>
+      )
+    }
+
+    /**
+     * Reads the failure between two ink rules, what stopped over the way back.
+     */
+    const failed = () => (
+      <div class="flex flex-col gap-2 border-y-[1.5px] border-ink py-3">
+        {kicker()}
+        <p class="font-display text-[22px] leading-tight font-bold text-balance text-ink">
+          {sky.moment.value.note}
+        </p>
+        <p class="text-[17px] leading-snug text-pretty text-ink">{sky.moment.value.next}</p>
+      </div>
+    )
+
+    /**
+     * Reads the step under way, its line over its note.
+     */
+    const waiting = () => [
+      kicker(),
+      <p class="mt-2 font-display text-[22px] leading-tight font-bold text-balance text-ink">
+        {sky.moment.value.line}
+      </p>,
+      <p class="mt-2 text-[17px] leading-snug text-pretty text-ink">{sky.moment.value.note}.</p>
+    ]
+
+    /**
+     * Reads why no pass is followed once the scan finishes.
+     */
+    const idle = () => (
+      <p class="caps text-soft">
+        {sky.stage.value === 'expired'
+          ? 'The orbits are too old to draw'
+          : 'No satellite matches these filters'}
+      </p>
+    )
 
     return () => (
-      <section class="flex h-[218px] shrink-0 flex-col border-b border-rule bg-lift p-4" aria-live="polite">
-        {pass.value
+      <section
+        class={[
+          'flex shrink-0 flex-col border-b border-rule bg-lift p-4',
+          sky.moment.value.failure ? 'min-h-[218px]' : 'h-[218px]'
+        ]}
+        aria-live="polite"
+      >
+        {sky.moment.value.failure ? failed() : pass.value
           ? [
             <p class="caps flex justify-between text-soft">
               <span class="inline-flex items-center gap-1.5">
@@ -72,7 +119,7 @@ export default defineComponent(
               </div>
             </dl>
           ]
-          : <p class="caps text-soft">{empty.value}</p>}
+          : sky.waiting.value ? waiting() : idle()}
       </section>
     )
   },
