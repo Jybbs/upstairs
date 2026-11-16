@@ -8,12 +8,15 @@ import { describe, expect, test } from 'vitest'
 import { ROOT } from '../common/gh.ts'
 
 type Change = (repo: Repo) => Promise<unknown>
+type Pinned = keyof typeof PINNED
 type Task   = 'crate/affected' | 'site/affected' | 'site/check' | 'site/typecheck'
 
 const ANSWERS = 'docs/.vitepress/tests/fixtures/answers.json'
 const CHECKED = [
   'run', 'site:lint', ':::', 'site:typecheck', ':::', 'site:affected', ':::', 'crate:affected'
 ]
+const CONFIG  = '.mise/config.toml'
+const LOCK    = '.mise/mise.lock'
 const PHOTON  = 'docs/.vitepress/tests/fixtures/photon.json'
 const RECORDS = 'docs/.vitepress/tests/fixtures/records.json'
 const SKIPPED = /^crate:affected found no change since origin\/main\b/
@@ -22,6 +25,11 @@ const TYPED   = [
   ['run', '--bun', 'tsc', '--noEmit', '--project', '.vitepress/catalog']
 ]
 const standIn = join(import.meta.dirname, '../common/check')
+const PINNED  = {
+  [CONFIG] : '[tools]\nbun = "1.3.2"\nrust = "1.91.0"\n',
+  [LOCK]   : '[[tools.bun]]\nversion = "1.3.2"\n\n[[tools.rust]]\nversion = "1.91.0"\n\n'
+           + '[tools.rust.options]\ncomponents = "clippy"\n'
+}
 const SEEDED  = {
   '.gitignore'      : '.cache/\nrust/pkg/\n',
   'README.md'       : 'Upstairs\n',
@@ -67,7 +75,7 @@ class Repo {
     await Promise.all(Object.entries(SEEDED).map(([path, text]) => repo.write(path, text)))
     await repo.git('init', '--initial-branch=main', '--quiet')
     await repo.commit()
-    await repo.git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+    await repo.publish()
     return repo
   }
 
@@ -101,6 +109,13 @@ class Repo {
   }
 
   /**
+   * Moves `origin/main` to `HEAD`, as a push to `main` would.
+   */
+  publish(): Promise<string> {
+    return this.git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+  }
+
+  /**
    * Runs the task at `.mise/tasks/<task>` of the worktree from the root of the
    * repository, each call it makes to `mise` or `bun` exiting with the next
    * status in `exit`, the last repeating once the list runs out.
@@ -131,18 +146,18 @@ const it = test.extend('repo', async ({ onTestFinished }) => {
 })
 
 /**
- * Commits an edit to `path` on a branch of its own, moves `origin/main` to that
- * commit, and switches back to `main`, so the edit sits on `origin/main` alone.
+ * Commits `change` on a branch of its own, moves `origin/main` to that commit,
+ * and switches back to `main`, so the change sits on `origin/main` alone.
  */
-const advanced = (path: string): Change => async repo => {
+const advanced = (change: Change): Change => async repo => {
   await repo.git('switch', '--create', 'advanced', '--quiet')
-  await committed(path)(repo)
-  await repo.git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+  await committed(change)(repo)
+  await repo.publish()
   await repo.git('switch', 'main', '--quiet')
 }
 
-const committed = (path: string): Change => async repo => {
-  await edit(path)(repo)
+const committed = (change: Change): Change => async repo => {
+  await change(repo)
   await repo.commit()
 }
 
@@ -150,6 +165,26 @@ const edit = (...paths: string[]): Change => repo =>
   Promise.all(paths.map(path => repo.write(path, 'edited\n')))
 
 const linesOf = (text: string) => text.split('\n').filter(Boolean)
+
+/**
+ * Commits the `PINNED` text of each of `paths`, moves `origin/main` to that
+ * commit, and makes `change` over it, so the commit is the merge base.
+ */
+const pinned = (change: Change, paths: Pinned[] = [CONFIG, LOCK]): Change => async repo => {
+  await Promise.all(paths.map(path => repo.write(path, PINNED[path])))
+  await repo.commit()
+  await repo.publish()
+  await change(repo)
+}
+
+const removed = (path: Pinned): Change => repo => repo.git('rm', '--quiet', path)
+
+/**
+ * Writes the `PINNED` text of `path` with `from` replaced by `to`, or as
+ * `PINNED` holds it where neither is given.
+ */
+const rewritten = (path: Pinned, from = '', to = ''): Change => repo =>
+  repo.write(path, PINNED[path].replace(from, to))
 
 const staged = (path: string): Change => async repo => {
   await edit(path)(repo)
@@ -202,7 +237,7 @@ describe('site:affected', () => {
 
 describe('crate:affected', () => {
   it.for<[string, Change, boolean]>([
-    ['a commit under rust/', committed('rust/src/lib.rs'), true],
+    ['a commit under rust/', committed(edit('rust/src/lib.rs')), true],
     ['an uncommitted edit under rust/', edit('rust/src/lib.rs'), true],
     ['an untracked file under rust/', edit('rust/src/added.rs'), true],
     ['an edit to the records', edit(RECORDS), true],
@@ -211,7 +246,27 @@ describe('crate:affected', () => {
     ['an edit and an untracked file outside rust/ and the fixtures', edit('README.md', 'docs/new.md'), false],
     ['an edit to another fixture', edit(PHOTON), false],
     ['a build of the crate under the ignored rust/pkg/', edit('rust/pkg/orbit.js'), false],
-    ['a commit under rust/ that only origin/main holds', advanced('rust/src/lib.rs'), false]
+    ['a commit under rust/ that only origin/main holds', advanced(edit('rust/src/lib.rs')), false],
+    ['a moved rust pin in the config', pinned(rewritten(CONFIG, '1.91.0', '1.92.0')), true],
+    ['a moved [[tools.rust]] table', pinned(rewritten(LOCK, '1.91.0', '1.92.0')), true],
+    ['a moved [tools.rust.options] table', pinned(rewritten(LOCK, 'clippy', 'rustfmt')), true],
+    ['a config the merge base lacks', pinned(rewritten(CONFIG), [LOCK]), true],
+    ['a config the branch removes', pinned(removed(CONFIG)), true],
+    ['a lockfile the merge base lacks', pinned(rewritten(LOCK), [CONFIG]), true],
+    ['a lockfile the branch removes', pinned(removed(LOCK)), true],
+    ['a realigned rust line', pinned(rewritten(CONFIG, 'rust =', 'rust    =')), false],
+    ['a moved bun pin in the config', pinned(rewritten(CONFIG, '1.3.2', '1.3.3')), false],
+    ['a moved [[tools.bun]] table', pinned(rewritten(LOCK, '1.3.2', '1.3.3')), false],
+    [
+      'a [[tools.rust-analyzer]] table in place of [[tools.bun]]',
+      pinned(rewritten(LOCK, 'bun', 'rust-analyzer')),
+      false
+    ],
+    [
+      'a toolchain move that only origin/main holds',
+      pinned(advanced(rewritten(CONFIG, '1.91.0', '1.92.0'))),
+      false
+    ]
   ])('runs the crate tests or prints its skip line given %s', async ([, change, runs], { repo }) => {
     await change(repo)
     const run = await repo.run('crate/affected')
