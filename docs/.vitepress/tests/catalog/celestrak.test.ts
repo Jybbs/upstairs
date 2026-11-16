@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as celestrak from '../../catalog/celestrak.ts'
+import * as celestrak     from '../../catalog/celestrak.ts'
+import { unchangedBody } from '../common/celestrak.ts'
 
-const UNCHANGED = 'GP data has not updated since your last successful download'
+const UNCHANGED = unchangedBody('2026-11-15 21:21:36')
+const SINCE     = '2026-11-15T21:21:36.000Z'
 
 const signalOf = (fetcher: ReturnType<typeof vi.fn>) => (fetcher.mock.calls[0][1] as RequestInit).signal!
 
@@ -67,14 +69,19 @@ describe('a download', () => {
   })
 
   it.each([
-    [403, `<p>${UNCHANGED} of GROUP=active at 2026-11-10 00:00:00 UTC.</p>`, 'unchanged'],
-    [403, UNCHANGED.toLowerCase(), 'refused'],
-    [429, UNCHANGED, 'refused']
-  ])('marks a %i whose body reads %j as %s', async (status, body, kind) => {
-    const answer = new Response(body, { status })
-    await expect(celestrak.download(Promise.resolve(answer))).rejects.toMatchObject({
-      failure: { body, kind, status }
-    })
+    [403, UNCHANGED, 'unchanged', SINCE],
+    [403, UNCHANGED.replaceAll('\r\n', ' '), 'unchanged', SINCE],
+    [403, `<p>${UNCHANGED.replaceAll('\r\n', '\n  ')}</p>`, 'unchanged', SINCE],
+    [403, unchangedBody(''), 'unchanged', undefined],
+    [403, unchangedBody('2026-13-45 21:21:36'), 'unchanged', undefined],
+    [403, UNCHANGED.toLowerCase(), 'refused', undefined],
+    [429, UNCHANGED, 'refused', undefined]
+  ])('marks a %i whose body reads %j as %s, naming a download at %s', async (status, body, kind, since) => {
+    const answer  = new Response(body, { status })
+    const failure = await celestrak.download(Promise.resolve(answer))
+      .catch((error: celestrak.Failed) => error.failure)
+    expect(failure).toMatchObject({ body, kind, status })
+    expect('since' in failure ? failure.since : undefined).toBe(since)
   })
 
   it('keeps an empty body of a refusal that carries none', async () => {
