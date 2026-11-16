@@ -62,7 +62,9 @@ export const REGIONS = ['weur', 'apac', 'enam', 'wnam', 'eeur'] as const satisfi
 /**
  * How far, in milliseconds, a run may fall short of `EVERY` after the last
  * attempt, or of the end of a wait, and still download, covering the seconds
- * by which the time a scheduled run reads varies past the hour.
+ * by which the time a scheduled run reads varies past the hour, and how far
+ * the download a 403 names may fall from `downloaded` and still count as the
+ * download of the cycle.
  */
 const SLACK = 60_000
 
@@ -98,12 +100,14 @@ const delayOf = (fault: Fault | Halted, refusals: number, time: number) => {
 
 /**
  * Returns whether `failure` is a 403 for data that has not updated naming a
- * download more than `SLACK` from `downloaded`, the time of the last download
+ * download more than `SLACK` after `downloaded`, the time of the last download
  * of the cycle, which marks a download by another client sharing the address.
+ * A 403 naming an earlier download means the data has not updated since the
+ * download of the cycle, so it starts a wait.
  */
 const elsewhere = (downloaded: number, failure: celestrak.Failure) =>
   failure.kind === 'unchanged' && failure.since !== undefined
-    && Math.abs(Date.parse(failure.since) - downloaded) > SLACK
+    && Date.parse(failure.since) - downloaded > SLACK
 
 /**
  * Returns the time a stored halt records, or `time` where it records none, as
@@ -168,7 +172,8 @@ export class Cycle {
    * Downloads the catalog from the first region that reaches CelesTrak,
    * starting from the one that last did, and stores it, keeping the time the
    * request was sent under `downloaded` for each 200, one whose catalog fails
-   * its check included. A region that fails to connect, or whose 403
+   * its check included, and for each request that timed out waiting for
+   * headers. A region that fails to connect, or whose 403
    * names a download the cycle did not make, passes to the next, and any other
    * failure returns the fault that starts a wait, as a failed write does. Where
    * no region is left, the fault is the last such 403 beside each region's
@@ -192,7 +197,7 @@ export class Cycle {
       } catch (error) {
         if (!(error instanceof celestrak.Failed || error instanceof celestrak.Unreachable)) throw error
         if (error instanceof celestrak.Failed) {
-          if (error.failure.kind === 'unchecked') this.state.put('downloaded', sent)
+          if (['unanswered', 'unchecked'].includes(error.failure.kind)) this.state.put('downloaded', sent)
           shared = { ...error.failure, region }
           if (!elsewhere(downloaded, error.failure)) return shared
         }

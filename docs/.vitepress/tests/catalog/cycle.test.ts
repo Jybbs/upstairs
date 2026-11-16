@@ -221,7 +221,7 @@ describe('a download cycle', () => {
     await vi.advanceTimersByTimeAsync(celestrak.HEADER_WAIT)
     expect(await outcome).toBe('waiting')
     expect(fetcher).toHaveBeenCalledOnce()
-    expect(state.has('downloaded')).toBe(false)
+    expect(state.get('downloaded')).toBe(start)
     expect(state.get('wait')).toMatchObject({
       kind   : 'unanswered',
       reason : `No answer within ${celestrak.HEADER_WAIT} ms`,
@@ -355,9 +355,10 @@ describe('a download cycle', () => {
     ['a minute after', 1, MINUTE],
     ['a minute and a second after', REGIONS.length, MINUTE + 1000],
     ['a minute before', 1, -MINUTE],
-    ['a minute and a second before', REGIONS.length, -MINUTE - 1000]
-  ])('reads a 403 naming a download %s the one the cycle made as its own only within a minute, '
-   + 'asking %i regions', async (_, asked, offset) => {
+    ['a minute and a second before', 1, -MINUTE - 1000],
+    ['half an hour before', 1, -30 * MINUTE]
+  ])('reads a 403 naming a download %s the one the cycle made as another client\'s only past a '
+   + 'minute after it, asking %i regions', async (_, asked, offset) => {
     let answer = good
     const { cycle, fetcher } = cycleOf(() => answer())
     await cycle.run(start)
@@ -382,6 +383,28 @@ describe('a download cycle', () => {
       expect(await cycle.run(start + EVERY)).toBe('waiting')
       expect(fetcher).toHaveBeenCalledExactlyOnceWith(REGIONS[0], celestrak.SOURCE, expect.anything())
     })
+
+  it('dates a download after regions that failed to connect by the time its own request was sent',
+    async () => {
+      const CONNECT = 19_000
+      const { cycle, state } = cycleOf(region => {
+        if (region === REGIONS.at(-1)) return good()
+        vi.setSystemTime(Date.now() + CONNECT)
+        return refused(522)()
+      })
+      expect(await cycle.run(start)).toBe('stored')
+      expect(state.get('downloaded')).toBe(start + 4 * CONNECT)
+    })
+
+  it.each([
+    ['a refusal', refused(403)],
+    ['a 403 for data that has not updated', unchanged(start - EVERY)]
+  ])('keeps the time of the last download through %s', async (_, answer) => {
+    const { cycle, state } = cycleOf(answer)
+    state.set('downloaded', start - EVERY)
+    await cycle.run(start)
+    expect(state.get('downloaded')).toBe(start - EVERY)
+  })
 
   it('downloads from the next region after a 403 naming a download the cycle did not make, and starts '
    + 'from that region on the next run', async () => {
