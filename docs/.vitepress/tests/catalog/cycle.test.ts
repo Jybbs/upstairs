@@ -59,7 +59,11 @@ const cycleOf = (
   const put   = (key: string, value: unknown) => write().then(() => void stored.set(key, value))
   const cycle = new Cycle(storage, { CATALOG: { put } }, region =>
     celestrak.fetchCatalog((source, init) => fetcher(region, source, init)))
-  return { cycle, state, stored, fetcher, waited: () => state.get('wait') as Wait }
+  const run   = (time: number, late = 0) => {
+    vi.setSystemTime(time + late)
+    return cycle.run(time)
+  }
+  return { cycle: { run }, state, stored, fetcher, waited: () => state.get('wait') as Wait }
 }
 
 const good  = () => Response.json(records)
@@ -144,6 +148,7 @@ describe('a download cycle', () => {
   ])('waits for the next scheduled run on %s, a catalog that fails its check', async (_, answer, reason) => {
     const { cycle, state } = cycleOf(answer)
     expect(await cycle.run(start)).toBe('waiting')
+    expect(state.get('downloaded')).toBe(start)
     expect(state.get('wait')).toMatchObject({
       kind     : 'unchecked',
       reason   : expect.stringContaining(reason),
@@ -216,6 +221,7 @@ describe('a download cycle', () => {
     await vi.advanceTimersByTimeAsync(celestrak.HEADER_WAIT)
     expect(await outcome).toBe('waiting')
     expect(fetcher).toHaveBeenCalledOnce()
+    expect(state.has('downloaded')).toBe(false)
     expect(state.get('wait')).toMatchObject({
       kind   : 'unanswered',
       reason : `No answer within ${celestrak.HEADER_WAIT} ms`,
@@ -360,6 +366,22 @@ describe('a download cycle', () => {
     expect(await cycle.run(start + EVERY)).toBe('waiting')
     expect(fetcher).toHaveBeenCalledTimes(asked)
   })
+
+  it.each([
+    ['a catalog', good],
+    ['a catalog that fails its check', () => Response.json(records.slice(0, 10))]
+  ])('reads a 403 naming the time a late run sent the request answered with %s as its own download',
+    async (_, first) => {
+      const late = 24 * MINUTE
+      let answer = first
+      const { cycle, state, fetcher } = cycleOf(() => answer())
+      await cycle.run(start, late)
+      expect(state.get('downloaded')).toBe(start + late)
+      fetcher.mockClear()
+      answer = unchanged(start + late)
+      expect(await cycle.run(start + EVERY)).toBe('waiting')
+      expect(fetcher).toHaveBeenCalledExactlyOnceWith(REGIONS[0], celestrak.SOURCE, expect.anything())
+    })
 
   it('downloads from the next region after a 403 naming a download the cycle did not make, and starts '
    + 'from that region on the next run', async () => {

@@ -166,8 +166,9 @@ export class Cycle {
 
   /**
    * Downloads the catalog from the first region that reaches CelesTrak,
-   * starting from the one that last did, and stores it, keeping the time of the
-   * download under `downloaded`. A region that fails to connect, or whose 403
+   * starting from the one that last did, and stores it, keeping the time the
+   * request was sent under `downloaded` for each 200, one whose catalog fails
+   * its check included. A region that fails to connect, or whose 403
    * names a download the cycle did not make, passes to the next, and any other
    * failure returns the fault that starts a wait, as a failed write does. Where
    * no region is left, the fault is the last such 403 beside each region's
@@ -179,9 +180,10 @@ export class Cycle {
     const regions: Misses = {}
     let shared: celestrak.Failure & { region: Region } | undefined
     for (const region of REGIONS.toSorted((a, b) => Number(b === reached) - Number(a === reached))) {
+      const sent = Date.now()
       try {
         const records = await celestrak.download(this.send(region))
-        this.state.put('downloaded', time)
+        this.state.put('downloaded', sent)
         this.state.put('reached', region)
         return await this.env.CATALOG.put(FILE, encode(time, records)).then(
           () => undefined,
@@ -190,6 +192,7 @@ export class Cycle {
       } catch (error) {
         if (!(error instanceof celestrak.Failed || error instanceof celestrak.Unreachable)) throw error
         if (error instanceof celestrak.Failed) {
+          if (error.failure.kind === 'unchecked') this.state.put('downloaded', sent)
           shared = { ...error.failure, region }
           if (!elsewhere(downloaded, error.failure)) return shared
         }
