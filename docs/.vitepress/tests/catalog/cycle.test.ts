@@ -297,29 +297,29 @@ describe('a download cycle', () => {
       expect(state.get('wait')).toMatchObject({ refusals: 2, until })
     })
 
-  it.each(HALTS)('turns a halt stored as %s into a wait ending two hours after the halt, deleting the old keys',
-    async (_, halt, at) => {
-      const { cycle, state, fetcher } = cycleOf(good)
-      state.set('alerted', true)
-      state.set('attempted', start - 3 * EVERY)
-      state.set('halted', halt)
-      expect(await cycle.run(start)).toBe('waiting')
-      expect(fetcher).not.toHaveBeenCalled()
-      expect(['alerted', 'halted'].filter(key => state.has(key))).toEqual([])
-      const wait = state.get('wait')
-      expect(wait).toEqual({
-        event    : 'catalog.waiting',
-        halt     : halt,
-        kind     : 'halted',
-        reason   : 'The cycle halted before waits replaced halts',
-        refusals : 0,
-        time     : new Date(at).toISOString(),
-        until    : new Date(at + EVERY).toISOString()
-      })
-      expect(logged()).toEqual([wait])
-      expect(await cycle.run(at + EVERY - 1)).toBe('waiting')
-      expect(await cycle.run(at + EVERY)).toBe('stored')
+  it.each(HALTS)('turns a halt stored as %s into a wait ending two hours after the halt, '
+               + 'deleting the old keys', async (_, halt, at) => {
+    const { cycle, state, fetcher } = cycleOf(good)
+    state.set('alerted', true)
+    state.set('attempted', start - 3 * EVERY)
+    state.set('halted', halt)
+    expect(await cycle.run(start)).toBe('waiting')
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(['alerted', 'halted'].filter(key => state.has(key))).toEqual([])
+    const wait = state.get('wait')
+    expect(wait).toEqual({
+      event    : 'catalog.waiting',
+      halt     : halt,
+      kind     : 'halted',
+      reason   : 'The cycle halted before waits replaced halts',
+      refusals : 0,
+      time     : new Date(at).toISOString(),
+      until    : new Date(at + EVERY).toISOString()
     })
+    expect(logged()).toEqual([wait])
+    expect(await cycle.run(at + EVERY - 1)).toBe('waiting')
+    expect(await cycle.run(at + EVERY)).toBe('stored')
+  })
 
   it('downloads on the first run after a halt recorded more than two hours before it', async () => {
     const { cycle, state, fetcher } = cycleOf(good)
@@ -328,6 +328,7 @@ describe('a download cycle', () => {
     expect(await cycle.run(start)).toBe('stored')
     expect(fetcher).toHaveBeenCalledOnce()
     expect([state.has('halted'), state.has('wait')]).toEqual([false, false])
-    expect(console.log).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ event: 'catalog.recovered' }))
+    expect(console.log).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ event: 'catalog.recovered' }))
   })
 })

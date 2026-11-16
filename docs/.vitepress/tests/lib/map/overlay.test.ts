@@ -384,7 +384,9 @@ it.each([
   const track  = new Float32Array(6 * TRACK_WIDTH)
   trackAt(track, CRAFT, 0)
   trackAt(track, BOSTON, 3 * TRACK_WIDTH)
-  const passes = [passOf(25544, { riseAt: 0, setAt: 60 }), passOf(43013, { kind: 'earth', riseAt: 0, setAt: 60 })]
+  const passes = [
+    passOf(25544, { riseAt: 0, setAt: 60 }), passOf(43013, { kind: 'earth', riseAt: 0, setAt: 60 })
+  ]
   tracks.add(passes, track, Uint32Array.of(0, 3 * TRACK_WIDTH), 3)
   const moving  = canvasOf()
   const overlay = new Overlay(canvasOf().canvas, moving.canvas, {
@@ -541,7 +543,8 @@ it.each([
 
 it.each([
   ['draws no craft docked to the chosen one over it', 'station', 'selected', false, 1],
-  ['draws a docked craft a search by name chooses over the station it flies with', 'docked', 'selected', true, 2],
+  ['draws a docked craft a search by name chooses over the station it flies with',
+    'docked', 'selected', true, 2],
   ['draws a docked craft the readout holds over the station it flies with', 'docked', 'held', true, 2]
 ] as const)('%s', (_, which, as, dimmed, drawn) => {
   vi.stubGlobal('Path2D', class { constructor(readonly d: string) {} })

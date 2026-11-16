@@ -16,7 +16,8 @@ const TILES = '<a href="https://openfreemap.org">OpenFreeMap</a> '
 
 it.each(CREDITS)('links %s to a section or a seal the Data page carries', credit => {
   const anchor = credit.match(/#([\w-]+)"/)![1]!
-  expect(new RegExp(`^## ${anchor}$`, 'im').test(DATA) || SOURCES.map(sealAnchorOf).includes(anchor)).toBe(true)
+  expect(new RegExp(`^## ${anchor}$`, 'im').test(DATA)
+    || SOURCES.map(sealAnchorOf).includes(anchor)).toBe(true)
 })
 
 describe.each([true, false])('the map credit with reduced motion %s', reduced => {
@@ -41,10 +42,10 @@ describe.each([true, false])('the map credit with reduced motion %s', reduced =>
   beforeEach(() => {
     vi.useFakeTimers()
     stubMatchMedia(query => reduced && query.includes('reduce'))
-    document.body.innerHTML = '<div><details class="maplibregl-ctrl-attrib maplibregl-compact maplibregl-compact-show"'
-                            + ' open><summary class="maplibregl-ctrl-attrib-button"></summary>'
-                            + `<div class="maplibregl-ctrl-attrib-inner">${CREDITS.join(' | ')}</div></details>`
-                            + '<div></div></div>'
+    document.body.innerHTML = '<div><details class="maplibregl-ctrl-attrib maplibregl-compact '
+                            + 'maplibregl-compact-show" open><summary class="maplibregl-ctrl-attrib-button">'
+                            + `</summary><div class="maplibregl-ctrl-attrib-inner">${CREDITS.join(' | ')}`
+                            + '</div></details><div></div></div>'
     const container = document.body.firstElementChild as HTMLElement
     canvas          = container.lastElementChild as HTMLElement
     credit          = container.firstElementChild as HTMLElement

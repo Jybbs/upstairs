@@ -19,8 +19,8 @@ const follow = (selector: string) => {
 beforeAll(() => {
   vi.useFakeTimers()
   document.body.innerHTML = `<p>A${MARKER('')} and B${MARKER(':1')}.</p><section class="footnotes"><ol>`
-                          + `<li id="footnote1" class="footnote-item" tabindex="-1">Entry.<span class="fn-backs">`
-                          + `${RETURN('')}${RETURN(':1')}</span></li></ol></section>`
+                          + '<li id="footnote1" class="footnote-item" tabindex="-1">Entry.'
+                          + `<span class="fn-backs">${RETURN('')}${RETURN(':1')}</span></li></ol></section>`
   location.hash = '#footnote1'
   followFootnotes(document)
 })
