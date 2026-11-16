@@ -1,5 +1,12 @@
 #!/bin/sh
 (IFS=$(printf '\t'); printf '%s\n' "$*") >> "$STAND_IN_CALLS"
+if [ "$1 $2 $3" = 'config get --file' ]; then
+  exec awk -v name="${5##*.}" -v table="[${5%.*}]" '
+    /^\[/ { inside = $0 == table; next }
+    inside && sub("^" name "[ \t]*=[ \t]*", "") { print; found = 1 }
+    END { exit !found }
+  ' "$4"
+fi
 call=$(wc -l < "$STAND_IN_CALLS")
 set -- $STAND_IN_EXIT
 while [ "$#" -gt 1 ] && [ "$call" -gt 1 ]; do
