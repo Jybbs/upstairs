@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as celestrak from '../../catalog/celestrak.ts'
 
+const UNCHANGED = 'GP data has not updated since your last successful download'
+
 const signalOf = (fetcher: ReturnType<typeof vi.fn>) => (fetcher.mock.calls[0][1] as RequestInit).signal!
 
 describe('a catalog request', () => {
@@ -61,6 +63,17 @@ describe('a download', () => {
         reason  : 'CelesTrak answered 403',
         status  : 403
       }
+    })
+  })
+
+  it.each([
+    [403, `<p>${UNCHANGED} of GROUP=active at 2026-11-10 00:00:00 UTC.</p>`, 'unchanged'],
+    [403, UNCHANGED.toLowerCase(), 'refused'],
+    [429, UNCHANGED, 'refused']
+  ])('marks a %i whose body reads %j as %s', async (status, body, kind) => {
+    const answer = new Response(body, { status })
+    await expect(celestrak.download(Promise.resolve(answer))).rejects.toMatchObject({
+      failure: { body, kind, status }
     })
   })
 

@@ -56,7 +56,10 @@ export interface Workflow {
 }
 
 /**
- * The path of each declaration `Repository.read` takes from a single file.
+ * The path of each declaration the repository tools read from a single file,
+ * where `Repository.read` reads `guide`, `labels`, `release`, and `sweep`,
+ * `sync.ts` reads `settings`, and `toolProblems` matches `warm` as the end of a
+ * workflow's path.
  */
 export const FILES = {
   guide    : '.github/CONTRIBUTING.md',

@@ -1,5 +1,5 @@
-import { flushPromises }      from '@vue/test-utils'
-import { onTestFinished, vi } from 'vitest'
+import { flushPromises, type VueWrapper } from '@vue/test-utils'
+import { expect, onTestFinished, vi }     from 'vitest'
 
 /**
  * Moves the case's clock onto Vitest's fake timers until it finishes, faking
@@ -30,4 +30,18 @@ export const framesOf = async (count: number) => {
 export const dialogListens = async () => {
   await framesOf(2)
   await vi.runOnlyPendingTimersAsync()
+}
+
+/**
+ * Unmounts `wrapper` once the case finishes, then runs the two frames a
+ * dialog's layer takes to leave the shared layer stack and checks the wrapper
+ * left the document. A case calls it after `fakeClock`, because the hooks of a
+ * case run in reverse order and the frames run on the fake clock.
+ */
+export const unmountOnFinish = (wrapper: VueWrapper) => {
+  onTestFinished(async () => {
+    wrapper.unmount()
+    await framesOf(2)
+    expect(document.body).not.toContain(wrapper.element)
+  })
 }

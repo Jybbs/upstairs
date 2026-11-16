@@ -1,11 +1,11 @@
 /**
  * Runs the download cycle, sending the request from each region in turn until
  * one reaches CelesTrak and storing each catalog in Workers KV. A refusal, a
- * catalog that fails its check, no region reaching CelesTrak, no headers within
- * the wait, or a failed write to Workers KV starts a wait the cycle ends on its
- * own, and the wait is logged once and kept in the storage of the Durable
- * Object until a download succeeds. Any other error fails the run without a
- * wait.
+ * 403 for data that has not updated, a catalog that fails its check, no region
+ * reaching CelesTrak, no headers within the wait, or a failed write to Workers
+ * KV starts a wait the cycle ends on its own, and the wait is logged once and
+ * kept in the storage of the Durable Object until a download succeeds. Any
+ * other error fails the run without a wait.
  */
 import { DAY, FILE }  from '../lib/orbit/catalog.ts'
 import * as celestrak from './celestrak.ts'
@@ -56,6 +56,17 @@ export const LONGEST = DAY
  * tries them after the one that last reached CelesTrak.
  */
 export const REGIONS = ['weur', 'apac', 'enam', 'wnam', 'eeur'] as const satisfies DurableObjectLocationHint[]
+/**
+ * How far, in milliseconds, a run may fall short of `EVERY` after the last
+ * attempt, or of the end of a wait, and still download, covering the seconds
+ * by which the time a scheduled run reads varies past the hour.
+ */
+const SLACK = 60_000
+
+/**
+ * Returns whether `time` falls more than `SLACK` before `end`.
+ */
+const ahead = (end: number, time: number) => time < end - SLACK
 
 /**
  * Returns the milliseconds after `time` a `retry-after` value asks the cycle to
@@ -68,7 +79,8 @@ const askedOf = (value: string | undefined, time: number) =>
  * Returns how long the cycle waits after `fault`, where a refusal waits
  * `EVERY`, doubled for each refusal before it since the last download that
  * succeeded, or as long as its `retry-after` asks where that is longer, up to
- * `LONGEST`, and every other fault waits for the next scheduled run.
+ * `LONGEST`, and every other fault, a 403 for data that has not updated
+ * included, waits for the next scheduled run.
  */
 const delayOf = (fault: Fault | Halted, refusals: number, time: number) => fault.kind === 'refused'
   ? Math.min(Math.max(EVERY * 2 ** (refusals - 1), askedOf(fault.headers['retry-after'], time)), LONGEST)
@@ -96,13 +108,14 @@ export class Cycle {
 
   /**
    * Downloads and stores the catalog unless a wait runs past `time` or the last
-   * attempt was under `EVERY` before it. A fault `refresh` returns keeps the
-   * stored file and starts a wait, logging it at error level, and each run the
-   * wait blocks logs it again. A halt kept under `halted` turns into a wait
-   * ending `EVERY` after the time the halt records, which ends at once for a
-   * halt older than that, and the `alerted` mark beside it is deleted. A
-   * download that succeeds ends the wait, logging the wait it ends. Any other
-   * error rejects the run without a wait.
+   * attempt was under `EVERY` before it, either by more than `SLACK`. A fault
+   * `refresh` returns keeps the stored file and starts a wait, logging it at
+   * error level, and each run the wait blocks logs it again. A halt kept under
+   * `halted` turns into a wait ending `EVERY` after the time the halt records,
+   * which ends at once for a halt recorded `EVERY` less `SLACK` or more before
+   * `time`, and the `alerted` mark beside it is deleted. A download that
+   * succeeds ends the wait, logging the wait it ends. Any other error rejects
+   * the run without a wait.
    */
   async run(time: number): Promise<'early' | 'stored' | 'waiting'> {
     const halt = this.state.get('halted')
@@ -110,15 +123,15 @@ export class Cycle {
       this.state.delete('alerted')
       this.state.delete('halted')
       const reason = 'The cycle halted before waits replaced halts'
-      if (time < Date.parse(this.wait(haltedAt(halt, time), { halt, kind: 'halted', reason }).until))
+      if (ahead(Date.parse(this.wait(haltedAt(halt, time), { halt, kind: 'halted', reason }).until), time))
         return 'waiting'
     }
     const kept = this.state.get<Wait>('wait')
-    if (kept !== undefined && time < Date.parse(kept.until)) {
+    if (kept !== undefined && ahead(Date.parse(kept.until), time)) {
       console.error({ event: 'catalog.blocked', wait: kept })
       return 'waiting'
     }
-    if (time - (this.state.get<number>('attempted') ?? -Infinity) < EVERY) return 'early'
+    if (ahead((this.state.get<number>('attempted') ?? -Infinity) + EVERY, time)) return 'early'
     this.state.put('attempted', time)
     const fault = await this.refresh(time)
     if (fault !== undefined) {
