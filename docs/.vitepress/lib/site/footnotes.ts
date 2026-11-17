@@ -121,8 +121,8 @@ export const drawFootnotes = (md: MarkdownRenderer) => {
   const note: Rule = (tokens, idx, _, env) => {
     const { content, label } = env.footnotes.list[tokens[idx].meta.id]
     if (label === undefined)
-      throw new Error(`The inline footnote ^[${content}] names no entry in docs/references.bib, `
-                    + 'so cite one as [^key] instead')
+      throw new Error(`The inline footnote ^[${content}] names no entry in `
+                    + 'docs/.vitepress/lib/site/references.bib, so cite one as [^key] instead')
     return label
   }
 

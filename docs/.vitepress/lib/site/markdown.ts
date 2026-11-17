@@ -36,7 +36,7 @@ export const FIGURES = {
 const FIGURE     = /\{\{ *(?<name>.+?) *\}\}/g
 const FOOTNOTE   = /\[\^(\w+)\](?!:)/g
 const PRE        = /\sv-pre(?![\w-])/
-const REFERENCES = new URL('../../../references.bib', import.meta.url)
+const REFERENCES = new URL('./references.bib', import.meta.url)
 
 /**
  * Appends a definition for each footnote a page keys to an entry of
@@ -50,7 +50,8 @@ const cite = (md: MarkdownRenderer, citations: Map<string, string>) =>
     for (const key of keys) {
       if (prose.includes(`[^${key}]:`)) continue
       const citation = citations.get(key)
-      if (!citation) throw new Error(`The footnote ${key} names no entry in docs/references.bib`)
+      if (!citation)
+        throw new Error(`The footnote ${key} names no entry in docs/.vitepress/lib/site/references.bib`)
       state.src += `\n\n[^${key}]: ${citation}`
     }
   })
@@ -65,10 +66,10 @@ const valueOf = (_: string, name: string) => {
 }
 
 /**
- * Writes the value `FIGURES` holds for each `{{ name }}` in a text token outside
- * a `v-pre` container, failing on a name it holds no value for and on a figure
- * on a page whose HTML holds `v-pre` after a space, a comment or a quoted value
- * included.
+ * Writes the value `FIGURES` holds for each `{{ name }}` in a text token
+ * outside a `v-pre` container, failing on a name it holds no value for and on a
+ * figure on a page whose HTML holds `v-pre` after a space, a comment or a
+ * quoted value included.
  */
 const figure = (md: MarkdownRenderer) =>
   md.core.ruler.after('text_join', 'upstairs:figure', state => {
@@ -97,9 +98,9 @@ const styleMath = (md: MarkdownRenderer) =>
   })
 
 /**
- * Sets each entry of `docs/references.bib` as one line of HTML in APA style
- * with its DOI or its publisher's page linked, keyed by the entry's key, its
- * address breaking only after a slash.
+ * Sets each entry of `docs/.vitepress/lib/site/references.bib` as one line of
+ * HTML in APA style with its DOI or its publisher's page linked, keyed by the
+ * entry's key, its address breaking only after a slash.
  */
 export const citationsOf = () => new Map(
   (new Cite(readFileSync(REFERENCES, 'utf8')).format('bibliography', {
@@ -115,8 +116,8 @@ export const citationsOf = () => new Map(
 /**
  * Extends the Markdown renderer to set math between `$` and `$$` through
  * KaTeX, to write each figure `FIGURES` holds, and to cite the entries of
- * `docs/references.bib` through footnotes keyed to them, drawn as
- * `drawFootnotes` sets them.
+ * `docs/.vitepress/lib/site/references.bib` through footnotes keyed to them,
+ * drawn as `drawFootnotes` sets them.
  */
 export const markdownOf = () => (md: MarkdownRenderer) => {
   md.use(markdownItKatex, { katex })
