@@ -1,11 +1,13 @@
 min_version = "2026.11.4"
 
 [env]
-AUDIT_IGNORE       = """
+AUDIT_IGNORE              = """
 GHSA-fc5q-39xc-vjpf A ReDoS in `picomatch`, which only the build and test tools resolve, with no release fixing it
 """
-CARGO_TARGET_DIR   = "{{config_root}}/.cache/cargo"
-NODE_COMPILE_CACHE = "{{config_root}}/.cache/node"
+BUN_INSTALL_CACHE_DIR     = "{{config_root}}/.cache/bun"
+CARGO_TARGET_DIR          = "{{config_root}}/.cache/cargo"
+NODE_COMPILE_CACHE        = "{{config_root}}/.cache/node"
+NPM_CONFIG_IGNORE_SCRIPTS = "1"
 
 [settings]
 auto_install = false

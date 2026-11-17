@@ -51,15 +51,16 @@ export class Run {
 
   /**
    * Runs `sync.ts <task>` against the stand-in answering from `remote`, in a
-   * copy of the declarations under `.github/` and `.mise/` whose settings are
-   * those of `SETTINGS`, on a `PATH` holding the stand-in and then the
-   * directory `mise` runs from.
+   * copy of the site's manifest and of the declarations under `.github/` and
+   * `.mise/`, whose settings are those of `SETTINGS`, on a `PATH` holding the
+   * stand-in and then the directory `mise` runs from.
    */
   static async of(task: 'labels' | 'rulesets', remote: Remote): Promise<Run> {
     await using scratch = await mkdtempDisposable(join(tmpdir(), 'upstairs-gh-'))
     const dir           = scratch.path
     const root          = join(dir, 'repository')
     await cp(join(ROOT, '.github'), join(root, '.github'), { recursive: true })
+    await cp(join(ROOT, repository.FILES.manifest), join(root, repository.FILES.manifest))
     await cp(join(ROOT, repository.FILES.sweep), join(root, repository.FILES.sweep))
     await cp(SETTINGS, join(root, repository.FILES.settings))
     await Bun.write(join(dir, 'calls.jsonl'), '')
