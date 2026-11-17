@@ -48,7 +48,7 @@ jobs:
       - name : Run ${{ matrix.task }}
         run  : mise run "$TASK"
         env:
-          GH_TOKEN : ${{ matrix.task == 'repo:lint' && github.token || '' }}
+          GH_TOKEN : ${{ (matrix.task == 'lock:audit' || matrix.task == 'repo:lint') && github.token || '' }}
           TASK     : ${{ matrix.task }}
 
       - name : Write the coverage figure the badge reads
