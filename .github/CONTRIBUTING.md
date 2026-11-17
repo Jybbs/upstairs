@@ -24,7 +24,7 @@ The site reads the satellite catalog from `docs/public/catalog.bin`, which `mise
 | `mise reel` | *The README's preview of the home map, recorded frame by frame from the fixture catalog under `docs/.vitepress/tests/fixtures/` into `.github/` in each scheme, in a Chromium the task installs under `.cache/playwright/` on its first run* |
 | `mise ci` | *Every check a pull request runs, listed under Checks below* |
 | `mise relock` | *`mise lock`, `bun install`, and `cargo update --workspace`, re-resolving each lockfile after its manifest changes* |
-| `mise lift` | *A list of the newer version of each pinned tool and package* |
+| `mise lift` | *A table of every tool, package, crate, and action pinned behind its newest release with any hold on it, each lift tried in a scratch copy of the tree under `--try`, the passing lifts written onto the branch under `--write`, and a hold recorded in `.mise/holds.toml` under `--hold <pin> <reason>`* |
 | `mise labels` | *The labels in `.github/labels.toml`, sent to GitHub once approved, where a row renames the live label whose word it shares once no other row names that label* |
 | `mise rulesets` | *The settings in `.github/settings.toml`, the About box in `docs/package.json`, and the rulesets under `.github/rulesets/`, sent to GitHub once approved, with the GitHub Pages site created where `pages` turns on and none exists* |
 
