@@ -57,18 +57,20 @@ export interface Workflow {
 
 /**
  * The path of each declaration the repository tools read from a single file,
- * where `Repository.read` reads `guide`, `labels`, `release`, and `sweep`,
- * `sync.ts` reads `settings`, and `toolProblems` matches `warm` as the end of a
- * workflow's path.
+ * where `Repository.read` reads `guide`, `labels`, `manifest`, `release`, and
+ * `sweep`, `sync.ts` reads `settings`, and `toolProblems` matches `warm` as the
+ * end of a workflow's path.
  */
 export const FILES = {
   guide    : '.github/CONTRIBUTING.md',
   labels   : '.github/labels.toml',
+  manifest : 'docs/package.json',
   release  : '.github/release.yml',
   settings : '.github/settings.toml',
   sweep    : '.mise/tasks/repo/ci.toml',
   warm     : '.github/workflows/warm.yml'
 }
+const EXACT         = /^\d+\.\d+\.\d+(?:-[\w.]+)?$/
 const FRONTMATTER   = /^---\n([\s\S]*?)\n---\n/
 const KEYS          = 'color, description, name'
 const LABEL_GAP     = 15
@@ -76,6 +78,7 @@ const LABEL_LENGTH  = 100
 const MAIN          = "github.ref == 'refs/heads/main'"
 const MATRIX_TOOLS  = '${{ matrix.tools }}'
 const PIN           = /^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/
+const PINNED        = ['dependencies', 'devDependencies', 'overrides'] as const
 const PROVISION     = '/.github/actions/provision'
 const ROW_KEYS      = new Set(['name', 'task', 'tools'])
 const TASK_RUN      = /\bmise run (\w[\w:-]*)/g
@@ -111,6 +114,13 @@ const gatesOf = (workflow: Workflow) => Object.entries(workflow.jobs)
 const jobsOf = (workflows: Workflow[]) => workflows
   .flatMap(workflow => Object.values(workflow.jobs).map(job => ({ job, path: workflow.path })))
 
+/**
+ * Lists each package and the version `manifest` sets it to, across every
+ * `PINNED` section.
+ */
+const packagesOf = (manifest: Record<(typeof PINNED)[number], Record<string, string>>) =>
+  PINNED.flatMap(section => Object.entries(manifest[section]))
+
 const pathsOf = async (root: string, pattern: string) =>
   (await Array.fromAsync(new Glob(pattern).scan(root))).sort().map(path => join(root, path))
 
@@ -141,11 +151,11 @@ export const wordOf = (name: string) => name.split(' ').at(-1) ?? ''
 /**
  * Holds the declarations under `.github/` and `.mise/` that name one another,
  * meaning the label registry, the release categories, the issue templates, the
- * contributor guide, the workflows and the action manifests, the rulesets, the
- * tasks, and the task the local sweep runs. It reports where two of them
- * disagree, where a label, an action, a matrix row, or a workflow breaks a
- * rule of its own, and where a publishing job is missing or runs under
- * another condition.
+ * contributor guide, the site's manifest, the workflows and the action
+ * manifests, the rulesets, the tasks, and the task the local sweep runs. It
+ * reports where two of them disagree, where a label, a package, an action, a
+ * matrix row, or a workflow breaks a rule of its own, and where a publishing
+ * job is missing or runs under another condition.
  */
 export class Repository {
   constructor(
@@ -153,6 +163,7 @@ export class Repository {
     readonly categories : Category[],
     readonly guide      : string,
     readonly labels     : RegistryLabel[],
+    readonly packages   : [string, string][],
     readonly rulesets   : Ruleset[],
     readonly sweep      : string[],
     readonly tasks      : string[],
@@ -171,6 +182,7 @@ export class Repository {
       (await parseFile(at(FILES.release))).changelog.categories,
       await Bun.file(at(FILES.guide)).text(),
       (await parseFile(at(FILES.labels))).labels,
+      packagesOf(await parseFile(at(FILES.manifest))),
       await Promise.all((await pathsOf(root, '.github/rulesets/*.json')).map(parseFile)),
       (await parseFile(at(FILES.sweep)))['repo:ci'].depends,
       (await $`mise tasks ls --hidden --json --no-global`.cwd(root).json() as MiseTask[])
@@ -211,6 +223,8 @@ export class Repository {
    *   with another
    * - An action from outside the repository naming no full commit or two
    *   different ones
+   * - A package `docs/package.json` sets to a range rather than one exact
+   *   version
    * - A matrix row holding a key other than `name`, `task`, and `tools`
    * - A workflow ending on no job that needs every other job
    * - A `GUARDS` job missing or running under another condition
@@ -218,8 +232,9 @@ export class Repository {
   get problems(): string[] {
     return [
       ...this.categoryProblems, ...this.endingProblems, ...this.gateProblems, ...this.guardProblems,
-      ...this.guideProblems, ...this.labelProblems, ...this.pinProblems, ...this.rowProblems,
-      ...this.sweepProblems, ...this.taskProblems, ...this.templateProblems, ...this.toolProblems
+      ...this.guideProblems, ...this.labelProblems, ...this.packageProblems, ...this.pinProblems,
+      ...this.rowProblems, ...this.sweepProblems, ...this.taskProblems, ...this.templateProblems,
+      ...this.toolProblems
     ]
   }
 
@@ -331,6 +346,12 @@ export class Repository {
    */
   private get manifests(): Workflow[] {
     return [...this.workflows, ...this.actions]
+  }
+
+  private get packageProblems(): string[] {
+    return this.packages
+      .filter(([, version]) => !EXACT.test(version))
+      .map(([name, version]) => `${FILES.manifest} sets ${name} to ${version} rather than one exact version`)
   }
 
   private get pinProblems(): string[] {

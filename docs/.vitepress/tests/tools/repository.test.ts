@@ -2,6 +2,7 @@ import { basename, join } from 'node:path'
 
 import { beforeAll, describe, expect, it } from 'vitest'
 
+import manifest        from '../../../package.json' with { type: 'json' }
 import * as repository from '../../tools/repository.ts'
 import { ROOT }        from '../common/gh.ts'
 
@@ -61,6 +62,19 @@ describe('Repository', () => {
       expect(variant(() => ({ workflows: [workflow] })).gates).toEqual(['gate'])
     }
   )
+
+  it('reads each package of the manifest’s dependencies, devDependencies, and overrides', () =>
+    expect(base.packages).toEqual([manifest.dependencies, manifest.devDependencies, manifest.overrides]
+      .flatMap(Object.entries)))
+
+  it.each(['~3.5.45', '>=3.5.45', '3.5', 'latest', 'npm:vue@3.5.45', '3.5.45+build.1'])(
+    'reports a package at %s, which is no X.Y.Z version with an optional prerelease',
+    version => expect(variant(() => ({ packages: [['vue', version]] })).problems)
+      .toEqual([`docs/package.json sets vue to ${version} rather than one exact version`])
+  )
+
+  it.each(['3.5.45', '2.0.0-alpha.21', '1.0.0-rc.1'])('reports nothing for a package at %s', version =>
+    expect(variant(() => ({ packages: [['vue', version]] })).problems).toEqual([]))
 
   it('reads each task by its name and its alias, from a task file and from a TOML table', () =>
     expect(base.tasks).toEqual(expect.arrayContaining(['audit', 'catalog:bundle', 'ci', 'repo:ci'])))
@@ -308,6 +322,11 @@ describe('Repository', () => {
       'a publishing job moved to another workflow',
       rework(DRAFT, workflow => ({ ...workflow, path: 'moved.yml' })),
       `${DRAFT} holds no 🏷️ Cut job`
+    ],
+    [
+      'a package at a range rather than one exact version',
+      ({ packages }) => ({ packages: [...packages, ['vue', '^3.5.45']] }),
+      'docs/package.json sets vue to ^3.5.45 rather than one exact version'
     ],
     [
       'an action pinned to a tag',

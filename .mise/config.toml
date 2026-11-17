@@ -1,8 +1,10 @@
 min_version = "2026.11.4"
 
 [env]
-CARGO_TARGET_DIR   = "{{config_root}}/.cache/cargo"
-NODE_COMPILE_CACHE = "{{config_root}}/.cache/node"
+BUN_INSTALL_CACHE_DIR     = "{{config_root}}/.cache/bun"
+CARGO_TARGET_DIR          = "{{config_root}}/.cache/cargo"
+NODE_COMPILE_CACHE        = "{{config_root}}/.cache/node"
+NPM_CONFIG_IGNORE_SCRIPTS = "1"
 
 [settings]
 auto_install = false
