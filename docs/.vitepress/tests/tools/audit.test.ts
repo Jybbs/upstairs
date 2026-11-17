@@ -12,11 +12,21 @@ const DENY      = ['deny', '--locked', '--manifest-path', 'rust/Cargo.toml']
 const LIFTED    = 'GHSA-1111-1111-1111'
 const PATCHED   = 'GHSA-3h5v-q93c-6h6q'
 const UNPATCHED = 'GHSA-fc5q-39xc-vjpf'
-const ANSWERS   = {
-  [ANOTHER]   : '',
-  [LIFTED]    : 'picomatch to 4.0.8\n',
-  [PATCHED]   : 'ws to 5.2.4, ws to 8.17.1\n',
-  [UNPATCHED] : ''
+
+/**
+ * An advisory in the shape `GET /advisories/<id>` answers with, holding one
+ * vulnerability per package name and the first release patching it.
+ */
+const advisory = (...vulnerabilities: [string, string | null][]): string => JSON.stringify({
+  vulnerabilities: vulnerabilities.map(([name, first_patched_version]) =>
+    ({ first_patched_version, package: { ecosystem: 'npm', name } }))
+})
+
+const ANSWERS = {
+  [ANOTHER]   : advisory(['picomatch', null]),
+  [LIFTED]    : advisory(['picomatch', null], ['picomatch', '4.0.8']),
+  [PATCHED]   : advisory(['ws', '5.2.4'], ['ws', '8.17.1']),
+  [UNPATCHED] : advisory(['picomatch', null])
 }
 const CARGO = [
   [...DENY, 'check', 'advisories', 'bans', 'sources'],
@@ -33,9 +43,10 @@ const it = test.extend('scratch', async ({ onTestFinished }) => {
 
 /**
  * Runs `lock:audit` from `dir` with `AUDIT_IGNORE` set to `ignore`, where `gh
- * api /advisories/<id>` prints what its `--jq` filter prints of the advisory
- * `ANSWERS` holds for that ID and fails for any other, and each call takes the
- * next status in `exit`, the last repeating.
+ * api /advisories/<id>` runs its `--jq` filter over the advisory `ANSWERS`
+ * holds for that ID and fails for any other, and each other call exits with
+ * the status in `exit` at its place among every call, the `gh api` calls
+ * counted, the last repeating.
  */
 const run = (
   dir    : string,
