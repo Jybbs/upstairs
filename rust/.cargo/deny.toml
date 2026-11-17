@@ -1,0 +1,18 @@
+[advisories]
+unmaintained = "workspace"
+yanked       = "deny"
+
+[bans]
+multiple-versions = "deny"
+wildcards         = "deny"
+
+[graph]
+targets = ["wasm32-unknown-unknown"]
+
+[licenses]
+allow   = ["MIT", "Apache-2.0", "Unicode-3.0"]
+private = { ignore = true }
+
+[sources]
+unknown-git      = "deny"
+unknown-registry = "deny"
