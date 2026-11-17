@@ -188,7 +188,8 @@ describe('a run of the task', () => {
     const ran = spawnSync(process.execPath, ['--preload', offline, join(CATALOG, 'login.ts')], {
       encoding : 'utf8',
       env      : { ...process.env, HOME: home },
-      input    : ''
+      input    : '',
+      timeout  : 10_000
     })
     expect(ran.status).toBe(1)
     expect(ran.stdout).toBe('')
@@ -251,5 +252,18 @@ describe('a prompt', () => {
     const answer = new login.Prompt(input, new PassThrough()).ask('Username: ')
     input.write('\x03')
     await expect(answer).rejects.toMatchObject({ code: 'ABORT_ERR' })
+  })
+
+  test('leaves raw mode once each of two questions in a row is answered', async () => {
+    const input  = Object.assign(new PassThrough(), { isTTY: true, setRawMode: vi.fn() })
+    const prompt = new login.Prompt(input, new PassThrough())
+    const named  = prompt.ask('Username: ', 'saved')
+    input.write('\r')
+    expect(await named).toBe('saved')
+    expect(input.setRawMode).toHaveBeenLastCalledWith(false)
+    const hidden = prompt.conceal('Password: ')
+    input.write(`${PASSWORD}\r`)
+    expect(await hidden).toBe(PASSWORD)
+    expect(input.setRawMode.mock.calls).toEqual([[true], [false], [true], [false]])
   })
 })
