@@ -67,13 +67,16 @@ describe('Repository', () => {
     expect(base.packages).toEqual([manifest.dependencies, manifest.devDependencies, manifest.overrides]
       .flatMap(Object.entries)))
 
+  it('reads a manifest without overrides or devDependencies', () =>
+    expect(repository.packagesOf({ dependencies: { vue: '3.5.45' } })).toEqual([['vue', '3.5.45']]))
+
   it.each(['~3.5.45', '>=3.5.45', '3.5', 'latest', 'npm:vue@3.5.45', '3.5.45+build.1'])(
     'reports a package at %s, which is no X.Y.Z version with an optional prerelease',
     version => expect(variant(() => ({ packages: [['vue', version]] })).problems)
       .toEqual([`docs/package.json sets vue to ${version} rather than one exact version`])
   )
 
-  it.each(['3.5.45', '2.0.0-alpha.21', '1.0.0-rc.1'])('reports nothing for a package at %s', version =>
+  it.each(['3.5.45', '2.0.0-alpha.21', '1.0.0-rc.1', '1.0.0-alpha-1'])('reports nothing for a package at %s', version =>
     expect(variant(() => ({ packages: [['vue', version]] })).problems).toEqual([]))
 
   it('reads each task by its name and its alias, from a task file and from a TOML table', () =>

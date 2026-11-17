@@ -70,7 +70,7 @@ export const FILES = {
   sweep    : '.mise/tasks/repo/ci.toml',
   warm     : '.github/workflows/warm.yml'
 }
-const EXACT         = /^\d+\.\d+\.\d+(?:-[\w.]+)?$/
+const EXACT         = /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/
 const FRONTMATTER   = /^---\n([\s\S]*?)\n---\n/
 const KEYS          = 'color, description, name'
 const LABEL_GAP     = 15
@@ -116,10 +116,10 @@ const jobsOf = (workflows: Workflow[]) => workflows
 
 /**
  * Lists each package and the version `manifest` sets it to, across every
- * `PINNED` section.
+ * `PINNED` section the manifest holds.
  */
-const packagesOf = (manifest: Record<(typeof PINNED)[number], Record<string, string>>) =>
-  PINNED.flatMap(section => Object.entries(manifest[section]))
+export const packagesOf = (manifest: Partial<Record<(typeof PINNED)[number], Record<string, string>>>) =>
+  PINNED.flatMap(section => Object.entries(manifest[section] ?? {}))
 
 const pathsOf = async (root: string, pattern: string) =>
   (await Array.fromAsync(new Glob(pattern).scan(root))).sort().map(path => join(root, path))
