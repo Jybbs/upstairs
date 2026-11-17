@@ -28,11 +28,11 @@ jobs:
       matrix:
         include:
           - { name: 🔥 Bun,                                                tools: &bun bun }
-          - { name: 🔥 Bun and OSV-Scanner,                                tools: bun osv-scanner }
           - { name: 🔥 Bun and Rust,                                       tools: bun rust }
           - { name: "🔥 Bun, Rust, and wasm-bindgen",                      tools: bun rust github:wasm-bindgen/wasm-bindgen }
           - { name: "🔥 Bun, cargo-about, Lychee, Rust, and wasm-bindgen", tools: bun github:EmbarkStudios/cargo-about lychee rust github:wasm-bindgen/wasm-bindgen }
           - { name: "🔥 Bun, cargo-about, Rust, and wasm-bindgen",         tools: bun github:EmbarkStudios/cargo-about rust github:wasm-bindgen/wasm-bindgen }
+          - { name: "🔥 Bun, cargo-deny, and Rust",                        tools: bun cargo-deny rust }
           - { name: 🔥 Rust,                                               tools: rust }
           - { name: 🔥 Zizmor,                                             tools: zizmor }
 

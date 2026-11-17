@@ -1,6 +1,28 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "advisories"
-#MISE description = "Report every advisory against a package `docs/bun.lock` or `rust/Cargo.lock` resolves, failing on any"
+#MISE description = "Fail on an advisory against a package `docs/bun.lock` resolves, save one `AUDIT_IGNORE` lists that no release patches, on a listed advisory once a release patches it, or on an advisory, yanked crate, license, version, or source `rust/.cargo/deny.toml` denies for a crate `rust/Cargo.lock` resolves"
+
+patched=0
+while read -r id _; do
+  [[ -n "$id" ]] || continue
+  fixes=$(gh api --jq '
+    [.vulnerabilities[]
+      | select(.first_patched_version)
+      | "\(.package.name) to \(.first_patched_version)"]
+    | join(", ")
+  ' "/advisories/$id")
+  if [[ -n "$fixes" ]]; then
+    echo "lock:audit found a release patching $id, so delete its line from AUDIT_IGNORE in .mise/config.toml and lift $fixes" >&2
+    patched=1
+  fi
+  set -- "--ignore=$id" "$@"
+done <<< "$AUDIT_IGNORE"
+((patched == 0)) || exit 1
 
 bun audit --cwd docs "$@"
-osv-scanner scan source --lockfile rust/Cargo.lock
+cargo deny --locked --manifest-path rust/Cargo.toml check advisories bans sources
+cargo deny \
+  --locked \
+  --manifest-path rust/Cargo.toml \
+  --target wasm32-unknown-unknown \
+  check licenses
