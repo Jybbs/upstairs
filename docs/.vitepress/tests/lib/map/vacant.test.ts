@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 
 import * as vacant    from '../../../lib/map/vacant.ts'
+import { SCHEMES }    from '../../../lib/site/palette.ts'
 import { canvasWith } from '../../common/stubs.ts'
 
 const DIGITS: Record<string, string> = { '-----': '0', '....-': '4' }
@@ -70,6 +71,12 @@ it.each([
 ])('leaves open %s', (_, covers, height) => {
   expect(vacant.roomOf({ bottom: 600, left: 0, right: 400, top: 0 }, ...covers))
     .toEqual({ height, left: 0, top: 0, width: 400 })
+})
+
+it('leaves open the frame’s own pixels where the frame stands below the bar', () => {
+  const frame = { bottom: 664, left: 440, right: 840, top: 64 }
+  expect(vacant.roomOf(frame, { bottom: 664, left: 0, right: 840, top: 584 }))
+    .toEqual({ height: 520, left: 0, top: 0, width: 400 })
 })
 
 it('sets the ring inside its room, clear of every track', () => {
@@ -142,4 +149,41 @@ it('keys the length of the navigation track in Morse, a disc per dot and a line 
     dashes : marks.filter(([from, to]) => to - from > 4).length,
     dots   : marks.filter(([from, to]) => to - from === 4).length
   })
+})
+
+it.each([
+  ['moves each satellite along its track as the clock runs', false, true],
+  ['holds each satellite still under reduced motion', true, false]
+])('%s', (_, reduced, moved) => {
+  const centers: number[] = []
+  const { canvas }        = canvasWith({
+    arc: (x: number, y: number, radius: number) => { if (radius === 5) centers.push(x, y) },
+
+    clearRect: () => { centers.length = 0 }
+  })
+  const sky   = new vacant.VacantSky(canvas)
+  sky.reduced = reduced
+  sky.resize(400, 300, 1, ROOM)
+  sky.draw(0)
+  const before = [...centers]
+  sky.draw(10)
+  expect(centers.some((at, index) => at !== before[index])).toBe(moved)
+})
+
+it('draws each track and its satellite in its kind’s color', () => {
+  const fills: unknown[]    = []
+  const strokes: unknown[]  = []
+  const { canvas, context } = canvasWith({
+    fill   : (path?: unknown) => { if (!path) fills.push(context.fillStyle) },
+    stroke : (path?: unknown) => { if (path) strokes.push(context.strokeStyle) }
+  })
+  const sky    = new vacant.VacantSky(canvas)
+  const colors = vacant.TRACKS.map(({ kind }) => SCHEMES.day.kinds[kind])
+  sky.resize(400, 300, 1, ROOM)
+  sky.draw(0)
+  expect([strokes, fills]).toEqual([
+    vacant.TRACKS.flatMap(({ kind }, index) =>
+      kind === 'navigation' ? [colors[index], colors[index]] : [colors[index]]),
+    [SCHEMES.day.halo, ...colors]
+  ])
 })

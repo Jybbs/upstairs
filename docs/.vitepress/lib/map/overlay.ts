@@ -401,12 +401,14 @@ export class Overlay {
 
   /**
    * Draws each pass `gather` gave a point, moved from where it stands toward
-   * that point by the share of the way the sky has gathered, in one tone.
+   * that point by the share of the way the sky has gathered, in one tone,
+   * skipping the points of passes `tracks` no longer holds.
    */
   private drawGathered(context: CanvasRenderingContext2D, tracks: Tracks, seconds: number) {
     const { view } = this
+    const count    = Math.min(this.gatherX.length, tracks.passes.length)
     const share    = smooth(this.gathered)
-    for (let pass = 0; pass < this.gatherX.length; pass++) {
+    for (let pass = 0; pass < count; pass++) {
       if (Number.isNaN(this.gatherX[pass])) continue
       const { height, riseAt, setAt } = tracks.passes[pass]
       const up                        = tracks.up(pass, seconds)

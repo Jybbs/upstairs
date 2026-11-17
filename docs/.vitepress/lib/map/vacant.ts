@@ -239,8 +239,8 @@ export class VacantSky {
   }
 
   /**
-   * Returns the height in pixels of the called pass at `x`, an arc climbing to
-   * the right whose lowest point is the ring's center.
+   * Returns the height in pixels of the called pass at `x`, an arc through the
+   * ring's center that climbs to the right of it.
    */
   private passHeightAt(x: number) {
     const { height, ring, width } = this

@@ -520,9 +520,11 @@ describe('the stage', () => {
     vi.resetModules()
     const { sky } = await import('../../../lib/state/sky.ts')
     const before  = workers.length
+    posted        = []
     sky.loadOnce()
     sky.loadOnce()
-    expect([before, workers.length, sky.stage.value]).toEqual([1, 2, 'fetching'])
+    expect([before, workers.length, posted.map(({ type }) => type), sky.stage.value])
+      .toEqual([1, 2, ['load'], 'fetching'])
   })
 
   it('starts a new worker to load again where the first failed to start', async () => {

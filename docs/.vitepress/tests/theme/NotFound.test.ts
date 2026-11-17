@@ -18,10 +18,13 @@ const page = vi.hoisted(() => ({
   strip   : { bottom: 900, left: 0, right: 400, top: 600 }
 }))
 
-vi.mock('vitepress', () => ({
-  defineClientComponent : () => ({ render: () => null }),
-  useData               : () => ({ isDark: ref(false) })
-}))
+vi.mock('vitepress', async () => {
+  const { h } = await import('vue')
+  return {
+    defineClientComponent : () => ({ setup: () => () => h('div', { 'data-map': '' }) }),
+    useData               : () => ({ isDark: ref(false) })
+  }
+})
 
 vi.mock('@vueuse/core', () => ({
   usePreferredReducedMotion : () => ref(page.motion),
@@ -108,6 +111,24 @@ it('gathers the sky into 404 holding the hour, and back to the present on a seco
     ['true', { height: 552, left: 24, top: 24, width: 352 }, 'held'],
     ['false', null, 'live']
   ])
+})
+
+it('draws the sky on its map only while the numeral stands pressed', async () => {
+  const { wrapper } = await mounted()
+  const live        = async () => {
+    await wrapper.get(NUMERAL).trigger('click')
+    await flushPromises()
+    return wrapper.get('[data-map]').attributes('live')
+  }
+  const before      = wrapper.get('[data-map]').attributes()
+  expect([before.backdrop, before.live, await live(), await live()]).toEqual(['true', 'false', 'true', 'false'])
+})
+
+it('sets the numeral and the ring as unpressed toggles of type button', async () => {
+  const { wrapper } = await mounted()
+  const toggles     = [NUMERAL, RING].map(found => wrapper.get(found).attributes())
+  expect(toggles.map(({ 'aria-pressed': pressed, type }) => [type, pressed]))
+    .toEqual([['button', 'false'], ['button', 'false']])
 })
 
 it('neither loads nor gathers the sky where the numeral is pressed again before it loads', async () => {

@@ -8,7 +8,9 @@ import { VacantSky, roomOf } from '../lib/map/vacant.ts'
 import { SCHEMES, kindColor } from '../lib/site/palette.ts'
 import Readings               from './Readings.tsx'
 
-const SkyMap = defineComponent(defineClientComponent(() => import('./SkyMap.tsx'), [{ backdrop: true }]))
+const SkyMap = defineComponent<{ backdrop: boolean, live: boolean }>(
+  defineClientComponent(() => import('./SkyMap.tsx')).setup
+)
 
 /**
  * The space in pixels the numeral keeps from the edges of the map's open room.
@@ -303,7 +305,7 @@ export default defineComponent(
               aria-label="Wait at the spot for a pass"
             />
           )}
-          <SkyMap />
+          <SkyMap backdrop live={gathered.value} />
           <canvas ref={canvas} class="pointer-events-none absolute inset-0 size-full" aria-hidden="true" />
         </div>
       </main>

@@ -17,6 +17,7 @@ import { clamp }                        from '../lib/site/motion.ts'
 import { SCHEMES }                      from '../lib/site/palette.ts'
 import { SHEETS }                       from '../lib/site/sheets.ts'
 import { sky }                          from '../lib/state/sky.ts'
+import { Tracks }                       from '../lib/state/tracks.ts'
 import Icon                             from './Icon.tsx'
 
 const DEM     = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
@@ -27,14 +28,19 @@ const SYNC_MS = 250
 const ZOOM    = 5
 
 /**
+ * The sky a backdrop draws until it goes live, holding no pass.
+ */
+const EMPTY = new Tracks()
+
+/**
  * Draws the map around the spot under the satellites and their tracks, with
  * the pin of the spot chooser, the zoom buttons, and a notice where a host
  * the map reads fails, graying the map where the catalog did not load. As a
  * `backdrop` it draws the relief alone, held still, with no names, spot, or
- * zoom buttons.
+ * zoom buttons, and no satellites until it goes `live`.
  */
 export default defineComponent(
-  (props: { backdrop?: boolean }) => {
+  (props: { backdrop?: boolean, live?: boolean }) => {
     const cursor  = ref(props.backdrop ? 'auto' : 'crosshair')
     const detents = new Detents()
     const frame   = ref<HTMLElement>()
@@ -312,7 +318,7 @@ export default defineComponent(
         get spot() { return props.backdrop ? null : sky.spot.value },
         get start() { return sky.start.value },
         traced  : sky.traces,
-        tracks  : sky.tracks
+        get tracks() { return props.backdrop && !props.live ? EMPTY : sky.tracks }
       })
       overlay.scheme = scheme.value
       fit()
@@ -483,5 +489,5 @@ export default defineComponent(
       </div>
     )
   },
-  { name: 'SkyMap', props: ['backdrop'] }
+  { name: 'SkyMap', props: ['backdrop', 'live'] }
 )

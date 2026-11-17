@@ -627,6 +627,31 @@ it('draws each gathered satellite 3 px round on its halo once the sky has gather
   expect(sketch.marks.map(({ radius }) => radius)).toEqual([4.5, 3])
 })
 
+it('draws none of the gathered points once their tracks are cleared', () => {
+  const tracks = new Tracks()
+  const track  = new Float32Array(3 * TRACK_WIDTH)
+  trackAt(track, CRAFT, 0)
+  tracks.add([passOf(25544, { riseAt: 0, setAt: 60 })], track, Uint32Array.of(0), 3)
+  const sketch  = sketchOf()
+  const overlay = new Overlay(sketchOf().canvas, sketch.canvas, {
+    gathered : true,
+    held     : null,
+    named    : null,
+    reduced  : true,
+    selected : null,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => true,
+    tracks   : tracks
+  })
+  overlay.resize(400, 400, 1)
+  overlay.view.set(400, 400, 7, BOSTON.longitude, BOSTON.latitude)
+  overlay.gather(tracks, 30, () => [[100, 100]])
+  tracks.clear()
+  overlay.draw(30)
+  expect(sketch.marks).toEqual([])
+})
+
 it.each([
   ['rings the spot where the map has one', BOSTON, 1],
   ['draws no ring where the map has no spot', null, 0]

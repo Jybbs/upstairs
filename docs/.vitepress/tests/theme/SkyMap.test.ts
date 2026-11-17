@@ -16,7 +16,10 @@ const {
   TOWN            : 10 * 360 / (512 * 2 ** 5),
   caught          : vi.fn(),
   draw            : vi.fn(),
-  drawn           : { state: { spot: null as unknown } },
+  drawn           : {
+    overlay : { labels: [] as unknown[] },
+    state   : { spot: null as unknown, tracks: { passes: [] as unknown[] } }
+  },
   easeTo          : vi.fn(),
   fitBounds       : vi.fn(),
   frame           : vi.fn((_loop: FrameRequestCallback) => 0),
@@ -54,6 +57,11 @@ vi.mock('maplibre-gl', () => ({
     getContainer() { return { clientHeight: 600, clientWidth: 800 } }
     getZoom()      { return 5 }
     on(type: string, run: (event: unknown) => void) { handlers.set(type, run) }
+    querySourceFeatures(_: string, { sourceLayer }: { sourceLayer: string }) {
+      return sourceLayer === 'place'
+        ? [{ geometry: { coordinates: [0, 0], type: 'Point' }, properties: { class: 'city', name: 'Town' } }]
+        : []
+    }
     remove()       {}
   },
   setWorkerUrl() {}
@@ -79,7 +87,10 @@ vi.mock('../../lib/map/overlay.ts', async () => {
       labels = [{ latitude: 0, longitude: TOWN, name: 'Town', tier: 'city' }]
       onMap  = new Uint16Array()
       view   = new View()
-      constructor(_lower: unknown, _upper: unknown, state: { spot: unknown }) { drawn.state = state }
+      constructor(_lower: unknown, _upper: unknown, state: typeof drawn.state) {
+        drawn.overlay = this
+        drawn.state   = state
+      }
       crossing()   { return new Uint8Array(1) }
       invalidate() {}
       nearest()    { return null }
@@ -151,16 +162,23 @@ it.each([
 })
 
 it.each([
-  ['answers the pointer and holds its zoom buttons and spot as the home map', {}, [true, true, true, true]],
-  ['holds still as a backdrop, with no zoom buttons, spot, or answer to the pointer', { backdrop: true },
-    [false, false, false, false]]
+  ['answers the pointer and holds its zoom buttons, spot, names, and sky as the home map', {},
+    [true, true, true, true, 'crosshair', 1, 1]],
+  ['holds still as a backdrop, with no zoom buttons, spot, names, sky, or answer to the pointer',
+    { backdrop: true }, [false, false, false, false, 'auto', 0, 0]],
+  ['draws the sky as a backdrop once it goes live', { backdrop: true, live: true },
+    [false, false, false, false, 'auto', 0, 1]]
 ])('%s', async (_, props, answers) => {
   const { wrapper } = await mounted(null, props)
+  handlers.get('idle')!({})
   expect([
     made.mock.lastCall![0].interactive,
     handlers.has('click'),
     wrapper.find('[aria-label="Zoom"]').exists(),
-    drawn.state.spot !== null
+    drawn.state.spot !== null,
+    (wrapper.get('[data-map]').element as HTMLElement).style.cursor,
+    drawn.overlay.labels.length,
+    drawn.state.tracks.passes.length
   ]).toEqual(answers)
 })
 
