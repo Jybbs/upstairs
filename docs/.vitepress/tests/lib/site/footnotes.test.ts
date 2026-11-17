@@ -59,8 +59,10 @@ it.each([
   ['beside a citation', `A claim^[a *note*] and ${PAGE}`],
   ['inside the alt text of an image', '![A claim^[a *note*]](/x.png)']
 ])('fails on an inline footnote %s, naming it and the citation to write', (_, src) =>
-  expect(md.renderAsync(src, {})).rejects.toThrow('The inline footnote ^[a *note*] names no entry in '
-                                                + 'docs/references.bib, so cite one as [^key] instead'))
+  expect(md.renderAsync(src, {})).rejects.toThrow(
+    'The inline footnote ^[a *note*] names no entry in docs/.vitepress/lib/site/references.bib, '
+    + 'so cite one as [^key] instead'
+  ))
 
 it('sets an inline footnote written inside a code span as code', async () =>
   expect(await md.renderAsync('Write `^[a note]` after the claim.', {})).toContain('<code>^[a note]</code>'))

@@ -1,7 +1,5 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "lift"
-#MISE description = "List the newer version of each pinned tool and package, changing nothing"
+#MISE description = "List every pin behind its newest release with its hold, trying each lift in a scratch copy of the tree under `--try`, writing the passing lifts under `--write`, and recording a hold under `--hold <pin> <reason>`"
 
-mise outdated --bump
-bun outdated --cwd docs
-cargo update --dry-run --manifest-path rust/Cargo.toml --verbose
+bun run docs/.vitepress/tools/lift.ts "$@"

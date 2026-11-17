@@ -102,7 +102,7 @@
     },
     "vitest": {
       "config": [
-        ".vitepress/vitest.config.ts"
+        ".vitepress/tests/vitest.config.ts"
       ]
     }
   }

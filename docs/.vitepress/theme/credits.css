@@ -87,7 +87,7 @@
 
 .vp-doc .credits-strip {
   display               : grid;
-  grid-template-columns : repeat(3, minmax(0, 1fr));
+  grid-template-columns : repeat(2, minmax(0, 1fr));
   gap                   : 10px 6px;
   padding-bottom        : 12px;
   border-bottom         : 1px solid var(--rule);
@@ -296,6 +296,8 @@
 
 @media (width >= 40rem) {
   .vp-doc .credits { --credits-seal: 112px; }
+
+  .vp-doc .credits-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
   .vp-doc .credits-rows {
     grid-template-columns : max-content minmax(0, 1fr);

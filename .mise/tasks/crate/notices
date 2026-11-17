@@ -3,8 +3,9 @@
 
 mkdir -p rust/pkg
 cargo about generate \
+  --config rust/.cargo/about.toml \
   --fail \
   --locked \
   --manifest-path rust/Cargo.toml \
   --output-file rust/pkg/licenses.txt \
-  rust/about.hbs
+  rust/.cargo/about.hbs

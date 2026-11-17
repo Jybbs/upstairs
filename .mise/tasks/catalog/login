@@ -1,0 +1,6 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE depends     = ["site:install"]
+#MISE description = "Save the Space-Track login in `~/.netrc` once Space-Track accepts it, check the saved login under `--check`, and set it as the catalog service's secrets under `--worker`"
+#MISE env         = { WRANGLER_SEND_METRICS = "false" }
+
+bun run docs/.vitepress/catalog/login.ts "$@"
