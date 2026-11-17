@@ -14,7 +14,7 @@ interface Drawn {
   named    : Kind | null
   reduced  : boolean
   selected : Pass | null
-  spot     : Spot
+  spot     : Spot | null
   start    : number
   traced   : (pass: number) => boolean
   tracks   : Tracks
@@ -293,7 +293,7 @@ export class Overlay {
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     context.clearRect(0, 0, view.width, view.height)
     this.drawLabels(context)
-    this.drawSpot(context, state.spot)
+    if (state.spot) this.drawSpot(context, state.spot)
   }
 
   private drawLabels(context: CanvasRenderingContext2D) {

@@ -21,6 +21,7 @@ import TimeStrip          from './TimeStrip.tsx'
 export default defineComponent(
   () => {
     provideChooser()
+    sky.loadOnce()
     const phone = usePhone()
     /**
      * Whether the spot chooser stands over the map, the readout's card and the

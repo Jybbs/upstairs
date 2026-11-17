@@ -248,14 +248,17 @@ class Sky {
    */
   readonly away = computed(() => Math.floor(this.at.value / 60) - Math.floor(this.now.value / 60))
 
-  constructor() { this.load() }
-
   /**
    * Seconds into the window the present stands at.
    */
   get present(): number { return (Date.now() - this.start.value) / 1000 }
 
   private ask(asked: Asked) { this.worker?.postMessage(asked) }
+
+  /**
+   * Loads the site's catalog file unless a worker already holds it.
+   */
+  loadOnce() { if (!this.worker) this.load() }
 
   /**
    * Loads the site's catalog file from the start, dropping every pass traced

@@ -1,88 +1,160 @@
 // @vitest-environment happy-dom
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi }       from 'vitest'
+import { ref }                  from 'vue'
 
-import { freshSky }       from '../common/sky.ts'
-import { stubMatchMedia } from '../common/stubs.ts'
+import { freshSky }   from '../common/sky.ts'
+import { stubCanvas } from '../common/stubs.ts'
 
-vi.mock('vitepress', () => ({ defineClientComponent: () => ({ render: () => null }) }))
+const BELOW   = { bottom: 900, left: 0, right: 400, top: 600 }
+const MAP     = { bottom: 600, left: 0, right: 400, top: 0 }
+const NUMERAL = '[aria-label="Gather the sky into 404"]'
+const RING    = '[aria-label="Wait at the spot for a pass"]'
 
-const resized = vi.hoisted(() => ({ run: () => {} }))
+const page = vi.hoisted(() => ({
+  frame   : (() => {}) as (moved: { delta: number }) => void,
+  motion  : 'no-preference',
+  resized : () => {},
+  strip   : { bottom: 900, left: 0, right: 400, top: 600 }
+}))
 
-vi.mock('@vueuse/core', () => ({ useResizeObserver: (_: unknown, run: () => void) => { resized.run = run } }))
+vi.mock('vitepress', () => ({
+  defineClientComponent : () => ({ render: () => null }),
+  useData               : () => ({ isDark: ref(false) })
+}))
+
+vi.mock('@vueuse/core', () => ({
+  usePreferredReducedMotion : () => ref(page.motion),
+  useRafFn                  : (frame: typeof page.frame) => {
+    page.frame = frame
+    return { pause: () => {}, resume: () => {} }
+  },
+  useResizeObserver         : (_: unknown, run: () => void) => { page.resized = run }
+}))
 
 /**
- * Mounts the 404 page over a fresh copy of the shared state and a stand-in
- * worker.
+ * Mounts the not-found page over a fresh copy of the shared state and a
+ * stand-in worker, its map 400 by 600 pixels with the panel below it and the
+ * strip at `strip`, on a device reducing motion where `reduced` is set,
+ * returning the messages the worker is posted.
  */
-const mounted = async () => {
-  stubMatchMedia(() => false)
+const mounted = async (reduced = false, strip = BELOW) => {
+  page.motion = reduced ? 'reduce' : 'no-preference'
+  page.strip  = strip
+  stubCanvas()
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600)
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400)
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    if (this.querySelector('canvas')) return MAP as DOMRect
+    return (this.firstElementChild?.tagName === 'SECTION' ? page.strip : BELOW) as DOMRect
+  })
   const { component: NotFound, sky } = await freshSky(() => import('../../theme/NotFound.tsx'))
-  return { sky, wrapper: mount(NotFound) }
+  const posted                       = vi.spyOn(Worker.prototype, 'postMessage')
+  const wrapper                      = mount(NotFound)
+  await flushPromises()
+  return { posted, sky, wrapper }
 }
+
+/**
+ * Reads the page's account of the pass over the spot: the label, the strip's
+ * readings, whether its ridge stands, and whether the ring reads as pressed.
+ */
+const shownOf = (wrapper: Awaited<ReturnType<typeof mounted>>['wrapper']) => ({
+  label    : wrapper.get('p.caps').text(),
+  pressed  : wrapper.get(RING).attributes('aria-pressed'),
+  readings : wrapper.findAll('dd').map(reading => reading.text()),
+  ridge    : wrapper.find('path[fill-opacity]').exists()
+})
+
+const NONE = { label: 'Not found · No pass', readings: ['0', '—', '—'], ridge: false }
+const ONE  = { label: 'Not found · One pass', readings: ['1', '71°', 'Now'], ridge: true }
+
+it.each([
+  ['reads no pass over the spot before the ring is pressed', false, 0, 0, { ...NONE, pressed: 'false' }],
+  ['still reads no pass while the called pass crosses toward the spot', false, 1, 0.5,
+    { ...NONE, pressed: 'true' }],
+  ['reads one pass once the called pass reaches the spot', false, 1, 4.2, { ...ONE, pressed: 'true' }],
+  ['reads one pass at once under reduced motion', true, 1, 0, { ...ONE, pressed: 'true' }],
+  ['reads no pass again once the ring is pressed a second time', true, 2, 0, { ...NONE, pressed: 'false' }]
+])('%s', async (_, reduced, presses, seconds, shown) => {
+  const { wrapper } = await mounted(reduced)
+  for (let press = 0; press < presses; press++) await wrapper.get(RING).trigger('click')
+  page.frame({ delta: seconds * 1000 })
+  await flushPromises()
+  expect(shownOf(wrapper)).toEqual(shown)
+})
+
+it('asks for the catalog only once the numeral is pressed', async () => {
+  const { posted, wrapper } = await mounted()
+  const loads               = () => posted.mock.calls.filter(([asked]) => asked.type === 'load').length
+  await wrapper.get(RING).trigger('click')
+  page.resized()
+  await flushPromises()
+  const before = loads()
+  await wrapper.get(NUMERAL).trigger('click')
+  await flushPromises()
+  expect([before, loads()]).toEqual([0, 1])
+})
 
 it('gathers the sky into 404 holding the hour, and back to the present on a second press', async () => {
   const { sky, wrapper } = await mounted()
-  const numeral          = wrapper.get('button')
+  const numeral          = wrapper.get(NUMERAL)
   const pressed          = async () => {
     await numeral.trigger('click')
     await flushPromises()
-    return [numeral.attributes('aria-pressed'), sky.gather.value !== null, sky.clock.value]
+    return [numeral.attributes('aria-pressed'), sky.gather.value, sky.clock.value]
   }
-  expect([await pressed(), await pressed()]).toEqual([['true', true, 'held'], ['false', false, 'live']])
+  expect([await pressed(), await pressed()]).toEqual([
+    ['true', { height: 552, left: 24, top: 24, width: 352 }, 'held'],
+    ['false', null, 'live']
+  ])
+})
+
+it('neither loads nor gathers the sky where the numeral is pressed again before it loads', async () => {
+  const { posted, sky, wrapper } = await mounted()
+  const numeral                  = wrapper.get(NUMERAL)
+  await numeral.trigger('click')
+  await numeral.trigger('click')
+  await flushPromises()
+  expect([numeral.attributes('aria-pressed'), sky.gather.value, sky.clock.value, posted.mock.calls])
+    .toEqual(['false', null, 'live', []])
 })
 
 it('lets the sky go and returns to the present once it unmounts gathered', async () => {
   const { sky, wrapper } = await mounted()
-  await wrapper.get('button').trigger('click')
+  await wrapper.get(NUMERAL).trigger('click')
   await flushPromises()
   wrapper.unmount()
   await flushPromises()
   expect([sky.gather.value, sky.clock.value]).toEqual([null, 'live'])
 })
 
-it('gathers the sky again into the room a resized frame leaves, only while it is gathered', async () => {
+it('gathers the sky again on a resize only while it is gathered', async () => {
   const { sky, wrapper } = await mounted()
-  resized.run()
+  page.resized()
   await flushPromises()
   const before = sky.gather.value
-  await wrapper.get('button').trigger('click')
+  await wrapper.get(NUMERAL).trigger('click')
   await flushPromises()
   const room = sky.gather.value
-  resized.run()
+  page.resized()
   await flushPromises()
   expect([before, sky.gather.value === room, sky.gather.value]).toEqual([null, false, room])
 })
 
-it('names the address that holds no page, before the way back to the map', async () => {
+it('names the address that holds no page, then reaches the way back, the numeral, and the ring', async () => {
   history.replaceState(null, '', '/no-such-page/')
   const { wrapper } = await mounted()
-  await wrapper.vm.$nextTick()
-  expect(wrapper.findAll('p').map(line => line.text())).toEqual(
-    ['Not found', `There is no page at ${location.host}/no-such-page/.`])
-  expect(wrapper.findAll('a, button').map(control => control.text())).toEqual(['Back to the map', '404'])
+  expect(wrapper.findAll('p').map(line => line.text()).slice(0, 2)).toEqual(
+    ['Not found · No pass', `There is no page at ${location.host}/no-such-page/.`])
+  expect(wrapper.findAll('a, button').map(control => control.attributes('aria-label') ?? control.text()))
+    .toEqual(['Back to the map', 'Gather the sky into 404', 'Wait at the spot for a pass'])
 })
 
 it.each([
-  ['beside the panel where the panel leaves the wider room to its right', 1000,
-    { height: 552, left: 424, top: 24, width: 552 }],
-  ['below the panel where the frame is too narrow beside it', 600,
-    { height: 252, left: 24, top: 324, width: 552 }]
-] as const)('gathers the sky into the room %s', async (_, width, room) => {
-  const { sky, wrapper } = await mounted()
-  const frame            = { height: 600, left: 0, top: 0, width }
-  const panel            = { bottom: 300, right: 400 }
-  const measured         = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-    .mockImplementation(function (this: HTMLElement) {
-      return (this.tagName === 'MAIN' ? frame : panel) as DOMRect
-    })
-  await wrapper.get('button').trigger('click')
-  await flushPromises()
-  measured.mockRestore()
-  expect(sky.gather.value).toEqual(room)
-})
-
-it('sets the numeral as an unpressed toggle of type button', async () => {
-  const numeral = (await mounted()).wrapper.get('button')
-  expect([numeral.attributes('type'), numeral.attributes('aria-pressed')]).toEqual(['button', 'false'])
+  ['below the map', BELOW, 0],
+  ['across the map’s foot', { bottom: 600, left: 0, right: 400, top: 520 }, 80]
+])('lifts the map’s credit above a strip %s by %i px', async (_, strip, covered) => {
+  const { wrapper } = await mounted(false, strip)
+  expect(wrapper.get('[style*="--covered"]').attributes('style')).toContain(`--covered: ${covered}px`)
 })

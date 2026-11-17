@@ -29,11 +29,13 @@ const ZOOM    = 5
 /**
  * Draws the map around the spot under the satellites and their tracks, with
  * the pin of the spot chooser, the zoom buttons, and a notice where a host
- * the map reads fails, graying the map where the catalog did not load.
+ * the map reads fails, graying the map where the catalog did not load. As a
+ * `backdrop` it draws the relief alone, held still, with no names, spot, or
+ * zoom buttons.
  */
 export default defineComponent(
-  () => {
-    const cursor  = ref('crosshair')
+  (props: { backdrop?: boolean }) => {
+    const cursor  = ref(props.backdrop ? 'auto' : 'crosshair')
     const detents = new Detents()
     const frame   = ref<HTMLElement>()
     const hosts   = new Hosts()
@@ -231,7 +233,7 @@ export default defineComponent(
     }
 
     const refreshFrame = () => {
-      overlay.labels    = namesOn(map, overlay.view)
+      overlay.labels    = props.backdrop ? [] : namesOn(map, overlay.view)
       sky.inFrame.value = overlay.crossing(sky.tracks)
       sky.unlatch()
       overlay.invalidate()
@@ -284,6 +286,7 @@ export default defineComponent(
           center             : [longitude, latitude],
           container          : frame.value!,
           dragRotate         : false,
+          interactive        : !props.backdrop,
           maxPitch           : 0,
           maxZoom            : 12,
           minZoom            : 1.5,
@@ -306,7 +309,7 @@ export default defineComponent(
         get named() { return sky.named.value },
         reduced : sky.reduced,
         get selected() { return sky.selected.value },
-        get spot() { return sky.spot.value },
+        get spot() { return props.backdrop ? null : sky.spot.value },
         get start() { return sky.start.value },
         traced  : sky.traces,
         tracks  : sky.tracks
@@ -326,6 +329,19 @@ export default defineComponent(
       map.on('moveend', rested)
       map.on('idle', refreshFrame)
       map.on('resize', fit)
+      if (!props.backdrop) followPointer()
+
+      frames.resume()
+      stepped()
+      document.fonts.ready.then(() => overlay.invalidate())
+    })
+
+    /**
+     * Answers the pointer over the map: the cursor it shows over a satellite or
+     * the open map, and a press pinning the satellite under it or letting the
+     * pinned one go.
+     */
+    const followPointer = () => {
       map.on('mousemove', ({ point }) => {
         if (sky.choosing.value !== 'shut') return void (cursor.value = 'grab')
         cursor.value = overlay.nearest(point.x, point.y) === null ? 'crosshair' : 'pointer'
@@ -336,11 +352,7 @@ export default defineComponent(
         if (pass === null) return sky.release()
         sky.pin(sky.tracks.passes[pass])
       })
-
-      frames.resume()
-      stepped()
-      document.fonts.ready.then(() => overlay.invalidate())
-    })
+    }
 
     /**
      * Sets the detents to the chosen pass's steps once its scan is done.
@@ -428,19 +440,26 @@ export default defineComponent(
             />
           </div>
         )}
-        <div
-          style={zoomAt.value}
-          class="absolute top-1/2 right-3 z-10 flex -translate-y-1/2 flex-col overflow-hidden rounded-sm
-                 border border-rule bg-panel/95 text-ink shadow-lift [&>button]:grid [&>button]:size-11
-                 [&>button]:cursor-pointer [&>button]:place-items-center [&>button:hover]:bg-lift"
-          role="group"
-          aria-label="Zoom"
-        >
-          <button type="button" aria-label="Zoom in" onClick={() => zoomBy(1)}><Icon name="zin" /></button>
-          <button type="button" class="border-t border-rule" aria-label="Zoom out" onClick={() => zoomBy(-1)}>
-            <Icon name="zout" />
-          </button>
-        </div>
+        {!props.backdrop && (
+          <div
+            style={zoomAt.value}
+            class="absolute top-1/2 right-3 z-10 flex -translate-y-1/2 flex-col overflow-hidden rounded-sm
+                   border border-rule bg-panel/95 text-ink shadow-lift [&>button]:grid [&>button]:size-11
+                   [&>button]:cursor-pointer [&>button]:place-items-center [&>button:hover]:bg-lift"
+            role="group"
+            aria-label="Zoom"
+          >
+            <button type="button" aria-label="Zoom in" onClick={() => zoomBy(1)}><Icon name="zin" /></button>
+            <button
+              type="button"
+              class="border-t border-rule"
+              aria-label="Zoom out"
+              onClick={() => zoomBy(-1)}
+            >
+              <Icon name="zout" />
+            </button>
+          </div>
+        )}
         {hosts.message.value && <div class="pointer-events-none absolute inset-0 bg-panel/62" />}
         <canvas ref={lower} class="pointer-events-none absolute inset-0 size-full" />
         <canvas ref={upper} class="pointer-events-none absolute inset-0 size-full" />
@@ -464,5 +483,5 @@ export default defineComponent(
       </div>
     )
   },
-  { name: 'SkyMap' }
+  { name: 'SkyMap', props: ['backdrop'] }
 )

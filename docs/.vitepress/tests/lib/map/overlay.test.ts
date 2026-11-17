@@ -8,6 +8,7 @@ import { SCHEMES }                                    from '../../../lib/site/pa
 import { TRACK_WIDTH }                                from '../../../lib/orbit/scan.ts'
 import { Tracks }                                     from '../../../lib/state/tracks.ts'
 import { passOf }                                     from '../../common/passes.ts'
+import { canvasWith }                                 from '../../common/stubs.ts'
 
 const BOSTON = { latitude: 42.36, longitude: -71.06 }
 const CRAFT  = { latitude: 41.86, longitude: -70.56 }
@@ -34,7 +35,6 @@ const canvasOf = () => {
       centers.push([x, y])
       if (dash) dashed.push([x, y, radius])
     },
-    canvas      : { height: 0, width: 0 },
     fill        : (path?: unknown) => {
       alphas.push(context.globalAlpha as number)
       if (path) paths.push(path)
@@ -47,10 +47,7 @@ const canvasOf = () => {
     },
     stroke      : () => { if (dash) strokes.push(context.strokeStyle) }
   }
-  const context = new Proxy<Record<string | symbol, unknown>>(calls, {
-    get: (target, key) => target[key] ?? (() => {})
-  })
-  const canvas  = { getContext: () => context } as unknown as HTMLCanvasElement
+  const { canvas, context } = canvasWith(calls)
   return { alphas, canvas, centers, dashed, gaps, paths, strokes }
 }
 
@@ -438,7 +435,6 @@ const sketchOf = () => {
       points = []
       round  = false
     },
-    canvas    : { height: 0, width: 0 },
     fill      : () => {
       const alpha = context.globalAlpha as number
       if (round) return marks.push({ alpha, filled: true, radius, style: context.fillStyle })
@@ -450,10 +446,8 @@ const sketchOf = () => {
       if (round) marks.push({ alpha: context.globalAlpha as number, filled: false, radius, style: null })
     }
   }
-  const context = new Proxy<Record<string | symbol, unknown>>(calls, {
-    get: (target, key) => target[key] ?? (() => {})
-  })
-  return { canvas: { getContext: () => context } as unknown as HTMLCanvasElement, marks, ribbons }
+  const { canvas, context } = canvasWith(calls)
+  return { canvas, marks, ribbons }
 }
 
 /**
@@ -631,4 +625,26 @@ it('draws each gathered satellite 3 px round on its halo once the sky has gather
   overlay.gather(tracks, 30, () => [[100, 100]])
   overlay.draw(30)
   expect(sketch.marks.map(({ radius }) => radius)).toEqual([4.5, 3])
+})
+
+it.each([
+  ['rings the spot where the map has one', BOSTON, 1],
+  ['draws no ring where the map has no spot', null, 0]
+])('%s', (_, spot, rings) => {
+  const still   = canvasOf()
+  const overlay = new Overlay(still.canvas, canvasOf().canvas, {
+    gathered : false,
+    held     : null,
+    named    : null,
+    reduced  : true,
+    selected : null,
+    spot     : spot,
+    start    : 0,
+    traced   : () => true,
+    tracks   : new Tracks()
+  })
+  overlay.resize(400, 400, 1)
+  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(0)
+  expect(still.dashed).toHaveLength(rings)
 })

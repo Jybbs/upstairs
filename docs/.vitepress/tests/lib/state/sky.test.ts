@@ -60,6 +60,7 @@ const opened = async (fragment = '', reduced = false) => {
   })
   vi.resetModules()
   const { sky } = await import('../../../lib/state/sky.ts')
+  sky.loadOnce()
   return sky
 }
 
@@ -512,6 +513,16 @@ describe('the stage', () => {
     sky.load()
     expect([sky.stage.value, sky.tracks.passes.length, posted.at(-1), workers.length])
       .toEqual(['fetching', 0, { type: 'load', url: `/${catalog.FILE}` }, 1])
+  })
+
+  it('asks for the catalog only once the page loads it, and once however often it does', async () => {
+    await opened()
+    vi.resetModules()
+    const { sky } = await import('../../../lib/state/sky.ts')
+    const before  = workers.length
+    sky.loadOnce()
+    sky.loadOnce()
+    expect([before, workers.length, sky.stage.value]).toEqual([1, 2, 'fetching'])
   })
 
   it('starts a new worker to load again where the first failed to start', async () => {

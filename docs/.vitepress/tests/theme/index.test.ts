@@ -1,17 +1,21 @@
 // @vitest-environment happy-dom
-import { mount }          from '@vue/test-utils'
-import { expect, it, vi } from 'vitest'
-import { type VNode }     from 'vue'
+import { mount }           from '@vue/test-utils'
+import { expect, it, vi }  from 'vitest'
+import { type VNode, ref } from 'vue'
 
 import { followFootnotes } from '../../lib/site/landing.ts'
 import MARK                from '../../lib/site/mark.json' with { type: 'json' }
 import theme               from '../../theme/index.ts'
+import { stubCanvas }      from '../common/stubs.ts'
 
 type Slots = Record<'doc-after' | 'nav-bar-title-before' | 'not-found', () => VNode>
 
 vi.mock('../../lib/site/landing.ts', () => ({ followFootnotes: vi.fn() }))
 vi.mock('../../lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
-vi.mock('vitepress', () => ({ defineClientComponent: () => ({ render: () => null }) }))
+vi.mock('vitepress', () => ({
+  defineClientComponent : () => ({ render: () => null }),
+  useData               : () => ({ isDark: ref(false) })
+}))
 vi.mock('vitepress/theme-without-fonts', () => ({ default: { Layout: {} } }))
 
 const slotOf = (name: keyof Slots) => mount({ render: ((theme.Layout() as VNode).children as Slots)[name] })
@@ -33,7 +37,8 @@ it('follows the footnotes of the document once the app mounts', () => {
 })
 
 it('fills the not-found slot of the layout with the page sending a reader back to the map', () => {
+  stubCanvas()
   const wrapper = slotOf('not-found')
-  expect(wrapper.get('h1').text()).toBe('No page at this address')
+  expect(wrapper.get('h1').text()).toBe('404')
   expect(wrapper.get('a').attributes('href')).toBe('/')
 })
