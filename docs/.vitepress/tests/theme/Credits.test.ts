@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest'
 import { GLYPHS, PROVIDERS, SOURCES, sealAnchorOf } from '../../lib/site/seals.ts'
 import Credits                                      from '../../theme/Credits.tsx'
 
-const DATA = readFileSync(resolve(import.meta.dirname, '../../../data/index.md'), 'utf8')
+const DATA  = readFileSync(resolve(import.meta.dirname, '../../../data/index.md'), 'utf8')
+const first = SOURCES.map((_, at) => at === 0)
+const last  = SOURCES.length - 1
 
 const chosenOf = (wrapper: ReturnType<typeof mount>) => wrapper.findAll('[role="tab"]')
   .map(tab => [tab.attributes('aria-selected'), tab.attributes('tabindex')])
@@ -36,7 +38,7 @@ describe('the strip of seals', () => {
     const wrapper = mount(Credits)
     expect([wrapper.findAll('svg.seal').length, wrapper.findAll('.credits-name').map(name => name.text())])
       .toEqual([SOURCES.length, SOURCES.map(source => source.name)])
-    expect(openOf(wrapper)).toEqual([true, false, false])
+    expect(openOf(wrapper)).toEqual(first)
     expect(wrapper.findAll('[role="tabpanel"][hidden]')).toHaveLength(0)
   })
 
@@ -61,8 +63,8 @@ describe('the strip of seals', () => {
 
   it.each([
     { key: 'ArrowRight', to: 1 },
-    { key: 'ArrowLeft', to: 2 },
-    { key: 'End', to: 2 },
+    { key: 'ArrowLeft', to: last },
+    { key: 'End', to: last },
     { key: 'Home', to: 0 }
   ])('moves the choice and the focus along the strip on $key', async ({ key, to }) => {
     const wrapper = await pressed(key)
@@ -74,7 +76,7 @@ describe('the strip of seals', () => {
 
   it('leaves the choice where it stands on a key that moves nothing', async () => {
     const wrapper = await pressed('Enter')
-    expect(openOf(wrapper)).toEqual([true, false, false])
+    expect(openOf(wrapper)).toEqual(first)
     wrapper.unmount()
   })
 
@@ -99,7 +101,7 @@ describe('the strip of seals', () => {
       location.hash = hash
       const wrapper = mount(Credits)
       await wrapper.vm.$nextTick()
-      expect(openOf(wrapper)).toEqual([true, false, false])
+      expect(openOf(wrapper)).toEqual(first)
       location.hash = ''
     })
 
@@ -108,7 +110,7 @@ describe('the strip of seals', () => {
     location.hash = `#${sealAnchorOf(SOURCES[2])}`
     window.dispatchEvent(new HashChangeEvent('hashchange'))
     await wrapper.vm.$nextTick()
-    expect(openOf(wrapper)).toEqual([false, false, true])
+    expect(openOf(wrapper)).toEqual(SOURCES.map((_, at) => at === 2))
     location.hash = ''
   })
 })
