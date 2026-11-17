@@ -28,7 +28,7 @@ The elevations come from the [Terrain Tiles](https://registry.opendata.aws/terra
 
 ## Credits
 
-The map draws on the sources below, whose terms require a credit, and each seal opens the source's notice and the license that sets it.
+The map and the orbits come from the sources below, whose terms require a credit, and each seal opens the source's notice and the license that sets it.
 
 <Credits />
 

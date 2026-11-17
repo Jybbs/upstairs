@@ -1,3 +1,4 @@
+import { spawnSync }                                           from 'node:child_process'
 import { mkdir, mkdtempDisposable, readFile, stat, writeFile } from 'node:fs/promises'
 import { tmpdir }                                              from 'node:os'
 import { join }                                                from 'node:path'
@@ -9,10 +10,11 @@ import * as login     from '../../catalog/login.ts'
 import { SpaceTrack } from '../../catalog/spacetrack.ts'
 import * as answers   from '../common/spacetrack.ts'
 
+const CATALOG  = join(import.meta.dirname, '../../catalog')
 const DOWN     = () => new Response('', { status: 503 })
 const OTHERS   = 'machine urs.earthdata.nasa.gov\n  login reader\n  password other\n'
 const PASSWORD = 'orbit-2026'
-const SAVED    = `${OTHERS}machine www.space-track.org login saved password ${PASSWORD}\n`
+const SAVED    = `${OTHERS}machine www.space-track.org\n  login saved\n  password ${PASSWORD}\n`
 
 /**
  * What a run of the task meets, meaning Space-Track's `replies`, the saved
@@ -179,6 +181,39 @@ describe('a run of the task', () => {
     const ran = runIn(home, { argv: ['--check'], netrc: '', replies: [] })
     await expect(ran).rejects.toMatchObject({ code: 'EISDIR' })
   })
+
+  it('exits on the no-terminal line where its input is piped', async ({ home }) => {
+    const offline = join(home, 'offline.ts')
+    await writeFile(offline, 'globalThis.fetch = () => process.exit(2)\n')
+    const ran = spawnSync(process.execPath, ['--preload', offline, join(CATALOG, 'login.ts')], {
+      encoding : 'utf8',
+      env      : { ...process.env, HOME: home },
+      input    : ''
+    })
+    expect(ran.status).toBe(1)
+    expect(ran.stdout).toBe('')
+    expect(ran.stderr).toBe('No terminal is attached, so run mise run catalog:login in a terminal to '
+                          + 'type the Space-Track login.\n')
+  })
+})
+
+describe('wrangler', () => {
+  const SECRETS = { [login.SECRETS.identity]: 'saved', [login.SECRETS.password]: PASSWORD }
+  const spawned = (status: number | null) =>
+    vi.fn<NonNullable<Parameters<typeof login.wrangler>[1]>>(() => ({ status }))
+
+  test('sets the secrets through wrangler secret bulk, passing them as JSON on its input', () => {
+    const spawn = spawned(0)
+    expect(login.wrangler(SECRETS, spawn)).toBe(0)
+    expect(spawn).toHaveBeenCalledWith(
+      'bun', ['x', '--no-install', 'wrangler', 'secret', 'bulk', '--config', 'wrangler.json'],
+      { cwd: CATALOG, input: JSON.stringify(SECRETS), stdio: ['pipe', 'inherit', 'inherit'] }
+    )
+  })
+
+  test('fails where wrangler ends with no exit status', () => {
+    expect(login.wrangler(SECRETS, spawned(null))).toBe(1)
+  })
 })
 
 describe('a prompt', () => {
@@ -191,7 +226,7 @@ describe('a prompt', () => {
     const output = new PassThrough()
     let shown    = ''
     output.on('data', chunk => { shown += chunk })
-    using prompt = new login.Prompt(input, output)
+    const prompt = new login.Prompt(input, output)
     const answer = ask(prompt)
     input.write(`${typed}\r`)
     return { answer: await answer, shown }
@@ -209,5 +244,12 @@ describe('a prompt', () => {
     const { answer, shown } = await answered(prompt => prompt.conceal('Password: '), PASSWORD)
     expect(answer).toBe(PASSWORD)
     expect(shown).toBe('Password: \n')
+  })
+
+  test('rejects a question Ctrl-C ends', async () => {
+    const input  = new PassThrough()
+    const answer = new login.Prompt(input, new PassThrough()).ask('Username: ')
+    input.write('\x03')
+    await expect(answer).rejects.toMatchObject({ code: 'ABORT_ERR' })
   })
 })

@@ -63,4 +63,9 @@ describe('a rewritten file', () => {
     const written = Netrc.parse(OTHERS).withLogin(HOST, { identity: 'observer', password })
     expect(Netrc.parse(written).savedFor(HOST)).toEqual({ identity: 'observer', password })
   })
+
+  it('quotes a password opening on a comment mark', () => {
+    expect(Netrc.parse(OTHERS).withLogin(HOST, { identity: 'observer', password: '#leading' }))
+      .toBe(`${OTHERS}machine ${HOST} login observer password "#leading"\n`)
+  })
 })

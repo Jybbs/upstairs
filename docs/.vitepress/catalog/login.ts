@@ -3,13 +3,13 @@
  * once Space-Track accepts it, checks the saved login under `--check`, and sets
  * it as the catalog service's secrets through `wrangler` under `--worker`.
  */
-import { spawnSync }                       from 'node:child_process'
-import { readFile, writeFile }             from 'node:fs/promises'
-import { homedir }                         from 'node:os'
-import { join }                            from 'node:path'
-import { type Interface, createInterface } from 'node:readline/promises'
-import { Writable }                        from 'node:stream'
-import { parseArgs }                       from 'node:util'
+import { type SpawnSyncOptions, spawnSync } from 'node:child_process'
+import { readFile, writeFile }              from 'node:fs/promises'
+import { homedir }                          from 'node:os'
+import { join }                             from 'node:path'
+import { createInterface }                  from 'node:readline/promises'
+import { Writable }                         from 'node:stream'
+import { parseArgs }                        from 'node:util'
 
 import { Netrc }       from './netrc.ts'
 import * as spacetrack from './spacetrack.ts'
@@ -30,6 +30,11 @@ interface Io {
 
 type Secrets = { [name in (typeof SECRETS)[keyof typeof SECRETS]]: string }
 
+/**
+ * Runs `command` with `args` to its exit, as `spawnSync` does.
+ */
+type Spawn = (command: string, args: string[], options: SpawnSyncOptions) => { status: number | null }
+
 const OPTIONS = { check: { type: 'boolean' }, worker: { type: 'boolean' } } as const
 /**
  * The names the catalog service reads the login under.
@@ -41,26 +46,23 @@ export const SECRETS = { identity: 'SPACE_TRACK_IDENTITY', password: 'SPACE_TRAC
  * nothing of what is typed to the output.
  */
 export class Prompt {
-  private readonly lines : Interface
   private muted          = false
+  private readonly shown : Writable
 
-  constructor(input: NodeJS.ReadableStream, private readonly output: NodeJS.WritableStream) {
-    const shown = new Writable({
+  constructor(private readonly input: NodeJS.ReadableStream, private readonly output: NodeJS.WritableStream) {
+    this.shown = new Writable({
       write: (chunk, encoding, done) => {
         if (!this.muted) output.write(chunk, encoding)
         done()
       }
     })
-    this.lines = createInterface({ input, output: shown, terminal: true })
   }
 
   /**
    * Asks `query` with `saved` already typed in, so Enter keeps it.
    */
   async ask(query: string, saved = '') {
-    const answer = this.lines.question(query)
-    this.lines.write(saved)
-    return (await answer).trim()
+    return (await this.question(query, saved)).trim()
   }
 
   /**
@@ -70,15 +72,26 @@ export class Prompt {
     this.output.write(query)
     this.muted = true
     try {
-      return await this.lines.question('')
+      return await this.question('')
     } finally {
       this.muted = false
       this.output.write('\n')
     }
   }
 
-  [Symbol.dispose]() {
-    this.lines.close()
+  /**
+   * Asks `query` with `typed` already typed in, through an interface holding
+   * the terminal only until the answer arrives.
+   */
+  private async question(query: string, typed = '') {
+    const lines = createInterface({ input: this.input, output: this.shown, terminal: true })
+    try {
+      const answer = lines.question(query)
+      lines.write(typed)
+      return await answer
+    } finally {
+      lines.close()
+    }
   }
 }
 
@@ -92,8 +105,8 @@ const savedIn = async (path: string) =>
  * Sets `secrets` on the catalog service through `wrangler secret bulk`, which
  * reads them as JSON on its input, returning the command's exit status.
  */
-const wrangler = (secrets: Secrets) =>
-  spawnSync('bun', ['x', '--no-install', 'wrangler', 'secret', 'bulk', '--config', 'wrangler.json'], {
+export const wrangler = (secrets: Secrets, spawn: Spawn = spawnSync) =>
+  spawn('bun', ['x', '--no-install', 'wrangler', 'secret', 'bulk', '--config', 'wrangler.json'], {
     cwd   : import.meta.dirname,
     input : JSON.stringify(secrets),
     stdio : ['pipe', 'inherit', 'inherit']
@@ -155,7 +168,7 @@ export const run = async (argv: string[], io: Io) => {
 }
 
 if (import.meta.main) {
-  using prompt = process.stdin.isTTY ? new Prompt(process.stdin, process.stdout) : undefined
+  const prompt = process.stdin.isTTY ? new Prompt(process.stdin, process.stdout) : undefined
   try {
     process.exitCode = await run(process.argv.slice(2), {
       error      : line => console.error(line),

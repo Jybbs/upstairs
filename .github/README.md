@@ -54,7 +54,7 @@ mise serve
 
 ## ©️ Attribution
 
-*Upstairs* is released under the MIT License, which [`LICENSE`](../LICENSE) carries. The map draws data whose terms require the credits below, and each seal opens its source's notice and license on [Data](https://upstairs.fyi/data/#credits).
+*Upstairs* is released under the MIT License, which [`LICENSE`](../LICENSE) carries. The map and the orbits come from data whose terms require the credits below, and each seal opens its source's notice and license on [Data](https://upstairs.fyi/data/#credits).
 
 <p align="center">
 <a href="https://upstairs.fyi/data/#credits-osm"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/seals/osm-night.svg"><img src="../docs/public/seals/osm-day.svg" alt="OpenStreetMap" width="94"></picture></a>
