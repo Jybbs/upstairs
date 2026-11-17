@@ -62,10 +62,10 @@ export const CHECKS = ['site:check', 'lock:check', 'crate:test']
  * The edit writing a lifted pin into a tree, by the source declaring it.
  */
 const EDITS = {
-  actions: async (tree, { commits, name }) => {
+  actions: async (tree, { commits }) => {
     for (const path of await pathsOf(tree, MANIFESTS.actions)) {
       const text = await Bun.file(path).text()
-      await Bun.write(path, text.replaceAll(`${name}@${commits?.current}`, `${name}@${commits?.newest}`))
+      await Bun.write(path, text.replaceAll(`@${commits?.current}`, `@${commits?.newest}`))
     }
   },
 
@@ -91,7 +91,7 @@ export const HOLDS = '.mise/holds.toml'
  * The pins two sources carry that move together, each set lifting to the
  * lowest of its members' newest versions and held whole where one member is.
  */
-const LINKS = [['github:wasm-bindgen/wasm-bindgen', 'wasm-bindgen']]
+const LINKS = [['github:wasm-bindgen/wasm-bindgen', 'wasm-bindgen'], ['bun', '@types/bun']]
 const MANIFESTS = {
   actions : ['.github/workflows/*.yml', '.github/actions/*/action.yml'],
   bun     : 'docs/package.json',
@@ -136,9 +136,10 @@ const READERS = {
   }
 } satisfies Record<Source, Read>
 /**
- * An action pinned by commit, as a workflow step's `uses` names it.
+ * An action pinned by commit, as a workflow step's `uses` names it, capturing
+ * the repository ahead of any path to an action inside it.
  */
-const USES = /\b([\w.-]+\/[\w.-]+)@([0-9a-f]{40})\b/g
+const USES = /\b([\w.-]+\/[\w.-]+)(?:\/[\w.-]+)*@([0-9a-f]{40})\b/g
 /**
  * The catalog file a trial copies into its tree, which no commit holds.
  */
@@ -205,6 +206,16 @@ const tableOf = (lifts: Lift[], results?: Map<Lift, string[]>) => {
 const tomlOf = async <T>(root: string, path: string) =>
   TOML.parse(await Bun.file(join(root, path)).text()) as T
 
+/**
+ * Lists each tracked file in the tree at `root` that differs from its last
+ * commit, leaving out `HOLDS`, which no trial reads.
+ */
+const uncommitted = async (root: string, run: Run) => {
+  const command = ['git', 'status', '--porcelain', '--untracked-files=no', '--', '.', `:!${HOLDS}`]
+  const status  = await must(command, root, run)
+  return status.split('\n').filter(Boolean).map(line => line.slice(3))
+}
+
 const versionOf = (requirement: Requirement) =>
   typeof requirement === 'string' ? requirement : requirement.version
 
@@ -212,7 +223,8 @@ const versionOf = (requirement: Requirement) =>
  * Runs the task for `args`, recording the hold `--hold <pin> <reason>` names,
  * then returning the table of every lift, with each unheld lift tried in a
  * scratch folder under `--try` and the passing ones written into `root` under
- * `--write`.
+ * `--write`, each of the two refusing a tree whose tracked files differ from
+ * its last commit.
  */
 export const lift = async (
   args       : string[],
@@ -225,11 +237,16 @@ export const lift = async (
     args             : args,
     options          : { hold: { type: 'string' }, try: { type: 'boolean' }, write: { type: 'boolean' } }
   })
+  const trying  = values.try || values.write
+  const changed = trying ? await uncommitted(root, run) : []
+  if (changed.length) {
+    throw new Error(`--try and --write lift the last commit, refusing a change to ${changed.join(', ')}`)
+  }
   const read  = await Pins.read(root, registries)
   const pins  = values.hold === undefined ? read : await read.hold(root, values.hold, positionals.join(' '))
   const lifts = pins.lifts
   const tried = lifts.filter(lift => !lift.held)
-  if (!(values.try || values.write) || !tried.length) return tableOf(lifts)
+  if (!trying || !tried.length) return tableOf(lifts)
   await using scratch = await mkdtempDisposable(join(tmpdir(), 'upstairs-lift-'))
   return tableOf(lifts, await new Bench(root, scratch.path, run).results(tried, values.write))
 }

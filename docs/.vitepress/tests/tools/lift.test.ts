@@ -8,6 +8,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import * as lift from '../../tools/lift.ts'
 
 const CHECKOUT                       = 'a'.repeat(40)
+const CODEQL                         = 'd'.repeat(40)
 /**
  * The checks a case fails, each beside the texts that fail it, here the
  * `typescript` and `serde` lifts.
@@ -16,16 +17,16 @@ const FAILING                        = { 'crate:test': ['=1.0.230'], 'site:check
 const LIFTED                         = 'c'.repeat(40)
 const MISE                           = 'b'.repeat(40)
 const NEWEST: Record<string, string> = {
-  'github:wasm-bindgen/wasm-bindgen': '0.2.132', 'katex': '0.19.2', 'rust': '1.100.0', 'serde': '1.0.230',
-  'sgp4': '2.4.0', 'typescript': '7.0.2', 'vitepress': '2.0.0-alpha.21', 'wasm-bindgen': '0.2.131',
-  'zizmor': '1.32.0'
+  '@types/bun': '1.4.5', 'bun': '1.4.6', 'github:wasm-bindgen/wasm-bindgen': '0.2.132', 'katex': '0.19.2',
+  'rust': '1.100.0', 'serde': '1.0.230', 'sgp4': '2.4.0', 'typescript': '7.0.2',
+  'vitepress': '2.0.0-alpha.21', 'wasm-bindgen': '0.2.131', 'zizmor': '1.31.9'
 }
 const SEEDED = {
   '.github/actions/provision/action.yml': `runs:\n  steps:\n    - uses : jdx/mise-action@${MISE}\n`,
 
   '.github/workflows/ci.yml': [
     'jobs:', '  check:', '    steps:', `      - uses : actions/checkout@${CHECKOUT}`,
-    `      - uses : jdx/mise-action@${MISE}`, ''
+    `      - uses : jdx/mise-action@${MISE}`, `      - uses : jdx/mise-action@${MISE}`, ''
   ].join('\n'),
 
   '.mise/config.toml': [
@@ -53,10 +54,11 @@ const SEEDED = {
 const newest = async (name: string) => NEWEST[name]
 /**
  * The registries a case reads in place of the live ones, where only
- * `jdx/mise-action` stands behind its newest release.
+ * `github/codeql-action` and `jdx/mise-action` stand behind their newest
+ * releases.
  */
 const REGISTRIES: lift.Registries = {
-  action: async (repository, commit) => repository === 'jdx/mise-action'
+  action: async (repository, commit) => ['github/codeql-action', 'jdx/mise-action'].includes(repository)
     ? { commits: { current: commit, newest: LIFTED }, current: 'v5.2.7', newest: 'v5.2.9' }
     : { commits: { current: commit, newest: commit }, current: 'v7.0.1', newest: 'v7.0.1' },
 
@@ -77,10 +79,8 @@ class Repo {
 
   static async seeded(dir: string, failing?: Record<string, string[]>): Promise<Repo> {
     const repo = new Repo(dir, failing)
-    for (const [path, text] of Object.entries(SEEDED)) await Bun.write(join(dir, path), text)
     await repo.git('init', '--quiet')
-    await repo.git('add', '--all')
-    await repo.git('-c', 'user.email=lift@upstairs.fyi', '-c', 'user.name=lift', 'commit', '-qm', 'seed')
+    await repo.commit(SEEDED)
     return repo
   }
 
@@ -95,6 +95,15 @@ class Repo {
     const texts = await Promise.all(Object.keys(SEEDED).map(path => Bun.file(join(cwd, path)).text()))
     const fails = this.failing[command.at(-1)!]?.every(text => texts.some(file => file.includes(text)))
     return { exitCode: fails ? 1 : 0, output: fails ? `${command.at(-1)} failed` : '' }
+  }
+
+  /**
+   * Writes each of `files` into the repository and commits them.
+   */
+  async commit(files: Record<string, string>) {
+    for (const [path, text] of Object.entries(files)) await Bun.write(join(this.root, path), text)
+    await this.git('add', '--all')
+    await this.git('-c', 'user.email=lift@upstairs.fyi', '-c', 'user.name=lift', 'commit', '-qm', 'seed')
   }
 
   git(...args: string[]): Promise<string> {
@@ -148,7 +157,28 @@ describe('lift', () => {
     expect(columnOf(table, -1))
       .toEqual(['TRIAL', 'passes', 'passes', 'passes', 'passes', 'held', 'held', 'passes'])
     expect(columnOf(table, -2).slice(5, 7)).toEqual(['Waits on the bindings', 'Waits on the bindings'])
-    expect(repo.calls.flat()).not.toContain('0.2.131')
+  })
+
+  it('lifts and holds bun and its types as one pin, at the lower newest', async ({ dir }) => {
+    const repo     = await Repo.seeded(dir)
+    const manifest = JSON.parse(SEEDED['docs/package.json'])
+    await repo.commit({
+      '.mise/config.toml' : SEEDED['.mise/config.toml'].replace('[tools]', '[tools]\nbun = "1.4.4"'),
+      'docs/package.json' : `${JSON.stringify({
+        ...manifest, devDependencies: { '@types/bun': '1.4.4', ...manifest.devDependencies }
+      }, null, 2)}\n`
+    })
+    const bun = (table: string) => table.split('\n').filter(row => / (@types\/)?bun /.test(row))
+    expect(bun(await repo.lift())).toEqual([
+      expect.stringMatching(/^bun +@types\/bun +1\.4\.4 +1\.4\.5$/),
+      expect.stringMatching(/^mise +bun +1\.4\.4 +1\.4\.5$/)
+    ])
+    expect(bun(await repo.lift('--hold', '@types/bun', 'Waits')).map(row => row.endsWith('Waits')))
+      .toEqual([true, true])
+    await Bun.write(join(dir, lift.HOLDS), '')
+    await repo.lift('--write')
+    expect(await repo.read('.mise/config.toml')).toContain('bun = "1.4.5"')
+    expect(JSON.parse(await repo.read('docs/package.json')).devDependencies['@types/bun']).toBe('1.4.5')
   })
 
   it('reads a hold recorded by an earlier run into the table', async ({ dir }) => {
@@ -160,8 +190,35 @@ describe('lift', () => {
   it('replaces the reason an earlier hold on the same pin recorded', async ({ dir }) => {
     const repo = await Repo.seeded(dir)
     await repo.lift('--hold', 'rust', 'Waits')
+    await repo.lift('--hold', 'katex', 'Waits', 'on', 'KaTeX')
     await repo.lift('--hold', 'rust', 'Waits', 'longer')
-    expect(await repo.read(lift.HOLDS)).toBe('rust = "Waits longer"\n')
+    expect(await repo.read(lift.HOLDS)).toBe('rust = "Waits longer"\nkatex = "Waits on KaTeX"\n')
+  })
+
+  it('refuses to try or write over a change the last commit lacks', async ({ dir }) => {
+    const repo   = await Repo.seeded(dir)
+    const edited = SEEDED['.mise/config.toml'].replace('"1.99.1"', '"1.99.2"')
+    await Bun.write(join(dir, '.mise/config.toml'), edited)
+    await expect(repo.lift('--write')).rejects.toThrow(/refusing a change to \.mise\/config\.toml$/)
+    expect(await repo.read('.mise/config.toml')).toBe(edited)
+    expect(repo.calls).toEqual([])
+  })
+
+  it('tries the lifts over a hold changed since the last commit', async ({ dir }) => {
+    const repo = await Repo.seeded(dir)
+    await repo.commit({ [lift.HOLDS]: 'rust = "Waits"\n' })
+    await Bun.write(join(dir, lift.HOLDS), 'rust = "Waits longer"\n')
+    expect((await repo.lift('--try')).split('\n').at(-1)).toMatch(/rust .* Waits longer +held$/)
+  })
+
+  it('runs every command of a trial under the scratch homes', async ({ dir }) => {
+    const repo  = await Repo.seeded(dir)
+    const homes = new Set<string | undefined>()
+    await lift.lift(['--try'], dir, REGISTRIES, async (command, cwd, env) => {
+      if (command[0] === 'mise') homes.add(env?.MISE_DATA_DIR)
+      return repo.run(command, cwd, env)
+    })
+    expect([...homes]).toEqual([expect.stringMatching(/\/upstairs-lift-\w+\/homes\/mise-data$/)])
   })
 
   it('runs no trial where every lift is held', async ({ dir }) => {
@@ -223,6 +280,8 @@ describe('lift', () => {
     const repo = await Repo.seeded(dir, FAILING)
     await repo.lift('--write')
     expect(await repo.git('diff')).toContain(`jdx/mise-action@${LIFTED}`)
+    expect(await repo.read('.github/workflows/ci.yml')).not.toContain(MISE)
+    expect(await repo.read('.github/actions/provision/action.yml')).not.toContain(MISE)
     expect(await repo.read('.mise/config.toml')).toBe(SEEDED['.mise/config.toml']
       .replace('"0.2.130"', '"0.2.131"')
       .replace('"1.99.1"', '"1.100.0"'))
@@ -232,6 +291,25 @@ describe('lift', () => {
       devDependencies : { typescript: '6.0.3' },
       overrides       : { katex: '0.19.2' }
     })
+  })
+
+  it('writes every lift passing together except a held one and its linked pin', async ({ dir }) => {
+    const repo = await Repo.seeded(dir)
+    await repo.lift('--write', '--hold', 'github:wasm-bindgen/wasm-bindgen', 'Waits')
+    expect(await repo.read('rust/Cargo.toml')).toBe(SEEDED['rust/Cargo.toml'].replace('=1.0.229', '=1.0.230'))
+    expect(await repo.read('.mise/config.toml'))
+      .toBe(SEEDED['.mise/config.toml'].replace('"1.99.1"', '"1.100.0"'))
+  })
+
+  it('writes the pin of an action named by a path inside its repository', async ({ dir }) => {
+    const repo     = await Repo.seeded(dir)
+    const workflow = '.github/workflows/scan.yml'
+    await repo.commit({
+      [workflow]: `jobs:\n  scan:\n    steps:\n      - uses : github/codeql-action/init@${CODEQL}\n`
+    })
+    expect((await repo.lift()).split('\n')[1]).toMatch(/^actions +github\/codeql-action /)
+    await repo.lift('--write')
+    expect(await repo.read(workflow)).toContain(`github/codeql-action/init@${LIFTED}`)
   })
 
   it('writes nothing where the lifts passing alone fail together, naming the check', async ({ dir }) => {
@@ -252,7 +330,10 @@ describe('Bench', () => {
     ])
     expect(env).toMatchObject({
       CARGO_HOME                : '/scratch/homes/cargo',
+      MISE_CACHE_DIR            : '/scratch/homes/mise-cache',
+      MISE_CONFIG_DIR           : '/scratch/homes/mise-config',
       MISE_DATA_DIR             : '/scratch/homes/mise-data',
+      MISE_STATE_DIR            : '/scratch/homes/mise-state',
       MISE_TRUSTED_CONFIG_PATHS : '/scratch',
       RUSTUP_HOME               : '/scratch/homes/rustup'
     })
