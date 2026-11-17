@@ -64,7 +64,7 @@ vi.mock('maplibre-contour', () => ({
   }
 }))
 vi.mock('vitepress', () => ({ useData: () => ({ isDark: ref(false) }) }))
-vi.mock('../../lib/map/credit.ts', () => ({ Credit: class { hold() {} } }))
+vi.mock('../../lib/map/credit.ts', () => ({ Credit: class { hold = vi.fn() } }))
 vi.mock('../../lib/map/overlay.ts', async () => {
   const { View } = await import('../../lib/map/mercator.ts')
   return {
@@ -104,6 +104,11 @@ const mounted = async (error: Error | null = null) => {
   easeTo.mockClear()
   return { SkyMap, pass, sky, wrapper }
 }
+
+it('holds the credit open over the map it makes', async () => {
+  const { sky } = await mounted()
+  expect(sky.credit.hold).toHaveBeenCalledOnce()
+})
 
 it('gives each pass its point in the numeral again once a scan lands while the sky is gathered', async () => {
   const { sky }    = await mounted()

@@ -100,6 +100,12 @@ export default defineComponent(
       if (event.pointerType !== 'touch' && chosen.value !== value) intent.start(value)
     }
 
+    /**
+     * Returns the strip's section, or on a phone the sheet, that the band lies
+     * over.
+     */
+    const frame = () => panel.value?.offsetParent as HTMLElement | undefined
+
     const shut = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || !open.value) return
       sky.credit.toggle(false)
@@ -110,7 +116,8 @@ export default defineComponent(
       void fit()
       void document.fonts.ready.then(fit)
     })
-    useResizeObserver(() => panel.value?.offsetParent as HTMLElement | undefined, () => void fit())
+    useResizeObserver(frame, () => void fit())
+    useEventListener(frame, 'keydown', shut)
     useEventListener(panel, 'pointerdown', () => sky.credit.toggle(true))
     watch([phone, tablet, groups], () => void fit(), { flush: 'post' })
 
@@ -118,7 +125,6 @@ export default defineComponent(
       <div
         class={['credit', { 'credit-still': still.value }]}
         data-credit={open.value ? 'open' : 'shut'}
-        onKeydown={shut}
       >
         <div class="credit-veil" aria-hidden="true"><i class="credit-wash" /></div>
         <div class="credit-plate" aria-hidden="true" />

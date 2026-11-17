@@ -211,10 +211,11 @@ it('colors the pinned ridge by kind, with a 2 px crest dotted where unseen and a
 })
 
 it.each([
-  ['lowers the sheet from full to peek', 1, 'Raise the sheet'],
-  ['leaves the sheet at peek', 0, 'Raise the sheet']
-] as const)('%s as the credit opens from its ring', async (_, presses, label) => {
-  const { wrapper } = await mounted(false)
+  ['lowers the sheet from full to peek', false, 1, 'Raise the sheet'],
+  ['leaves the sheet at peek', false, 0, 'Raise the sheet'],
+  ['leaves the sheet at half over a pinned pass', true, 0, 'Raise the sheet to the hour’s list']
+] as const)('%s as the credit opens from its ring', async (_, pinned, presses, label) => {
+  const { wrapper } = await mounted(pinned)
   const handle      = wrapper.get('button')
   for (const _press of Array.from({ length: presses })) await handle.trigger('click')
   wrapper.findComponent({ name: 'Credit' }).vm.$emit('open')

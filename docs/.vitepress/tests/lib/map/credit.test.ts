@@ -12,17 +12,17 @@ import { TILES }                 from '../../common/credits.ts'
 const DATA = readFileSync(resolve(import.meta.dirname, '../../../../data/index.md'), 'utf8')
 
 /**
- * Stands in for a map whose base source carries `attribution`, recording each
- * listener it takes.
+ * Stands in for a map whose sources `carrying` share the base's `attribution`
+ * beside a source carrying none, recording each listener it takes.
  */
-const mapOf = () => {
+const mapOf = (carrying = ['base']) => {
   const canvas = document.createElement('div')
   const fired  = new globalThis.Map<string, () => void>()
   const base   = { attribution: '' }
   const map    = {
     getCanvasContainer : () => canvas,
-    getSource          : (id: string) => id === 'base' ? base : undefined,
-    getStyle           : () => ({ sources: { base: {}, dem: {} } }),
+    getSource          : (id: string) => carrying.includes(id) ? base : undefined,
+    getStyle           : () => ({ sources: Object.fromEntries([...carrying, 'dem'].map(id => [id, {}])) }),
     on                 : (type: string, listener: () => void) => fired.set(type, listener),
     once               : (type: string, listener: () => void) => fired.set(type, listener)
   }
@@ -80,6 +80,13 @@ describe('the credit held open as the map loads', () => {
     expect(shown.lines.value).toEqual([...credit.CREDITS, TILES])
   })
 
+  it('reads a credit two sources carry once', () => {
+    const shared = mapOf(['base', 'labels'])
+    shown.hold(shared.map)
+    shared.arrive()
+    expect(shown.lines.value).toEqual([...credit.CREDITS, TILES])
+  })
+
   it('stays open until the OpenStreetMap line arrives', () => {
     vi.advanceTimersByTime(credit.HOLD.wait * 4)
     expect(shown.open.value).toBe(true)
@@ -87,10 +94,18 @@ describe('the credit held open as the map loads', () => {
 
   it('closes five seconds after the OpenStreetMap line arrives', () => {
     held.arrive()
-    vi.advanceTimersByTime(credit.HOLD.wait - 1)
+    vi.advanceTimersByTime(4999)
     expect(shown.open.value).toBe(true)
     vi.advanceTimersByTime(1)
     expect(shown.open.value).toBe(false)
+  })
+
+  it('keeps one timer as the map sends more source data, so a press of the credit still holds it', () => {
+    held.arrive()
+    held.fired.get('sourcedata')!()
+    shown.toggle(true)
+    vi.advanceTimersByTime(credit.HOLD.wait)
+    expect(shown.open.value).toBe(true)
   })
 
   it.each(credit.HOLD.events)('closes as soon as the reader sends a %s to the map', type => {
