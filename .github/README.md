@@ -60,4 +60,5 @@ mise serve
 <a href="https://upstairs.fyi/data/#credits-osm"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/seals/osm-night.svg"><img src="../docs/public/seals/osm-day.svg" alt="OpenStreetMap" width="94"></picture></a>
 <a href="https://upstairs.fyi/data/#credits-omt"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/seals/omt-night.svg"><img src="../docs/public/seals/omt-day.svg" alt="OpenMapTiles" width="94"></picture></a>
 <a href="https://upstairs.fyi/data/#credits-tt"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/seals/tt-night.svg"><img src="../docs/public/seals/tt-day.svg" alt="Terrain Tiles" width="94"></picture></a>
+<a href="https://upstairs.fyi/data/#credits-st"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/seals/st-night.svg"><img src="../docs/public/seals/st-day.svg" alt="Space-Track" width="94"></picture></a>
 </p>
