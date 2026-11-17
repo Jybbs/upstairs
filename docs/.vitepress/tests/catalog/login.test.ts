@@ -126,6 +126,15 @@ describe('a run of the task', () => {
       line: 'Wrangler could not set the catalog service’s secrets, so check its Cloudflare login through '
           + 'bun x wrangler whoami from docs/ and run the task again.'
     }],
+    ['fails on a flag the task does not take', {
+      argv: ['--force'], netrc: SAVED, replies: [], status: 1,
+      line: 'The task takes no --force, so run mise run catalog:login with --check, --worker, both, or neither.'
+    }],
+    ['fails on an argument the task does not take', {
+      argv: ['--check', 'observer'], netrc: SAVED, replies: [], status: 1,
+      line: 'The task takes no --check observer, so run mise run catalog:login with --check, --worker, both, '
+          + 'or neither.'
+    }],
     ['sets nothing with no login saved', {
       argv: ['--worker'], netrc: '', replies: [], status: 1,
       line: 'No Space-Track login is saved in ~/.netrc, so save one through mise run catalog:login.'

@@ -110,11 +110,11 @@ export const run = async (argv: string[], io: Io) => {
     io.error(line)
     return 1
   }
-  const flags = parseArgs({ args: argv, options: OPTIONS }).values
   const path  = join(io.home, '.netrc')
   const netrc = await savedIn(path)
   const saved = netrc.savedFor(spacetrack.HOST)
   try {
+    const flags = parseArgs({ args: argv, options: OPTIONS }).values
     if (!flags.check && !flags.worker) {
       if (!io.prompt)
         return fail('No terminal is attached, so run mise run catalog:login in a terminal to '
@@ -147,6 +147,9 @@ export const run = async (argv: string[], io: Io) => {
   } catch (error) {
     if (error instanceof spacetrack.Unavailable)
       return fail(`${error.message}, so check ${spacetrack.ORIGIN} and run the task again once it answers.`)
+    if ((error as NodeJS.ErrnoException).code?.startsWith('ERR_PARSE_ARGS'))
+      return fail(`The task takes no ${argv.join(' ')}, so run mise run catalog:login with --check, `
+                + '--worker, both, or neither.')
     throw error
   }
 }
