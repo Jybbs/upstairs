@@ -1,4 +1,9 @@
 #!/bin/sh
+if [ "$1" = api ]; then
+  for path; do :; done
+  printf 'api\t%s\n' "$path" >> "$STAND_IN_CALLS"
+  exec cat "$STAND_IN_REMOTE$path"
+fi
 (IFS=$(printf '\t'); printf '%s\n' "$*") >> "$STAND_IN_CALLS"
 if [ "$1 $2 $3" = 'config get --file' ]; then
   exec awk -v name="${5##*.}" -v table="[${5%.*}]" '
