@@ -16,6 +16,7 @@ import { stubMatchMedia }       from '../common/stubs.ts'
 const HEIGHTS = vi.hoisted(() => ({ measured: [] as Ref<number>[], of: [100, 60, 420, 600, 104] }))
 
 vi.mock('../../lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
+vi.mock('../../theme/Credit.tsx', async () => (await import('../common/stubs.ts')).stubOf('Credit'))
 vi.mock('../../theme/Filters.tsx', async () => (await import('../common/stubs.ts')).stubOf('Filters'))
 vi.mock('../../theme/PassList.tsx', async () => (await import('../common/stubs.ts')).stubOf('PassList'))
 vi.mock('../../theme/PassReadout.tsx', async () => (await import('../common/stubs.ts')).stubOf('PassReadout'))
@@ -58,7 +59,7 @@ const mounted = async (pinned: boolean, pass = passOf(1)) => {
   HEIGHTS.measured                = []
   const { component: Sheet, sky } = await freshSky(() => import('../../theme/Sheet.tsx'))
   const stubs                     = {
-    Filters: true, PassList: true, PassReadout: true, Readout: true, TimeStrip: true
+    Credit: true, Filters: true, PassList: true, PassReadout: true, Readout: true, TimeStrip: true
   }
   addScanned(sky, [pass])
   const wrapper = mount(Sheet, { global: { stubs } })
@@ -207,4 +208,16 @@ it('colors the pinned ridge by kind, with a 2 px crest dotted where unseen and a
     'color-mix(in oklab, var(--kind-weather) 18%, var(--panel))', 'none', 'var(--kind-weather)', '2',
     '1 3.5', '3.5', 'fill-ink stroke-panel'
   ])
+})
+
+it.each([
+  ['lowers the sheet from full to peek', 1, 'Raise the sheet'],
+  ['leaves the sheet at peek', 0, 'Raise the sheet']
+] as const)('%s as the credit opens from its ring', async (_, presses, label) => {
+  const { wrapper } = await mounted(false)
+  const handle      = wrapper.get('button')
+  for (const _press of Array.from({ length: presses })) await handle.trigger('click')
+  wrapper.findComponent({ name: 'Credit' }).vm.$emit('open')
+  await wrapper.vm.$nextTick()
+  expect(handle.attributes('aria-label')).toBe(label)
 })

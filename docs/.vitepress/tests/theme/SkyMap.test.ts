@@ -64,7 +64,7 @@ vi.mock('maplibre-contour', () => ({
   }
 }))
 vi.mock('vitepress', () => ({ useData: () => ({ isDark: ref(false) }) }))
-vi.mock('../../lib/map/credit.ts', () => ({ CREDITS: [], holdCredit() {} }))
+vi.mock('../../lib/map/credit.ts', () => ({ Credit: class { hold() {} } }))
 vi.mock('../../lib/map/overlay.ts', async () => {
   const { View } = await import('../../lib/map/mercator.ts')
   return {
