@@ -1,11 +1,11 @@
 import { mkdtempDisposable } from 'node:fs/promises'
 import { tmpdir }            from 'node:os'
-import { delimiter, join }   from 'node:path'
+import { join }              from 'node:path'
 
 import { $ }                      from 'bun'
 import { describe, expect, test } from 'vitest'
 
-import { ROOT } from '../common/gh.ts'
+import { type Env, STAND_IN_PATH, type TaskRun, linesOf, runTask } from '../common/tasks.ts'
 
 type Change = (repo: Repo) => Promise<unknown>
 type Pinned = keyof typeof PINNED
@@ -24,7 +24,6 @@ const TYPED   = [
   ['run', '--bun', 'vue-tsc', '--noEmit', '--project', '.vitepress'],
   ['run', '--bun', 'tsc', '--noEmit', '--project', '.vitepress/catalog']
 ]
-const standIn = join(import.meta.dirname, '../common/check')
 const PINNED  = {
   [CONFIG] : '[tools]\nbun = "1.3.2"\nrust = "1.91.0"\n',
   [LOCK]   : '[[tools.bun]]\nversion = "1.3.2"\n\n[[tools.rust]]\nversion = "1.91.0"\n\n'
@@ -40,33 +39,21 @@ const SEEDED  = {
 }
 
 /**
- * One run of a task, holding each call it made to the stand-in for `mise` or
- * `bun` as its arguments, its exit status, and what it printed.
- */
-interface Run {
-  calls  : string[][]
-  code   : number
-  stdout : string
-}
-
-/**
  * A scratch repository holding `SEEDED` in one commit on `main`, which
  * `origin/main` names, where each task runs against the stand-ins for `mise`
  * and `bun`.
  */
 class Repo {
-  private readonly calls : string
-  private readonly env   : Record<string, string>
-  private readonly root  : string
+  private readonly env  : Env
+  private readonly root : string
 
   constructor(dir: string) {
-    this.calls = join(dir, 'calls')
-    this.root  = join(dir, 'repository')
-    this.env   = {
+    this.root = join(dir, 'repository')
+    this.env  = {
       GIT_CONFIG_NOSYSTEM : '1',
       HOME                : dir,
-      PATH                : [standIn, process.env.PATH].join(delimiter),
-      STAND_IN_CALLS      : this.calls
+      PATH                : STAND_IN_PATH,
+      STAND_IN_CALLS      : join(dir, 'calls')
     }
   }
 
@@ -122,18 +109,8 @@ class Repo {
    * `mise config get --file` call takes its place in that order but exits zero
    * only where the file holds the entry it names.
    */
-  async run(task: Task, args: string[] = [], exit: number | number[] = 0): Promise<Run> {
-    await Bun.write(this.calls, '')
-    const result = await $`${join(ROOT, '.mise/tasks', task)} ${args}`
-      .cwd(this.root)
-      .env({ ...this.env, STAND_IN_EXIT: [exit].flat().join(' ') })
-      .nothrow()
-      .quiet()
-    return {
-      calls  : linesOf(await Bun.file(this.calls).text()).map(call => call.split('\t')),
-      code   : result.exitCode,
-      stdout : result.stdout.toString()
-    }
+  run(task: Task, args: string[] = [], exit: number | number[] = 0): Promise<TaskRun> {
+    return runTask(task, this.root, this.env, args, exit)
   }
 
   write(path: string, text: string): Promise<number> {
@@ -165,8 +142,6 @@ const committed = (change: Change): Change => async repo => {
 
 const edit = (...paths: string[]): Change => repo =>
   Promise.all(paths.map(path => repo.write(path, 'edited\n')))
-
-const linesOf = (text: string) => text.split('\n').filter(Boolean)
 
 /**
  * Commits the `PINNED` text of each of `paths`, moves `origin/main` to that
