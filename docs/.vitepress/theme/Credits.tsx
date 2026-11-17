@@ -76,6 +76,22 @@ const openStreetMap = (source: seals.Source) => (
   </>
 )
 
+const spaceTrack = (source: seals.Source) => (
+  <>
+    <p class="credits-title">{source.name}</p>
+    <dl class="credits-rows">
+      <dt class="caps">Supplies</dt>
+      <dd>The orbital elements every pass is computed from, published by USSPACECOM</dd>
+      <dt class="caps">License</dt>
+      <dd>
+        None published, only approval to redistribute on the condition that the source is cited
+        <br />
+        <a class="credits-address" href="https://www.space-track.org/">space-track.org</a>
+      </dd>
+    </dl>
+  </>
+)
+
 const terrainTiles = (source: seals.Source) => (
   <>
     <p class="credits-title">{source.name}</p>
@@ -109,6 +125,7 @@ const terrainTiles = (source: seals.Source) => (
 const RECORDS = {
   omt : openMapTiles,
   osm : openStreetMap,
+  st  : spaceTrack,
   tt  : terrainTiles
 } satisfies Record<seals.Source['id'], (source: seals.Source) => unknown>
 

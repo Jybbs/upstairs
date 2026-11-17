@@ -57,11 +57,13 @@ describe('markdownOf', () => {
 
   it('fails on a footnote whose key names no entry and no definition', () =>
     expect(render('A guess[^nobody1999].'))
-      .rejects.toThrow('The footnote nobody1999 names no entry in docs/references.bib'))
+      .rejects.toThrow('The footnote nobody1999 names no entry in docs/.vitepress/lib/site/references.bib'))
 
   it('fails on an inline footnote beside a keyed footnote', () =>
     expect(render('A claim^[a note] and a check[^kelso2007].'))
-      .rejects.toThrow('The inline footnote ^[a note] names no entry in docs/references.bib'))
+      .rejects.toThrow(
+        'The inline footnote ^[a note] names no entry in docs/.vitepress/lib/site/references.bib'
+      ))
 
   it.each([
     ['a code span', 'Write `[^surname2024]` after the claim.', []],

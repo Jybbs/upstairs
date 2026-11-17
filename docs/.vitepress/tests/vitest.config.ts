@@ -4,9 +4,10 @@ import vueJsx                           from '@vitejs/plugin-vue-jsx'
 import { configDefaults, defineConfig } from 'vitest/config'
 
 const triggers = [
-  '.github/**', '.mise/**', 'docs/**/*.{css,md}', 'docs/.vitepress/tests/common/{bin,check}/**',
-  'docs/.vitepress/tests/fixtures/**', 'docs/bun.lock', 'docs/public/**', 'docs/references.bib', 'rust/**'
-].map(glob => resolve(import.meta.dirname, '../..', glob))
+  '.github/**', '.mise/**', 'docs/**/*.{css,md}', 'docs/.vitepress/lib/site/references.bib',
+  'docs/.vitepress/tests/common/{bin,check}/**', 'docs/.vitepress/tests/fixtures/**', 'docs/bun.lock',
+  'docs/public/**', 'rust/**'
+].map(glob => resolve(import.meta.dirname, '../../..', glob))
 
 export default defineConfig({
   cacheDir : '../.cache/vite',

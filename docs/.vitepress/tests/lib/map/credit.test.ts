@@ -5,201 +5,171 @@ import { resolve }      from 'node:path'
 import type { Map }                                        from 'maplibre-gl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { CREDITS, GROUPS, HOLD, holdCredit } from '../../../lib/map/credit.ts'
-import { SOURCES, sealAnchorOf }             from '../../../lib/site/seals.ts'
-import { stubMatchMedia }                    from '../../common/stubs.ts'
+import * as credit               from '../../../lib/map/credit.ts'
+import { SOURCES, sealAnchorOf } from '../../../lib/site/seals.ts'
+import { TILES }                 from '../../common/credits.ts'
 
-const DATA  = readFileSync(resolve(import.meta.dirname, '../../../../data/index.md'), 'utf8')
-const TILES = '<a href="https://openfreemap.org">OpenFreeMap</a> '
-            + '<a href="https://www.openmaptiles.org/">© OpenMapTiles</a> '
-            + 'Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+const DATA = readFileSync(resolve(import.meta.dirname, '../../../../data/index.md'), 'utf8')
 
-it.each(CREDITS)('links %s to a section or a seal the Data page carries', credit => {
-  const anchor = credit.match(/#([\w-]+)"/)![1]!
+/**
+ * Stands in for a map whose sources `carrying` share the base's `attribution`
+ * beside a source carrying none, recording each listener it takes.
+ */
+const mapOf = (carrying = ['base']) => {
+  const canvas = document.createElement('div')
+  const fired  = new globalThis.Map<string, () => void>()
+  const base   = { attribution: '' }
+  const map    = {
+    getCanvasContainer : () => canvas,
+    getSource          : (id: string) => carrying.includes(id) ? base : undefined,
+    getStyle           : () => ({ sources: Object.fromEntries([...carrying, 'dem'].map(id => [id, {}])) }),
+    on                 : (type: string, listener: () => void) => fired.set(type, listener),
+    once               : (type: string, listener: () => void) => fired.set(type, listener)
+  }
+  const arrive = () => {
+    base.attribution = TILES
+    fired.get('sourcedata')!()
+  }
+  return { arrive, canvas, fired, map: map as unknown as Map }
+}
+
+it.each(credit.CREDITS)('links %s to a section or a seal the Data page carries', line => {
+  const anchor = line.match(/#([\w-]+)"/)![1]!
   expect(new RegExp(`^## ${anchor}$`, 'im').test(DATA) || SOURCES.map(sealAnchorOf).includes(anchor))
     .toBe(true)
 })
 
-describe.each([true, false])('the map credit with reduced motion %s', reduced => {
-  let canvas: HTMLElement
-  let credit: HTMLElement
-  let fired: Record<string, () => void>
-  let inner: HTMLElement
-  let summary: HTMLElement
-  const shown = () => credit.classList.contains('maplibregl-compact-show')
-  const order = () => [...inner.querySelectorAll('a, .credit-heading')].map(element =>
-    GROUPS.flatMap(group => group.links).find(link => element.matches(link)) ?? element.textContent)
-  const tiles = async () => {
-    inner.insertAdjacentHTML('beforeend', TILES)
-    await Promise.resolve()
-  }
-  const settle = async () => {
-    const moving = [credit, ...credit.querySelectorAll('*')].flatMap(element => element.getAnimations())
-    for (const animation of moving) animation.finish()
-    await Promise.all(moving.map(animation => animation.finished))
-  }
+describe('the groups of the credit', () => {
+  it('sorts each link into the tracks of its group in the order the group sets', () =>
+    expect(credit.groupsOf([...credit.CREDITS, TILES]).map(group =>
+      [group.heading, group.tracks.map(track => track.name)]))
+      .toEqual([
+        ['Sources', ['CelesTrak', 'Terrain Tiles', 'OpenStreetMap']],
+        ['Tiles', ['OpenFreeMap', 'OpenMapTiles']]
+      ]))
+
+  it('leaves out a group with no link shown', () =>
+    expect(credit.groupsOf(credit.CREDITS).map(group => group.heading)).toEqual(['Sources']))
+
+  it('gives each track the address its link carries and the seal its terms require', () => {
+    const tracks = credit.groupsOf([TILES]).flatMap(group => group.tracks)
+    expect(tracks.map(track => [track.href, track.source?.id])).toEqual([
+      ['https://www.openstreetmap.org/copyright', 'osm'],
+      ['https://openfreemap.org', undefined],
+      ['https://www.openmaptiles.org/', 'omt']
+    ])
+  })
+})
+
+describe('the credit held open as the map loads', () => {
+  let held: ReturnType<typeof mapOf>
+  let shown: credit.Credit
 
   beforeEach(() => {
     vi.useFakeTimers()
-    stubMatchMedia(query => reduced && query.includes('reduce'))
-    document.body.innerHTML = '<div><details class="maplibregl-ctrl-attrib maplibregl-compact '
-                            + 'maplibregl-compact-show" open><summary class="maplibregl-ctrl-attrib-button">'
-                            + `</summary><div class="maplibregl-ctrl-attrib-inner">${CREDITS.join(' | ')}`
-                            + '</div></details><div></div></div>'
-    const container = document.body.firstElementChild as HTMLElement
-    canvas          = container.lastElementChild as HTMLElement
-    credit          = container.firstElementChild as HTMLElement
-    inner           = credit.lastElementChild as HTMLElement
-    summary         = credit.firstElementChild as HTMLElement
-    fired           = {}
-    const map       = {
-      getCanvasContainer : () => canvas,
-      getContainer       : () => container,
-      on                 : (type: string, listener: () => void) => (fired[type] = listener, map),
-      once               : (type: string, listener: () => void) => (fired[type] = listener, map)
-    }
-    holdCredit(map as unknown as Map)
+    held  = mapOf()
+    shown = new credit.Credit()
+    shown.open.value = false
+    shown.hold(held.map)
   })
-  afterEach(() => {
-    vi.useRealTimers()
-    vi.unstubAllGlobals()
+  afterEach(() => vi.useRealTimers())
+
+  it('opens and reads the lines the map credits', () => {
+    expect([shown.open.value, shown.lines.value]).toEqual([true, credit.CREDITS])
+    held.arrive()
+    expect(shown.lines.value).toEqual([...credit.CREDITS, TILES])
   })
 
-  it('stays open until the OpenStreetMap line shows', () => {
-    vi.advanceTimersByTime(HOLD.wait * 4)
-    expect(shown()).toBe(true)
+  it('reads a credit two sources carry once', () => {
+    const shared = mapOf(['base', 'labels'])
+    shown.hold(shared.map)
+    shared.arrive()
+    expect(shown.lines.value).toEqual([...credit.CREDITS, TILES])
   })
-  it('stays open for five seconds after the OpenStreetMap line shows before it folds', async () => {
-    await tiles()
-    vi.advanceTimersByTime(HOLD.wait - 1)
-    expect(shown()).toBe(true)
+
+  it('stays open until the OpenStreetMap line arrives', () => {
+    vi.advanceTimersByTime(credit.HOLD.wait * 4)
+    expect(shown.open.value).toBe(true)
+  })
+
+  it('closes five seconds after the OpenStreetMap line arrives', () => {
+    held.arrive()
+    vi.advanceTimersByTime(4999)
+    expect(shown.open.value).toBe(true)
     vi.advanceTimersByTime(1)
-    await settle()
-    expect(shown()).toBe(false)
-    expect(credit.hasAttribute('open')).toBe(false)
+    expect(shown.open.value).toBe(false)
   })
-  it.each(HOLD.events)('folds as soon as the reader sends a %s to the map', async type => {
-    canvas.dispatchEvent(new Event(type))
-    await settle()
-    expect(shown()).toBe(false)
+
+  it('keeps one timer as the map sends more source data, so a press of the credit still holds it', () => {
+    held.arrive()
+    held.fired.get('sourcedata')!()
+    shown.toggle(true)
+    vi.advanceTimersByTime(credit.HOLD.wait)
+    expect(shown.open.value).toBe(true)
   })
-  it('leaves the credit as the reader sets it once it has folded', async () => {
-    canvas.dispatchEvent(new Event('pointerdown'))
-    await settle()
-    credit.classList.add('maplibregl-compact-show')
-    await tiles()
-    vi.advanceTimersByTime(HOLD.wait)
-    canvas.dispatchEvent(new Event('wheel'))
-    expect(shown()).toBe(true)
+
+  it.each(credit.HOLD.events)('closes as soon as the reader sends a %s to the map', type => {
+    held.canvas.dispatchEvent(new Event(type))
+    expect(shown.open.value).toBe(false)
   })
-  it('ends the hold once the reader presses the credit itself', async () => {
-    credit.dispatchEvent(new Event('pointerdown'))
-    await tiles()
-    vi.advanceTimersByTime(HOLD.wait)
-    expect(shown()).toBe(true)
+
+  it('stays as the reader sets it once the reader presses it', () => {
+    shown.toggle(true)
+    held.arrive()
+    held.canvas.dispatchEvent(new Event('pointerdown'))
+    vi.advanceTimersByTime(credit.HOLD.wait)
+    expect(shown.open.value).toBe(true)
+    shown.toggle()
+    expect(shown.open.value).toBe(false)
   })
-  it('folds and opens on a press of the i, keeping the press from the control', async () => {
-    const control = vi.fn()
-    summary.addEventListener('click', control)
-    summary.click()
-    await settle()
-    expect([shown(), credit.hasAttribute('open')]).toEqual([false, false])
-    summary.click()
-    await settle()
-    expect([shown(), credit.hasAttribute('open')]).toEqual([true, true])
-    expect(control).not.toHaveBeenCalled()
+
+  it('closes a credit the reader opened once the map is dragged', () => {
+    shown.toggle(true)
+    held.fired.get('dragstart')!()
+    expect(shown.open.value).toBe(false)
   })
-  it('lets a press on a link through, leaving the credit open', () => {
-    const link    = inner.querySelector('a')!
-    const reached = vi.fn()
-    const pressed = new MouseEvent('click', { bubbles: true, cancelable: true })
-    link.addEventListener('click', reached)
-    link.dispatchEvent(pressed)
-    expect([shown(), pressed.defaultPrevented, reached.mock.calls.length]).toEqual([true, false, 1])
+
+  it('ends the first hold once a second map takes the credit', () => {
+    held.arrive()
+    shown.hold(mapOf().map)
+    vi.advanceTimersByTime(credit.HOLD.wait)
+    expect(shown.open.value).toBe(true)
   })
-  it('stays folded when the map is pressed after the i has folded it', async () => {
-    summary.click()
-    await settle()
-    canvas.dispatchEvent(new Event('pointerdown'))
-    expect([shown(), credit.getAnimations().length]).toEqual([false, 0])
+
+  it('ends the hold once the map is removed', () => {
+    held.fired.get('remove')!()
+    held.arrive()
+    vi.advanceTimersByTime(credit.HOLD.wait)
+    expect(shown.open.value).toBe(true)
   })
-  it('turns back open when the i is pressed again partway through the fold', async () => {
-    summary.click()
-    summary.click()
-    await settle()
-    expect(shown()).toBe(true)
+})
+
+describe('the width every track takes', () => {
+  const WIDE = { '--credit-col': '12px', '--credit-pad': '6px', '--credit-seal': '64px' }
+
+  beforeEach(() => {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const html = this as HTMLElement
+      const per  = html.style.width === 'min-content' ? 4 : 10
+      return { width: html.textContent!.length * per } as DOMRect
+    })
+    vi.spyOn(globalThis, 'getComputedStyle').mockImplementation(() =>
+      ({ getPropertyValue: (name: keyof typeof WIDE) => WIDE[name] }) as unknown as CSSStyleDeclaration)
   })
-  it('ends the hold once the reader presses the i from the keyboard', async () => {
-    await tiles()
-    summary.click()
-    summary.click()
-    vi.advanceTimersByTime(HOLD.wait)
-    await settle()
-    expect(shown()).toBe(true)
-  })
-  it('ends the hold once the map is removed', async () => {
-    fired.remove!()
-    await tiles()
-    vi.advanceTimersByTime(HOLD.wait)
-    expect(shown()).toBe(true)
-  })
-  it('folds a credit the reader opened once the map is dragged', async () => {
-    summary.click()
-    await settle()
-    summary.click()
-    await settle()
-    fired.dragstart!()
-    await settle()
-    expect([shown(), credit.hasAttribute('open')]).toEqual([false, false])
-  })
-  it('swaps at once under reduced motion and plays the fold otherwise', () => {
-    const press = new MouseEvent('click', { bubbles: true, cancelable: true })
-    summary.dispatchEvent(press)
-    expect([shown(), credit.classList.contains('credit-moving'), press.defaultPrevented])
-      .toEqual([!reduced, !reduced, true])
-  })
-  it('plays the fold backward to open and clears the motion once it lands', async () => {
-    summary.click()
-    await settle()
-    summary.click()
-    const played = summary.getAnimations().map(animation => animation.effect!.getTiming().direction)
-    expect([shown(), played]).toEqual([true, reduced ? [] : ['reverse', 'reverse']])
-    await settle()
-    expect(credit.classList.contains('credit-moving')).toBe(false)
-  })
-  it('reverses the fold from where it stands when the i is pressed partway through', () => {
-    summary.click()
-    summary.click()
-    expect(summary.getAnimations().map(animation => animation.playbackRate))
-      .toEqual(reduced ? [] : [-1, -1])
-  })
-  it('lists the lines under their headings in the order the panel draws them', async () => {
-    expect(order()).toEqual([GROUPS[0]!.heading, ...GROUPS[0]!.links.slice(0, 2)])
-    await tiles()
-    expect(order()).toEqual(GROUPS.flatMap(group => [group.heading, ...group.links]))
-    expect(inner.textContent).not.toMatch(/\||Data from/)
-  })
-  it('lists the lines again in order each time the map rewrites them', async () => {
-    inner.innerHTML = `${TILES} | <a href="https://example.org">Example</a> | ${CREDITS.join(' | ')}`
-    await Promise.resolve()
-    expect(order()).toEqual([...GROUPS.flatMap(group => [group.heading, ...group.links]), 'Example'])
-  })
-  it('keeps a credit a source writes as text, dropping only the separators', async () => {
-    inner.innerHTML = `© Example Survey | ${TILES} | ${CREDITS.join(' | ')}`
-    await Promise.resolve()
-    expect([inner.lastChild!.textContent, inner.textContent])
-      .toEqual(['© Example Survey', expect.not.stringMatching(/\||Data from/)])
-  })
-  it('keeps a link a source wraps in a span', async () => {
-    const wrapped   = '<span><a href="https://example.org">Wrapped</a></span>'
-    inner.innerHTML = `${TILES} | ${wrapped} | ${CREDITS.join(' | ')}`
-    await Promise.resolve()
-    expect(order()).toEqual([...GROUPS.flatMap(group => [group.heading, ...group.links]), 'Wrapped'])
-  })
-  it('folds each heading with the lines under it', async () => {
-    await tiles()
-    summary.click()
-    expect([...inner.querySelectorAll('.credit-heading')].map(heading => heading.getAnimations().length))
-      .toEqual(GROUPS.map(() => reduced ? 0 : 1))
-  })
+  afterEach(() => vi.restoreAllMocks())
+
+  const panelOf = (...lines: [string, string, string][]) => {
+    const panel     = document.createElement('div')
+    panel.innerHTML = lines.map(spans =>
+      `<a class="credit-track">${spans.map(text => `<span>${text}</span>`).join('')}</a>`).join('')
+    return panel
+  }
+
+  it.each([
+    ['wide', 64 + 12 + 140 + 12],
+    ['tablet', 64 + 12 + 56 + 12],
+    ['phone', 70 + 12]
+  ] as const)('measures the widest track %s at %d pixels', (mode, width) =>
+    expect(credit.pitchOf(panelOf(['ONE', 'A credit line.', 'LICENSE'], ['TWO', 'Short', '']), mode))
+      .toBe(width))
 })

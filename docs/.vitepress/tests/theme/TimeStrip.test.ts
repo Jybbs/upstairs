@@ -18,6 +18,7 @@ vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
   useElementSize: () => ({ height: ref(0), width: ref(WIDTH.value) })
 }))
+vi.mock('../../theme/Credit.tsx', async () => (await import('../common/stubs.ts')).stubOf('Credit'))
 
 /**
  * Each locale beside each page width a reader might open the strip at, and the
@@ -328,4 +329,30 @@ it.each(PAGES)('keeps the %s hour labels 8 px apart on a %i px page', async (loc
     })
   const gaps = spans.slice(1).map(([left], index) => left - spans[index]![1])
   expect(Math.min(...gaps)).toBeGreaterThanOrEqual(8)
+})
+
+it.each([
+  ['sets the credit at the strip’s end on a wider page', false, true],
+  ['leaves the credit to the sheet on a phone', true, false]
+] as const)('%s', async (_, phone, shown) => {
+  const { wrapper } = await mounted(false, phone)
+  expect(wrapper.findComponent({ name: 'Credit' }).exists()).toBe(shown)
+})
+
+it('grays the strip while the credit stands open and closes it on a press of the strip', async () => {
+  const { sky, wrapper } = await mounted(false)
+  const strip            = wrapper.get('[aria-label="Time within the window"]')
+  const grayed           = () => [sky.credit.open.value, strip.classes().includes('grayscale')]
+  expect(grayed()).toEqual([true, true])
+  await wrapper.get('button').trigger('pointerdown')
+  expect(grayed()).toEqual([false, false])
+})
+
+it.each(['credit-panel', 'credit-ring'])('keeps the credit open on a press of its %s', async name => {
+  const { sky, wrapper } = await mounted(false)
+  const part             = document.createElement('div')
+  part.className         = name
+  wrapper.get('section').element.append(part)
+  part.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+  expect(sky.credit.open.value).toBe(true)
 })

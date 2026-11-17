@@ -24,7 +24,7 @@ jobs:
           - { name: 🎒 Bundle,     task: catalog:bundle, tools: &bun bun }
           - { name: 📎 Clippy,     task: crate:lint,     tools: &rust rust }
           - { name: 🪚 Suite,      task: crate:test,     tools: *rust }
-          - { name: 🩺 Advisories, task: lock:audit,     tools: bun osv-scanner }
+          - { name: 🩺 Advisories, task: lock:audit,     tools: bun cargo-deny rust }
           - { name: 🔐 Lockfiles,  task: lock:check,     tools: bun rust }
           - { name: 📋 Audit,      task: repo:audit,     tools: *bun }
           - { name: 🔦 Workflows,  task: repo:lint,      tools: zizmor }
@@ -48,7 +48,7 @@ jobs:
       - name : Run ${{ matrix.task }}
         run  : mise run "$TASK"
         env:
-          GH_TOKEN : ${{ matrix.task == 'repo:lint' && github.token || '' }}
+          GH_TOKEN : ${{ (matrix.task == 'lock:audit' || matrix.task == 'repo:lint') && github.token || '' }}
           TASK     : ${{ matrix.task }}
 
       - name : Write the coverage figure the badge reads

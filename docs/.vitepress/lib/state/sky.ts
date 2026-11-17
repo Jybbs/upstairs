@@ -1,5 +1,6 @@
 import { computed, reactive, ref, shallowRef } from 'vue'
 
+import { Credit }                         from '../map/credit.ts'
 import type { Room }                      from '../map/numeral.ts'
 import * as catalog                       from '../orbit/catalog.ts'
 import * as kinds                         from '../orbit/kinds.ts'
@@ -138,6 +139,10 @@ class Sky {
    * or a lost one fails to come back.
    */
   readonly blank    = ref(false)
+  /**
+   * The map's credit, held open over the strip as the map loads.
+   */
+  readonly credit   = new Credit()
 
   /**
    * Seconds into the window, read every frame, written to `at` a few times a

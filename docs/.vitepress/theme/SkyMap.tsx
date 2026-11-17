@@ -5,7 +5,6 @@ import mapWorker                         from 'maplibre-gl/dist/maplibre-gl-work
 import { useData }                       from 'vitepress'
 import { computed, defineComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { CREDITS, holdCredit }          from '../lib/map/credit.ts'
 import { DETENT, Detents, type Step }   from '../lib/map/detents.ts'
 import { Hosts }                        from '../lib/map/hosts.ts'
 import { namesOn, placeNear }           from '../lib/map/places.ts'
@@ -288,7 +287,7 @@ export default defineComponent(
       sky.blank.value               = false
       try {
         map = new maplibregl.Map({
-          attributionControl : { compact: true, customAttribution: CREDITS },
+          attributionControl : false,
           center             : [longitude, latitude],
           container          : frame.value!,
           dragRotate         : false,
@@ -307,7 +306,7 @@ export default defineComponent(
       }
       map.touchZoomRotate.disableRotation()
       map.keyboard.disableRotation()
-      holdCredit(map)
+      sky.credit.hold(map)
 
       overlay = new Overlay(lower.value!, upper.value!, {
         get gathered() { return sky.gather.value !== null },

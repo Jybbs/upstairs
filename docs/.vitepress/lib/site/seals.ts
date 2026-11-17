@@ -14,7 +14,7 @@ type Colors = Record<'hair' | 'ink' | 'page' | 'u', string>
  */
 export interface Source {
   glyph   : keyof typeof GLYPHS
-  id      : 'omt' | 'osm' | 'tt'
+  id      : 'omt' | 'osm' | 'st' | 'tt'
   license : string
   maker   : string
   name    : string
@@ -46,6 +46,14 @@ const GITHUB = {
 const LAKE  = 'M2.5 8.5c0-3 2.8-5 5.6-5s5.4 2 5.4 4.6c0 2.9-2.6 4.6-5.3 4.6s-5.7-1.3-5.7-4.2z'
 const LAYER = 'M0 -14 L17 -6 L0 2 L-17 -6 Z'
 const LOOP  = 'M-18 5 C-19 -7 -8 -17 3 -16 C13 -15 20 -6 18 4 C16 13 7 17 -3 16 C-11 15 -17 12 -18 5 Z'
+/**
+ * The fixes along a tracked pass, a dot of radius 1.1 centered every 15
+ * degrees from -150 to -60 round a circle of radius 24 centered 16 below the
+ * core's center.
+ */
+const pass = [[-20.78, 4], [-16.97, -0.97], [-12, -4.78], [-6.21, -7.18], [0, -8], [6.21, -7.18], [12, -4.78]]
+  .map(([x, y]) => `M${x} ${y}m-1.1 0a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0-2.2 0`)
+  .join('')
 /**
  * Each Terrain Tiles provider whose license or policy requires a statement,
  * by its region, the license, and the statement in the words the license
@@ -95,6 +103,10 @@ export const PROVIDERS = [
   }
 ]
 /**
+ * Places the satellite at the head of the tracked pass, turned to follow it.
+ */
+const SATELLITE = 'translate(16.5 -1) rotate(-48) scale(.72)'
+/**
  * A seal's rings on its 96 px square, the edge, the hairline inside it, and
  * the core holding the glyph, which strokes leave only inside the circle of
  * radius `clip`, and its rim, set in the mono at `size` with an advance of
@@ -124,8 +136,7 @@ const SEAL_IMAGE = {
   width  : 120
 }
 /**
- * The three sources whose terms require a credit, in the order their seals
- * stand.
+ * The sources whose terms require a credit, in the order their seals stand.
  */
 export const SOURCES: readonly Source[] = [
   {
@@ -148,6 +159,13 @@ export const SOURCES: readonly Source[] = [
     license : 'Nine licenses',
     maker   : 'Mapzen · Terrain Tiles',
     name    : 'Terrain Tiles'
+  },
+  {
+    glyph   : 'track',
+    id      : 'st',
+    license : 'Citation required',
+    maker   : 'USSPACECOM',
+    name    : 'Space-Track'
   }
 ]
 /**
@@ -174,8 +192,9 @@ export const CHIP_MARKS = {
 /**
  * The glyphs at a seal's center, drawn about the origin inside the core: a
  * coastline with land to its left, a lake, and a dashed border for the map's
- * data, three stacked layers of a tile for the schema, and closed contours
- * round a summit for the relief.
+ * data, three stacked layers of a tile for the schema, closed contours round a
+ * summit for the relief, and for the orbital elements a tracked pass rising to
+ * a satellite, its body between two panels, over an element set's two rows.
  */
 export const GLYPHS = {
   map: [
@@ -196,6 +215,13 @@ export const GLYPHS = {
     { d: LAYER, kind: 'land' },
     { d: LAYER, kind: 'line' },
     { d: 'M-7 -9.5 L8 -4', kind: 'line' }
+  ],
+  track: [
+    { d: pass, kind: 'line' },
+    { d: 'M-16 12 H-12 M-8.5 12 H3 M6.5 12 H16 M-16 17.5 H-12 M-8.5 17.5 H-1 M2.5 17.5 H16', kind: 'line' },
+    { at: SATELLITE, d: 'M-11 -3 H-4.5 V3 H-11 Z M4.5 -3 H11 V3 H4.5 Z', kind: 'lake' },
+    { at: SATELLITE, d: 'M-7.75 -3 V3 M7.75 -3 V3 M-4.5 0 H-2.5 M2.5 0 H4.5', kind: 'line' },
+    { at: SATELLITE, d: 'M-2.5 -3.5 H2.5 V3.5 H-2.5 Z', kind: 'lake' }
   ]
 } as const satisfies Record<string, readonly Stroke[]>
 

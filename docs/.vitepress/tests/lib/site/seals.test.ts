@@ -41,21 +41,20 @@ describe('the rim', () => {
     expect(seals.rimOf(source).letters.map(letter => letter.char).join('')).toBe(text)
   })
 
-  it.each(seals.SOURCES)('stands the $name rim upright at its top and its foot', source => {
+  it.each(seals.SOURCES)('stands the $name rim upright within a letter of its top and its foot', source => {
     const letters = seals.rimOf(source).letters.toSorted((a, b) => a.y - b.y)
-    expect(Math.abs(letters[0].rotate)).toBeLessThan(10)
-    expect(Math.abs(letters.at(-1)!.rotate)).toBeLessThan(10)
+    const step    = Math.round(36_000 / (source.maker.length + source.license.length + 6)) / 100
+    expect(Math.abs(letters[0].rotate)).toBeLessThanOrEqual(step)
+    expect(Math.abs(letters.at(-1)!.rotate)).toBeLessThanOrEqual(step)
   })
 
   it.each(seals.SOURCES)(
-    'sets the $name maker over the top of the rim and its license along the foot', source => {
+    'sets the $name maker on the rim’s high baseline and its license on its low one', source => {
       const { letters }           = seals.rimOf(source)
       const maker                 = source.maker.replaceAll(' ', '').length
       const { center, high, low } = seals.SEAL
-      const ys                    = (from: number, to?: number) =>
-        letters.slice(from, to).map(letter => letter.y)
-      expect([Math.min(...ys(0, maker)), Math.max(...ys(maker))])
-        .toEqual([expect.closeTo(center - high, 0), expect.closeTo(center + low, 0)])
+      expect(letters.map(({ x, y }) => Math.round(Math.hypot(x - center, y - center))))
+        .toEqual(letters.map((_, index) => Math.round(index < maker ? high : low)))
     })
 
   it.each(seals.SOURCES)('rests the two dots of the $name rim level, one each side', source => {

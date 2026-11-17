@@ -1,25 +1,48 @@
-import type { Map } from 'maplibre-gl'
+import type { Map }                  from 'maplibre-gl'
+import { computed, ref, shallowRef } from 'vue'
+
+import { CHIP_MARKS, GLYPHS, SOURCES, type Source, type Stroke } from '../site/seals.ts'
 
 /**
- * One part of the fold, as the element it moves, its keyframes, and the
- * pseudo-element it moves in place of the element where it names one.
+ * A line the credit sets as a track: the link `pick` selects among the
+ * credits, what it credits, the name over its seal, the credit line, the
+ * glyph at its seal's center under `at`, and the source whose seal it takes
+ * where its terms require a credit.
  */
-type Part = [element: Element, keyframes: Keyframe[], pseudo?: string]
-
-/**
- * A line or a heading of the open panel, with its top-left corner measured
- * from the panel's top-left corner.
- */
-interface Row {
-  element : HTMLElement
-  height  : number
-  left    : number
-  top     : number
-  width   : number
+interface Entry {
+  glyph   : readonly Stroke[]
+  label   : string
+  name    : string
+  pick    : string
+  text    : string
+  at?     : string
+  source? : Source['id']
 }
 
 /**
- * The lines the map's credit adds beside the base map's own, each linking the
+ * A group of the credit, as its heading, the mark its tab carries on a 16 px
+ * square, and its entries in order.
+ */
+interface Group {
+  entries : readonly Entry[]
+  heading : string
+  mark    : readonly Stroke[]
+}
+
+/**
+ * A track as the credit draws it, with the address the credits give it and
+ * the source its seal stands for.
+ */
+export interface Track extends Omit<Entry, 'source'> {
+  href    : string
+  source? : Source
+}
+
+const PLANET = 'M-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0'
+const CORE   = 'M8 4.6a3.4 3.4 0 1 1 0 6.8a3.4 3.4 0 1 1 0-6.8z'
+
+/**
+ * The lines the map's credit adds beside each source's own, each linking the
  * section of the Data page that lists its sources.
  */
 export const CREDITS = [
@@ -28,256 +51,210 @@ export const CREDITS = [
 ]
 
 /**
- * The groups of the open panel in reading order, each as its heading and the
- * links under it in the order `links` gives.
+ * The groups the credit's tabs switch between, in reading order.
  */
-export const GROUPS = [
-  { heading: 'Sources', links: ['[href$="#orbits"]', '[href$="#credits-tt"]', '[href*="openstreetmap.org"]'] },
-  { heading: 'Tiles', links: ['[href*="openfreemap.org"]', '[href*="openmaptiles.org"]'] }
+const GROUPS: readonly Group[] = [
+  {
+    heading : 'Sources',
+    mark    : [
+      { d: 'M8 1.5a6.5 6.5 0 1 1 0 13a6.5 6.5 0 1 1 0-13z', kind: 'line' },
+      { d: CORE, kind: 'land' },
+      { d: CORE, kind: 'line' }
+    ],
+    entries : [
+      {
+        glyph : [
+          { d: PLANET, kind: 'land' },
+          { d: PLANET, kind: 'line' },
+          { at: 'rotate(-22)', d: 'M-27 0a27 10 0 1 0 54 0a27 10 0 1 0 -54 0', kind: 'line' },
+          {
+            at   : 'rotate(-22) translate(27 0)',
+            d    : 'M-3.4 0a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0 -6.8 0',
+            kind : 'lake'
+          }
+        ],
+        label : 'Orbits',
+        name  : 'CelesTrak',
+        pick  : '[href$="#orbits"]',
+        text  : 'CelesTrak and Space-Track'
+      },
+      {
+        glyph  : GLYPHS.relief,
+        label  : 'Terrain',
+        name   : 'Terrain Tiles',
+        pick   : '[href$="#credits-tt"]',
+        source : 'tt',
+        text   : 'Mapzen and its sources'
+      },
+      {
+        glyph  : GLYPHS.map,
+        label  : 'Map data',
+        name   : 'OpenStreetMap',
+        pick   : '[href*="openstreetmap.org"]',
+        source : 'osm',
+        text   : 'OpenStreetMap contributors'
+      }
+    ]
+  },
+  {
+    heading : 'Tiles',
+    mark    : CHIP_MARKS.tiles,
+    entries : [
+      {
+        at    : 'translate(-24 -24) scale(3)',
+        glyph : CHIP_MARKS.tiles,
+        label : 'Host',
+        name  : 'OpenFreeMap',
+        pick  : '[href*="openfreemap.org"]',
+        text  : 'OpenFreeMap'
+      },
+      {
+        glyph  : GLYPHS.schema,
+        label  : 'Schema',
+        name   : 'OpenMapTiles',
+        pick   : '[href*="openmaptiles.org"]',
+        source : 'omt',
+        text   : '© OpenMapTiles'
+      }
+    ]
+  }
 ]
 
 /**
- * How long the credit stays open once the line `line` selects shows, and the
- * events on the map that close it sooner.
+ * How long the credit stays open once the line `line` selects arrives, and
+ * the events on the map that close it sooner.
  */
 export const HOLD = {
   events : ['keydown', 'pointerdown', 'wheel'],
-  line   : 'a[href*="openstreetmap.org"]',
+  line   : '[href*="openstreetmap.org"]',
   wait   : 5000
 }
 
 /**
- * The fold's timing in milliseconds and its distances in pixels. Each line
- * leaves over `span` of the `fold`, the last done by `rows`, drifting `drift`
- * toward the ring, and the panel lands on the ring at `lands`. The ring then
- * swells to `swell` at `peak` of its `pulse` and sends out a halo `halo` wide.
+ * The links among the credits' lines, each line read as the HTML a source
+ * writes it in.
  */
-const MOTION = {
-  drift : 10,
-  fold  : 900,
-  halo  : 12,
-  lands : 0.84,
-  peak  : 0.31,
-  pulse : 380,
-  rows  : 0.8,
-  span  : 0.2,
-  swell : 1.16
+const linksOf = (lines: readonly string[]) => {
+  const box     = document.createElement('template')
+  box.innerHTML = lines.join(' ')
+  return [...box.content.querySelectorAll('a')]
 }
 
 /**
- * Measures each line and heading of the open panel, sorted top to bottom and
- * then left to right.
+ * Sorts the links among the credits' lines into the tracks of each group
+ * `GROUPS` sets, leaving out a group with no track.
  */
-const rowsOf = (inner: HTMLElement): Row[] =>
-  [...inner.querySelectorAll<HTMLElement>('a, .credit-heading')]
-    .map(element => ({
-      element : element,
-      height  : element.offsetHeight,
-      left    : inner.offsetLeft + element.offsetLeft,
-      top     : inner.offsetTop + element.offsetTop,
-      width   : element.offsetWidth
-    }))
-    .sort((one, two) => one.top - two.top || one.left - two.left)
-
-/**
- * Folds the map's credit into the ring around its i and opens it back out,
- * playing the fold backward to open and swapping at once under reduced
- * motion, and reverses a motion from where it stands when the i is pressed
- * again partway through. Each time the map rewrites the credit's lines, it
- * moves them into the groups `GROUPS` sets.
- */
-class Credit {
-  private heading: boolean | null = null
-  private moving: Animation[]     = []
-  private readonly lines          = new MutationObserver(() => this.arrange())
-
-  constructor(readonly details: HTMLElement, private readonly motion = MOTION) {
-    details.addEventListener('click', this.pressed, { capture: true })
-    this.lines.observe(this.inner, { childList: true })
-    this.arrange()
-  }
-
-  get inner() {
-    return this.details.querySelector<HTMLElement>('.maplibregl-ctrl-attrib-inner')!
-  }
-
-  get ring() {
-    return this.details.querySelector<HTMLElement>('.maplibregl-ctrl-attrib-button')!
-  }
-
-  /**
-   * Whether the credit is open, or opening where a motion is under way.
-   */
-  get open() {
-    return this.heading ?? this.details.classList.contains('maplibregl-compact-show')
-  }
-
-  /**
-   * Moves each link into its group under the group's heading, and leaves out a
-   * group with no link shown. The separators and the `Data from` text drop
-   * out, and every other line, whether a link no group names or a credit a
-   * source writes as text, follows the groups.
-   */
-  private arrange() {
-    const { inner } = this
-    const links     = [...inner.querySelectorAll('a')]
-    const groups    = GROUPS.flatMap(({ heading, links: picks }) => {
-      const shown = picks.flatMap(pick => links.filter(link => link.matches(pick)))
-      if (!shown.length) return []
-      const group = document.createElement('div')
-      const title = document.createElement('p')
-      group.className   = 'credit-group'
-      title.className   = 'credit-heading'
-      title.textContent = heading
-      group.append(title, ...shown)
-      return [group]
-    })
-    const rest      = [...inner.childNodes].flatMap((node): (Node | string)[] => {
-      if (node instanceof Element) return node.matches('.credit-group') ? [] : [node]
-      const text = node.textContent!.replace(/\||Data from/g, '').trim()
-      return text ? [text] : []
-    })
-    inner.replaceChildren(...groups, ...rest)
-    this.lines.takeRecords()
-  }
-
-  /**
-   * Builds the fold of the open panel into the ring, each line leaving in
-   * reading order as the panel's top-left corner follows the lines still left,
-   * then the ring swelling once and sending out a halo as the panel lands.
-   */
-  private fold(): { duration: number, parts: Part[] } {
-    const { details, inner, motion, ring } = this
-    const { paddingLeft, paddingTop }      = getComputedStyle(details)
-    const rows   = rowsOf(inner)
-    const length = motion.fold * motion.lands + motion.pulse
-    const scale  = motion.fold / length
-    const step   = (motion.rows - motion.span) / Math.max(1, rows.length - 1)
-    const landed = scale * motion.lands
-    const color  = getComputedStyle(ring).color
-    const glide  = 'cubic-bezier(.45,0,.35,1)'
-    const inset  = { left: parseFloat(paddingLeft), top: parseFloat(paddingTop) }
-    const gone   = (i: number) => (i * step + motion.span) * scale
-    const limit  = {
-      left : details.offsetWidth - ring.offsetWidth,
-      top  : details.offsetHeight - ring.offsetHeight
-    }
-    const ringX = limit.left + ring.offsetWidth / 2
-    const ringY = limit.top + ring.offsetHeight / 2
-    const edge  = (kept: Row[], side: 'left' | 'top') =>
-      `${Math.min(limit[side], Math.max(0, Math.min(...kept.map(row => row[side])) - inset[side]))}px`
-    const halo = (spread: number, share: number) =>
-      `inset 0 0 0 1.5px ${color}, 0 0 0 ${spread}px color-mix(in srgb, ${color} ${share}%, transparent)`
-    const lines = rows.map((row, i): Part => {
-      const dx    = ringX - row.left - row.width / 2
-      const dy    = ringY - row.top - row.height / 2
-      const reach = Math.hypot(dx, dy) || 1
-      const moved = `${dx / reach * motion.drift}px ${dy / reach * motion.drift}px`
-      return [row.element, [
-        { offset: 0, opacity: 1, translate: '0 0' },
-        { easing: 'cubic-bezier(.4,0,.8,.6)', offset: i * step * scale, opacity: 1, translate: '0 0' },
-        { offset: gone(i), opacity: 0, translate: moved },
-        { offset: 1, opacity: 0, translate: moved }
-      ]]
-    })
-    const edges = rows.slice(1).map((_, i) => {
-      const kept = rows.slice(i + 1)
-      return { easing: glide, left: edge(kept, 'left'), offset: gone(i), top: edge(kept, 'top') }
-    })
-    const surface: Part = [details, [
-      { easing: glide, left: '0px', offset: 0, top: '0px' },
-      ...edges,
-      { left: `${limit.left}px`, offset: landed, top: `${limit.top}px` },
-      { left: `${limit.left}px`, offset: 1, top: `${limit.top}px` }
-    ], '::before']
-    const peak = landed + (1 - landed) * motion.peak
-    return {
-      duration : length,
-      parts    : [...lines, surface, [ring, [
-        { offset: 0, scale: 1 },
-        { easing: 'cubic-bezier(.3,0,.3,1)', offset: landed, scale: 1 },
-        { easing: 'cubic-bezier(.4,0,.2,1)', offset: peak, scale: motion.swell },
-        { offset: 1, scale: 1 }
-      ]], [ring, [
-        { boxShadow: halo(0, 50), offset: 0 },
-        { boxShadow: halo(0, 50), easing: 'cubic-bezier(.2,.6,.3,1)', offset: landed },
-        { boxShadow: halo(motion.halo, 0), offset: 1 }
-      ], '::after']]
-    }
-  }
-
-  private pressed = (event: Event) => {
-    if (!this.ring.contains(event.target as Node)) return
-    event.preventDefault()
-    event.stopPropagation()
-    this.toggle(!this.open)
-  }
-
-  private settle() {
-    for (const animation of this.moving) animation.cancel()
-    this.show(this.heading!)
-    this.moving  = []
-    this.heading = null
-    this.details.classList.remove('credit-moving')
-  }
-
-  private show(open: boolean) {
-    this.details.classList.toggle('maplibregl-compact-show', open)
-    this.details.toggleAttribute('open', open)
-  }
-
-  toggle(open: boolean) {
-    if (open === this.open) return
-    if (this.moving.length) {
-      this.heading = open
-      for (const animation of this.moving) animation.reverse()
-      return
-    }
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.show(open)
-    this.show(true)
-    this.details.classList.add('credit-moving')
-    const { duration, parts } = this.fold()
-    const direction           = open ? 'reverse' : 'normal'
-    this.heading              = open
-    this.moving               = parts.map(([element, keyframes, pseudoElement]) =>
-      element.animate(keyframes, { direction, duration, fill: 'both', pseudoElement }))
-    Promise.all(this.moving.map(animation => animation.finished))
-      .then(() => this.settle())
-  }
-}
-
-/**
- * Keeps the map's credit open until the reader presses, scrolls, or types on
- * the map, or until `wait` milliseconds after the line `line` selects shows,
- * whichever comes first. Once the reader presses the credit itself, it stays as
- * the reader sets it until a drag of the map folds it.
- */
-export const holdCredit = (map: Map, hold = HOLD, motion = MOTION) => {
-  const credit = new Credit(map.getContainer().querySelector('.maplibregl-ctrl-attrib')!, motion)
-  const held   = new AbortController()
-  const close  = () => {
-    held.abort()
-    credit.toggle(false)
-  }
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const start = () => {
-    if (!credit.inner.querySelector(hold.line)) return
-    lines.disconnect()
-    timer = setTimeout(close, hold.wait)
-  }
-  const lines = new MutationObserver(start)
-  held.signal.addEventListener('abort', () => {
-    lines.disconnect()
-    clearTimeout(timer)
+export const groupsOf = (lines: readonly string[]) => {
+  const links = linksOf(lines)
+  return GROUPS.flatMap(({ entries, heading, mark }) => {
+    const tracks = entries.flatMap(({ source, ...entry }): Track[] => links
+      .filter(link => link.matches(entry.pick))
+      .map(link => ({
+        ...entry,
+        href   : link.getAttribute('href')!,
+        source : SOURCES.find(each => each.id === source)
+      })))
+    return tracks.length ? [{ heading, mark, tracks }] : []
   })
-  lines.observe(credit.inner, { childList: true })
-  start()
-  map.on('dragstart', () => credit.toggle(false))
-  map.once('remove', () => held.abort())
-  for (const type of ['click', 'pointerdown']) {
-    credit.details.addEventListener(type, () => held.abort(), { capture: true, signal: held.signal })
+}
+
+/**
+ * The lines `CREDITS` adds, then each source's own credit once, as the map's
+ * sources carry them.
+ */
+const linesOf = (map: Map) => [...new Set([
+  ...CREDITS,
+  ...Object.keys(map.getStyle()?.sources ?? {}).flatMap(id => map.getSource(id)?.attribution || [])
+])]
+
+/**
+ * Measures the width a line of a track takes whole, or broken at its longest
+ * word, on a copy laid out beside it in the track's own type.
+ */
+const widthOf = (line: HTMLElement, fit: 'max-content' | 'min-content') => {
+  const copy         = line.cloneNode(true) as HTMLElement
+  copy.style.cssText = `position:absolute;visibility:hidden;width:${fit};height:auto;overflow:visible;`
+                     + `white-space:${fit === 'max-content' ? 'nowrap' : 'normal'}`
+  line.parentElement!.append(copy)
+  const { width } = copy.getBoundingClientRect()
+  copy.remove()
+  return width
+}
+
+/**
+ * Measures the one width every track of `panel` takes, the widest track's with
+ * its padding on both sides. A track's width in each mode is:
+ *
+ * - wide, its seal, the gap, and its widest line whole
+ * - tablet, the widest of its name, its license, and its seal beside its
+ *   credit line broken at its longest word
+ * - phone, the widest of its seal and its lines, the credit line broken at
+ *   its longest word
+ */
+export const pitchOf = (panel: HTMLElement, mode: 'phone' | 'tablet' | 'wide') => {
+  const css  = getComputedStyle(panel)
+  const px   = (name: string) => Number.parseFloat(css.getPropertyValue(name)) || 0
+  const seal = px('--credit-seal')
+  const gap  = px('--credit-col')
+  const each = [...panel.querySelectorAll('.credit-track')].map(track => {
+    const [name, said, license] = [...track.querySelectorAll<HTMLElement>(':scope > span')]
+    const whole = [name!, license!].map(line => widthOf(line, 'max-content'))
+    if (mode === 'wide') return seal + gap + Math.max(...whole, widthOf(said!, 'max-content'))
+    if (mode === 'tablet') return Math.max(...whole, seal + gap + widthOf(said!, 'min-content'))
+    return Math.max(seal, ...whole, widthOf(said!, 'min-content'))
+  })
+  return Math.ceil(Math.max(0, ...each) + px('--credit-pad') * 2)
+}
+
+/**
+ * The map's credit: the lines it reads, the groups they sort into, and
+ * whether it stands open over the strip. Held open as the map loads, it
+ * closes once the reader presses, scrolls, or types on the map, or `wait`
+ * milliseconds after the line `line` selects arrives, whichever comes first.
+ * Once the reader presses the credit itself, it stays as the reader sets it
+ * until a drag of the map closes it.
+ */
+export class Credit {
+  readonly lines  = shallowRef<readonly string[]>(CREDITS)
+  readonly open   = ref(true)
+  readonly groups = computed(() => groupsOf(this.lines.value))
+  private held    = new AbortController()
+
+  readonly close = () => {
+    this.held.abort()
+    this.open.value = false
   }
-  for (const type of hold.events) {
-    map.getCanvasContainer().addEventListener(type, close, { signal: held.signal })
+
+  /**
+   * Opens the credit on a map and holds it open, following the lines the
+   * map's sources carry.
+   */
+  hold(map: Map, hold = HOLD) {
+    this.held.abort()
+    const held = this.held = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const read = () => {
+      this.lines.value = linesOf(map)
+      if (timer !== undefined || held.signal.aborted) return
+      const arrived = linksOf(this.lines.value).some(link => link.matches(hold.line))
+      if (arrived) timer = setTimeout(this.close, hold.wait)
+    }
+    this.open.value = true
+    held.signal.addEventListener('abort', () => clearTimeout(timer))
+    for (const type of hold.events) {
+      map.getCanvasContainer().addEventListener(type, this.close, { signal: held.signal })
+    }
+    map.on('sourcedata', read)
+    map.on('dragstart', this.close)
+    map.once('remove', () => held.abort())
+    read()
+  }
+
+  /**
+   * Opens or closes the credit as the reader sets it, ending the hold.
+   */
+  toggle(open = !this.open.value) {
+    this.held.abort()
+    this.open.value = open
   }
 }
