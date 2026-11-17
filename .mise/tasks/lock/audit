@@ -1,6 +1,11 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "advisories"
-#MISE description = "Report every advisory against a package `docs/bun.lock` or `rust/Cargo.lock` resolves, failing on any"
+#MISE description = "Fail on an advisory against a package `docs/bun.lock` resolves, or on an advisory, yanked crate, license, version, or source `rust/.cargo/deny.toml` denies for a crate `rust/Cargo.lock` resolves"
 
 bun audit --cwd docs "$@"
-osv-scanner scan source --lockfile rust/Cargo.lock
+cargo deny --locked --manifest-path rust/Cargo.toml check advisories bans sources
+cargo deny \
+  --locked \
+  --manifest-path rust/Cargo.toml \
+  --target wasm32-unknown-unknown \
+  check licenses

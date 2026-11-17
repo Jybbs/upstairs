@@ -24,7 +24,7 @@ jobs:
           - { name: 🎒 Bundle,     task: catalog:bundle, tools: &bun bun }
           - { name: 📎 Clippy,     task: crate:lint,     tools: &rust rust }
           - { name: 🪚 Suite,      task: crate:test,     tools: *rust }
-          - { name: 🩺 Advisories, task: lock:audit,     tools: bun osv-scanner }
+          - { name: 🩺 Advisories, task: lock:audit,     tools: bun cargo-deny rust }
           - { name: 🔐 Lockfiles,  task: lock:check,     tools: bun rust }
           - { name: 📋 Audit,      task: repo:audit,     tools: *bun }
           - { name: 🔦 Workflows,  task: repo:lint,      tools: zizmor }
