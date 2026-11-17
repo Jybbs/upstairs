@@ -7,6 +7,7 @@ import { turnOf }    from '../lib/site/drag.ts'
 import { clamp }     from '../lib/site/motion.ts'
 import { ridgeOf }   from '../lib/site/ridges.ts'
 import { sky }       from '../lib/state/sky.ts'
+import Credit        from './Credit.tsx'
 import Filters       from './Filters.tsx'
 import KindTag       from './KindTag.tsx'
 import PassList      from './PassList.tsx'
@@ -230,6 +231,13 @@ export default defineComponent(
           onPointermove={move}
           onPointerup={release}
         >
+          <Credit
+            style={{
+              '--credit-height' : `${rested.value - headHeight.value}px`,
+              '--credit-top'    : `${headHeight.value}px`
+            }}
+            onOpen={() => stop.value === 2 && rest(0)}
+          />
           <div ref={peek} class="shrink-0">
             <div ref={head}>
               <button
