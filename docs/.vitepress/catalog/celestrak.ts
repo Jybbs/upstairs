@@ -1,9 +1,9 @@
 /**
- * Requests the active catalog from CelesTrak and checks that what came back is
- * a list of at least `AT_LEAST` records, telling a connection Cloudflare could
- * not open apart from a request that reached CelesTrak.
+ * Requests CelesTrak's SATCAT directory and its SATCAT file, reading the time
+ * the directory lists for the file and the operational status of each payload
+ * the file holds, and tells a connection Cloudflare could not open apart from a
+ * request that reached CelesTrak.
  */
-import type { Record } from '../lib/orbit/catalog.ts'
 
 /**
  * What starts a wait of the download cycle once a request reaches CelesTrak,
@@ -23,12 +23,40 @@ export type Failure =
     }
   | { kind: 'unanswered' | 'unchecked', reason: string }
 
-const AGENT    = 'upstairs-catalog'
+/**
+ * The SATCAT the cycle keeps, the time the directory lists for its file beside
+ * the operational status code of each payload, keyed by catalog number.
+ */
+export interface Satcat {
+  codes : { [id: string]: string }
+  time  : number
+}
+
+const AGENT = 'upstairs-catalog'
+/**
+ * The fewest payloads a SATCAT file holds before the cycle keeps it.
+ */
 const AT_LEAST = 5000
+/**
+ * The columns of the SATCAT file the cycle reads, per
+ * https://celestrak.org/satcat/satcat-format.php.
+ */
+const COLUMNS = ['NORAD_CAT_ID', 'OBJECT_TYPE', 'OPS_STATUS_CODE'] as const
+/**
+ * The directory of CelesTrak's SATCAT files, which CelesTrak asks to be
+ * queried no more than once an hour, per
+ * https://celestrak.org/usage-policy.php.
+ */
+export const DIRECTORY = 'https://celestrak.org/satcat/jsonDir.php'
 /**
  * The most characters of a refusal's body a wait keeps.
  */
 export const EXCERPT = 4096
+/**
+ * One field of a row of the SATCAT file, quoted where it holds a comma and
+ * capturing what sits between the quotes, or bare.
+ */
+const FIELD = /(?:^|,)(?:"((?:[^"]|"")*)"|([^,]*))/g
 /**
  * The longest wait for the headers of an answer, in milliseconds, which runs
  * past the 19 seconds Cloudflare waits for a connection before answering 522.
@@ -37,16 +65,24 @@ export const HEADER_WAIT = 30_000
 /**
  * The headers of a refusal a wait keeps.
  */
-export const KEPT   = ['cf-ray', 'content-type', 'location', 'retry-after']
-export const SOURCE = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json'
+export const KEPT = ['cf-ray', 'content-type', 'location', 'retry-after']
+/**
+ * The time the directory lists for a file, as `2026-10-24 01:47:21 UTC`.
+ */
+const LISTED = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) UTC$/
+/**
+ * CelesTrak's SATCAT file, linked from https://celestrak.org/satcat/ as its
+ * raw SATCAT data.
+ */
+export const SATCAT = 'https://celestrak.org/pub/satcat.csv'
 /**
  * The message of the 403 CelesTrak answers while its data has not updated
  * since the last download from the same address, per its GP data documentation
  * at https://celestrak.org/NORAD/documentation/gp-data-formats.php, matched
- * once each run of whitespace in the body reads as one space and capturing the
- * day and the time of that download in UTC.
+ * for any data set once each run of whitespace in the body reads as one space
+ * and capturing the day and the time of that download in UTC.
  */
-const UNCHANGED = /GP data has not updated since your last successful download(?: of \S+ at (\S+) (\S+) UTC)?/
+const UNCHANGED = /[A-Z]+ data has not updated since your last successful download(?: of \S+ at (\S+) (\S+) UTC)?/
 /**
  * The statuses Cloudflare answers with when it cannot open a connection to
  * CelesTrak.
@@ -68,6 +104,13 @@ export class Failed extends Error {
  * the next region.
  */
 export class Unreachable extends Error {}
+
+/**
+ * Returns the fields of one row of the SATCAT file, each quoted field read
+ * back with its doubled quotes undone.
+ */
+const fieldsOf = (row: string) =>
+  [...row.matchAll(FIELD)].map(([, quoted, bare]) => quoted?.replaceAll('""', '"') ?? bare)
 
 /**
  * Reads the refusal out of an answer other than 200, canceling its body once
@@ -99,25 +142,35 @@ const refusalOf = async (response: Response): Promise<Failure> => {
   }
 }
 
+const unchecked = (reason: string) => new Failed({ kind: 'unchecked', reason })
+
 /**
- * Returns the records of a catalog, failing on anything but a list of
- * `AT_LEAST` records or more.
+ * Returns the codes of a SATCAT file, the operational status code of each
+ * payload keyed by its catalog number, failing where the file lacks a column
+ * `COLUMNS` names or holds fewer than `AT_LEAST` payloads.
  */
-export const checked = (records: unknown) => {
-  if (Array.isArray(records) && records.length >= AT_LEAST) return records as Record[]
-  throw new Failed({
-    kind   : 'unchecked',
-    reason : `Expected a list of ${AT_LEAST} or more records, got ${JSON.stringify(records).slice(0, 60)}`
-  })
+export const codesOf = (text: string) => {
+  const [head = '', ...rows] = text.split(/\r?\n/)
+  const columns              = COLUMNS.map(column => fieldsOf(head).indexOf(column))
+  if (columns.includes(-1))
+    throw unchecked(`Expected a SATCAT file with ${COLUMNS.join(', ')}, got ${head.slice(0, 60)}`)
+  const codes: Satcat['codes'] = Object.fromEntries(rows
+    .map(fieldsOf)
+    .map(fields => columns.map(column => fields[column]))
+    .filter(([id, type]) => type === 'PAY' && id)
+    .map(([id, , code]) => [id, code ?? '']))
+  const payloads = Object.keys(codes).length
+  if (payloads < AT_LEAST) throw unchecked(`Expected ${AT_LEAST} or more payloads, got ${payloads}`)
+  return codes
 }
 
 /**
- * Reads the catalog from `answer`, failing with `Unreachable` where Cloudflare
+ * Reads `answer` through `read`, failing with `Unreachable` where Cloudflare
  * could not connect or `answer` rejects with anything but a `TimeoutError`. A
- * `TimeoutError`, any other answer but 200, a redirect included, and a body
- * that is not a catalog each fail with `Failed`.
+ * `TimeoutError`, any other answer but 200, a redirect included, a body that
+ * fails to arrive, and a body `read` throws on each fail with `Failed`.
  */
-export const download = async (answer: Promise<Response>): Promise<Record[]> => {
+export const download = async <T>(answer: Promise<Response>, read: (body: string) => T): Promise<T> => {
   const response = await answer.catch((error: Error) => {
     throw error.name === 'TimeoutError'
       ? new Failed({ kind: 'unanswered', reason: error.message })
@@ -128,26 +181,44 @@ export const download = async (answer: Promise<Response>): Promise<Record[]> => 
     throw new Unreachable(`Cloudflare answered ${response.status}`)
   }
   if (response.status !== 200) throw new Failed(await refusalOf(response))
-  return checked(await response.json().catch((error: unknown) => {
-    throw new Failed({ kind: 'unchecked', reason: String(error) })
-  }))
+  try {
+    return read(await response.text())
+  } catch (error) {
+    throw error instanceof Failed ? error : unchecked(String(error))
+  }
 }
 
 /**
- * Sends the catalog request through `fetcher` with redirects left unfollowed,
- * aborting it with a `TimeoutError` where no headers arrive within
+ * Sends a request for `source` through `fetcher` with redirects left
+ * unfollowed, aborting it with a `TimeoutError` where no headers arrive within
  * `HEADER_WAIT` milliseconds.
  */
-export const fetchCatalog = async (fetcher: typeof fetch) => {
+export const fetchFrom = async (fetcher: typeof fetch, source: string) => {
   const bound   = new AbortController()
   const timeout = new DOMException(`No answer within ${HEADER_WAIT} ms`, 'TimeoutError')
   const timer   = setTimeout(() => bound.abort(timeout), HEADER_WAIT)
   const init    = { headers: { 'user-agent': AGENT }, redirect: 'manual', signal: bound.signal } as const
   try {
-    return await fetcher(SOURCE, init)
+    return await fetcher(source, init)
   } catch (error) {
     throw bound.signal.aborted ? timeout : error
   } finally {
     clearTimeout(timer)
   }
+}
+
+/**
+ * Returns the time the SATCAT directory lists for the file `SATCAT` names,
+ * read from the `FILE_MTIME` of the entry whose `FILE_NAME` ends on that
+ * file's name, failing where the directory holds no such entry.
+ */
+export const listedOf = (body: string) => {
+  const entries = JSON.parse(body) as unknown
+  const name    = SATCAT.split('/').at(-1)
+  const entry   = Array.isArray(entries)
+    ? entries.find(entry => String(Object(entry).FILE_NAME).split('/').at(-1) === name) as unknown
+    : undefined
+  const match   = LISTED.exec(String(Object(entry).FILE_MTIME))
+  if (!match) throw unchecked(`Expected a directory listing ${name}, got ${body.slice(0, 60)}`)
+  return Date.parse(`${match[1]}T${match[2]}Z`)
 }

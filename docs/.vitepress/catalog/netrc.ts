@@ -4,6 +4,7 @@
  * double quote, or a backslash is quoted with the escapes curl reads since
  * 7.84.0, per https://everything.curl.dev/usingcurl/netrc.html.
  */
+import { readFile } from 'node:fs/promises'
 
 export interface Login {
   identity : string
@@ -69,6 +70,17 @@ export class Netrc {
       } else key = VALUED.find(name => name === token)
     }
     return new Netrc(text, entries)
+  }
+
+  /**
+   * Reads the entries of the file at `path`, reading none where no file is
+   * there.
+   */
+  static async read(path: string) {
+    return Netrc.parse(await readFile(path, 'utf8').catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return ''
+      throw error
+    }))
   }
 
   /**

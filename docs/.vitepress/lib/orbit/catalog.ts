@@ -174,8 +174,8 @@ export const recordsOf = (body: Uint8Array, count: number): Record[] => {
 }
 
 /**
- * Reads a compressed catalog file one segment at a time, with the time it was
- * fetched from CelesTrak.
+ * Reads a compressed catalog file one segment at a time, with the time its
+ * elements were fetched from Space-Track.
  */
 export async function* segmentsOf(stream: ReadableStream<Uint8Array<ArrayBuffer>>) {
   const read   = readerOf(stream.pipeThrough(new DecompressionStream('gzip')))
