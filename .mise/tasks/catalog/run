@@ -1,0 +1,5 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE depends     = ["site:install"]
+#MISE description = "Run one cycle of the catalog service through its run path with the token saved in `~/.netrc`, printing the outcome as JSON and failing unless the elements were stored"
+
+bun run docs/.vitepress/catalog/request.ts

@@ -93,7 +93,7 @@ export class Prompt {
  * Sets `secrets` on the catalog service through `wrangler secret bulk`, which
  * reads them as JSON on its input, returning the command's exit status.
  */
-export const wrangler = (secrets: spacetrack.Secrets, spawn: Spawn = spawnSync) =>
+export const wrangler = (secrets: { [name: string]: string }, spawn: Spawn = spawnSync) =>
   spawn('bun', ['x', '--no-install', 'wrangler', 'secret', 'bulk', '--config', 'wrangler.json'], {
     cwd   : import.meta.dirname,
     input : JSON.stringify(secrets),

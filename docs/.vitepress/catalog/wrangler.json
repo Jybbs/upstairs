@@ -3,7 +3,8 @@
   "main": "service.ts",
   "compatibility_date": "2026-11-01",
   "routes": [
-    { "pattern": "upstairs.fyi/catalog.bin", "zone_name": "upstairs.fyi" }
+    { "pattern": "upstairs.fyi/catalog.bin", "zone_name": "upstairs.fyi" },
+    { "pattern": "upstairs.fyi/catalog/run", "zone_name": "upstairs.fyi" }
   ],
   "triggers": { "crons": ["53 * * * *"] },
   "durable_objects": {

@@ -1,8 +1,7 @@
-import { mkdtempDisposable, readFile, utimes, writeFile } from 'node:fs/promises'
-import { tmpdir }                                         from 'node:os'
-import { join }                                           from 'node:path'
+import { readFile, utimes, writeFile } from 'node:fs/promises'
+import { join }                        from 'node:path'
 
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, vi } from 'vitest'
 
 import * as celestrak          from '../../catalog/celestrak.ts'
 import { run }                 from '../../catalog/fetch.ts'
@@ -10,6 +9,7 @@ import * as spacetrack         from '../../catalog/spacetrack.ts'
 import * as catalog            from '../../lib/orbit/catalog.ts'
 import { QUERIED, contentsOf } from '../common/catalog.ts'
 import * as answers            from '../common/celestrak.ts'
+import { it }                  from '../common/home.ts'
 import * as logins             from '../common/spacetrack.ts'
 
 /**
@@ -24,12 +24,6 @@ const SAVED = Date.parse('2026-11-12T06:00:00Z')
  */
 const SATCAT = answers.satcatBody(ELEMENTS.map(({ NORAD_CAT_ID: id }, row) =>
   [id, 'PAY', row % 2 ? '-' : '+']))
-
-const it = test.extend('home', async ({ onTestFinished }) => {
-  const scratch = await mkdtempDisposable(join(tmpdir(), 'upstairs-fetch-'))
-  onTestFinished(() => scratch.remove())
-  return scratch.path
-})
 
 /**
  * Runs the task in `home` with `argv`, Space-Track and CelesTrak answering
