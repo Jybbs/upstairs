@@ -1,0 +1,2 @@
+fontkit = "site:check fails in site:test, where start.test.ts finds the glyph paths fontkit 3 draws for the Method card differ from the committed card in both schemes"
+typescript = "site:check fails in site:typecheck, where vue-tsc cannot load typescript/lib/tsc, which typescript 7 no longer ships"
