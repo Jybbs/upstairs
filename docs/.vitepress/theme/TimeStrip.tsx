@@ -1,7 +1,7 @@
-import { useElementSize, useRafFn }               from '@vueuse/core'
-import * as slider                                from '@zag-js/slider'
-import { mergeProps, normalizeProps, useMachine } from '@zag-js/vue'
-import { computed, defineComponent, ref, useId }  from 'vue'
+import { useElementSize, useEventListener, useRafFn } from '@vueuse/core'
+import * as slider                                     from '@zag-js/slider'
+import { mergeProps, normalizeProps, useMachine }      from '@zag-js/vue'
+import { computed, defineComponent, ref, useId }       from 'vue'
 
 import { boundOf }                  from '../lib/orbit/compass.ts'
 import type { Pass }                from '../lib/orbit/scan.ts'
@@ -12,6 +12,7 @@ import { usePhone }                 from '../lib/site/phone.ts'
 import { ridgeOf }                  from '../lib/site/ridges.ts'
 import { CLOCK }                    from '../lib/state/clock.ts'
 import { minuteFormat, sky }        from '../lib/state/sky.ts'
+import Credit                       from './Credit.tsx'
 import Icon                         from './Icon.tsx'
 import Ridge                        from './Ridge.tsx'
 
@@ -42,6 +43,7 @@ const nudges = new Map([['ArrowLeft', -60], ['ArrowRight', 60], ['PageDown', -60
 export default defineComponent(
   () => {
     const cursor    = ref<SVGGElement>()
+    const root      = ref<HTMLElement>()
     const strip     = ref<SVGSVGElement>()
     const phone     = usePhone()
     const { width } = useElementSize(strip, { height: 0, width: 800 })
@@ -203,6 +205,17 @@ export default defineComponent(
       sky.focusOn(pass)
     }
 
+    /**
+     * Closes the map's credit on a press of the strip it fades, leaving a
+     * press of the credit itself to the credit.
+     */
+    const shade = (event: PointerEvent) => {
+      const { target } = event
+      if (!(target instanceof Element && target.closest('.credit-panel, .credit-ring'))) sky.credit.close()
+    }
+
+    useEventListener(root, 'pointerdown', shade, { capture: true })
+
     const secondsAt = (clientX: number) => (xAt(clientX) - STRIP.inset) / inner.value * sky.span
 
     /**
@@ -241,8 +254,8 @@ export default defineComponent(
       const mark = turning.value.mark
 
       return (
-        <section class="shrink-0 border-t border-rule bg-panel" aria-label="Time">
-          <div class="flex items-center gap-2 pl-4">
+        <section ref={root} class="shrink-0 border-t border-rule bg-panel" aria-label="Time">
+          <div class="flex items-center gap-2 pl-4 sm:pr-4">
             <button
               type="button"
               class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full border border-rule
@@ -261,7 +274,11 @@ export default defineComponent(
             <svg
               {...mergeProps(thumb, { onKeydown: nudge })}
               ref={strip}
-              class="block min-w-0 flex-1 cursor-ew-resize touch-none select-none"
+              class={[
+                `block min-w-0 flex-1 cursor-ew-resize touch-none select-none transition-[filter]
+                 duration-1050 ease-[cubic-bezier(.55,0,.25,1)] motion-reduce:transition-none`,
+                sky.credit.open.value && 'grayscale'
+              ]}
               height={STRIP.height}
               aria-label="Time within the window"
               aria-keyshortcuts="ArrowUp ArrowDown Enter"
@@ -320,6 +337,7 @@ export default defineComponent(
                 <path d="M-5 2 L5 2 L0 9 Z" class="fill-u" />
               </g>
             </svg>
+            {!phone.value && <Credit />}
           </div>
         </section>
       )
