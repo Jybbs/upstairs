@@ -5,7 +5,16 @@ type Rule = NonNullable<MarkdownRenderer['renderer']['rules'][string]>
 const ANGLE = 48 * Math.PI / 180
 const RISE  = { x: Math.cos(ANGLE), y: -Math.sin(ANGLE) }
 
-const MORSE: Record<string, string> = { C: '-.-.', E: '.', O: '---', R: '.-.', S: '...', U: '..-' }
+const MORSE: Record<string, string> = {
+  0 : '-----',
+  4 : '....-',
+  C : '-.-.',
+  E : '.',
+  O : '---',
+  R : '.-.',
+  S : '...',
+  U : '..-'
+}
 const NORTH = 'M7 14.32L7 6.32L7 6.32L7.02 6.19L7.1 6.03L7.21 5.88L7.35 5.73L7.5 5.62L7.65 5.54L7.79 5.5L7.9 '
             + '5.52L7.98 5.58L8 5.68L8 5.68L8 13.68L8 13.68L7.98 13.81L7.9 13.97L7.79 14.12L7.65 14.27L7.5 '
             + '14.38L7.35 14.46L7.21 14.5L7.1 14.48L7.02 14.42L7 14.32zM7.5 2L10.5 6L4.5 6zM7.97 1.56L10.97 '

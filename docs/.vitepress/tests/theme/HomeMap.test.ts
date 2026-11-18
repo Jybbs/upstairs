@@ -49,3 +49,11 @@ it.each([
   const panels  = wrapper.get('main > div > div')
   expect([panels.attributes('inert'), wrapper.findComponent({ name: 'SpotChooser' }).exists()]).toEqual(shown)
 })
+
+it('asks for the catalog once the home page mounts', async () => {
+  stubMatchMedia(() => false)
+  const { component: HomeMap } = await freshSky(() => import('../../theme/HomeMap.tsx'))
+  const posted                 = vi.spyOn(Worker.prototype, 'postMessage')
+  shallowMount(HomeMap)
+  expect(posted.mock.calls.map(([asked]) => asked.type)).toEqual(['load'])
+})

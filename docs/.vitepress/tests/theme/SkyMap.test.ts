@@ -10,17 +10,22 @@ import { freshSky }           from '../common/sky.ts'
 import { stubMatchMedia }     from '../common/stubs.ts'
 
 const {
-  GPU, TOWN, cameraForBounds, caught, draw, easeTo, fitBounds, frame, gather, handlers, thrown
+  GPU, TOWN, cameraForBounds, caught, draw, drawn, easeTo, fitBounds, frame, gather, handlers, made, thrown
 } = vi.hoisted(() => ({
   GPU             : class extends Error {},
   TOWN            : 10 * 360 / (512 * 2 ** 5),
   caught          : vi.fn(),
   draw            : vi.fn(),
+  drawn           : {
+    overlay : { labels: [] as unknown[] },
+    state   : { spot: null as unknown, tracks: { passes: [] as unknown[] } }
+  },
   easeTo          : vi.fn(),
   fitBounds       : vi.fn(),
   frame           : vi.fn((_loop: FrameRequestCallback) => 0),
   gather          : vi.fn(),
   handlers        : new Map<string, (event: unknown) => void>(),
+  made            : vi.fn(),
   thrown          : { value: null as Error | null },
   cameraForBounds : vi.fn((_bounds: { points: unknown[] }, _options: object) =>
     ({ center: [-71, 42], zoom: 8 }))
@@ -44,11 +49,19 @@ vi.mock('maplibre-gl', () => ({
     cameraForBounds = cameraForBounds
     easeTo          = easeTo
     fitBounds       = fitBounds
-    constructor() { if (thrown.value) throw thrown.value }
+    constructor(options: object) {
+      made(options)
+      if (thrown.value) throw thrown.value
+    }
     getCenter()    { return { lat: 0, lng: 0 } }
     getContainer() { return { clientHeight: 600, clientWidth: 800 } }
     getZoom()      { return 5 }
     on(type: string, run: (event: unknown) => void) { handlers.set(type, run) }
+    querySourceFeatures(_: string, { sourceLayer }: { sourceLayer: string }) {
+      return sourceLayer === 'place'
+        ? [{ geometry: { coordinates: [0, 0], type: 'Point' }, properties: { class: 'city', name: 'Town' } }]
+        : []
+    }
     remove()       {}
   },
   setWorkerUrl() {}
@@ -74,6 +87,10 @@ vi.mock('../../lib/map/overlay.ts', async () => {
       labels = [{ latitude: 0, longitude: TOWN, name: 'Town', tier: 'city' }]
       onMap  = new Uint16Array()
       view   = new View()
+      constructor(_lower: unknown, _upper: unknown, state: typeof drawn.state) {
+        drawn.overlay = this
+        drawn.state   = state
+      }
       crossing()   { return new Uint8Array(1) }
       invalidate() {}
       nearest()    { return null }
@@ -86,17 +103,19 @@ vi.mock('../../lib/map/overlay.ts', async () => {
  * Mounts the map over a fresh copy of the shared state holding one pass on the
  * horizon and a stand-in worker, its frame 600 pixels tall, with its
  * stylesheet already linked, the map's constructor throwing `error` where one
- * is given and every error the mount raises passed to `caught`.
+ * is given, its `props` set, and every error the mount raises passed to
+ * `caught`.
  */
-const mounted = async (error: Error | null = null) => {
+const mounted = async (error: Error | null = null, props = {}) => {
   thrown.value = error
   caught.mockClear()
+  handlers.clear()
   stubMatchMedia(() => false)
   vi.stubGlobal('requestAnimationFrame', frame)
   Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } })
   document.head.append(Object.assign(document.createElement('link'), { href: SHEETS.map.href }))
   const { component: SkyMap, sky } = await freshSky(() => import('../../theme/SkyMap.tsx'))
-  const wrapper                    = mount(SkyMap, { global: { config: { errorHandler: caught } } })
+  const wrapper                    = mount(SkyMap, { global: { config: { errorHandler: caught } }, props })
   await flushPromises()
   const pass                       = passOf(1)
   sky.tracks.add([pass], new Float32Array(2 * TRACK_WIDTH), Uint32Array.of(0), 2)
@@ -145,6 +164,27 @@ it.each([
   if (chosen === 'hold') sky.held.value = pass
   await flushPromises()
   expect((wrapper.get('[aria-label="Zoom"]').element as HTMLElement).style.top).toBe(top)
+})
+
+it.each([
+  ['answers the pointer and holds its zoom buttons, spot, names, and sky as the home map', {},
+    [true, true, true, true, 'crosshair', 1, 1]],
+  ['holds still as a backdrop, with no zoom buttons, spot, names, sky, or answer to the pointer',
+    { backdrop: true }, [false, false, false, false, 'auto', 0, 0]],
+  ['draws the sky as a backdrop once it goes live', { backdrop: true, live: true },
+    [false, false, false, false, 'auto', 0, 1]]
+])('%s', async (_, props, answers) => {
+  const { wrapper } = await mounted(null, props)
+  handlers.get('idle')!({})
+  expect([
+    made.mock.lastCall![0].interactive,
+    handlers.has('click'),
+    wrapper.find('[aria-label="Zoom"]').exists(),
+    drawn.state.spot !== null,
+    (wrapper.get('[data-map]').element as HTMLElement).style.cursor,
+    drawn.overlay.labels.length,
+    drawn.state.tracks.passes.length
+  ]).toEqual(answers)
 })
 
 it('lets the pinned pass go on a press of the empty map', async () => {
