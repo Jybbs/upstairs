@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import * as repository from '../../tools/repository.ts'
 import * as sync       from '../../tools/sync.ts'
 import * as gh         from '../common/gh.ts'
+import { ROOT }        from '../common/reads.ts'
 
 const ABOUT = {
   description : 'Shows the satellites.',
@@ -100,7 +101,7 @@ describe('unnamedOf', () => {
 })
 
 describe('sync.ts against a stand-in gh', async () => {
-  const declared                = await repository.Repository.read(gh.ROOT)
+  const declared                = await repository.Repository.read(ROOT)
   const settings: sync.Settings = await repository.parseFile(gh.SETTINGS)
   const live: gh.Remote         = {
     failures : {},

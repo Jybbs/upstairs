@@ -1,17 +1,29 @@
-import { resolve } from 'node:path'
+import { join } from 'node:path'
 
 import vueJsx                           from '@vitejs/plugin-vue-jsx'
+import type { Plugin }                  from 'vite'
 import { configDefaults, defineConfig } from 'vitest/config'
 
+import { ROOT, watchedOf } from './common/reads.ts'
+
 const triggers = [
-  '.github/**', '.mise/**', 'docs/**/*.{css,md}', 'docs/.vitepress/lib/site/references.bib',
-  'docs/.vitepress/tests/common/{bin,check}/**', 'docs/.vitepress/tests/fixtures/**', 'docs/bun.lock',
-  'docs/public/**', 'rust/**'
-].map(glob => resolve(import.meta.dirname, '../../..', glob))
+  '.mise/config.toml', '.mise/mise.lock', 'docs/bun.lock', 'rust/{.cargo/**,Cargo.lock,Cargo.toml,src/**}'
+].map(glob => join(ROOT, glob))
+const watched = watchedOf()
+
+const reads: Plugin = {
+  name      : 'reads',
+  transform : {
+    filter: { id: [...watched.keys()] },
+    handler(_, id) {
+      watched.get(id)?.forEach(file => this.addWatchFile(file))
+    }
+  }
+}
 
 export default defineConfig({
   cacheDir : '../.cache/vite',
-  plugins  : [vueJsx()],
+  plugins  : [vueJsx(), reads],
 
   test: {
     env                : { TZ: 'UTC' },

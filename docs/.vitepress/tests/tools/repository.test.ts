@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import manifest        from '../../../package.json' with { type: 'json' }
 import * as repository from '../../tools/repository.ts'
-import { ROOT }        from '../common/gh.ts'
+import { ROOT }        from '../common/reads.ts'
 
 type Change = (base: repository.Repository) => Partial<repository.Repository>
 type Job    = repository.Workflow['jobs'][string]

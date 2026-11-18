@@ -168,6 +168,12 @@ const staged = (path: string): Change => async repo => {
   await repo.git('add', path)
 }
 
+describe('runTask', () => {
+  it('refuses a task file the running test declares no read of in READS', () =>
+    expect(runTask('site/serve', tmpdir(), { STAND_IN_CALLS: join(tmpdir(), 'calls') }))
+      .rejects.toThrow('check.test.ts runs .mise/tasks/site/serve, which READS gives it no glob for'))
+})
+
 describe('site:check', () => {
   it('calls site:lint, site:typecheck, site:affected, and crate:affected in one mise run', async ({ repo }) =>
     expect((await repo.run('site/check')).calls).toEqual([CHECKED]))

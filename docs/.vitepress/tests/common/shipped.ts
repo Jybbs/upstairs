@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join }         from 'node:path'
 
-import { ROOT } from './gh.ts'
+import { ROOT } from './reads.ts'
 
 /**
  * The README as the repository ships it.
