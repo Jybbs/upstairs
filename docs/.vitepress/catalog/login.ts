@@ -4,7 +4,7 @@
  * it as the catalog service's secrets through `wrangler` under `--worker`.
  */
 import { type SpawnSyncOptions, spawnSync } from 'node:child_process'
-import { readFile, writeFile }              from 'node:fs/promises'
+import { writeFile }                        from 'node:fs/promises'
 import { homedir }                          from 'node:os'
 import { join }                             from 'node:path'
 import { createInterface }                  from 'node:readline/promises'
@@ -23,12 +23,10 @@ interface Io {
   error      : (line: string) => void
   home       : string
   print      : (line: string) => void
-  set        : (secrets: Secrets) => number
+  set        : (secrets: spacetrack.Secrets) => number
   spaceTrack : Pick<spacetrack.SpaceTrack, 'accepts'>
   prompt?    : Pick<Prompt, 'ask' | 'conceal'>
 }
-
-type Secrets = { [name in (typeof SECRETS)[keyof typeof SECRETS]]: string }
 
 /**
  * Runs `command` with `args` to its exit, as `spawnSync` does.
@@ -36,10 +34,6 @@ type Secrets = { [name in (typeof SECRETS)[keyof typeof SECRETS]]: string }
 type Spawn = (command: string, args: string[], options: SpawnSyncOptions) => { status: number | null }
 
 const OPTIONS = { check: { type: 'boolean' }, worker: { type: 'boolean' } } as const
-/**
- * The names the catalog service reads the login under.
- */
-export const SECRETS = { identity: 'SPACE_TRACK_IDENTITY', password: 'SPACE_TRACK_PASSWORD' } as const
 
 /**
  * Reads a line at a time from a terminal, where a concealed line writes
@@ -95,17 +89,11 @@ export class Prompt {
   }
 }
 
-const savedIn = async (path: string) =>
-  Netrc.parse(await readFile(path, 'utf8').catch((error: NodeJS.ErrnoException) => {
-    if (error.code === 'ENOENT') return ''
-    throw error
-  }))
-
 /**
  * Sets `secrets` on the catalog service through `wrangler secret bulk`, which
  * reads them as JSON on its input, returning the command's exit status.
  */
-export const wrangler = (secrets: Secrets, spawn: Spawn = spawnSync) =>
+export const wrangler = (secrets: spacetrack.Secrets, spawn: Spawn = spawnSync) =>
   spawn('bun', ['x', '--no-install', 'wrangler', 'secret', 'bulk', '--config', 'wrangler.json'], {
     cwd   : import.meta.dirname,
     input : JSON.stringify(secrets),
@@ -124,7 +112,7 @@ export const run = async (argv: string[], io: Io) => {
     return 1
   }
   const path  = join(io.home, '.netrc')
-  const netrc = await savedIn(path)
+  const netrc = await Netrc.read(path)
   const saved = netrc.savedFor(spacetrack.HOST)
   try {
     const flags = parseArgs({ args: argv, options: OPTIONS }).values
@@ -151,7 +139,7 @@ export const run = async (argv: string[], io: Io) => {
       io.print(`Space-Track accepted the login saved for ${identity}.`)
     }
     if (flags.worker) {
-      if (io.set({ [SECRETS.identity]: identity, [SECRETS.password]: password }) !== 0)
+      if (io.set({ [spacetrack.SECRETS.identity]: identity, [spacetrack.SECRETS.password]: password }) !== 0)
         return fail('Wrangler could not set the catalog service’s secrets, so check its Cloudflare login '
                   + 'through bun x wrangler whoami from docs/ and run the task again.')
       io.print(`Set the Space-Track login for ${identity} as the catalog service’s secrets.`)
