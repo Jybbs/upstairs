@@ -7,6 +7,7 @@ import { $ } from 'bun'
 
 import * as repository from '../../tools/repository.ts'
 import type { Live }   from '../../tools/sync.ts'
+import { ROOT }        from './reads.ts'
 
 interface Request {
   body   : unknown
@@ -25,10 +26,6 @@ export interface Remote {
 }
 
 const COMMON = import.meta.dirname
-/**
- * The root of the worktree the suite runs in.
- */
-export const ROOT = join(COMMON, '../../../..')
 /**
  * The settings `sync.ts rulesets` reads in place of `.github/settings.toml`,
  * which turn `pages` on.
