@@ -1,6 +1,6 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "catalog"
 #MISE depends     = ["site:install"]
-#MISE description = "Write the compressed satellite catalog into `docs/public/`, from CelesTrak or from a CelesTrak file given as the first argument"
+#MISE description = "Write the compressed satellite catalog into `docs/public/` from Space-Track's elements and CelesTrak's SATCAT, or from the saved files `--elements` and `--satcat` name"
 
 bun run docs/.vitepress/catalog/fetch.ts "$@"
