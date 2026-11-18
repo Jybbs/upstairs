@@ -13,6 +13,20 @@ const textual = QUERIED.map(record => Object.fromEntries(Object.entries(record).
   [key, String(value)])))
 const answer = (body: unknown) => () => Response.json(body)
 
+describe('the stand-in for fetch', () => {
+  it.each([['undefined', undefined], ['globalThis', globalThis]])('answers a call with %s as its this',
+    async (_, context) => {
+      await expect(answers.answering(answers.LOGGED).call(context, spacetrack.ORIGIN))
+        .resolves.toBeInstanceOf(Response)
+    })
+
+  it('refuses a call made as a method of the client, as the Workers runtime does', async () => {
+    const fetcher = answers.answering(answers.LOGGED)
+    await expect(fetcher.call(new spacetrack.SpaceTrack(fetcher), spacetrack.ORIGIN))
+      .rejects.toThrow(TypeError)
+  })
+})
+
 describe('a login', () => {
   it('posts the login over HTTPS once and logs out of the session it opens, with its cookies', async () => {
     const fetcher = answers.answering(answers.ACCEPTED, answers.LOGGED)
