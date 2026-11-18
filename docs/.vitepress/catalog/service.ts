@@ -1,13 +1,15 @@
 /**
  * Wires the download cycle to a cron trigger through one Durable Object, which
- * sends the catalog request through a relay placed in each region, and serves
- * the catalog on every other request.
+ * sends each request to CelesTrak through a relay placed in each region and
+ * each request to Space-Track itself, and serves the catalog on every other
+ * request.
  */
 import { DurableObject } from 'cloudflare:workers'
 
-import { fetchCatalog }         from './celestrak.ts'
+import { fetchFrom }            from './celestrak.ts'
 import { Cycle, type Bindings } from './cycle.ts'
 import { serve, type Served }   from './serve.ts'
+import { SpaceTrack }           from './spacetrack.ts'
 
 interface Env extends Bindings, Served {
   CATALOG   : KVNamespace
@@ -19,18 +21,18 @@ interface Env extends Bindings, Served {
  * The one Durable Object running the download cycle.
  */
 export class Refresher extends DurableObject<Env> {
-  private readonly cycle = new Cycle(this.ctx.storage.kv, this.env, region =>
-    this.env.RELAYS.getByName(region, { locationHint: region }).fetchCatalog())
+  private readonly cycle = new Cycle(this.ctx.storage.kv, this.env, (region, source) =>
+    this.env.RELAYS.getByName(region, { locationHint: region }).fetchFrom(source), new SpaceTrack())
 
   run(time: number) { return this.cycle.run(time) }
 }
 
 /**
- * The Durable Object sending the catalog request from the data center Cloudflare
- * chose near its location hint when the object was first created.
+ * The Durable Object sending each request to CelesTrak from the data center
+ * Cloudflare chose near its location hint when the object was first created.
  */
 export class Relay extends DurableObject {
-  fetchCatalog() { return fetchCatalog(fetch) }
+  fetchFrom(source: string) { return fetchFrom(fetch, source) }
 }
 
 export default {

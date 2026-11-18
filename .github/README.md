@@ -14,7 +14,7 @@
 
 ## 🛰️ About
 
-***Upstairs*** counts every active satellite above a spot chosen on a terrain map, lists the passes crossing its sky, and plays them through a window of time. The reader's browser calculates each position from the orbital elements [CelesTrak](https://celestrak.org/) publishes, running the SGP4 orbit model through the [`sgp4`](https://docs.rs/sgp4) crate compiled to [WebAssembly](https://webassembly.org/), and [MapLibre](https://maplibre.org/) draws the terrain map beneath the satellites. A catalog service on [Cloudflare Workers](https://developers.cloudflare.com/workers/) downloads the elements from CelesTrak at most once every two hours, as CelesTrak asks, and every reader's browser reads that copy from `upstairs.fyi`.
+***Upstairs*** counts every active satellite above a spot chosen on a terrain map, lists the passes crossing its sky, and plays them through a window of time. The reader's browser calculates each position from the orbital elements [Space-Track](https://www.space-track.org/) publishes, running the SGP4 orbit model through the [`sgp4`](https://docs.rs/sgp4) crate compiled to [WebAssembly](https://webassembly.org/), and [MapLibre](https://maplibre.org/) draws the terrain map beneath the satellites. A catalog service on [Cloudflare Workers](https://developers.cloudflare.com/workers/) queries Space-Track for the elements once an hour, as Space-Track asks, keeping the payloads [CelesTrak](https://celestrak.org/)'s satellite catalog marks active, and every reader's browser reads that copy from `upstairs.fyi`.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="reel-night.gif">
@@ -48,7 +48,7 @@ mise run catalog
 mise serve
 ```
 
-`mise run catalog` downloads the satellite catalog into `docs/public/catalog.bin`. CelesTrak publishes new orbital data every two hours and asks for one download per update, so the task runs only when the catalog itself has to move.
+`mise run catalog` writes the satellite catalog into `docs/public/catalog.bin` from Space-Track's elements and CelesTrak's satellite catalog, using the Space-Track login `mise run catalog:login` saves. Space-Track asks for its elements at most once an hour and CelesTrak for one download per update, so the task runs only when the catalog itself has to move.
 
 ---
 

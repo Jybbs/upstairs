@@ -4,6 +4,7 @@ import * as celestrak from '../../catalog/celestrak.ts'
 import { REGIONS }    from '../../catalog/cycle.ts'
 import wrangler       from '../../catalog/wrangler.json' with { type: 'json' }
 import { FILE }       from '../../lib/orbit/catalog.ts'
+import * as answers   from '../common/spacetrack.ts'
 
 vi.mock('cloudflare:workers', () => ({
   DurableObject: class { constructor(readonly ctx: unknown, readonly env: unknown) {} }
@@ -11,37 +12,72 @@ vi.mock('cloudflare:workers', () => ({
 
 const { default: service, Refresher, Relay } = await import('../../catalog/service.ts')
 
+/**
+ * Builds the context of a Durable Object whose storage holds `state`.
+ */
+const contextOf = (state: Map<string, unknown>) => ({
+  storage: {
+    kv: {
+      delete : (key: string) => state.delete(key),
+      get    : (key: string) => state.get(key),
+      put    : (key: string, value: unknown) => void state.set(key, value)
+    }
+  }
+}) as never
+
+/**
+ * A wait running a day past the time each case runs at.
+ */
+const WAITING = { kind: 'refused', until: new Date(86_400_000).toISOString() }
+
 describe('the refresher', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })
-  afterEach(() => { vi.restoreAllMocks() })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
 
   it('places the relay for each region through its own location hint, keeping the wait', async () => {
-    const getByName = vi.fn(() => ({ fetchCatalog: async () => new Response(null, { status: 522 }) }))
+    const getByName = vi.fn(() => ({ fetchFrom: async () => new Response(null, { status: 522 }) }))
     const env       = { CATALOG: { put: vi.fn() }, RELAYS: { getByName } }
     const state     = new Map<string, unknown>()
-    const kv        = {
-      delete : (key: string) => state.delete(key),
-      get    : (key: string) => state.get(key),
-      put    : (key: string, value: unknown) => void state.set(key, value)
-    }
-    const refresher = new Refresher({ storage: { kv } } as never, env as never)
-    expect(await refresher.run(0)).toBe('waiting')
+    const refresher = new Refresher(contextOf(state), env as never)
+    expect(await refresher.run(0)).toEqual({ elements: 'failed', satcat: 'waiting' })
     expect(getByName.mock.calls).toEqual(REGIONS.map(region => [region, { locationHint: region }]))
     expect(state.get('wait')).toMatchObject({ kind: 'unreached' })
   })
+
+  it('queries Space-Track itself with the login set as the secrets, sending nothing through a relay',
+    async () => {
+      const fetcher   = answers.answering(answers.ACCEPTED, () => Response.json([]), answers.LOGGED)
+      const getByName = vi.fn()
+      const env       = {
+        CATALOG              : { put: vi.fn() },
+        RELAYS               : { getByName },
+        SPACE_TRACK_IDENTITY : 'observer',
+        SPACE_TRACK_PASSWORD : 'orbit-2026'
+      }
+      const state     = new Map<string, unknown>([['satcat', { codes: {}, time: 0 }], ['wait', WAITING]])
+      vi.stubGlobal('fetch', fetcher)
+      const refresher = new Refresher(contextOf(state), env as never)
+      expect(await refresher.run(0)).toEqual({ elements: 'failed', satcat: 'waiting' })
+      expect(getByName).not.toHaveBeenCalled()
+      expect(String(fetcher.mock.calls[0][1]?.body)).toBe('identity=observer&password=orbit-2026')
+      expect(console.error).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'unchecked' }))
+    })
 })
 
 describe('the relay', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
-  it('sends the catalog request with redirects left unfollowed under the header bound', async () => {
+  it('sends the request it is given with redirects left unfollowed under the header bound', async () => {
     const fetcher = vi.fn(async () => new Response('[]'))
     vi.stubGlobal('fetch', fetcher)
-    await new Relay({} as never, {} as never).fetchCatalog()
-    expect(fetcher).toHaveBeenCalledExactlyOnceWith(celestrak.SOURCE, expect.objectContaining({
+    await new Relay({} as never, {} as never).fetchFrom(celestrak.DIRECTORY)
+    expect(fetcher).toHaveBeenCalledExactlyOnceWith(celestrak.DIRECTORY, expect.objectContaining({
       redirect : 'manual',
       signal   : expect.any(AbortSignal)
     }))

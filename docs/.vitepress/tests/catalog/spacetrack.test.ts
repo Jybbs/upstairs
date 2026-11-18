@@ -1,9 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import * as spacetrack from '../../catalog/spacetrack.ts'
-import * as answers   from '../common/spacetrack.ts'
+import * as spacetrack  from '../../catalog/spacetrack.ts'
+import { AGES, FIELDS } from '../../lib/orbit/catalog.ts'
+import { QUERIED }      from '../common/catalog.ts'
+import * as answers     from '../common/spacetrack.ts'
 
-const LOGIN = { identity: 'observer', password: 'orbit 2026&more' }
+const LOGIN   = { identity: 'observer', password: 'orbit 2026&more' }
+/**
+ * The records as Space-Track's JSON writes them, every value as text.
+ */
+const textual = QUERIED.map(record => Object.fromEntries(Object.entries(record).map(([key, value]) =>
+  [key, String(value)])))
+const answer = (body: unknown) => () => Response.json(body)
 
 describe('a login', () => {
   it('posts the login over HTTPS once and logs out of the session it opens, with its cookies', async () => {
@@ -44,5 +52,44 @@ describe('a login', () => {
       init!.signal!.addEventListener('abort', () => reject(init!.signal!.reason))))
     const failure = new spacetrack.SpaceTrack(fetcher, 10).accepts(LOGIN)
     await expect(failure).rejects.toThrow(spacetrack.Unavailable)
+  })
+})
+
+describe('a query', () => {
+  it('asks the gp class for payloads with no decay date and an epoch inside the age the map draws', () => {
+    expect(spacetrack.QUERY).toBe('basicspacedata/query/class/gp/OBJECT_TYPE/PAYLOAD/decay_date/null-val/'
+                                + `epoch/%3Enow-${AGES.limit}/format/json`)
+  })
+
+  it('logs in, queries inside the session with its cookies, and logs out, reading each number', async () => {
+    const fetcher = answers.answering(answers.ACCEPTED, answer(textual), answers.LOGGED)
+    expect(await new spacetrack.SpaceTrack(fetcher).elements(LOGIN))
+      .toEqual(QUERIED.map(record => Object.fromEntries(FIELDS.map(field => [field, record[field]]))))
+    const cookie = 'chocolatechip=abc; spacetrack_csrf_cookie=def'
+    expect(fetcher.mock.calls.map(([url, init]) => [url, init?.headers])).toEqual([
+      ['https://www.space-track.org/ajaxauth/login', undefined],
+      [`https://www.space-track.org/${spacetrack.QUERY}`, { cookie }],
+      ['https://www.space-track.org/ajaxauth/logout', { cookie }]
+    ])
+  })
+
+  it('fails as rejected on a rejected login, querying nothing', async () => {
+    const fetcher = answers.answering(answers.REJECTED)
+    await expect(new spacetrack.SpaceTrack(fetcher).elements(LOGIN)).rejects.toThrow(spacetrack.Rejected)
+    expect(fetcher).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['a server error', () => new Response('', { status: 500 }), spacetrack.Unavailable],
+    ['a body that is not JSON', () => new Response('<html>'), spacetrack.Unchecked],
+    ['a list shorter than a catalog', answer(textual.slice(0, 10)), spacetrack.Unchecked],
+    ['an object', answer({ error: 'busy' }), spacetrack.Unchecked],
+    ['a record missing a field', answer([...textual.slice(1), { OBJECT_NAME: 'X' }]), spacetrack.Unchecked],
+    ['a number that reads as none', answer([...textual.slice(1), { ...textual[0], BSTAR: 'n/a' }]),
+      spacetrack.Unchecked]
+  ])('fails on %s, logging out of the session', async (_, reply, kind) => {
+    const fetcher = answers.answering(answers.ACCEPTED, reply, answers.LOGGED)
+    await expect(new spacetrack.SpaceTrack(fetcher).elements(LOGIN)).rejects.toThrow(kind)
+    expect(fetcher).toHaveBeenCalledTimes(3)
   })
 })

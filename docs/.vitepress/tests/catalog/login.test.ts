@@ -6,9 +6,9 @@ import { PassThrough }                                         from 'node:stream
 
 import { describe, expect, test, vi } from 'vitest'
 
-import * as login     from '../../catalog/login.ts'
-import { SpaceTrack } from '../../catalog/spacetrack.ts'
-import * as answers   from '../common/spacetrack.ts'
+import * as login      from '../../catalog/login.ts'
+import * as spacetrack from '../../catalog/spacetrack.ts'
+import * as answers    from '../common/spacetrack.ts'
 
 const CATALOG  = join(import.meta.dirname, '../../catalog')
 const DOWN     = () => new Response('', { status: 503 })
@@ -60,7 +60,7 @@ const runIn = async (home: string, { argv, netrc, prompt = false, replies, set =
     home       : home,
     print      : (line: string) => { lines.push(line) },
     set        : vi.fn(() => set),
-    spaceTrack : new SpaceTrack(fetcher),
+    spaceTrack : new spacetrack.SpaceTrack(fetcher),
     ...prompt ? { prompt: { ask: vi.fn(async () => 'observer'), conceal: async () => PASSWORD } } : {}
   }
   const status  = await login.run(argv, io)
@@ -170,8 +170,8 @@ describe('a run of the task', () => {
     const pose = { argv: ['--check', '--worker'], netrc: SAVED, replies: [answers.ACCEPTED, answers.LOGGED] }
     const ran  = await runIn(home, pose)
     expect(ran.io.set).toHaveBeenCalledWith({
-      [login.SECRETS.identity] : 'saved',
-      [login.SECRETS.password] : PASSWORD
+      [spacetrack.SECRETS.identity] : 'saved',
+      [spacetrack.SECRETS.password] : PASSWORD
     })
     expect(ran.lines).toHaveLength(2)
   })
@@ -199,7 +199,7 @@ describe('a run of the task', () => {
 })
 
 describe('wrangler', () => {
-  const SECRETS = { [login.SECRETS.identity]: 'saved', [login.SECRETS.password]: PASSWORD }
+  const SECRETS = { [spacetrack.SECRETS.identity]: 'saved', [spacetrack.SECRETS.password]: PASSWORD }
   const spawned = (status: number | null) =>
     vi.fn<NonNullable<Parameters<typeof login.wrangler>[1]>>(() => ({ status }))
 
