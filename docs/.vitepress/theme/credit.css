@@ -1,154 +1,480 @@
-.maplibregl-map {
-  --credit-veil : color-mix(in srgb, var(--color-panel) 90%, transparent);
-  --credit-ring : 36px;
+.credit {
+  --credit-col     : 12px;
+  --credit-ease    : cubic-bezier(.32, .72, 0, 1);
+  --credit-feather : 160px;
+  --credit-glide   : cubic-bezier(.55, 0, .25, 1);
+  --credit-pad     : 6px;
+  --credit-ring    : 44px;
+  --credit-run     : 620ms;
+  --credit-seal    : 64px;
+  --credit-shade   : color-mix(in srgb, var(--panel) 92%, transparent);
+  --credit-sweep   : 1050ms;
+  --credit-tab     : 36px;
 
-  container-type: inline-size;
+  display: contents;
 }
 
-.maplibregl-map .maplibregl-ctrl-bottom-right {
-  left: 0;
-}
+.credit-ring {
+  position         : relative;
+  z-index          : 3;
+  display          : grid;
+  flex-shrink      : 0;
+  place-items      : center;
+  width            : var(--credit-ring);
+  height           : var(--credit-ring);
+  padding          : 0;
+  border-radius    : 50%;
+  background-color : color-mix(in srgb, var(--panel) 95%, transparent);
+  box-shadow       : var(--shadow-lift);
+  color            : var(--u);
+  cursor           : pointer;
 
-.maplibregl-map .maplibregl-ctrl-attrib.maplibregl-compact {
-  min-height       : var(--credit-ring);
-  margin           : 12px;
-  padding          : 0 var(--credit-ring) 0 0;
-  border-radius    : calc(var(--credit-ring) / 2);
-  background-color : transparent;
-  color            : var(--color-ink);
-  font             : 400 16px / 24px var(--font-book);
-
-  a,
-  a:hover {
-    color                     : var(--color-ink);
-    text-decoration           : underline;
-    text-decoration-thickness : 1px;
-    text-underline-offset     : 3px;
+  .seal {
+    width  : 100%;
+    height : 100%;
   }
 
-  .maplibregl-ctrl-attrib-button {
-    inset            : auto 0 0 auto;
-    z-index          : 2;
-    width            : var(--credit-ring);
-    height           : var(--credit-ring);
-    border-radius    : 50%;
-    background-color : var(--credit-veil);
-    background-image : none;
-    box-shadow       : var(--shadow-lift);
-    color            : var(--color-u);
+  .seal-core { fill: color-mix(in srgb, var(--u) 10%, var(--panel)); }
 
-    &::before {
-      position   : absolute;
-      inset      : 0;
-      width      : 16px;
-      height     : 16px;
-      margin     : auto;
-      background : currentColor;
-      content    : '';
-      mask       : url('./credit-i.svg') center / contain no-repeat;
-    }
+  &:hover .seal-core { fill: color-mix(in srgb, var(--u) 22%, var(--panel)); }
 
-    &::after {
-      position      : absolute;
-      inset         : 0;
-      border-radius : 50%;
-      box-shadow    : inset 0 0 0 1.5px var(--color-u);
-      content       : '';
-    }
-
-    &:focus {
-      box-shadow: var(--shadow-lift);
-    }
-
-    &:focus-visible {
-      outline        : 2px solid var(--color-ink);
-      outline-offset : 3px;
-    }
-
-    @media (forced-colors: active) {
-      border: 1px solid CanvasText;
-
-      &::before {
-        background          : CanvasText;
-        forced-color-adjust : none;
-      }
-    }
-  }
+  .seal-glyph path { stroke-width: 1.25; }
 }
 
-.maplibregl-map .maplibregl-ctrl-attrib:is(.maplibregl-compact-show, .credit-moving) {
-  width     : max-content;
-  max-width : calc(100% - 24px);
-  padding   : 12px 16px;
+.credit[data-credit='open'] .credit-ring {
+  .seal-core { fill: var(--u); }
+
+  .seal-glyph { stroke: var(--panel); }
+
+  .seal-glyph .pen-land { fill: color-mix(in srgb, var(--panel) 32%, transparent); }
+
+  .seal-glyph .pen-lake { fill: var(--u); }
+}
+
+.credit :is(.credit-ring, .credit-track, .credit-tab):focus-visible {
+  outline        : 2px solid var(--ink);
+  outline-offset : 3px;
+}
+
+.credit .credit-track:focus-visible { outline-offset: -2px; }
+
+.credit-veil {
+  position       : absolute;
+  z-index        : 1;
+  inset          : -1px;
+  overflow       : hidden;
+  border-radius  : 4px;
+  pointer-events : none;
 
   &::before {
-    position      : absolute;
-    inset         : 0;
-    z-index       : 0;
-    border        : 1px solid var(--color-rule);
-    border-radius : calc(var(--credit-ring) / 2);
-    background    : var(--credit-veil);
-    box-shadow    : var(--shadow-lift);
-    content       : '';
-  }
-
-  .maplibregl-ctrl-attrib-button,
-  .maplibregl-ctrl-attrib-button:focus {
-    background-color : transparent;
-    box-shadow       : none;
-  }
-
-  .maplibregl-ctrl-attrib-inner {
-    position       : relative;
-    z-index        : 1;
-    display        : flex;
-    flex-direction : column;
-    gap            : 8px;
-    align-items    : flex-start;
-
-    @container (width >= 640px) {
-      display               : grid;
-      grid-template-columns : auto auto;
-      column-gap            : 40px;
-      align-items           : start;
-      justify-items         : start;
-    }
+    position   : absolute;
+    top        : 0;
+    right      : 0;
+    bottom     : 0;
+    width      : 69px;
+    background : var(--credit-shade);
+    content    : '';
+    opacity    : 0;
+    transition : opacity var(--credit-run) var(--credit-ease);
   }
 }
 
-.maplibregl-map .maplibregl-ctrl-attrib-inner {
-  .credit-group {
-    display        : flex;
-    flex-direction : column;
-    align-items    : flex-start;
-  }
+.credit-wash {
+  position      : absolute;
+  top           : 0;
+  right         : 69px;
+  bottom        : 0;
+  width         : 100%;
+  background    : var(--credit-shade);
+  mask-image    : linear-gradient(to right,
+                                  transparent calc(50% - var(--credit-feather) / 2),
+                                  #000 calc(50% + var(--credit-feather) / 2));
+  mask-size     : calc(200% + var(--credit-feather)) 100%;
+  mask-repeat   : no-repeat;
+  mask-position : 0% 0;
+  transition    : translate var(--credit-run) var(--credit-ease),
+                  mask-position var(--credit-sweep) var(--credit-glide);
+}
 
-  .credit-heading {
-    margin         : 0;
-    color          : var(--color-soft);
-    font           : 500 16px / 24px var(--font-mono);
-    letter-spacing : 0.1em;
-    text-transform : uppercase;
-  }
+.credit-plate {
+  position       : absolute;
+  z-index        : 2;
+  top            : -1px;
+  right          : 68px;
+  bottom         : -1px;
+  width          : 0;
+  border         : 1px solid var(--rule);
+  border-radius  : 4px;
+  background     : var(--panel);
+  box-shadow     : var(--shadow-lift);
+  pointer-events : none;
+  visibility     : hidden;
+  transition     : width var(--credit-run) var(--credit-ease),
+                   visibility 0s linear var(--credit-run);
+}
+
+.credit-panel {
+  position      : absolute;
+  z-index       : 2;
+  top           : -1px;
+  right         : 68px;
+  bottom        : -1px;
+  display       : flex;
+  max-width     : calc(100% - 136px);
+  align-items   : center;
+  gap           : 12px;
+  padding       : 0 8px 0 12px;
+  overflow      : clip;
+  border        : 1px solid transparent;
+  border-radius : 4px;
+  color         : var(--ink);
+  font          : 400 16px / 1.5 var(--font-book);
+  clip-path     : inset(0 0 0 100% round 4px);
+  visibility    : hidden;
+  transition    : clip-path var(--credit-run) var(--credit-ease),
+                  visibility 0s linear var(--credit-run);
 
   a {
-    max-width: 100%;
-  }
-
-  a[href*='openstreetmap.org']::before {
-    display         : inline-block;
-    content         : 'Map data from ';
+    color           : var(--ink);
     text-decoration : none;
-    white-space     : pre;
+  }
+}
+
+.credit[data-credit='open'] {
+  .credit-veil::before { opacity: 1; }
+
+  .credit-wash {
+    translate     : calc(-1 * var(--credit-w)) 0;
+    mask-position : 100% 0;
   }
 
-  .credit-group:last-child > :last-child {
-    padding-right: calc(var(--credit-ring) - 8px);
+  .credit-plate {
+    width      : var(--credit-w);
+    visibility : visible;
+    transition : width var(--credit-run) var(--credit-ease), visibility 0s;
   }
 
-  @container (width >= 640px) {
-    .credit-group + .credit-group > :last-child {
-      padding-right: 0;
-    }
+  .credit-panel {
+    clip-path  : inset(0 0 0 0 round 4px);
+    visibility : visible;
+    transition : clip-path var(--credit-run) var(--credit-ease), visibility 0s;
+  }
+}
+
+.credit-caps {
+  margin               : 0;
+  font-family          : var(--font-mono);
+  font-size            : .6875rem;
+  font-variant-numeric : tabular-nums;
+  letter-spacing       : .1em;
+  line-height          : 1.35;
+  text-transform       : uppercase;
+}
+
+.credit-groups {
+  display               : grid;
+  flex                  : 0 1 auto;
+  min-width             : 0;
+  overflow-x            : auto;
+  overscroll-behavior-x : contain;
+  scrollbar-width       : none;
+}
+
+.credit-tracks {
+  display     : flex;
+  grid-area   : 1 / 1;
+  gap         : 4px;
+  align-items : center;
+  transition  : opacity 320ms var(--credit-ease) 120ms, visibility 0s;
+
+  &[inert] {
+    opacity    : 0;
+    visibility : hidden;
+    transition : opacity 320ms var(--credit-ease), visibility 0s linear 320ms;
+  }
+}
+
+.credit-track {
+  position              : relative;
+  display               : grid;
+  flex                  : none;
+  grid-template-columns : var(--credit-seal) auto;
+  grid-template-areas   : 'seal name' 'seal said' 'seal license';
+  column-gap            : var(--credit-col);
+  row-gap               : 1px;
+  align-content         : center;
+  align-items           : center;
+  justify-items         : start;
+  width                 : var(--credit-pitch);
+  padding               : 4px var(--credit-pad);
+  border-radius         : 8px;
+  text-align            : start;
+
+  .seal {
+    display   : block;
+    grid-area : seal;
+    width     : var(--credit-seal);
+    height    : var(--credit-seal);
+    overflow  : visible;
+  }
+
+  &:hover .seal-core { fill: color-mix(in srgb, var(--u) 16%, transparent); }
+
+  &:is(:hover, :focus-visible) .seal-rim {
+    transform        : rotate(-24deg);
+    transition-delay : 200ms;
+  }
+}
+
+.credit-name {
+  grid-area   : name;
+  white-space : nowrap;
+}
+
+.credit-said {
+  grid-area   : said;
+  font-size   : 14px;
+  line-height : 1.3;
+  white-space : nowrap;
+}
+
+.credit-license {
+  grid-area   : license;
+  color       : var(--soft);
+  white-space : nowrap;
+
+  &:empty {
+    min-height : 1.35em;
+    visibility : hidden;
+  }
+}
+
+.credit-key {
+  padding-bottom       : 3px;
+  background-image     : repeating-linear-gradient(90deg,
+                                                   var(--u) 0 2px,
+                                                   transparent 2px 5px,
+                                                   var(--u) 5px 7px,
+                                                   transparent 7px 10px,
+                                                   var(--u) 10px 19px,
+                                                   transparent 19px 26px),
+                         linear-gradient(var(--u) 0 0);
+  background-position  : 0 calc(100% - 2.5px), 100% calc(100% - 3px);
+  background-repeat    : no-repeat;
+  background-size      : 0 2px, 100% 1px;
+  box-decoration-break : clone;
+  transition           : background-size 620ms cubic-bezier(.45, 0, .2, 1);
+}
+
+.credit-track:is(:hover, :focus-visible) .credit-key {
+  background-size  : 100% 2px, 0 1px;
+  transition-delay : 200ms;
+}
+
+.credit .seal {
+  .seal-edge {
+    fill         : none;
+    stroke       : var(--u);
+    stroke-width : 1.5;
+  }
+
+  .seal-hair {
+    fill         : none;
+    stroke       : var(--soft);
+    stroke-width : .7;
+  }
+
+  .seal-plain {
+    fill             : none;
+    stroke           : var(--rule);
+    stroke-dasharray : 1.5 3;
+    stroke-width     : 1;
+  }
+
+  .seal-core {
+    fill         : color-mix(in srgb, var(--u) 7%, transparent);
+    stroke       : var(--u);
+    stroke-width : 1.1;
+    transition   : fill .5s var(--credit-ease);
+  }
+
+  .seal-rim {
+    transform-origin : 48px 48px;
+    transition       : transform 1.2s var(--credit-ease);
+  }
+
+  .seal-rim text {
+    fill                 : var(--ink);
+    font                 : 500 7.4px var(--font-mono);
+    font-variant-numeric : tabular-nums;
+  }
+
+  .seal-dot { fill: var(--ink); }
+}
+
+.credit :is(.seal-glyph, .credit-mark) {
+  display         : block;
+  flex-shrink     : 0;
+  overflow        : visible;
+  fill            : none;
+  stroke          : var(--u);
+  stroke-linecap  : round;
+  stroke-linejoin : round;
+  stroke-width    : 1.5;
+
+  path { vector-effect: non-scaling-stroke; }
+
+  .pen-land {
+    fill   : color-mix(in srgb, var(--u) 22%, transparent);
+    stroke : none;
+  }
+
+  .pen-border {
+    stroke-dasharray : 2.5 2.5;
+    stroke-width     : 1.1;
+  }
+
+  .pen-lake { fill: var(--panel); }
+}
+
+.credit-tabs {
+  display         : flex;
+  flex            : none;
+  flex-direction  : column;
+  align-self      : stretch;
+  justify-content : center;
+  gap             : 4px;
+  margin-left     : auto;
+  padding-left    : 12px;
+  border-left     : 1px solid var(--rule);
+}
+
+.credit-tab {
+  display       : grid;
+  place-items   : center;
+  width         : var(--credit-tab);
+  height        : var(--credit-tab);
+  padding       : 0;
+  border        : 1px solid var(--rule);
+  border-radius : 50%;
+  color         : var(--soft);
+  cursor        : pointer;
+  transition    : color .25s, background-color .25s, border-color .25s;
+
+  .credit-mark {
+    stroke: currentColor;
+
+    .pen-land { fill: color-mix(in srgb, currentColor 22%, transparent); }
+  }
+
+  &:hover { color: var(--ink); }
+
+  &[aria-selected='true'] {
+    border-color     : var(--u);
+    background-color : var(--u);
+    color            : var(--panel);
+  }
+}
+
+@media (40rem <= width < 75rem) {
+  .credit {
+    --credit-col  : 8px;
+    --credit-seal : 40px;
+  }
+
+  .credit-track {
+    grid-template-areas : 'name name' 'seal said' 'license license';
+    row-gap             : 2px;
+  }
+
+  .credit-said { white-space: normal; }
+}
+
+@media (width < 40rem) {
+  .credit {
+    --credit-feather : 96px;
+    --credit-pad     : 0px;
+    --credit-ring    : 40px;
+    --credit-seal    : 28px;
+    --credit-tab     : 40px;
+  }
+
+  .credit-ring {
+    position : absolute;
+    top      : 1px;
+    right    : 12px;
+  }
+
+  .credit :is(.credit-veil, .credit-plate, .credit-panel) {
+    top           : var(--credit-top);
+    right         : auto;
+    bottom        : auto;
+    left          : 0;
+    height        : var(--credit-height);
+    border-radius : 0;
+  }
+
+  .credit .credit-veil {
+    right: 0;
+
+    &::before { content: none; }
+  }
+
+  .credit .credit-plate { border-width: 1px 1px 0 0; }
+
+  .credit .credit-panel {
+    max-width    : 100%;
+    gap          : 4px;
+    padding      : 0 4px;
+    border-width : 1px 1px 0 0;
+    clip-path    : inset(0 100% 0 0);
+  }
+
+  .credit[data-credit='open'] .credit-panel { clip-path: inset(0); }
+
+  .credit-wash {
+    right         : auto;
+    left          : 0;
+    mask-image    : linear-gradient(to right,
+                                    #000 calc(50% - var(--credit-feather) / 2),
+                                    transparent calc(50% + var(--credit-feather) / 2));
+    mask-position : 100% 0;
+  }
+
+  .credit[data-credit='open'] .credit-wash {
+    translate     : var(--credit-w) 0;
+    mask-position : 0% 0;
+  }
+
+  .credit-tabs { padding-left: 4px; }
+
+  .credit-tracks { gap: 2px; }
+
+  .credit-track {
+    grid-template-columns : auto;
+    grid-template-areas   : 'seal' 'name' 'said' 'license';
+    row-gap               : 0;
+    justify-items         : center;
+    padding               : 0 var(--credit-pad);
+    text-align            : center;
+
+    .seal { margin-bottom: 2px; }
+  }
+
+  .credit-said {
+    line-height : 1.25;
+    white-space : normal;
+  }
+}
+
+.credit-still :is(.credit-veil, .credit-wash, .credit-plate, .credit-panel, .credit-panel *),
+.credit-still .credit-veil::before {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .credit :is(.credit-wash, .credit-plate, .credit-panel, .credit-panel *),
+  .credit .credit-veil::before {
+    transition: none !important;
   }
 }
