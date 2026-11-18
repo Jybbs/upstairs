@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as celestrak     from '../../catalog/celestrak.ts'
 import { directoryBody, satcatBody, unchangedBody } from '../common/celestrak.ts'
+import { unbound }        from '../common/fetchers.ts'
 
 const UNCHANGED = unchangedBody('2026-11-15 21:21:36')
 const SINCE     = '2026-11-15T21:21:36.000Z'
@@ -19,7 +20,7 @@ describe('a catalog request', () => {
     ['an error of its own', () => new DOMException('The operation was aborted', 'AbortError')]
   ])('aborts once no headers arrive within the bound, and not a millisecond sooner, when fetch '
    + 'rejects with %s', async (_, rejection) => {
-    const fetcher = vi.fn((_: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_, reject) =>
+    const fetcher = unbound((_, init) => new Promise<Response>((_, reject) =>
       init!.signal!.addEventListener('abort', () => reject(rejection(init!.signal!)))))
     const sent    = celestrak.fetchFrom(fetcher, celestrak.SATCAT)
     const failure = expect(sent).rejects.toMatchObject({
@@ -33,7 +34,7 @@ describe('a catalog request', () => {
   })
 
   it('leaves an answer whose headers arrived unaborted past the bound', async () => {
-    const fetcher = vi.fn(async () => new Response('[]'))
+    const fetcher = unbound(async () => new Response('[]'))
     const answer  = await celestrak.fetchFrom(fetcher, celestrak.SATCAT)
     await vi.advanceTimersByTimeAsync(2 * celestrak.HEADER_WAIT)
     expect(signalOf(fetcher).aborted).toBe(false)

@@ -20,10 +20,9 @@ describe('the stand-in for fetch', () => {
         .resolves.toBeInstanceOf(Response)
     })
 
-  it('refuses a call made as a method of the client, as the Workers runtime does', async () => {
+  it('refuses a call made as a method of the client before answering, as the Workers runtime does', () => {
     const fetcher = answers.answering(answers.LOGGED)
-    await expect(fetcher.call(new spacetrack.SpaceTrack(fetcher), spacetrack.ORIGIN))
-      .rejects.toThrow(TypeError)
+    expect(() => fetcher.call(new spacetrack.SpaceTrack(fetcher), spacetrack.ORIGIN)).toThrow(TypeError)
   })
 })
 
