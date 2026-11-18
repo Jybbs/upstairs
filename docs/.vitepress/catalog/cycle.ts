@@ -60,7 +60,7 @@ export const ACTIVE = ['+', 'B', 'P', 'S', 'X']
  * The fewest active payloads a stored catalog holds, under a third of the
  * 16,873 the catalog held on 2026-11-06.
  */
-const AT_LEAST = 5000
+export const AT_LEAST = 5000
 /**
  * The shortest time between two runs, in milliseconds, the most often
  * Space-Track's API guidelines ask for the `gp` class and CelesTrak's usage

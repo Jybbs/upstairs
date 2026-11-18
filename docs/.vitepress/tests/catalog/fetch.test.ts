@@ -12,13 +12,18 @@ import { QUERIED, contentsOf } from '../common/catalog.ts'
 import * as answers            from '../common/celestrak.ts'
 import * as logins             from '../common/spacetrack.ts'
 
-const NETRC   = 'machine www.space-track.org login observer password orbit-2026\n'
+/**
+ * Two copies of the catalog, the second under catalog numbers of its own.
+ */
+const ELEMENTS = [0, 1].flatMap(copy => QUERIED.map(record =>
+  ({ ...record, NORAD_CAT_ID: record.NORAD_CAT_ID + copy * QUERIED.length })))
+const NETRC = 'machine www.space-track.org login observer password orbit-2026\n'
+const SAVED = Date.parse('2026-11-12T06:00:00Z')
 /**
  * A SATCAT file marking every other payload active.
  */
-const SATCAT  = answers.satcatBody(QUERIED.map(({ NORAD_CAT_ID: id }, row) =>
+const SATCAT = answers.satcatBody(ELEMENTS.map(({ NORAD_CAT_ID: id }, row) =>
   [id, 'PAY', row % 2 ? '-' : '+']))
-const SAVED = Date.parse('2026-11-12T06:00:00Z')
 
 const it = test.extend('home', async ({ onTestFinished }) => {
   const scratch = await mkdtempDisposable(join(tmpdir(), 'upstairs-fetch-'))
@@ -54,7 +59,7 @@ const served = (url: string) => {
   if (url === celestrak.SATCAT) return new Response(SATCAT)
   if (url.endsWith('ajaxauth/login')) return logins.ACCEPTED()
   if (url.endsWith('ajaxauth/logout')) return logins.LOGGED()
-  return Response.json(QUERIED)
+  return Response.json(ELEMENTS)
 }
 
 describe('the catalog task', () => {
@@ -64,24 +69,24 @@ describe('the catalog task', () => {
     const { lines, read, status, urls } = await runIn(home, [], served)
     expect(status).toBe(0)
     expect(read.map(record => record.NORAD_CAT_ID).toSorted((a, b) => a - b))
-      .toEqual(QUERIED.filter((_, row) => row % 2 === 0).map(record => record.NORAD_CAT_ID))
+      .toEqual(ELEMENTS.filter((_, row) => row % 2 === 0).map(record => record.NORAD_CAT_ID))
     expect(urls).toEqual([
       `${spacetrack.ORIGIN}/ajaxauth/login`, `${spacetrack.ORIGIN}/${spacetrack.QUERY}`,
       `${spacetrack.ORIGIN}/ajaxauth/logout`, celestrak.SATCAT
     ])
-    expect(lines).toEqual([`2500 satellites written to ${join(home, catalog.FILE)}`])
+    expect(lines).toEqual([`5000 satellites written to ${join(home, catalog.FILE)}`])
   })
 
   it('reads saved files under --elements and --satcat, requesting nothing and dating the file by the '
    + 'elements file', async ({ home }) => {
     const elements = join(home, 'elements.json')
     const satcat   = join(home, 'satcat.csv')
-    await writeFile(elements, JSON.stringify(QUERIED))
+    await writeFile(elements, JSON.stringify(ELEMENTS))
     await writeFile(satcat, SATCAT)
     await utimes(elements, SAVED / 1000, SAVED / 1000)
     const { fetched, read, status, urls } = await runIn(home, ['--elements', elements, '--satcat', satcat],
       served)
-    expect([status, read.length, fetched, urls]).toEqual([0, 2500, SAVED, []])
+    expect([status, read.length, fetched, urls]).toEqual([0, 5000, SAVED, []])
   })
 
   it('fails with the reason, requesting nothing, where the --elements file holds no JSON',
@@ -114,7 +119,10 @@ describe('the catalog task', () => {
       'CelesTrak answered 403'],
     ['Cloudflare cannot reach CelesTrak',
       (url: string) => url === celestrak.SATCAT ? new Response(null, { status: 522 }) : served(url),
-      'Cloudflare answered 522']
+      'Cloudflare answered 522'],
+    ['too few of the payloads Space-Track serves are active',
+      (url: string) => url.endsWith('format/json') ? Response.json(QUERIED) : served(url),
+      'Expected 5000 or more active payloads, got 2500.']
   ] as const)('fails with the reason, writing no file, where %s', async ([, answer, reason], { home }) => {
     await writeFile(join(home, '.netrc'), NETRC)
     const { lines, read, status } = await runIn(home, [], answer)

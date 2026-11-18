@@ -11,12 +11,12 @@ import { homedir }                   from 'node:os'
 import { join }                      from 'node:path'
 import { parseArgs }                 from 'node:util'
 
-import { FILE }        from '../lib/orbit/catalog.ts'
-import * as celestrak  from './celestrak.ts'
-import { activeOf }    from './cycle.ts'
-import { encode }      from './encode.ts'
-import { Netrc }       from './netrc.ts'
-import * as spacetrack from './spacetrack.ts'
+import { FILE }               from '../lib/orbit/catalog.ts'
+import * as celestrak         from './celestrak.ts'
+import { AT_LEAST, activeOf } from './cycle.ts'
+import { encode }             from './encode.ts'
+import { Netrc }              from './netrc.ts'
+import * as spacetrack        from './spacetrack.ts'
 
 /**
  * What a run reads and writes beyond the files its flags name.
@@ -33,8 +33,9 @@ const OPTIONS = { elements: { type: 'string' }, satcat: { type: 'string' } } as 
 
 /**
  * Runs the task with the arguments in `argv`, returning its exit status, and
- * fails with the reason where CelesTrak or Space-Track answers with no catalog
- * or the `--elements` file holds no JSON.
+ * fails with the reason where CelesTrak or Space-Track answers with no catalog,
+ * the `--elements` file holds no JSON, or fewer than `AT_LEAST` payloads are
+ * active.
  */
 export const run = async (argv: string[], io: Io) => {
   const { elements, satcat }   = parseArgs({ args: argv, options: OPTIONS }).values
@@ -56,6 +57,10 @@ export const run = async (argv: string[], io: Io) => {
       : await celestrak.download(celestrak.fetchFrom(io.fetcher, celestrak.SATCAT), celestrak.codesOf)
     const fetched = elements !== undefined ? (await stat(elements)).mtimeMs : Date.now()
     const active  = activeOf(codes, records)
+    if (active.length < AT_LEAST) {
+      io.error(`Expected ${AT_LEAST} or more active payloads, got ${active.length}.`)
+      return 1
+    }
     await writeFile(io.target, encode(fetched, active))
     io.print(`${active.length} satellites written to ${io.target}`)
     return 0
