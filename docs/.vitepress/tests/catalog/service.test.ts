@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as celestrak from '../../catalog/celestrak.ts'
-import { REGIONS }    from '../../catalog/cycle.ts'
-import wrangler       from '../../catalog/wrangler.json' with { type: 'json' }
-import { FILE }       from '../../lib/orbit/catalog.ts'
-import * as answers   from '../common/spacetrack.ts'
+import * as celestrak  from '../../catalog/celestrak.ts'
+import { REGIONS }     from '../../catalog/cycle.ts'
+import { RUN_ADDRESS } from '../../catalog/request.ts'
+import { SECRET }      from '../../catalog/requested.ts'
+import wrangler        from '../../catalog/wrangler.json' with { type: 'json' }
+import { FILE }        from '../../lib/orbit/catalog.ts'
+import * as answers    from '../common/spacetrack.ts'
+import { stubSubtle }  from '../common/subtle.ts'
 
 vi.mock('cloudflare:workers', () => ({
   DurableObject: class { constructor(readonly ctx: unknown, readonly env: unknown) {} }
@@ -85,7 +88,11 @@ describe('the relay', () => {
 })
 
 describe('the worker', () => {
-  afterEach(() => { vi.unstubAllGlobals() })
+  beforeEach(() => { stubSubtle() })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
 
   it('answers a request for the catalog from Workers KV and runs the refresher on the scheduled time',
     async () => {
@@ -102,11 +109,37 @@ describe('the worker', () => {
       expect(refresher.run).toHaveBeenCalledExactlyOnceWith(7)
       expect(getByName).toHaveBeenCalledExactlyOnceWith('catalog')
     })
+
+  it('runs the refresher at the time of a request to the run path carrying the token', async () => {
+    const refresher = { run: vi.fn(async () => 'early') }
+    const getByName = vi.fn(() => refresher)
+    const env       = { REFRESHER: { getByName }, [SECRET]: 'held' }
+    const request   = new Request(RUN_ADDRESS, { headers: { authorization: 'Bearer held' }, method: 'POST' })
+    vi.spyOn(Date, 'now').mockReturnValue(7)
+    const response = await service.fetch(request as never, env as never, {} as never)
+    expect(await response.json()).toBe('early')
+    expect(refresher.run).toHaveBeenCalledExactlyOnceWith(7)
+    expect(getByName).toHaveBeenCalledExactlyOnceWith('catalog')
+  })
+
+  it('answers a request to the run path without the token as it answers any other path', async () => {
+    const refresher = { run: vi.fn() }
+    const env       = { REFRESHER: { getByName: () => refresher }, [SECRET]: 'held' }
+    const request   = new Request(RUN_ADDRESS, { method: 'POST' })
+    vi.stubGlobal('caches', { default: {} })
+    const response = await service.fetch(request as never, env as never, {} as never)
+    expect(response.status).toBe(404)
+    expect(await response.text()).toBe('')
+    expect(refresher.run).not.toHaveBeenCalled()
+  })
 })
 
 describe('the deploy config', () => {
-  it('routes the catalog path alone to the service', () => {
-    expect(wrangler.routes.map(route => route.pattern)).toEqual([`upstairs.fyi/${FILE}`])
+  it('routes the catalog path and the run path the task sends to alone to the service', () => {
+    expect(wrangler.routes.map(route => route.pattern)).toEqual([
+      `upstairs.fyi/${FILE}`,
+      `${RUN_ADDRESS.host}${RUN_ADDRESS.pathname}`
+    ])
   })
 
   it('turns on Workers Logs and Workers Observability Issues', () => {

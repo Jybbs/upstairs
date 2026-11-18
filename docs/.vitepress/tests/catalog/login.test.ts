@@ -1,13 +1,13 @@
-import { spawnSync }                                           from 'node:child_process'
-import { mkdir, mkdtempDisposable, readFile, stat, writeFile } from 'node:fs/promises'
-import { tmpdir }                                              from 'node:os'
-import { join }                                                from 'node:path'
-import { PassThrough }                                         from 'node:stream'
+import { spawnSync }                            from 'node:child_process'
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { join }                                 from 'node:path'
+import { PassThrough }                          from 'node:stream'
 
 import { describe, expect, test, vi } from 'vitest'
 
 import * as login      from '../../catalog/login.ts'
 import * as spacetrack from '../../catalog/spacetrack.ts'
+import { it, tilded }  from '../common/home.ts'
 import * as answers    from '../common/spacetrack.ts'
 
 const CATALOG  = join(import.meta.dirname, '../../catalog')
@@ -38,12 +38,6 @@ interface Case extends Pose {
   written? : string
 }
 
-const it = test.extend('home', async ({ onTestFinished }) => {
-  const scratch = await mkdtempDisposable(join(tmpdir(), 'upstairs-login-'))
-  onTestFinished(() => scratch.remove())
-  return scratch.path
-})
-
 const entryOf = (identity: string) => `machine www.space-track.org login ${identity} password ${PASSWORD}`
 
 /**
@@ -67,8 +61,6 @@ const runIn = async (home: string, { argv, netrc, prompt = false, replies, set =
   const written = await readFile(join(home, '.netrc'), 'utf8').catch(() => '')
   return { fetcher, io, lines, status, written }
 }
-
-const tilded = (line: string) => line.replace(/\/\S*\/\.netrc/, '~/.netrc')
 
 describe('a run of the task', () => {
   it.for<[string, Case]>([
