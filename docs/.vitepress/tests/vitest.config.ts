@@ -1,19 +1,30 @@
-import { join } from 'node:path'
+import { existsSync } from 'node:fs'
+import { join }       from 'node:path'
 
 import vueJsx                           from '@vitejs/plugin-vue-jsx'
 import type { Plugin }                  from 'vite'
 import { configDefaults, defineConfig } from 'vitest/config'
 
-import { ROOT, watchedOf } from './common/reads.ts'
+import { ROOT, readersOf, watchedOf } from './common/reads.ts'
 
 const triggers = [
-  '.mise/config.toml', '.mise/mise.lock', 'docs/bun.lock', 'rust/{.cargo/**,Cargo.lock,Cargo.toml,src/**}'
+  '.mise/config.toml', '.mise/mise.lock', 'docs/bun.lock', 'rust/{Cargo.lock,Cargo.toml,src/**}'
 ].map(glob => join(ROOT, glob))
 const watched = watchedOf()
 
 const reads: Plugin = {
-  name      : 'reads',
-  transform : {
+  name: 'reads',
+  configureVitest({ defineCacheKeyGenerator, vitest }) {
+    defineCacheKeyGenerator(({ id }) => watched.get(id)?.join('\n'))
+    const { vcs } = vitest
+    vitest.vcs = {
+      findChangedFiles: async options => {
+        const files = await vcs.findChangedFiles(options)
+        return [...files, ...files.filter(file => !existsSync(file)).flatMap(file => readersOf(file))]
+      }
+    }
+  },
+  transform: {
     filter: { id: [...watched.keys()] },
     handler(_, id) {
       watched.get(id)?.forEach(file => this.addWatchFile(file))

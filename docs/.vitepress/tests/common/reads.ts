@@ -1,4 +1,4 @@
-import { existsSync, globSync }        from 'node:fs'
+import { globSync }                    from 'node:fs'
 import { join, matchesGlob, relative } from 'node:path'
 
 /**
@@ -45,24 +45,25 @@ export const READS: Record<string, string[]> = {
 export const ROOT = join(import.meta.dirname, '../../../..')
 
 /**
+ * Lists the absolute path of each module declaring in `reads` a glob matching
+ * `file`, an absolute path, which need not exist.
+ */
+export const readersOf = (file: string, reads = READS): string[] =>
+  Object.entries(reads)
+    .filter(([, globs]) => globs.some(glob => matchesGlob(relative(ROOT, file), glob)))
+    .map(([module]) => join(ROOT, module))
+
+/**
  * Reports whether the test at `test`, an absolute path, declares in `reads` a
  * glob matching `file`, a path from `ROOT`.
  */
 export const declares = (file: string, test: string, reads = READS): boolean =>
-  !!reads[relative(ROOT, test)]?.some(glob => matchesGlob(file, glob))
+  readersOf(join(ROOT, file), reads).includes(test)
 
 /**
  * Maps each module in `reads`, by its absolute path, to the absolute paths of
- * the files its globs match, throwing where a module is missing or a glob
- * matches no file.
+ * the files its globs match, which a deleted file leaves empty.
  */
 export const watchedOf = (reads = READS): Map<string, string[]> =>
-  new Map(Object.entries(reads).map(([module, globs]) => {
-    const path = join(ROOT, module)
-    if (!existsSync(path)) throw new Error(`READS names ${module}, which is missing`)
-    return [path, globs.flatMap(glob => {
-      const files = globSync(glob, { cwd: ROOT }).map(file => join(ROOT, file))
-      if (!files.length) throw new Error(`READS gives ${module} the glob ${glob}, which matches no file`)
-      return files
-    })]
-  }))
+  new Map(Object.entries(reads).map(([module, globs]) =>
+    [join(ROOT, module), globSync(globs, { cwd: ROOT }).map(file => join(ROOT, file))]))
