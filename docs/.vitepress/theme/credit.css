@@ -172,6 +172,10 @@
   }
 }
 
+@media (width >= 40rem) {
+  .credit-unveiled .credit-veil { display : none; }
+}
+
 .credit-caps {
   margin               : 0;
   font-family          : var(--font-mono);

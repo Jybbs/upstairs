@@ -1,14 +1,21 @@
 // @vitest-environment happy-dom
-import { flushPromises, mount } from '@vue/test-utils'
-import { expect, it, vi }       from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join }         from 'node:path'
+
+import { flushPromises, mount }             from '@vue/test-utils'
+import { expect, it, onTestFinished, vi }   from 'vitest'
 import { type Component, ref, shallowRef } from 'vue'
 
-import { freshSky }           from '../common/sky.ts'
-import { stubCanvas, stubOf } from '../common/stubs.ts'
+import { freshSky }   from '../common/sky.ts'
+import { stubCanvas } from '../common/stubs.ts'
 
 const BELOW   = { bottom: 900, left: 0, right: 400, top: 600 }
+const BOX     = '.credit-unveiled'
+const FOOT    = { bottom: 576, left: 0, right: 400, top: 480 }
+const LIP     = { bottom: 900, left: 0, right: 400, top: 584 }
 const MAP     = { bottom: 600, left: 0, right: 400, top: 0 }
 const NUMERAL = '[aria-label="Gather the sky into 404"]'
+const OVER    = { bottom: 600, left: 0, right: 400, top: 504 }
 const RING    = '[aria-label="Wait at the spot for a pass"]'
 
 const page = vi.hoisted(() => ({
@@ -16,7 +23,8 @@ const page = vi.hoisted(() => ({
   motion  : 'no-preference',
   phone   : false,
   resized : () => {},
-  strip   : { bottom: 900, left: 0, right: 400, top: 600 }
+  strip   : { bottom: 900, left: 0, right: 400, top: 600 },
+  width   : 64
 }))
 
 vi.mock('vitepress', async () => {
@@ -37,10 +45,14 @@ vi.mock('../../theme/SkyMap.tsx', async () => {
   const { h } = await import('vue')
   return { default: { render: () => h('div', { 'data-map': '' }) } }
 })
-vi.mock('../../theme/Credit.tsx', () => stubOf('Credit'))
+vi.mock('../../theme/Credit.tsx', async () => {
+  const { defineComponent, h } = await import('vue')
+  return { default: defineComponent({ name: 'Credit', render: () => h('div', { class: 'credit-veil' }) }) }
+})
 vi.mock('../../lib/site/phone.ts', () => ({ usePhone: () => ref(page.phone) }))
 
 vi.mock('@vueuse/core', () => ({
+  useMediaQuery             : (query: string) => ref(page.width >= Number(query.match(/(\d+)rem/)![1])),
   useMounted                : () => ref(true),
   usePreferredReducedMotion : () => ref(page.motion),
   useRafFn                  : (frame: typeof page.frame) => {
@@ -51,21 +63,34 @@ vi.mock('@vueuse/core', () => ({
 }))
 
 /**
- * Mounts the not-found page over a fresh copy of the shared state and a
- * stand-in worker, its map 400 by 600 pixels with the panel below it and the
- * strip at `strip`, on a device reducing motion where `reduced` is set and on
- * a phone where `phone` is, returning the messages the worker is posted.
+ * Returns the rectangle the page's layout gives `element`: the map's, the
+ * strip's at `page.strip`, the panel's with its lip over the map's foot, the
+ * credit's box at the map's foot, and every other element's below the map.
  */
-const mounted = async (reduced = false, strip = BELOW, phone = false) => {
+const rectOf = (element: HTMLElement) => {
+  if (element.querySelector('canvas')) return MAP
+  if (element.matches('.credit-covered')) return page.strip
+  if (element.querySelector(':scope > .credit-covered')) return LIP
+  return element.matches(BOX) ? FOOT : BELOW
+}
+
+/**
+ * Mounts the not-found page over a fresh copy of the shared state and a
+ * stand-in worker, its map 400 by 600 pixels with the panel's lip over its foot
+ * and the strip at `strip`, at `width` rem, on a device reducing motion where
+ * `reduced` is set and on a phone where `phone` is, returning the messages the
+ * worker is posted.
+ */
+const mounted = async (reduced = false, strip = BELOW, phone = false, width = 64) => {
   page.motion = reduced ? 'reduce' : 'no-preference'
   page.phone  = phone
   page.strip  = strip
+  page.width  = width
   stubCanvas()
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600)
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400)
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-    if (this.querySelector('canvas')) return MAP as DOMRect
-    return (this.querySelector(':scope > div > section') ? page.strip : BELOW) as DOMRect
+    return rectOf(this) as DOMRect
   })
   const { component: NotFound, sky } = await freshSky(() => import('../../theme/NotFound.tsx'))
   const posted                       = vi.spyOn(Worker.prototype, 'postMessage')
@@ -115,19 +140,23 @@ it('asks for the catalog only once the numeral is pressed', async () => {
   expect([before, loads()]).toEqual([0, 1])
 })
 
-it('gathers the sky into 404 holding the hour, and back to the present on a second press', async () => {
-  const { sky, wrapper } = await mounted()
-  const numeral          = wrapper.get(NUMERAL)
-  const pressed          = async () => {
-    await numeral.trigger('click')
-    await flushPromises()
-    return [numeral.attributes('aria-pressed'), sky.gather.value, sky.clock.value]
-  }
-  expect([await pressed(), await pressed()]).toEqual([
-    ['true', { height: 552, left: 24, top: 24, width: 352 }, 'held'],
-    ['false', null, 'live']
-  ])
-})
+it.each([
+  ['above the credit’s box wider than a phone', false, 432],
+  ['down to the sheet’s lip on a phone', true, 536]
+])('gathers the sky into 404 %s holding the hour, and back to the present on a second press',
+  async (_, phone, height) => {
+    const { sky, wrapper } = await mounted(false, BELOW, phone)
+    const numeral          = wrapper.get(NUMERAL)
+    const pressed          = async () => {
+      await numeral.trigger('click')
+      await flushPromises()
+      return [numeral.attributes('aria-pressed'), sky.gather.value, sky.clock.value]
+    }
+    expect([await pressed(), await pressed()]).toEqual([
+      ['true', { height, left: 24, top: 24, width: 352 }, 'held'],
+      ['false', null, 'live']
+    ])
+  })
 
 it('draws the sky on its map only while the numeral stands pressed', async () => {
   const { wrapper } = await mounted()
@@ -189,7 +218,7 @@ it('names the address that holds no page, then reaches the way back, the numeral
 })
 
 it.each([
-  ['at the strip’s end wider than a phone', false, '[aria-label="The hour at this address"]', undefined],
+  ['in a box over the map wider than a phone', false, 'canvas', undefined],
   ['over the strip in the pane below the map on a phone', true, 'span',
     { '--credit-height': '120px', '--credit-top': '480px' }]
 ])('draws the map’s credit %s', async (_, phone, beside, style) => {
@@ -198,8 +227,36 @@ it.each([
   const { wrapper } = await mounted(false, BELOW, phone)
   const credits     = wrapper.findAllComponents({ name: 'Credit' })
   const [credit]    = credits
-  expect([credits.length, credit!.element.parentElement!.querySelector(`:scope > ${beside}`) !== null,
-    credit!.vm.$attrs.style]).toEqual([1, true, style])
+  const holder      = phone ? credit!.element.parentElement! : credit!.element.parentElement!.parentElement!
+  expect([credits.length, holder.querySelector(`:scope > ${beside}`) !== null, credit!.vm.$attrs.style])
+    .toEqual([1, true, style])
+})
+
+it.each([
+  ['over the sheet’s lip from 640 px', 40, 40],
+  ['over the strip from 768 px', 48, 120],
+  ['at the map’s foot from 1024 px', 64, 24]
+])('sets the credit’s box 24 px %s', async (_, width, bottom) => {
+  const { wrapper } = await mounted(false, OVER, false, width)
+  expect(wrapper.get(BOX).attributes('style')).toBe(`bottom: ${bottom}px;`)
+})
+
+it.each([
+  ['hides', 640, 'none'],
+  ['keeps', 639, 'block']
+])('%s the veil under the credit’s box at %i px', async (_, width, display) => {
+  const { innerWidth } = window
+  const sheet          = document.createElement('style')
+  sheet.textContent    = readFileSync(join(import.meta.dirname, '../../theme/credit.css'), 'utf8')
+  window.innerWidth    = width
+  const { wrapper }    = await mounted()
+  document.head.append(sheet)
+  document.body.append(wrapper.element)
+  onTestFinished(() => {
+    window.innerWidth = innerWidth
+    for (const attached of [sheet, wrapper.element]) attached.remove()
+  })
+  expect(getComputedStyle(wrapper.get(`${BOX} .credit-veil`).element).display).toBe(display)
 })
 
 it.each([

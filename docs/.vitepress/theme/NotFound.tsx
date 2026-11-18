@@ -1,7 +1,13 @@
-import { useMounted, usePreferredReducedMotion, useRafFn, useResizeObserver } from '@vueuse/core'
-import * as toggle                                                           from '@zag-js/toggle'
-import { normalizeProps, useMachine }                                        from '@zag-js/vue'
-import { defineClientComponent, useData }                                    from 'vitepress'
+import {
+  useMediaQuery,
+  useMounted,
+  usePreferredReducedMotion,
+  useRafFn,
+  useResizeObserver
+} from '@vueuse/core'
+import * as toggle                        from '@zag-js/toggle'
+import { normalizeProps, useMachine }     from '@zag-js/vue'
+import { defineClientComponent, useData } from 'vitepress'
 import { type Ref, computed, defineComponent, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import { VacantSky, roomOf } from '../lib/map/vacant.ts'
@@ -88,8 +94,9 @@ const Strip = defineComponent(
  * Sets the not-found page beside the map above a spot with no pass over it,
  * its ring a toggle calling one pass over the spot and its numeral a toggle
  * gathering the sky into 404, the catalog loading only once the numeral is
- * pressed. On a phone, the strip under the credit's open band is hidden and
- * inert.
+ * pressed. Wider than a phone, the map's credit sits in a box at the map's
+ * foot, clear of whatever covers it, and the ring's room stops above that box.
+ * On a phone, the strip under the credit's open band is hidden and inert.
  */
 export default defineComponent(
   () => {
@@ -97,7 +104,9 @@ export default defineComponent(
     const called   = ref(false)
     const canvas   = ref<HTMLCanvasElement>()
     const crossed  = ref(false)
+    const foot     = ref<HTMLElement>()
     const gathered = ref(false)
+    const lift     = ref(0)
     const pane     = ref<HTMLElement>()
     const panel    = ref<HTMLElement>()
     const ring     = shallowRef({ radius: 0, x: 0, y: 0 })
@@ -109,6 +118,8 @@ export default defineComponent(
     const { isDark } = useData()
     const mounted    = useMounted()
     const phone      = usePhone()
+    const md         = useMediaQuery('(width >= 48rem)')
+    const lg         = useMediaQuery('(width >= 64rem)')
     const motion     = usePreferredReducedMotion()
     const reduced    = computed(() => motion.value === 'reduce')
     const scheme     = computed(() => SCHEMES[isDark.value ? 'night' : 'day'])
@@ -128,22 +139,35 @@ export default defineComponent(
     const frames = useRafFn(({ delta }) => paint(delta / 1000), { immediate: false })
 
     /**
-     * Returns the room of the map neither the panel nor the strip covers.
+     * Returns the room of the map neither the panel, the strip, nor the credit's
+     * box covers.
      */
     const roomOpen = () => roomOf(
       pane.value!.getBoundingClientRect(),
       panel.value!.getBoundingClientRect(),
-      strip.value!.getBoundingClientRect()
+      strip.value!.getBoundingClientRect(),
+      ...foot.value ? [foot.value.getBoundingClientRect()] : []
     )
 
     /**
-     * Sizes the drawing to the map, sets its ring in the open room, and seats
-     * a phone's credit over the strip.
+     * Returns the height in pixels that covers the map's foot below 1024 px,
+     * the strip's from 768 px and the sheet's lip under it, and 0 from 1024 px.
+     */
+    const footCover = () => lg.value ? 0 : Math.max(0, Math.round(
+      pane.value!.getBoundingClientRect().bottom
+      - (md.value ? strip.value! : panel.value!).getBoundingClientRect().top
+    ))
+
+    /**
+     * Sizes the drawing to the map, sets its ring in the open room, seats a
+     * phone's credit over the strip, and lifts the credit's box clear of the
+     * map's foot.
      */
     const layout = () => {
       if (!vacant) return
       const { clientHeight, clientWidth } = pane.value!
       const { offsetHeight, offsetTop }   = strip.value!
+      lift.value                          = footCover()
       vacant.resize(clientWidth, clientHeight, devicePixelRatio, roomOpen())
       ring.value = { ...vacant.ring }
       seat.value = { height: offsetHeight, top: offsetTop }
@@ -234,12 +258,19 @@ export default defineComponent(
       layout()
     })
 
-    watch([reduced, scheme], restyle)
-
-    useResizeObserver([pane, strip, words], () => {
+    /**
+     * Lays the map out again, gathering the sky into the new room while it
+     * stands gathered.
+     */
+    const refit = () => {
       layout()
       gather()
-    })
+    }
+
+    watch([reduced, scheme], restyle)
+    watch([foot, lift], refit, { flush: 'post' })
+
+    useResizeObserver([pane, strip, words, foot], refit)
     onBeforeUnmount(() => { if (gathered.value) scatter() })
 
     return () => (
@@ -302,10 +333,7 @@ export default defineComponent(
             class="credit-covered md:absolute md:inset-x-0 md:bottom-0 md:z-10 md:border-t md:border-rule
                    md:bg-panel/95 md:px-6 md:py-4 lg:static lg:mt-auto lg:border-0 lg:bg-transparent lg:p-0"
           >
-            <div class="relative flex items-center gap-2 sm:-mr-4 sm:pr-4">
-              <Strip class="min-w-0 flex-1" crossed={crossed.value} />
-              {mounted.value && !phone.value && <Credit />}
-            </div>
+            <Strip crossed={crossed.value} />
           </div>
         </div>
         <div
@@ -329,6 +357,16 @@ export default defineComponent(
           )}
           <SkyMap backdrop live={gathered.value} />
           <canvas ref={canvas} class="pointer-events-none absolute inset-0 size-full" aria-hidden="true" />
+          {mounted.value && !phone.value && (
+            <div
+              ref={foot}
+              class="credit-unveiled absolute right-6 z-20 flex h-24 w-[min(calc(100%-48px),1040px)]
+                     items-center justify-end"
+              style={{ bottom: `${lift.value + 24}px` }}
+            >
+              <Credit />
+            </div>
+          )}
         </div>
       </main>
     )
