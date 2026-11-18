@@ -124,9 +124,14 @@ export class SpaceTrack {
     return records
   }
 
+  /**
+   * Sends one request through `fetcher` called with no `this`, since the
+   * Workers runtime throws `TypeError: Illegal invocation` on a `fetch` called
+   * as a method of another object.
+   */
   private async send(path: string, init: RequestInit) {
-    const signal = AbortSignal.timeout(this.wait)
-    const answer = await this.fetcher(`${ORIGIN}/${path}`, { ...init, signal })
+    const { fetcher, wait } = this
+    const answer = await fetcher(`${ORIGIN}/${path}`, { ...init, signal: AbortSignal.timeout(wait) })
       .catch((cause: unknown) => { throw new Unavailable('Space-Track could not be reached', { cause }) })
     if (answer.status === 200) return answer
     await answer.body?.cancel()

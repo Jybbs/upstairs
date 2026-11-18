@@ -1,6 +1,4 @@
-import { vi } from 'vitest'
-
-type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+import { unbound } from './fetchers.ts'
 
 /**
  * The answers Space-Track gives an accepted login, setting two cookies, a
@@ -15,10 +13,11 @@ export const LOGGED   = () => new Response('')
 export const REJECTED = () => new Response('{"Login":"Failed"}')
 
 /**
- * Stands in for `fetch`, answering each request with the next of `answers`,
- * where an answer that throws stands for a request that reached no server.
+ * Stands in for `fetch` as `unbound` does, answering each request with the
+ * next of `answers`, where an answer that throws stands for a request that
+ * reached no server.
  */
 export const answering = (...answers: (() => Response)[]) => {
   const queue = [...answers]
-  return vi.fn<Fetch>(async () => queue.shift()!())
+  return unbound(async () => queue.shift()!())
 }
