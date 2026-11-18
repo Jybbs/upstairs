@@ -36,14 +36,14 @@
     "@zag-js/vue": "1.48.0",
     "katex": "0.19.1",
     "maplibre-contour": "0.1.1",
-    "maplibre-gl": "6.16.0",
+    "maplibre-gl": "6.19.0",
     "vue": "3.5.45"
   },
   "devDependencies": {
     "@citation-js/core": "0.9.0",
     "@citation-js/plugin-bibtex": "0.9.0",
     "@citation-js/plugin-csl": "0.9.0",
-    "@cloudflare/workers-types": "5.20261110.1",
+    "@cloudflare/workers-types": "5.20261118.1",
     "@resvg/resvg-js": "2.6.2",
     "@tailwindcss/vite": "4.3.5",
     "@types/bun": "1.4.4",
@@ -53,30 +53,30 @@
     "@vitejs/plugin-vue-jsx": "5.1.6",
     "@vitest/coverage-istanbul": "5.1.0",
     "@vscode/markdown-it-katex": "1.1.2",
-    "@vue/test-utils": "2.5.1",
+    "@vue/test-utils": "2.6.0",
     "@vue/tsconfig": "0.9.1",
     "culori": "4.0.2",
     "fontkit": "2.0.4",
     "gifenc": "1.0.3",
     "happy-dom": "21.0.4",
-    "knip": "6.44.2",
-    "oxlint": "1.92.0",
-    "playwright": "1.65.0",
+    "knip": "6.45.1",
+    "oxlint": "1.94.0",
+    "playwright": "1.65.1",
     "sharp": "0.35.5",
     "tailwindcss": "4.3.5",
     "typescript": "6.0.3",
-    "vite": "8.3.6",
+    "vite": "8.3.8",
     "vite-plugin-static-copy": "4.1.1",
     "vitepress": "2.0.0-alpha.21",
     "vitest": "5.1.0",
     "vue-tsc": "3.3.14",
     "woff2-encoder": "2.0.0",
-    "wrangler": "4.160.0"
+    "wrangler": "4.164.0"
   },
   "overrides": {
-    "glob": "14.0.4",
+    "glob": "14.0.6",
     "katex": "0.19.1",
-    "minimatch": "11.0.6"
+    "minimatch": "11.0.9"
   },
   "knip": {
     "entry": [
