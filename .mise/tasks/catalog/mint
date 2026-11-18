@@ -1,0 +1,6 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE depends     = ["site:install"]
+#MISE description = "Make a new token for the catalog service's run path, set it as the service's `RUN_TOKEN` secret through Wrangler under the `CLOUDFLARE_API_TOKEN` the environment holds, and save it in the `upstairs.fyi` entry of `~/.netrc`"
+#MISE env         = { WRANGLER_SEND_METRICS = "false" }
+
+bun run docs/.vitepress/catalog/mint.ts
