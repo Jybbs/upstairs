@@ -101,7 +101,7 @@ const logged = () => vi.mocked(console.error).mock.calls.map(([entry]) => entry)
 
 describe('the payloads a catalog keeps', () => {
   it.each<[string | undefined, boolean]>([
-    ...cycles.ACTIVE.map(code => [code, true] as [string, boolean]),
+    ['+', true], ['P', true], ['B', true], ['S', true], ['X', true],
     ['-', false], ['D', false], ['?', false], ['', false], [undefined, false]
   ])('keeps a payload whose operational status reads %j: %s', (code, kept) => {
     const codes = code === undefined ? {} : { [QUERIED[0].NORAD_CAT_ID]: code }
@@ -155,12 +155,16 @@ describe('a download cycle', () => {
 
   it('stores the elements of only the payloads the SATCAT marks active, leaving out one it has no row for',
     async () => {
-      const listed = QUERIED.slice(0, -100).map(({ NORAD_CAT_ID: id }, row) =>
+      const records = [0, 1, 2].flatMap(copy => QUERIED.map(record =>
+        ({ ...record, NORAD_CAT_ID: record.NORAD_CAT_ID + copy * QUERIED.length })))
+      const listed  = records.slice(0, -100).map(({ NORAD_CAT_ID: id }, row) =>
         [id, 'PAY', row % 2 ? '-' : cycles.ACTIVE[row % cycles.ACTIVE.length]] as const)
-      const rows   = [...listed, ...Array.from({ length: 100 }, (_, row) => [row + 1, 'PAY', '+'] as const)]
-      const { cycle, stored } = cycleOf(servedOf(LISTED, answers.satcatBody(rows)))
+      const rows    = [...listed, ...Array.from({ length: 100 }, (_, row) => [row + 1, 'PAY', '+'] as const)]
+      const { cycle, stored } = cycleOf(servedOf(LISTED, answers.satcatBody(rows)), {
+        elements: async () => records
+      })
       await cycle.run(start)
-      expect(await countOf(stored.get(catalog.FILE))).toBe((QUERIED.length - 100) / 2)
+      expect(await countOf(stored.get(catalog.FILE))).toBe((records.length - 100) / 2)
     })
 
   it('keeps no code for an object SATCAT lists as other than a payload', async () => {
@@ -218,6 +222,22 @@ describe('a download cycle', () => {
     expect(logged()).toEqual([
       { event: 'catalog.failed', kind, reason: error.message, time: new Date(start + EVERY).toISOString() }
     ])
+  })
+
+  it.each([
+    ['shares no catalog number with the SATCAT kept', QUERIED.map(record => ({
+      ...record, NORAD_CAT_ID: record.NORAD_CAT_ID + QUERIED.length
+    }))],
+    ['holds one active payload too few', QUERIED.slice(1)]
+  ])('keeps the stored file where an answer %s', async (_, records) => {
+    let elements = async () => QUERIED
+    const { cycle, stored } = cycleOf(good, { elements: () => elements() })
+    await cycle.run(start)
+    const file = stored.get(catalog.FILE)
+    elements = async () => records
+    expect(await cycle.run(start + EVERY)).toEqual({ elements: 'failed', satcat: 'current' })
+    expect(stored.get(catalog.FILE)).toBe(file)
+    expect(logged()).toEqual([expect.objectContaining({ event: 'catalog.failed', kind: 'unchecked' })])
   })
 
   it.each([

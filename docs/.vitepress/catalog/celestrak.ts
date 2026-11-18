@@ -106,11 +106,9 @@ export class Failed extends Error {
 export class Unreachable extends Error {}
 
 /**
- * Returns the fields of one row of the SATCAT file, each quoted field read
- * back with its doubled quotes undone.
+ * Returns the fields of one row of the SATCAT file.
  */
-const fieldsOf = (row: string) =>
-  [...row.matchAll(FIELD)].map(([, quoted, bare]) => quoted?.replaceAll('""', '"') ?? bare)
+const fieldsOf = (row: string) => [...row.matchAll(FIELD)].map(([, quoted, bare]) => quoted ?? bare)
 
 /**
  * Reads the refusal out of an answer other than 200, canceling its body once

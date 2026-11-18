@@ -57,9 +57,14 @@ export type Wait = (Fault | Halted)
  */
 export const ACTIVE = ['+', 'B', 'P', 'S', 'X']
 /**
+ * The fewest active payloads a stored catalog holds, under a third of the
+ * 16,873 the catalog held on 2026-11-06.
+ */
+const AT_LEAST = 5000
+/**
  * The shortest time between two runs, in milliseconds, the most often
  * Space-Track's API guidelines ask for the `gp` class and CelesTrak's usage
- * policy allows its SATCAT directory to be queried, and the spacing of the
+ * policy asks that its SATCAT directory be queried, and the spacing of the
  * scheduled runs.
  */
 export const EVERY = 3_600_000
@@ -260,9 +265,9 @@ export class Cycle {
   /**
    * Queries Space-Track for the elements with the login the service holds as
    * its secrets and stores those of the payloads the kept SATCAT marks active.
-   * No SATCAT kept, no login set, a failure the query names, or a failed write
-   * to Workers KV logs one `catalog.failed` record at error level and keeps the
-   * stored file.
+   * No SATCAT kept, no login set, a failure the query names, fewer than
+   * `AT_LEAST` active payloads, or a failed write to Workers KV logs one
+   * `catalog.failed` record at error level and keeps the stored file.
    */
   private async store(time: number): Promise<Outcome['elements']> {
     const failed = (kind: string, reason: string) => {
@@ -280,6 +285,8 @@ export class Cycle {
     })
     if (records instanceof spacetrack.Failure) return failed(records.kind, records.message)
     const active = activeOf(satcat.codes, records)
+    if (active.length < AT_LEAST)
+      return failed('unchecked', `Expected ${AT_LEAST} or more active payloads, got ${active.length}`)
     return this.env.CATALOG.put(FILE, encode(time, active)).then(
       () => {
         console.log({ event: 'catalog.stored', active: active.length, queried: records.length })

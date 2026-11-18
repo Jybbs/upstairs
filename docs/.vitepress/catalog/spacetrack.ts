@@ -30,9 +30,10 @@ const WAIT          = 30_000
 export const ORIGIN = `https://${HOST}`
 /**
  * The query of the `gp` class for the payloads with no decay date and an epoch
- * inside the age the map draws, the predicates Space-Track's API guidelines
- * at https://www.space-track.org/documentation#api-use-guidelines set for
- * elements that propagate, narrowed to payloads.
+ * inside the age the map draws, the query Space-Track's API guidelines at
+ * https://www.space-track.org/documentation#api-use-guidelines give for
+ * elements that propagate, narrowed to payloads and widened from its 10 days to
+ * the age the map draws.
  */
 export const QUERY  = 'basicspacedata/query/class/gp/OBJECT_TYPE/PAYLOAD/decay_date/null-val/'
                     + `epoch/%3Enow-${AGES.limit}/format/json`
