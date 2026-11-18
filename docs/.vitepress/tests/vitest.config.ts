@@ -4,23 +4,44 @@ import { join }       from 'node:path'
 import vueJsx                           from '@vitejs/plugin-vue-jsx'
 import type { Plugin }                  from 'vite'
 import { configDefaults, defineConfig } from 'vitest/config'
+import type { Vitest }                  from 'vitest/node'
 
-import { ROOT, readersOf, watchedOf } from './common/reads.ts'
+import { ROOT, readersOfGone, watchedOf } from './common/reads.ts'
 
 const triggers = [
   '.mise/config.toml', '.mise/mise.lock', 'docs/bun.lock', 'rust/{Cargo.lock,Cargo.toml,src/**}'
 ].map(glob => join(ROOT, glob))
 const watched = watchedOf()
 
-const reads: Plugin = {
+const unrenamed = async (find: () => Promise<string[]>): Promise<string[]> => {
+  const { env } = process
+  const count = Number(env.GIT_CONFIG_COUNT || 0)
+  const added = {
+    GIT_CONFIG_COUNT              : `${count + 1}`,
+    [`GIT_CONFIG_KEY_${count}`]   : 'diff.renames',
+    [`GIT_CONFIG_VALUE_${count}`] : 'false'
+  }
+  const before = Object.keys(added).map(key => [key, env[key]] as const)
+  Object.assign(env, added)
+  try {
+    return await find()
+  } finally {
+    before.forEach(([key, value]) => value === undefined ? Reflect.deleteProperty(env, key) : (env[key] = value))
+  }
+}
+
+export const reads = {
   name: 'reads',
-  configureVitest({ defineCacheKeyGenerator, vitest }) {
+  configureVitest({ defineCacheKeyGenerator, vitest }: {
+    defineCacheKeyGenerator : (generator: (context: { id: string }) => string | undefined) => void
+    vitest                  : Pick<Vitest, 'vcs'>
+  }) {
     defineCacheKeyGenerator(({ id }) => watched.get(id)?.join('\n'))
     const { vcs } = vitest
     vitest.vcs = {
       findChangedFiles: async options => {
-        const files = await vcs.findChangedFiles(options)
-        return [...files, ...files.filter(file => !existsSync(file)).flatMap(file => readersOf(file))]
+        const files = await unrenamed(() => vcs.findChangedFiles(options))
+        return [...files, ...readersOfGone(files.filter(file => !existsSync(file)))]
       }
     }
   },
@@ -30,7 +51,7 @@ const reads: Plugin = {
       watched.get(id)?.forEach(file => this.addWatchFile(file))
     }
   }
-}
+} satisfies Plugin
 
 export default defineConfig({
   cacheDir : '../.cache/vite',

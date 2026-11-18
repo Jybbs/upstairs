@@ -1,16 +1,22 @@
 import { existsSync, globSync } from 'node:fs'
 import { join }                 from 'node:path'
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type CliOptions, createVitest } from 'vitest/node'
 
-import { READS, ROOT, declares, readersOf, watchedOf } from './common/reads.ts'
+import { READS, ROOT, declares, readersOf, readersOfGone, watchedOf } from './common/reads.ts'
+import { reads }                                                    from './vitest.config.ts'
 
-const AUDIT = 'docs/.vitepress/tests/tools/audit.test.ts'
-const CHECK = 'docs/.vitepress/tests/tools/check.test.ts'
-const GONE  = 'docs/.vitepress/tests/gone.test.ts'
-const PAGE  = join(ROOT, 'docs/gone/index.md')
-const PAGES = ['cards', 'markdown', 'sections'].map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
+const AUDIT  = 'docs/.vitepress/tests/tools/audit.test.ts'
+const CHECK  = 'docs/.vitepress/tests/tools/check.test.ts'
+const CHECKS = join(ROOT, 'docs/.vitepress/tests/reads.test.ts')
+const GH     = join(ROOT, 'docs/.vitepress/tests/common/bin/gh')
+const GONE   = 'docs/.vitepress/tests/gone.test.ts'
+const PAGE   = join(ROOT, 'docs/gone/index.md')
+const PAGES  = ['cards', 'markdown', 'sections'].map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
+const SYNC   = join(ROOT, 'docs/.vitepress/tests/tools/sync.test.ts')
+
+const gitConfig = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('GIT_CONFIG_')))
 
 const selected = async (options: CliOptions) => {
   const vitest = await createVitest({
@@ -58,12 +64,45 @@ describe('readersOf', () => {
     expect(readersOf(PAGE).sort()).toEqual(PAGES))
 })
 
-describe('the reads plugin', () => {
-  it('selects the tests reading a changed file they never import', async () =>
-    expect(await selected({ related: [join(ROOT, 'docs/.vitepress/tests/common/bin/gh')] }))
-      .toEqual([join(ROOT, 'docs/.vitepress/tests/tools/sync.test.ts')]))
+describe('readersOfGone', () => {
+  it.each([
+    ['the readers of a deleted file a glob matches', [PAGE], [...PAGES, CHECKS]],
+    ['a deleted module READS declares', [join(ROOT, GONE)], [CHECKS]],
+    ['nothing for a deleted file READS leaves out', [join(ROOT, 'docs/gone.txt')], []]
+  ])('lists %s', (_, gone, readers) =>
+    expect(readersOfGone(gone, { ...READS, [GONE]: [] }).sort()).toEqual(readers.sort()))
+})
 
-  it('selects the tests reading a deleted file', async () =>
-    expect(await selected({ changed: true, experimental: { vcsProvider: { findChangedFiles: async () => [PAGE] } } }))
-      .toEqual(PAGES))
+describe('the reads plugin', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('keys the cache of a declared module by the files its globs match', () => {
+    const keys: (string | undefined)[] = []
+    reads.configureVitest({
+      defineCacheKeyGenerator : generator => keys.push(generator({ id: join(ROOT, AUDIT) })),
+      vitest                  : { vcs: { findChangedFiles: async () => [] } }
+    })
+    expect(keys).toEqual([watchedOf().get(join(ROOT, AUDIT))?.join('\n')])
+  })
+
+  it('lists the changes with rename detection off, after any git config already set', async () => {
+    const seen: Record<string, string | undefined>[] = []
+    Object.entries({ GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.quotePath', GIT_CONFIG_VALUE_0: 'false' })
+      .forEach(([key, value]) => vi.stubEnv(key, value))
+    const before = gitConfig()
+    const findChangedFiles = async () => {
+      seen.push(gitConfig())
+      return []
+    }
+    await selected({ changed: true, experimental: { vcsProvider: { findChangedFiles } } })
+    expect(seen).toEqual([{ ...before, GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_1: 'diff.renames', GIT_CONFIG_VALUE_1: 'false' }])
+    expect(gitConfig()).toEqual(before)
+  })
+
+  it('selects the tests reading a changed file they never import', async () =>
+    expect(await selected({ related: [GH] })).toEqual([SYNC]))
+
+  it('selects the tests reading a deleted file and the checks of READS, beside the changed files', async () =>
+    expect(await selected({ changed: true, experimental: { vcsProvider: { findChangedFiles: async () => [GH, PAGE] } } }))
+      .toEqual([...PAGES, CHECKS, SYNC].sort()))
 })

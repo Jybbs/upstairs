@@ -54,6 +54,16 @@ export const readersOf = (file: string, reads = READS): string[] =>
     .map(([module]) => join(ROOT, module))
 
 /**
+ * Lists the readers of each deleted file in `gone`, absolute paths, and the
+ * test checking `reads` against the tree where any is declared in `reads`.
+ */
+export const readersOfGone = (gone: string[], reads = READS): string[] => {
+  const readers = gone.flatMap(file => readersOf(file, reads))
+  const stale   = readers.length > 0 || gone.some(file => relative(ROOT, file) in reads)
+  return stale ? [...readers, join(ROOT, 'docs/.vitepress/tests/reads.test.ts')] : readers
+}
+
+/**
  * Reports whether the test at `test`, an absolute path, declares in `reads` a
  * glob matching `file`, a path from `ROOT`.
  */
