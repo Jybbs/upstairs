@@ -201,3 +201,16 @@ it.each([
   expect([credits.length, credit!.element.parentElement!.querySelector(`:scope > ${beside}`) !== null,
     credit!.vm.$attrs.style]).toEqual([1, true, style])
 })
+
+it.each([
+  ['hides the strip under the open credit on a phone, and shows it once the credit closes', true,
+    [true, false]],
+  ['keeps the strip shown with the credit open wider than a phone', false, [false, false]]
+])('%s', async (_, phone, inert) => {
+  const { sky, wrapper } = await mounted(false, BELOW, phone)
+  const strip            = () => wrapper.get('.credit-covered').element.hasAttribute('inert')
+  const open             = strip()
+  sky.credit.toggle(false)
+  await flushPromises()
+  expect([open, strip()]).toEqual(inert)
+})

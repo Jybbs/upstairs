@@ -1,3 +1,6 @@
+.credit,
+.credit-covered { --credit-run: 620ms; }
+
 .credit {
   --credit-col     : 12px;
   --credit-ease    : cubic-bezier(.32, .72, 0, 1);
@@ -5,7 +8,6 @@
   --credit-glide   : cubic-bezier(.55, 0, .25, 1);
   --credit-pad     : 6px;
   --credit-ring    : 44px;
-  --credit-run     : 620ms;
   --credit-seal    : 64px;
   --credit-shade   : color-mix(in srgb, var(--panel) 92%, transparent);
   --credit-sweep   : 1050ms;
@@ -158,6 +160,15 @@
     clip-path  : inset(0 0 0 0 round 4px);
     visibility : visible;
     transition : clip-path var(--credit-run) var(--credit-ease), visibility 0s;
+  }
+}
+
+.credit-covered {
+  transition: visibility 0s;
+
+  &[inert] {
+    visibility : hidden;
+    transition : visibility 0s linear var(--credit-run);
   }
 }
 
@@ -474,7 +485,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .credit :is(.credit-wash, .credit-plate, .credit-panel, .credit-panel *),
-  .credit .credit-veil::before {
+  .credit .credit-veil::before,
+  .credit-covered {
     transition: none !important;
   }
 }

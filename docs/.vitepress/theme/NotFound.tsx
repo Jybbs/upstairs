@@ -88,7 +88,8 @@ const Strip = defineComponent(
  * Sets the not-found page beside the map above a spot with no pass over it,
  * its ring a toggle calling one pass over the spot and its numeral a toggle
  * gathering the sky into 404, the catalog loading only once the numeral is
- * pressed.
+ * pressed. On a phone, the strip under the credit's open band is hidden and
+ * inert.
  */
 export default defineComponent(
   () => {
@@ -103,6 +104,7 @@ export default defineComponent(
     const seat     = shallowRef({ height: 0, top: 0 })
     const strip    = ref<HTMLElement>()
     const words    = ref<HTMLElement>()
+    const credit   = shallowRef({ open: ref(false) })
 
     const { isDark } = useData()
     const mounted    = useMounted()
@@ -110,6 +112,7 @@ export default defineComponent(
     const motion     = usePreferredReducedMotion()
     const reduced    = computed(() => motion.value === 'reduce')
     const scheme     = computed(() => SCHEMES[isDark.value ? 'night' : 'day'])
+    const covered    = computed(() => phone.value && credit.value.open.value)
 
     let vacant: VacantSky | undefined
 
@@ -225,6 +228,7 @@ export default defineComponent(
 
     onMounted(() => {
       address.value = location.host + location.pathname
+      void loadSky().then(({ sky }) => { credit.value = sky.credit })
       vacant        = new VacantSky(canvas.value!)
       restyle()
       layout()
@@ -294,8 +298,9 @@ export default defineComponent(
           </div>
           <div
             ref={strip}
-            class="md:absolute md:inset-x-0 md:bottom-0 md:z-10 md:border-t md:border-rule md:bg-panel/95
-                   md:px-6 md:py-4 lg:static lg:mt-auto lg:border-0 lg:bg-transparent lg:p-0"
+            inert={covered.value}
+            class="credit-covered md:absolute md:inset-x-0 md:bottom-0 md:z-10 md:border-t md:border-rule
+                   md:bg-panel/95 md:px-6 md:py-4 lg:static lg:mt-auto lg:border-0 lg:bg-transparent lg:p-0"
           >
             <div class="relative flex items-center gap-2 sm:-mr-4 sm:pr-4">
               <Strip class="min-w-0 flex-1" crossed={crossed.value} />
