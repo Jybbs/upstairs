@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi }       from 'vitest'
-import { ref }                  from 'vue'
+import { type Component, ref, shallowRef } from 'vue'
 
-import { freshSky }   from '../common/sky.ts'
-import { stubCanvas } from '../common/stubs.ts'
+import { freshSky }           from '../common/sky.ts'
+import { stubCanvas, stubOf } from '../common/stubs.ts'
 
 const BELOW   = { bottom: 900, left: 0, right: 400, top: 600 }
 const MAP     = { bottom: 600, left: 0, right: 400, top: 0 }
@@ -14,6 +14,7 @@ const RING    = '[aria-label="Wait at the spot for a pass"]'
 const page = vi.hoisted(() => ({
   frame   : (() => {}) as (moved: { delta: number }) => void,
   motion  : 'no-preference',
+  phone   : false,
   resized : () => {},
   strip   : { bottom: 900, left: 0, right: 400, top: 600 }
 }))
@@ -21,12 +22,26 @@ const page = vi.hoisted(() => ({
 vi.mock('vitepress', async () => {
   const { h } = await import('vue')
   return {
-    defineClientComponent : () => ({ setup: () => () => h('div', { 'data-map': '' }) }),
+    defineClientComponent : (load: () => Promise<{ default: Component }>) => ({
+      setup: () => {
+        const loaded = shallowRef<Component>()
+        void load().then(module => { loaded.value = module.default })
+        return () => loaded.value && h(loaded.value)
+      }
+    }),
     useData               : () => ({ isDark: ref(false) })
   }
 })
 
+vi.mock('../../theme/SkyMap.tsx', async () => {
+  const { h } = await import('vue')
+  return { default: { render: () => h('div', { 'data-map': '' }) } }
+})
+vi.mock('../../theme/Credit.tsx', () => stubOf('Credit'))
+vi.mock('../../lib/site/phone.ts', () => ({ usePhone: () => ref(page.phone) }))
+
 vi.mock('@vueuse/core', () => ({
+  useMounted                : () => ref(true),
   usePreferredReducedMotion : () => ref(page.motion),
   useRafFn                  : (frame: typeof page.frame) => {
     page.frame = frame
@@ -38,18 +53,19 @@ vi.mock('@vueuse/core', () => ({
 /**
  * Mounts the not-found page over a fresh copy of the shared state and a
  * stand-in worker, its map 400 by 600 pixels with the panel below it and the
- * strip at `strip`, on a device reducing motion where `reduced` is set,
- * returning the messages the worker is posted.
+ * strip at `strip`, on a device reducing motion where `reduced` is set and on
+ * a phone where `phone` is, returning the messages the worker is posted.
  */
-const mounted = async (reduced = false, strip = BELOW) => {
+const mounted = async (reduced = false, strip = BELOW, phone = false) => {
   page.motion = reduced ? 'reduce' : 'no-preference'
+  page.phone  = phone
   page.strip  = strip
   stubCanvas()
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600)
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400)
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
     if (this.querySelector('canvas')) return MAP as DOMRect
-    return (this.firstElementChild?.tagName === 'SECTION' ? page.strip : BELOW) as DOMRect
+    return (this.querySelector(':scope > div > section') ? page.strip : BELOW) as DOMRect
   })
   const { component: NotFound, sky } = await freshSky(() => import('../../theme/NotFound.tsx'))
   const posted                       = vi.spyOn(Worker.prototype, 'postMessage')
@@ -173,9 +189,15 @@ it('names the address that holds no page, then reaches the way back, the numeral
 })
 
 it.each([
-  ['below the map', BELOW, 0],
-  ['across the map’s foot', { bottom: 600, left: 0, right: 400, top: 520 }, 80]
-])('lifts the map’s credit above a strip %s by %i px', async (_, strip, covered) => {
-  const { wrapper } = await mounted(false, strip)
-  expect(wrapper.get('[style*="--covered"]').attributes('style')).toContain(`--covered: ${covered}px`)
+  ['at the strip’s end wider than a phone', false, '[aria-label="The hour at this address"]', undefined],
+  ['over the strip in the pane below the map on a phone', true, 'span',
+    { '--credit-height': '120px', '--credit-top': '480px' }]
+])('draws the map’s credit %s', async (_, phone, beside, style) => {
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(120)
+  vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockReturnValue(480)
+  const { wrapper } = await mounted(false, BELOW, phone)
+  const credits     = wrapper.findAllComponents({ name: 'Credit' })
+  const [credit]    = credits
+  expect([credits.length, credit!.element.parentElement!.querySelector(`:scope > ${beside}`) !== null,
+    credit!.vm.$attrs.style]).toEqual([1, true, style])
 })

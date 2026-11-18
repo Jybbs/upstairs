@@ -1,12 +1,15 @@
-import { usePreferredReducedMotion, useRafFn, useResizeObserver } from '@vueuse/core'
-import * as toggle                                               from '@zag-js/toggle'
-import { normalizeProps, useMachine }                            from '@zag-js/vue'
-import { defineClientComponent, useData }                        from 'vitepress'
+import { useMounted, usePreferredReducedMotion, useRafFn, useResizeObserver } from '@vueuse/core'
+import * as toggle                                                           from '@zag-js/toggle'
+import { normalizeProps, useMachine }                                        from '@zag-js/vue'
+import { defineClientComponent, useData }                                    from 'vitepress'
 import { type Ref, computed, defineComponent, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import { VacantSky, roomOf } from '../lib/map/vacant.ts'
 import { SCHEMES, kindColor } from '../lib/site/palette.ts'
+import { usePhone }           from '../lib/site/phone.ts'
 import Readings               from './Readings.tsx'
+
+const Credit = defineComponent(defineClientComponent(() => import('./Credit.tsx')).setup)
 
 const SkyMap = defineComponent<{ backdrop: boolean, live: boolean }>(
   defineClientComponent(() => import('./SkyMap.tsx')).setup
@@ -92,15 +95,18 @@ export default defineComponent(
     const address  = ref('')
     const called   = ref(false)
     const canvas   = ref<HTMLCanvasElement>()
-    const covered  = ref(0)
     const crossed  = ref(false)
     const gathered = ref(false)
     const pane     = ref<HTMLElement>()
     const panel    = ref<HTMLElement>()
     const ring     = shallowRef({ radius: 0, x: 0, y: 0 })
+    const seat     = shallowRef({ height: 0, top: 0 })
     const strip    = ref<HTMLElement>()
+    const words    = ref<HTMLElement>()
 
     const { isDark } = useData()
+    const mounted    = useMounted()
+    const phone      = usePhone()
     const motion     = usePreferredReducedMotion()
     const reduced    = computed(() => motion.value === 'reduce')
     const scheme     = computed(() => SCHEMES[isDark.value ? 'night' : 'day'])
@@ -128,16 +134,16 @@ export default defineComponent(
     )
 
     /**
-     * Sizes the drawing to the map, sets its ring in the open room, and lifts
-     * the map's credit above whatever covers the map's foot.
+     * Sizes the drawing to the map, sets its ring in the open room, and seats
+     * a phone's credit over the strip.
      */
     const layout = () => {
       if (!vacant) return
       const { clientHeight, clientWidth } = pane.value!
-      const room                          = roomOpen()
-      covered.value                       = clientHeight - room.height
-      vacant.resize(clientWidth, clientHeight, devicePixelRatio, room)
+      const { offsetHeight, offsetTop }   = strip.value!
+      vacant.resize(clientWidth, clientHeight, devicePixelRatio, roomOpen())
       ring.value = { ...vacant.ring }
+      seat.value = { height: offsetHeight, top: offsetTop }
       paint(0)
     }
 
@@ -226,7 +232,7 @@ export default defineComponent(
 
     watch([reduced, scheme], restyle)
 
-    useResizeObserver(pane, () => {
+    useResizeObserver([pane, strip, words], () => {
       layout()
       gather()
     })
@@ -244,7 +250,16 @@ export default defineComponent(
                  lg:border-t-0 lg:border-r lg:px-8 lg:py-10"
         >
           <span class="mx-auto h-1 w-9 rounded-full bg-dim md:hidden" aria-hidden="true" />
+          {mounted.value && phone.value && (
+            <Credit
+              style={{
+                '--credit-height' : `${seat.value.height}px`,
+                '--credit-top'    : `${seat.value.top}px`
+              }}
+            />
+          )}
           <div
+            ref={words}
             class="grid justify-items-start gap-2.5 md:order-first md:grid-cols-[auto_minmax(0,1fr)]
                    md:items-center md:gap-x-10 md:border-b md:border-rule md:bg-panel md:px-6 md:py-6
                    lg:grid-cols-1 lg:items-stretch lg:gap-y-6 lg:border-0 lg:bg-transparent lg:p-0"
@@ -282,14 +297,16 @@ export default defineComponent(
             class="md:absolute md:inset-x-0 md:bottom-0 md:z-10 md:border-t md:border-rule md:bg-panel/95
                    md:px-6 md:py-4 lg:static lg:mt-auto lg:border-0 lg:bg-transparent lg:p-0"
           >
-            <Strip crossed={crossed.value} />
+            <div class="relative flex items-center gap-2 sm:-mr-4 sm:pr-4">
+              <Strip class="min-w-0 flex-1" crossed={crossed.value} />
+              {mounted.value && !phone.value && <Credit />}
+            </div>
           </div>
         </div>
         <div
           ref={pane}
           class="relative h-[46vh] min-h-[300px] max-md:order-first md:h-auto md:min-h-[440px] md:flex-1
-                 lg:col-start-2 lg:row-start-1 [&_.maplibregl-ctrl-bottom-right]:bottom-(--covered)!"
-          style={{ '--covered': `${covered.value}px` }}
+                 lg:col-start-2 lg:row-start-1"
         >
           {ring.value.radius > 0 && (
             <button
