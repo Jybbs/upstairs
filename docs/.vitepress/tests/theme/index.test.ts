@@ -36,9 +36,10 @@ it('follows the footnotes of the document once the app mounts', () => {
   expect(followFootnotes).toHaveBeenCalledWith(document)
 })
 
-it('fills the not-found slot of the layout with the page sending a reader back to the map', () => {
+it('fills the not-found slot of the layout with the page sending a reader back to the map', async () => {
   stubCanvas()
   const wrapper = slotOf('not-found')
+  await vi.dynamicImportSettled()
   expect(wrapper.get('h1').text()).toBe('404')
   expect(wrapper.get('a').attributes('href')).toBe('/')
 })
