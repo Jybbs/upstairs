@@ -112,12 +112,14 @@ describe('the worker', () => {
 
   it('runs the refresher at the time of a request to the run path carrying the token', async () => {
     const refresher = { run: vi.fn(async () => 'early') }
-    const env       = { REFRESHER: { getByName: () => refresher }, [SECRET]: 'held' }
+    const getByName = vi.fn(() => refresher)
+    const env       = { REFRESHER: { getByName }, [SECRET]: 'held' }
     const request   = new Request(RUN_ADDRESS, { headers: { authorization: 'Bearer held' }, method: 'POST' })
     vi.spyOn(Date, 'now').mockReturnValue(7)
     const response = await service.fetch(request as never, env as never, {} as never)
     expect(await response.json()).toBe('early')
     expect(refresher.run).toHaveBeenCalledExactlyOnceWith(7)
+    expect(getByName).toHaveBeenCalledExactlyOnceWith('catalog')
   })
 
   it('answers a request to the run path without the token as it answers any other path', async () => {
