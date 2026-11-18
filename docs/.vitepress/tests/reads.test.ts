@@ -91,6 +91,7 @@ describe('the reads plugin', () => {
       .forEach(([key, value]) => vi.stubEnv(key, value))
     const before = gitConfig()
     const findChangedFiles = async () => {
+      await Promise.resolve()
       seen.push(gitConfig())
       return []
     }
