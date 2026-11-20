@@ -124,7 +124,9 @@ describe('Repository', () => {
 
   it.each([
     READY, `\${{ ${READY} }}`, `always() && ${READY}`, `\${{ always() && ${READY} }}`,
-    `(${MAIN} || always()) && ${READY}`
+    `\${{ always() &&\n  ${READY} }}`, `(${MAIN} || always()) && ${READY}`,
+    `(success() || failure() || cancelled()) && ${READY}`,
+    `inputs.a == vars.b && needs.c.result == 'success' && ${READY}`
   ])(
     'reports nothing for a pull_request job under %s',
     condition =>

@@ -74,7 +74,7 @@ export const FILES = {
   warm     : '.github/workflows/warm.yml'
 }
 const EXACT         = /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/
-const EXPRESSION    = /^\$\{\{ (.*) \}\}$/
+const EXPRESSION    = /^\$\{\{ (.*) \}\}$/s
 const FRONTMATTER   = /^---\n([\s\S]*?)\n---\n/
 const KEYS          = 'color, description, name'
 const LABEL_GAP     = 15
@@ -146,13 +146,6 @@ const jobsOf = (workflows: Workflow[]) => workflows
   .flatMap(workflow => Object.values(workflow.jobs).map(job => ({ job, path: workflow.path })))
 
 /**
- * The parse tree of `expr` without the source positions of its tokens, so two
- * trees read from different text compare equal where they hold the same
- * expression.
- */
-const shapeOf = (expr: unknown) => JSON.stringify(expr, (key, value) => key === 'range' ? undefined : value)
-
-/**
  * Lists each package and the version `manifest` sets it to, across every
  * `PINNED` section the manifest holds.
  */
@@ -173,6 +166,12 @@ const provisionsOf = (job: Job) => (job.steps ?? [])
       .map(tools => ({ ...inputs, tools })))
 
 const rowsOf = (job: Job) => job.strategy?.matrix?.include ?? []
+
+/**
+ * The parse tree of `expr` without the source positions of its tokens, so two
+ * trees read from text that differs only in its spacing compare equal.
+ */
+const shapeOf = (expr: unknown) => JSON.stringify(expr, (key, value) => key === 'range' ? undefined : value)
 
 /**
  * Parses the JSON, TOML, or YAML file at `path`, or the frontmatter of the
