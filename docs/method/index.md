@@ -44,7 +44,7 @@ The drawing samples the space station's pass over {{ home }} that climbs past {{
 
 ## Accuracy
 
-Each position comes from an orbit fitted hours or days earlier and shifts once a satellite maneuvers. Kelso (2007)[^kelso2007] compared SGP4 against the precise orbits of the GPS satellites and found each one kilometers from where it was, mostly along its track. The error differed from one satellite to the next, was not smallest at the time the orbit was fitted, and grew as the prediction ran on from that time. The map marks that error with a dotted ring around the chosen satellite, as [The Map](/guide/#the-map) in the Guide sets out, and draws no satellite once the catalog was fetched more than {{ ageLimit }} days before the time the strip shows.
+Each position comes from an orbit fitted hours or days earlier and shifts once a satellite maneuvers. Kelso (2007)[^kelso2007] compared SGP4 against the precise orbits of the GPS satellites and found each one kilometers from where it was, mostly along its track. The error differed from one satellite to the next, was not smallest at the time the orbit was fitted, and grew as the prediction ran on from that time. The map marks that error with a dotted ring around the chosen satellite, as [The Map](/guide/#the-map) in the Guide sets out. The catalog keeps only the orbits fitted in the {{ ageLimit }} days before it was fetched, and the map draws no satellite once the catalog is older than that at the time the strip shows.
 
 The drawing counts the element sets in the catalog at each age on an axis that stretches out the first day, shading each band of ages and topping it with the ring the map draws around a satellite of that age. Pointing at a column reads its ages and its share of the catalog.
 

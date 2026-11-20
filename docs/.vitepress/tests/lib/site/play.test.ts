@@ -42,7 +42,7 @@ it('takes each step in turn once the drawing comes into view, then stops', async
   expect(taken).toEqual([2, 0, 1])
 })
 
-it.each(['pointerdown', 'keydown'])('stops at a %s on the drawing', async type => {
+it.each(['pointerdown', 'pointermove', 'keydown'])('stops at a %s on the drawing', async type => {
   const { taken, wrapper } = await played()
   view()
   await vi.advanceTimersByTimeAsync(150)

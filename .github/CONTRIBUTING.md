@@ -9,7 +9,7 @@
 3. Run `mise run site:install`, which installs the packages `docs/bun.lock` resolves with their install scripts off
 4. Run `mise serve` to serve the site locally
 
-The site reads the satellite catalog from `docs/public/catalog.bin`, which `mise run catalog` writes from the elements [Space-Track](https://www.space-track.org/) serves and the satellite catalog [CelesTrak](https://celestrak.org/) keeps, known as SATCAT. Space-Track asks for its elements at most once an hour and CelesTrak for one download per update, so the task runs only when the catalog itself has to move, reading the Space-Track login [The Catalog Service](#the-catalog-service) sets up.
+The site reads the satellite catalog from `docs/public/catalog.bin`, which `mise run catalog` writes from the elements [Space-Track](https://www.space-track.org/) serves and the satellite catalog [CelesTrak](https://celestrak.org/) keeps, known as SATCAT. Space-Track asks for its elements at most once an hour and CelesTrak for one download per update, so the task runs only when the catalog itself has to move, reading the Space-Track login `mise run catalog:login` saves, per [The Catalog Service](#the-catalog-service).
 
 ## Tasks
 

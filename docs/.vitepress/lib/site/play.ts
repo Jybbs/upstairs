@@ -9,8 +9,8 @@ import type { MaybeRefOrGetter } from 'vue'
 /**
  * Plays a drawing once `frame` first stands mostly in view, moving it through
  * `steps` in turn, `every` milliseconds apart, until the last step or until
- * the reader presses or types on the drawing. A device set to reduce motion
- * plays nothing, leaving the drawing where it opened.
+ * the reader points at, presses, or types on the drawing. A device set to
+ * reduce motion plays nothing, leaving the drawing where it opened.
  *
  * Args:
  *   frame : The drawing's element, left empty until the drawing has its values.
@@ -38,5 +38,5 @@ export const usePlay = (
     queue = steps()[Symbol.iterator]()
     play.resume()
   }, { threshold: 0.6 })
-  useEventListener(frame, ['keydown', 'pointerdown'], play.pause)
+  useEventListener(frame, ['keydown', 'pointerdown', 'pointermove'], play.pause)
 }

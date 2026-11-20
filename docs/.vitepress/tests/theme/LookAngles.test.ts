@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi }     from 'vitest'
 
 import { LOOK_STEP }                                   from '../../lib/orbit/looks.ts'
 import { CLOCK }                                       from '../../lib/state/clock.ts'
+import { titleOf }                                     from '../../lib/state/drawings.ts'
 import LookAngles                                      from '../../theme/LookAngles.tsx'
 import { drawingsOf }                                  from '../common/drawings.ts'
 import { observeWidth, readingsOf, statesEachFailure } from '../common/drawn.ts'
@@ -34,7 +35,7 @@ describe('the look angles', () => {
   it('names the station, the home spot, and the time its pass rises above the drawing', async () => {
     const wrapper = mount(LookAngles)
     await flushPromises()
-    expect(wrapper.get('figure > div').text()).toMatch(/^ISS \(ZARYA\) over Boston, /)
+    expect(wrapper.get('figure > div').text()).toBe(titleOf(drawings, 'highest'))
   })
 
   it('plays the pass from rise to set once the drawing comes into view', async () => {

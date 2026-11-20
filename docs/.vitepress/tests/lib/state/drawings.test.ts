@@ -56,13 +56,14 @@ describe('the drawings read from the catalog', () => {
 })
 
 describe('the line naming a drawing’s pass', () => {
-  it('names the station, the home spot, and the time its pass rises', () =>
-    expect(titleOf(expected, 'highest'))
+  it.each(['highest', 'scanned'] as const)(
+    'names the station, the home spot, and the time the %s pass rises',
+    watched => expect(titleOf(expected, watched))
       .toBe(`ISS (ZARYA) over Boston, ${new Intl.DateTimeFormat([], {
         day          : 'numeric',
         hour         : 'numeric',
         minute       : '2-digit',
         month        : 'short',
         timeZoneName : 'short'
-      }).format(expected.highest.pass.riseAt)}`))
+      }).format(expected[watched].pass.riseAt)}`))
 })

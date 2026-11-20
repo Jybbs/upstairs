@@ -48,7 +48,7 @@ mise run catalog
 mise serve
 ```
 
-`mise run catalog` reads the Space-Track login that [The Catalog Service](CONTRIBUTING.md#the-catalog-service) in CONTRIBUTING.md sets up.
+`mise run catalog` reads the Space-Track login `mise run catalog:login` saves, which [The Catalog Service](CONTRIBUTING.md#the-catalog-service) in CONTRIBUTING.md sets out.
 
 ---
 

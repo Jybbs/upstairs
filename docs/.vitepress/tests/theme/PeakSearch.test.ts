@@ -3,6 +3,7 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi }     from 'vitest'
 
 import { TRACK_STEP }     from '../../lib/orbit/scan.ts'
+import { titleOf }        from '../../lib/state/drawings.ts'
 import PeakSearch         from '../../theme/PeakSearch.tsx'
 import { drawingsOf }     from '../common/drawings.ts'
 import { WIDTH, movesOnEachKey, observeWidth, readingsOf, statesEachFailure } from '../common/drawn.ts'
@@ -21,6 +22,12 @@ describe('the peak search', () => {
   const x = (stop: number) => 16 + stop / 9 * (WIDTH - 32)
 
   stubMatchMedia(() => true)
+
+  it('names the station, the home spot, and the time its pass rises above the drawing', async () => {
+    const wrapper = mount(PeakSearch)
+    await flushPromises()
+    expect(wrapper.get('figure > div').text()).toContain(titleOf(drawings, 'scanned'))
+  })
 
   it.each([
     ['opens on a sample every track step', [], `${TRACK_STEP} S`, TRACK_STEP],
