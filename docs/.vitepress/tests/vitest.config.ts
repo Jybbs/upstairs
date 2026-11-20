@@ -26,7 +26,8 @@ const unrenamed = async (find: () => Promise<string[]>): Promise<string[]> => {
   try {
     return await find()
   } finally {
-    before.forEach(([key, value]) => value === undefined ? Reflect.deleteProperty(env, key) : (env[key] = value))
+    before.forEach(([key, value]) =>
+      value === undefined ? Reflect.deleteProperty(env, key) : (env[key] = value))
   }
 }
 
@@ -62,6 +63,7 @@ export default defineConfig({
     forceRerunTriggers : [...configDefaults.forceRerunTriggers, ...triggers],
     include            : ['.vitepress/tests/**/*.test.ts'],
     setupFiles         : ['.vitepress/tests/common/held.ts'],
+    tags               : [{ description: 'A case taking more than a second when run alone', name: 'slow' }],
     testTimeout        : 30_000,
     coverage           : {
       include          : ['.vitepress/{catalog,preview,lib,theme,tools}/**/*.{ts,tsx}'],

@@ -1,9 +1,9 @@
-import { mkdtempDisposable } from 'node:fs/promises'
-import { tmpdir }            from 'node:os'
-import { join }              from 'node:path'
+import { cp, mkdtempDisposable } from 'node:fs/promises'
+import { tmpdir }                from 'node:os'
+import { join }                  from 'node:path'
 
-import { $ }                      from 'bun'
-import { describe, expect, test } from 'vitest'
+import { $ }                         from 'bun'
+import { beforeAll, describe, test } from 'vitest'
 
 import { type Env, STAND_IN_PATH, type TaskRun, linesOf, runTask } from '../common/tasks.ts'
 
@@ -55,6 +55,15 @@ class Repo {
       PATH                : STAND_IN_PATH,
       STAND_IN_CALLS      : join(dir, 'calls')
     }
+  }
+
+  /**
+   * A copy in `dir` of the repository `seed` holds.
+   */
+  static async copied(seed: Repo, dir: string): Promise<Repo> {
+    const repo = new Repo(dir)
+    await cp(seed.root, repo.root, { recursive: true })
+    return repo
   }
 
   static async seeded(dir: string): Promise<Repo> {
@@ -118,10 +127,18 @@ class Repo {
   }
 }
 
+let seed: Repo
+
+beforeAll(async () => {
+  const scratch = await mkdtempDisposable(join(tmpdir(), 'upstairs-check-'))
+  seed          = await Repo.seeded(scratch.path)
+  return () => scratch.remove()
+})
+
 const it = test.extend('repo', async ({ onTestFinished }) => {
   const scratch = await mkdtempDisposable(join(tmpdir(), 'upstairs-check-'))
   onTestFinished(() => scratch.remove())
-  return Repo.seeded(scratch.path)
+  return Repo.copied(seed, scratch.path)
 })
 
 /**
@@ -168,29 +185,34 @@ const staged = (path: string): Change => async repo => {
   await repo.git('add', path)
 }
 
-describe('runTask', () => {
-  it('refuses a task file the running test declares no read of in READS', () =>
+describe.concurrent('runTask', () => {
+  it('refuses a task file the running test declares no read of in READS', ({ expect }) =>
     expect(runTask('site/serve', tmpdir(), { STAND_IN_CALLS: join(tmpdir(), 'calls') }))
       .rejects.toThrow('check.test.ts runs .mise/tasks/site/serve, which READS gives it no glob for'))
 })
 
-describe('site:check', () => {
-  it('calls site:lint, site:typecheck, site:affected, and crate:affected in one mise run', async ({ repo }) =>
-    expect((await repo.run('site/check')).calls).toEqual([CHECKED]))
+describe.concurrent('site:check', () => {
+  it(
+    'calls site:lint, site:typecheck, site:affected, and crate:affected in one mise run',
+    async ({ expect, repo }) => expect((await repo.run('site/check')).calls).toEqual([CHECKED])
+  )
 
   it.for<[string, Change, string]>([
     ['an edit', edit('README.md'), 'README.md'],
     ['a new file', edit('docs/new.md'), 'docs/new.md'],
     ['a staged change', staged('rust/src/lib.rs'), 'rust/src/lib.rs']
-  ])('records the tree holding %s, leaving the index as it found it', async ([, change, path], { repo }) => {
-    await change(repo)
-    const index = await repo.index()
-    await repo.run('site/check')
-    const [tree] = await repo.passed()
-    expect([await repo.git('show', `${tree}:${path}`), await repo.index()]).toEqual(['edited\n', index])
-  })
+  ])(
+    'records the tree holding %s, leaving the index as it found it',
+    async ([, change, path], { expect, repo }) => {
+      await change(repo)
+      const index = await repo.index()
+      await repo.run('site/check')
+      const [tree] = await repo.passed()
+      expect([await repo.git('show', `${tree}:${path}`), await repo.index()]).toEqual(['edited\n', index])
+    }
+  )
 
-  it('records nothing for a run whose tasks fail, exiting with their status', async ({ repo }) => {
+  it('records nothing for a run whose tasks fail, exiting with their status', async ({ expect, repo }) => {
     const run = await repo.run('site/check', [], 3)
     expect([run.code, await repo.passed()]).toEqual([3, []])
   })
@@ -198,7 +220,7 @@ describe('site:check', () => {
   it.for<[string, Change, string[][]]>([
     ['calls no task over the tree a passing run recorded', edit(), []],
     ['calls every task again once an edit leaves that tree', edit('README.md'), [CHECKED]]
-  ])('%s', async ([, change, calls], { repo }) => {
+  ])('%s', async ([, change, calls], { expect, repo }) => {
     const passing = await repo.run('site/check')
     await change(repo)
     const again = await repo.run('site/check')
@@ -206,19 +228,19 @@ describe('site:check', () => {
   })
 })
 
-describe('site:affected', () => {
+describe.concurrent('site:affected', () => {
   it.for<[string, string[]]>([
     ['no further arguments', []],
     ['a case file and --bail 1', ['tests/tools/check.test.ts', '--bail', '1']]
   ])(
     'runs the suite with --changed origin/main given %s',
-    async ([, args], { repo }) =>
+    async ([, args], { expect, repo }) =>
       expect((await repo.run('site/affected', args)).calls)
         .toEqual([['run', '--skip-deps', 'site:test', '--changed', 'origin/main', ...args]])
   )
 })
 
-describe('crate:affected', () => {
+describe.concurrent('crate:affected', () => {
   it.for<[string, Change, boolean]>([
     ['a commit under rust/', committed(edit('rust/src/lib.rs')), true],
     ['an uncommitted edit under rust/', edit('rust/src/lib.rs'), true],
@@ -250,7 +272,7 @@ describe('crate:affected', () => {
       pinned(advanced(rewritten(CONFIG, '1.91.0', '1.92.0'))),
       false
     ]
-  ])('runs the crate tests or prints its skip line given %s', async ([, change, runs], { repo }) => {
+  ])('runs the crate tests or prints its skip line given %s', async ([, change, runs], { expect, repo }) => {
     await change(repo)
     const run = await repo.run('crate/affected')
     expect([run.calls.filter(([command]) => command === 'run'), run.stdout])
@@ -258,7 +280,7 @@ describe('crate:affected', () => {
   })
 })
 
-describe('site:typecheck', () => {
+describe.concurrent('site:typecheck', () => {
   it.for<[number, number, number]>([
     [0, 0, 0],
     [2, 2, 0],
@@ -266,7 +288,7 @@ describe('site:typecheck', () => {
     [1, 2, 1]
   ])(
     'runs tsc on the catalog service after vue-tsc on the site, exiting %i where they exit %i and %i',
-    async ([code, ...exits], { repo }) =>
+    async ([code, ...exits], { expect, repo }) =>
       expect(await repo.run('site/typecheck', [], exits)).toMatchObject({ calls: TYPED, code })
   )
 })

@@ -1,17 +1,17 @@
-import { computed, reactive, ref, shallowRef } from 'vue'
+import { computed, reactive, ref, shallowRef }            from 'vue'
 
-import { Credit }                         from '../map/credit.ts'
-import type { Room }                      from '../map/numeral.ts'
-import * as catalog                       from '../orbit/catalog.ts'
-import * as kinds                         from '../orbit/kinds.ts'
-import { minuteOf, type Pass, type Spot } from '../orbit/scan.ts'
-import type { Answer, Asked }             from '../orbit/worker.ts'
-import { clamp }                          from '../site/motion.ts'
-import { footholdsOf }                    from '../site/ridges.ts'
-import * as address                       from './address.ts'
-import { CLOCK }                          from './clock.ts'
-import { Tracks }                         from './tracks.ts'
-import { type Stage, momentOf }           from './words.ts'
+import { Credit }                                         from '../map/credit.ts'
+import type { Room }                                      from '../map/numeral.ts'
+import * as catalog                                       from '../orbit/catalog.ts'
+import * as kinds                                         from '../orbit/kinds.ts'
+import { minuteOf, type Pass, type Satellite, type Spot } from '../orbit/scan.ts'
+import type { Answer, Asked }                             from '../orbit/worker.ts'
+import { clamp }                                          from '../site/motion.ts'
+import { footholdsOf }                                    from '../site/ridges.ts'
+import * as address                                       from './address.ts'
+import { CLOCK }                                          from './clock.ts'
+import { Tracks }                                         from './tracks.ts'
+import { type Stage, momentOf }                           from './words.ts'
 
 /**
  * What the clock does: follow the present, run the rest of the hour at
@@ -169,6 +169,11 @@ class Sky {
    */
   readonly spoken   = ref('')
 
+  /**
+   * Every satellite of the catalog loaded so far, in the order of its rows.
+   */
+  readonly satellites = shallowRef<readonly Satellite[]>([])
+
   private aboveKinds                 = new Uint16Array(kinds.kindOrder.length)
   private counts: Uint16Array | null = null
   private countStep                  = 120
@@ -271,9 +276,10 @@ class Sky {
    */
   load() {
     this.clear()
-    this.failed.value = null
-    this.loaded.value = null
-    this.worker     ??= this.started()
+    this.failed.value     = null
+    this.loaded.value     = null
+    this.satellites.value = []
+    this.worker         ??= this.started()
     this.ask({ type: 'load', url: `${import.meta.env.BASE_URL}${catalog.FILE}` })
   }
 
@@ -294,7 +300,8 @@ class Sky {
 
   private hear(answer: Answer) {
     if (answer.type === 'loaded') {
-      this.loaded.value = { count: answer.count, fetched: answer.fetched }
+      this.loaded.value     = { count: answer.count, fetched: answer.fetched }
+      this.satellites.value = [...this.satellites.value, ...answer.satellites]
       this.scan()
     } else if (answer.type === 'failed') {
       this.failed.value = answer.reason

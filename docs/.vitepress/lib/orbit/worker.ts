@@ -1,9 +1,9 @@
 /**
  * Runs the pass scan off the page, holding the catalog's propagators in the
  * WebAssembly module and adding each segment of the catalog file as it
- * arrives, a new load dropping the catalog held before. Each scan posts its
- * counts and then its passes in batches, stops once a newer scan arrives, and
- * posts `untraced` where it throws.
+ * arrives, posting the segment's satellites, a new load dropping the catalog
+ * held before. Each scan posts its counts and then its passes in batches,
+ * stops once a newer scan arrives, and posts `untraced` where it throws.
  */
 
 import init, * as orbit                   from '../../../../rust/pkg/orbit.js'
@@ -11,7 +11,7 @@ import { bodyOf, elementsOf, segmentsOf } from './catalog.ts'
 import * as scan                          from './scan.ts'
 
 export type Answer =
-  | { type: 'loaded', count: number, fetched: number }
+  | { type: 'loaded', count: number, fetched: number, satellites: scan.Satellite[] }
   | { type: 'failed', reason: string }
   | { type: 'counts', id: number, counts: Uint16Array, step: number }
   | {
@@ -141,9 +141,10 @@ self.onmessage = async ({ data }: MessageEvent<Asked>) => {
       await ready
       orbits = new orbit.Orbits()
       for await (const { fetched, records } of segmentsOf(body)) {
+        const added = scan.satellitesOf(records)
         orbits.extend(records.map(record => record.EPOCH), elementsOf(records))
-        satellites = [...satellites, ...scan.satellitesOf(records)]
-        post({ count: satellites.length, fetched, type: 'loaded' })
+        satellites = [...satellites, ...added]
+        post({ count: satellites.length, fetched, satellites: added, type: 'loaded' })
       }
     } catch (error) {
       post({ reason: String(error), type: 'failed' })

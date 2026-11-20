@@ -15,6 +15,7 @@ on:
       - .mise/**
       - docs/**
       - rust/**
+    types: [opened, synchronize, reopened, ready_for_review]
 
   push:
     branches : [main]
@@ -29,6 +30,7 @@ concurrency:
 jobs:
   press:
     name            : 📰 Press
+    if              : ${{ !github.event.pull_request.draft }}
     runs-on         : &runner ubuntu-26.04
     timeout-minutes : &timeout 15
 
@@ -64,9 +66,10 @@ jobs:
     runs-on         : *runner
     timeout-minutes : *timeout
     if: >-
-      github.ref == 'refs/heads/main'
+      (github.ref == 'refs/heads/main'
       || (github.event_name == 'pull_request' && github.head_ref != 'main'
-      && github.event.pull_request.head.repo.full_name == github.repository)
+      && github.event.pull_request.head.repo.full_name == github.repository))
+      && !github.event.pull_request.draft
 
     steps:
       - *checkout
@@ -87,7 +90,7 @@ jobs:
 
   catalog:
     name            : 📡 Catalog
-    if              : github.ref == 'refs/heads/main'
+    if              : github.ref == 'refs/heads/main' && !github.event.pull_request.draft
     needs           : *pressed
     runs-on         : *runner
     timeout-minutes : *timeout
@@ -110,7 +113,7 @@ jobs:
 
   logbook:
     name            : 📓 Logbook
-    if              : always()
+    if              : always() && !github.event.pull_request.draft
     needs           : [catalog, press, site]
     permissions     : { actions: read }
     runs-on         : *runner

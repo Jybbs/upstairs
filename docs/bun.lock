@@ -24,6 +24,7 @@
         "vue": "3.5.45",
       },
       "devDependencies": {
+        "@actions/expressions": "0.3.61",
         "@citation-js/core": "0.9.0",
         "@citation-js/plugin-bibtex": "0.9.0",
         "@citation-js/plugin-csl": "0.9.0",
@@ -65,6 +66,8 @@
     "minimatch": "11.0.9",
   },
   "packages": {
+    "@actions/expressions": ["@actions/expressions@0.3.61", "", {}, "sha512-Ig+tXELvTjlqxQAWBQnLNn2dPpNraLMdSnT+vDzDPmJtbNUhIAH/Z9kVT8pZ8UtJi9vUGs8hwHE8JFJmbOnLEA=="],
+
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 
     "@babel/compat-data": ["@babel/compat-data@7.29.7", "", {}, "sha512-locTkQyKvwIEgBzVrn8693ebc97F2U8ZHjbXwDXJ5Fn2TCpNwTlKcaKLkdHop5c/icOFE7qt7Q9JC5hnKNa6Gg=="],

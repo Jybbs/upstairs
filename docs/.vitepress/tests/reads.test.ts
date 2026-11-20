@@ -17,9 +17,9 @@ import { join, relative } from 'node:path'
 import { pathToFileURL }  from 'node:url'
 import { promisify }      from 'node:util'
 
-import { $, Glob }                             from 'bun'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { type CliOptions, createVitest }       from 'vitest/node'
+import { $, Glob }                                        from 'bun'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { type CliOptions, createVitest }                  from 'vitest/node'
 
 import * as gh                                                      from './common/gh.ts'
 import { READS, ROOT, declares, readersOf, readersOfGone, watchedOf } from './common/reads.ts'
@@ -33,18 +33,31 @@ const GH       = join(ROOT, 'docs/.vitepress/tests/common/bin/gh')
 const GONE     = 'docs/.vitepress/tests/gone.test.ts'
 const ORPHAN   = join(ROOT, 'LICENSE')
 const PAGE     = join(ROOT, 'docs/gone/index.md')
-const PAGES    = ['cards', 'markdown', 'sections'].map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
+const PAGES    = ['cards', 'markdown', 'sections']
+  .map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
 const SOURCES  = join(ROOT, 'rust/src')
 const SYNC     = join(ROOT, 'docs/.vitepress/tests/tools/sync.test.ts')
 
-const gitConfig = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('GIT_CONFIG_')))
+const gitConfig = () =>
+  Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('GIT_CONFIG_')))
+
+/**
+ * The folder holding the module cache every selection in the file shares.
+ */
+let cache: string
+
+beforeAll(async () => {
+  const scratch = await promises.mkdtempDisposable(join(tmpdir(), 'upstairs-reads-'))
+  cache         = scratch.path
+  return () => scratch.remove()
+})
 
 const selected = async (options: CliOptions) => {
   const vitest = await createVitest({
-    config        : join(ROOT, 'docs/.vitepress/tests/vitest.config.ts'),
-    fsModuleCache : false,
-    root          : join(ROOT, 'docs'),
-    watch         : false,
+    config            : join(ROOT, 'docs/.vitepress/tests/vitest.config.ts'),
+    fsModuleCachePath : cache,
+    root              : join(ROOT, 'docs'),
+    watch             : false,
     ...options
   })
   try {
@@ -118,16 +131,27 @@ describe('the reads plugin', () => {
       return []
     }
     await selected({ changed: true, experimental: { vcsProvider: { findChangedFiles } } })
-    expect(seen).toEqual([{ ...before, GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_1: 'diff.renames', GIT_CONFIG_VALUE_1: 'false' }])
+    expect(seen).toEqual([{
+      ...before,
+      GIT_CONFIG_COUNT   : '2',
+      GIT_CONFIG_KEY_1   : 'diff.renames',
+      GIT_CONFIG_VALUE_1 : 'false'
+    }])
     expect(gitConfig()).toEqual(before)
   })
 
-  it('selects the tests reading a changed file they never import', async () =>
+  it('selects the tests reading a changed file they never import', { tags: ['slow'] }, async () =>
     expect(await selected({ related: [GH] })).toEqual([CHECKS, SYNC]))
 
-  it('selects the tests reading a deleted file and the checks of READS, beside the changed files', async () =>
-    expect(await selected({ changed: true, experimental: { vcsProvider: { findChangedFiles: async () => [GH, PAGE] } } }))
-      .toEqual([...PAGES, CHECKS, SYNC].sort()))
+  it(
+    'selects the tests reading a deleted file and the checks of READS, beside the changed files',
+    { tags: ['slow'] },
+    async () => {
+      const findChangedFiles = async () => [GH, PAGE]
+      expect(await selected({ changed: true, experimental: { vcsProvider: { findChangedFiles } } }))
+        .toEqual([...PAGES, CHECKS, SYNC].sort())
+    }
+  )
 })
 
 describe('the read check', () => {

@@ -1,6 +1,9 @@
 import { $, Glob, TOML, YAML }              from 'bun'
 import { basename, dirname, extname, join } from 'node:path'
 
+import { Lexer, Parser }       from '@actions/expressions'
+import { Logical }             from '@actions/expressions/ast'
+import { TokenType }           from '@actions/expressions/lexer'
 import { differenceEuclidean } from 'culori'
 
 interface Category {
@@ -51,7 +54,7 @@ interface Template {
 
 export interface Workflow {
   jobs : Record<string, Job>
-  on   : Record<string, Record<string, unknown> | null>
+  on   : Record<string, (Record<string, unknown> & { types?: string[] }) | null>
   path : string
 }
 
@@ -71,6 +74,7 @@ export const FILES = {
   warm     : '.github/workflows/warm.yml'
 }
 const EXACT         = /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/
+const EXPRESSION    = /^\$\{\{ (.*) \}\}$/s
 const FRONTMATTER   = /^---\n([\s\S]*?)\n---\n/
 const KEYS          = 'color, description, name'
 const LABEL_GAP     = 15
@@ -80,9 +84,13 @@ const MATRIX_TOOLS  = '${{ matrix.tools }}'
 const PIN           = /^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/
 const PINNED        = ['dependencies', 'devDependencies', 'overrides'] as const
 const PROVISION     = '/.github/actions/provision'
+const READY         = '!github.event.pull_request.draft'
+const READY_TYPE    = 'ready_for_review'
 const ROW_KEYS      = new Set(['name', 'task', 'tools'])
 const TASK_RUN      = /\bmise run (\w[\w:-]*)/g
 const colorDistance = differenceEuclidean('oklab')
+const statuses      = ['always', 'cancelled', 'failure', 'success']
+  .map(name => ({ maxArgs: 0, minArgs: 0, name }))
 /**
  * The one condition each job that publishes runs under, by the workflow holding
  * it and the job's name.
@@ -90,9 +98,9 @@ const colorDistance = differenceEuclidean('oklab')
 const GUARDS = {
   '.github/workflows/draft.yml'  : { '🏷️ Cut': MAIN },
   '.github/workflows/deploy.yml' : {
-    '🌐 Site'    : `${MAIN} || (github.event_name == 'pull_request' && github.head_ref != 'main' `
-                 + '&& github.event.pull_request.head.repo.full_name == github.repository)',
-    '📡 Catalog' : MAIN
+    '🌐 Site'    : `(${MAIN} || (github.event_name == 'pull_request' && github.head_ref != 'main' `
+                 + `&& github.event.pull_request.head.repo.full_name == github.repository)) && ${READY}`,
+    '📡 Catalog' : `${MAIN} && ${READY}`
   }
 }
 /**
@@ -104,6 +112,29 @@ const PARSERS = {
   '.md'   : (text: string) => YAML.parse(FRONTMATTER.exec(text)?.[1] ?? '{}'),
   '.toml' : TOML.parse,
   '.yml'  : YAML.parse
+}
+
+/**
+ * Parses `condition`, unwrapped from a `${{ }}` spanning all of it, as GitHub's
+ * expression parser reads a job's `if`, throwing where it cannot.
+ */
+const conditionOf = (condition: string) => new Parser(
+  new Lexer(condition.replace(EXPRESSION, '$1')).lex().tokens, ['github', 'inputs', 'needs', 'vars'], statuses
+).parse()
+
+/**
+ * Whether `condition` is `READY`, or a chain of `&&` whose last operand is
+ * `READY`, where an `||` outside a grouping breaks the chain. A condition that
+ * fails to parse counts as neither.
+ */
+const endsReady = (condition = '') => {
+  try {
+    const tree = conditionOf(condition)
+    const last = tree instanceof Logical && tree.operator.type === TokenType.AND ? tree.args.at(-1) : tree
+    return shapeOf(last) === shapeOf(conditionOf(READY))
+  } catch {
+    return false
+  }
 }
 
 const gatesOf = (workflow: Workflow) => Object.entries(workflow.jobs)
@@ -137,6 +168,12 @@ const provisionsOf = (job: Job) => (job.steps ?? [])
 const rowsOf = (job: Job) => job.strategy?.matrix?.include ?? []
 
 /**
+ * The parse tree of `expr` without the source positions of its tokens, so two
+ * trees read from text that differs only in its spacing compare equal.
+ */
+const shapeOf = (expr: unknown) => JSON.stringify(expr, (key, value) => key === 'range' ? undefined : value)
+
+/**
  * Parses the JSON, TOML, or YAML file at `path`, or the frontmatter of the
  * Markdown file there, choosing the parser by its extension.
  */
@@ -154,8 +191,9 @@ export const wordOf = (name: string) => name.split(' ').at(-1) ?? ''
  * contributor guide, the site's manifest, the workflows and the action
  * manifests, the rulesets, the tasks, and the task the local sweep runs. It
  * reports where two of them disagree, where a label, a package, an action, a
- * matrix row, or a workflow breaks a rule of its own, and where a publishing
- * job is missing or runs under another condition.
+ * matrix row, or a workflow breaks a rule of its own, where a publishing job is
+ * missing or runs under another condition, and where a draft pull request runs
+ * a job.
  */
 export class Repository {
   constructor(
@@ -227,14 +265,17 @@ export class Repository {
    *   version
    * - A matrix row holding a key other than `name`, `task`, and `tools`
    * - A workflow ending on no job that needs every other job
+   * - A workflow a `pull_request` triggers leaving `ready_for_review` out of its
+   *   activity types, or holding a job whose condition does not end on the
+   *   draft check
    * - A `GUARDS` job missing or running under another condition
    */
   get problems(): string[] {
     return [
-      ...this.categoryProblems, ...this.endingProblems, ...this.gateProblems, ...this.guardProblems,
-      ...this.guideProblems, ...this.labelProblems, ...this.packageProblems, ...this.pinProblems,
-      ...this.rowProblems, ...this.sweepProblems, ...this.taskProblems, ...this.templateProblems,
-      ...this.toolProblems
+      ...this.categoryProblems, ...this.draftProblems, ...this.endingProblems, ...this.gateProblems,
+      ...this.guardProblems, ...this.guideProblems, ...this.labelProblems, ...this.packageProblems,
+      ...this.pinProblems, ...this.rowProblems, ...this.sweepProblems, ...this.taskProblems,
+      ...this.templateProblems, ...this.toolProblems
     ]
   }
 
@@ -264,8 +305,25 @@ export class Repository {
    * triggers with no path filter.
    */
   private get checks(): Workflow[] {
-    return this.workflows.filter(({ on }) =>
-      'pull_request' in on && !['paths', 'paths-ignore'].some(key => key in (on.pull_request ?? {})))
+    return this.pulls.filter(({ on }) =>
+      !['paths', 'paths-ignore'].some(key => key in (on.pull_request ?? {})))
+  }
+
+  /**
+   * Each workflow a `pull_request` triggers that leaves `ready_for_review` out
+   * of its activity types, and each job of such a workflow whose condition
+   * `endsReady` does not pass.
+   */
+  private get draftProblems(): string[] {
+    return this.pulls.flatMap(({ jobs, on, path }) => [
+      ...on.pull_request?.types?.includes(READY_TYPE)
+        ? []
+        : [`${path} runs on pull_request without the activity type ${READY_TYPE}`],
+      ...Object.entries(jobs)
+        .filter(([, job]) => !endsReady(job.if))
+        .map(([id]) =>
+          `${path} runs its ${id} job on a draft pull request, its condition not ending on ${READY}`)
+    ])
   }
 
   private get endingProblems(): string[] {
@@ -367,6 +425,13 @@ export class Repository {
         .filter((action, index, actions) => actions.indexOf(action) !== index)
         .map(action => `${action} is pinned to more than one commit`))
     ]
+  }
+
+  /**
+   * Every workflow a `pull_request` triggers.
+   */
+  private get pulls(): Workflow[] {
+    return this.workflows.filter(({ on }) => 'pull_request' in on)
   }
 
   /**
