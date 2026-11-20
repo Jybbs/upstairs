@@ -109,7 +109,15 @@ describe('loading the catalog', () => {
    + 'beside the catalog’s fetch time', async () => {
     await loaded()
     const first = full.filter(record => kindOf(record.OBJECT_NAME) !== 'starlink').length
-    expect(heard).toEqual([first, full.length].map(count => ({ count, fetched: FETCHED, type: 'loaded' })))
+    expect(heard.map(answer => answer.type === 'loaded' && [answer.count, answer.fetched]))
+      .toEqual([[first, FETCHED], [full.length, FETCHED]])
+  })
+
+  it('posts each satellite of the catalog once across its segments', async () => {
+    await loaded()
+    const posted = heard.flatMap(answer => answer.type === 'loaded' ? answer.satellites : [])
+    expect(posted.map(({ id, name }) => [id, name]).sort())
+      .toEqual(full.map(record => [record.NORAD_CAT_ID, record.OBJECT_NAME]).sort())
   })
 
   it('reports why where the catalog cannot be read', async () => {

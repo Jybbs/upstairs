@@ -34,7 +34,7 @@ Pointing at a pin in the strip, or pressing a satellite, a pin, or a row, turns 
 
 ## Choosing the Spot
 
-The search at the foot of the readout finds a place by name and moves the spot there, and the count, the pass list, and the strip all follow it. The same search finds a satellite by name, moving the time to the highest point of its highest pass in the hour and turning the readout into that pass. Near me, beside the search, moves the spot to where the browser locates the reader, once the browser shares that location.
+The search at the foot of the readout finds a place by name and moves the spot there, and the count, the pass list, and the strip all follow it. Each place it finds carries the kind of place it is, such as a city or a district, so places of one name read apart. The same search finds a satellite by name, listing beside each one when its next pass in the hour rises, or that it has none, and choosing one moves the time to the highest point of that next pass and turns the readout into it. Near me, beside the search, moves the spot to where the browser locates the reader, once the browser shares that location.
 
 Pressing the place the readout names opens the spot chooser, where the map slides under a still pin, which settles onto a town within 14 pixels of it once the map stops. The Set the spot here button moves the spot to the pin and traces its passes again, and Escape, Cancel, or a press outside the chooser and the map leaves the spot as it was.
 
