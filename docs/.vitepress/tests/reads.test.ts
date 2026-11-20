@@ -5,13 +5,17 @@ import fs, {
   createReadStream,
   existsSync,
   globSync,
+  opendir,
+  opendirSync,
   readFileSync,
+  readdir,
   readdirSync
 } from 'node:fs'
 import * as promises      from 'node:fs/promises'
 import { tmpdir }         from 'node:os'
 import { join, relative } from 'node:path'
 import { pathToFileURL }  from 'node:url'
+import { promisify }      from 'node:util'
 
 import { $, Glob }                             from 'bun'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -30,6 +34,7 @@ const GONE     = 'docs/.vitepress/tests/gone.test.ts'
 const ORPHAN   = join(ROOT, 'LICENSE')
 const PAGE     = join(ROOT, 'docs/gone/index.md')
 const PAGES    = ['cards', 'markdown', 'sections'].map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
+const SOURCES  = join(ROOT, 'rust/src')
 const SYNC     = join(ROOT, 'docs/.vitepress/tests/tools/sync.test.ts')
 
 const gitConfig = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('GIT_CONFIG_')))
@@ -140,12 +145,20 @@ describe('the read check', () => {
     ['reads', 'copyFileSync', () => copyFileSync(ORPHAN, join(tmpdir(), 'upstairs-reads-copy'))],
     ['reads', 'createReadStream', () => createReadStream(ORPHAN).close()],
     ['reads', 'readFile', () => promises.readFile(ORPHAN)],
+    ['reads', 'readFile of fs.promises', () => fs.promises.readFile(ORPHAN)],
+    ['reads', 'readFile of the default export of node:fs/promises', async () =>
+      (await import('node:fs/promises')).default.readFile(ORPHAN)],
+    ['reads', 'exists', () => new Promise(done => fs.exists(ORPHAN, done))],
+    ['reads', 'exists through promisify', () => promisify(fs.exists)(ORPHAN)],
     ['reads', 'Bun.file', () => Bun.file(ORPHAN).text()],
     ['reads', 'globSync', () => globSync('LICENSE', { cwd: ROOT })],
     ['reads', 'glob', () => Array.fromAsync(promises.glob('LICENSE', { cwd: ROOT }))],
+    ['reads', 'glob of node:fs', () => new Promise((done, fail) =>
+      fs.glob('LICENSE', { cwd: ROOT }, (error, found) => error ? fail(error) : done(found)))],
     ['reads', 'Glob.scanSync', () => [...new Glob('LICENSE').scanSync(ROOT)]],
     ['reads', 'Glob.scan', () => Array.fromAsync(new Glob('LICENSE').scan(ROOT))],
     ['runs', "Bun's shell", () => $`cat ${ORPHAN}`.quiet()],
+    ['runs', "Bun's shell from the folder its cwd gives", () => $`cat LICENSE`.cwd(ROOT).quiet()],
     ['runs', 'Bun.spawn', () => Bun.spawn(['cat', ORPHAN]).exited],
     ['runs', 'Bun.spawn on one options object', () => Bun.spawn({ cmd: ['cat', ORPHAN] }).exited],
     ['runs', 'Bun.spawnSync', () => Bun.spawnSync(['cat', ORPHAN])],
@@ -182,19 +195,30 @@ describe('the read check', () => {
     'fails a test that reads an undeclared file through %s of node:fs/promises', name =>
       expect(async () => promises[name](ORPHAN)).rejects.toThrow(refused('reads')))
 
-  it('fails a test listing a folder of undeclared files through readdirSync', () =>
-    expect(() => readdirSync(join(ROOT, 'rust/src'))).toThrow(refused('reads', 'rust/src/\\S+')))
+  it.each([
+    ['readdirSync', () => readdirSync(SOURCES)],
+    ['readdirSync on a path relative to the working folder', () =>
+      readdirSync('../rust/src', { withFileTypes: true })],
+    ['readdirSync naming each entry by a buffer', () => readdirSync(SOURCES, { encoding: 'buffer' })],
+    ['readdir', () => promisify(readdir)(SOURCES)],
+    ['readdir of node:fs/promises', () => promises.readdir(SOURCES)],
+    ['opendir', () => promisify(opendir)(SOURCES)],
+    ['opendirSync', () => opendirSync(SOURCES)],
+    ['opendir of node:fs/promises', () => promises.opendir(SOURCES)]
+  ])('fails a test listing a folder of undeclared files through %s', (_, list) =>
+    expect(async () => list()).rejects.toThrow(refused('reads', 'rust/src/\\S+')))
+
+  it('fails a test listing the folders below a folder through opendirSync', () =>
+    expect(() => opendirSync(join(ROOT, 'docs/.vitepress/tests/lib'), { recursive: true }))
+      .toThrow(refused('reads', 'docs/\\.vitepress/tests/lib/\\S+')))
 
   it('fails a test copying a folder whose undeclared files follow a declared one', () =>
     expect(() => cpSync(FIXTURES, join(tmpdir(), 'upstairs-reads-fixtures'), { recursive: true }))
       .toThrow(refused('reads', 'docs/\\.vitepress/tests/fixtures/\\S+')))
 
   it('fails a test copying a folder that holds an undeclared file', () =>
-    expect(() => cpSync(join(ROOT, 'rust/src'), join(tmpdir(), 'upstairs-reads-copy'), { recursive: true }))
+    expect(() => cpSync(SOURCES, join(tmpdir(), 'upstairs-reads-copy'), { recursive: true }))
       .toThrow(refused('reads', 'rust/src/\\S+')))
-
-  it('fails a test listing a folder of undeclared files through readdir', () =>
-    expect(promises.readdir(join(ROOT, 'rust/src'))).rejects.toThrow(refused('reads', 'rust/src/\\S+')))
 
   it('passes a glob matching only a folder', () =>
     expect(() => globSync('rust', { cwd: ROOT })).not.toThrow())

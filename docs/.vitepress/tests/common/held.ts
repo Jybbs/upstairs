@@ -2,7 +2,7 @@ import type { Dirent }                        from 'node:fs'
 import { tmpdir }                             from 'node:os'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { fileURLToPath }                      from 'node:url'
-import { callbackify }                        from 'node:util'
+import { callbackify, promisify }             from 'node:util'
 
 import type { GlobScanOptions }  from 'bun'
 import { afterAll, expect, vi } from 'vitest'
@@ -23,7 +23,7 @@ vi.mock('node:fs', async load => {
       'openSync', 'readFile', 'readFileSync', 'readlink', 'readlinkSync', 'stat', 'statSync'
     ]),
     ...readingAll(fs, ['copyFile', 'copyFileSync', 'cp', 'cpSync'], filesUnder),
-    ...readingAll(fs, ['opendir', 'opendirSync'], path => filesUnder(path, false)),
+    ...listingAll(fs, ['opendir', 'opendirSync']),
     globSync    : finding(fs.globSync, 1),
     promises,
     readdir     : callbackify(promises.readdir),
@@ -39,7 +39,7 @@ vi.mock('node:fs/promises', async load => {
   const checked = {
     ...readingAll(fs, ['access', 'lstat', 'open', 'readFile', 'readlink', 'stat']),
     ...readingAll(fs, ['copyFile', 'cp'], filesUnder),
-    ...readingAll(fs, ['opendir'], path => filesUnder(path, false)),
+    ...listingAll(fs, ['opendir']),
     glob    : finding(fs.glob, 1),
     readdir : finding(fs.readdir, 0)
   }
@@ -85,15 +85,7 @@ const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
  * proper tail call drops.
  */
 function callers(): string[] {
-  const { prepareStackTrace, stackTraceLimit } = Error
-  Object.assign(Error, {
-    prepareStackTrace : (_: Error, sites: NodeJS.CallSite[]) => sites,
-    stackTraceLimit   : Infinity
-  })
-  const sites = new Error().stack as unknown as NodeJS.CallSite[]
-  Object.assign(Error, { prepareStackTrace, stackTraceLimit })
-
-  const ours = sites
+  const ours = sitesOf()
     .flatMap(site => site.getFileName() ?? [])
     .filter(path => isAbsolute(path) && within(ROOT, path) && !path.split(sep).includes('node_modules'))
   return [...ours, expect.getState().testPath ?? []].flat()
@@ -200,19 +192,37 @@ function holder(cwd: string): <T extends Found>(entry: T) => T {
 
 /**
  * Wraps `call` so each call first holds to `READS` the files `filesOf` finds
- * in its arguments, for the modules making the call.
+ * in its arguments, for the modules making the call, and so does each call
+ * to the promise form `promisify` takes from its `promisify.custom`.
  */
 function holding<T extends Call>(call: T, verb: Verb, filesOf: (args: unknown[]) => string[]): T {
   return new Proxy(call, {
     apply(target, self, args) {
       hold(callers(), filesOf(args), verb)
       return Reflect.apply(target, self, args)
-    }
+    },
+    get: (target, key) =>
+      key === promisify.custom && key in target
+        ? holding(Reflect.get(target, key) as Call, verb, filesOf)
+        : Reflect.get(target, key)
   })
 }
 
 function isFile(path: string): boolean {
   return actual.statSync(path, { throwIfNoEntry: false })?.isFile() ?? false
+}
+
+/**
+ * Wraps each function of `module` that `names` lists, which opens the folder
+ * its first argument names, so each file it lists is held to `READS`, those
+ * of every folder below it too where its options set `recursive`.
+ */
+function listingAll<T extends object>(module: T, names: (keyof T & string)[]): Record<string, unknown> {
+  return wrappedAll(module, names, call =>
+    holding(call, 'reads', ([path, options]) => {
+      const { recursive = false } = (options ?? {}) as { recursive?: boolean }
+      return pathsOf(path).flatMap(folder => filesUnder(folder, recursive))
+    }))
 }
 
 /**
@@ -300,6 +310,23 @@ function shelling(shell: typeof Bun.$): typeof Bun.$ {
       })
     }
   })
+}
+
+/**
+ * Reads the call sites of the current stack, every frame of it, putting back
+ * the stack trace settings of `Error` however the read ends.
+ */
+function sitesOf(): NodeJS.CallSite[] {
+  const { prepareStackTrace, stackTraceLimit } = Error
+  try {
+    Object.assign(Error, {
+      prepareStackTrace : (_: Error, sites: NodeJS.CallSite[]) => sites,
+      stackTraceLimit   : Infinity
+    })
+    return new Error().stack as unknown as NodeJS.CallSite[]
+  } finally {
+    Object.assign(Error, { prepareStackTrace, stackTraceLimit })
+  }
 }
 
 /**
