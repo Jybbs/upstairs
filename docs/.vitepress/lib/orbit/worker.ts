@@ -2,9 +2,8 @@
  * Runs the pass scan off the page, holding the catalog's propagators in the
  * WebAssembly module and adding each segment of the catalog file as it
  * arrives, posting the segment's satellites, a new load dropping the catalog
- * held before. Each scan posts its
- * counts and then its passes in batches, stops once a newer scan arrives, and
- * posts `untraced` where it throws.
+ * held before. Each scan posts its counts and then its passes in batches,
+ * stops once a newer scan arrives, and posts `untraced` where it throws.
  */
 
 import init, * as orbit                   from '../../../../rust/pkg/orbit.js'

@@ -2,6 +2,7 @@
 import { type VueWrapper, enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi }                                from 'vitest'
 
+import * as catalog            from '../../lib/orbit/catalog.ts'
 import type { sky as Sky }      from '../../lib/state/sky.ts'
 import { passOf }               from '../common/passes.ts'
 import { addScanned, freshSky } from '../common/sky.ts'
@@ -82,11 +83,13 @@ it('lists each satellite the words typed name by its next rise, and holds the pa
   const results = wrapper.findAll('li button')
   expect(results.map(result => result.text())).toEqual([`ISS (ZARYA) Rises ${sky.clockOf(300)}`])
   await results[0].trigger('click')
-  expect([sky.pinned.value, wrapper.find('li').exists()]).toEqual([passes[1], false])
+  expect([sky.pinned.value, sky.at.value, wrapper.find('li').exists()]).toEqual([passes[1], 600, false])
 })
 
 it.each([
   ['says a satellite whose pass is under way is up', 600, () => 'Up now'],
+  ['says a satellite whose pass rises this minute is up', 300, () => 'Up now'],
+  ['says a satellite whose pass sets this minute is up', 900, () => 'Up now'],
   ['says when a satellite’s last pass set, where none is still ahead', 1000,
     (sky: typeof Sky) => `Set ${sky.clockOf(900)}`]
 ])('%s', async (_, now, note) => {
@@ -109,6 +112,33 @@ it.each([
   const result = wrapper.get('li button')
   await result.trigger('click')
   expect([result.text(), result.attributes('aria-disabled'), sky.pinned.value]).toEqual([line, 'true', null])
+})
+
+it.each([
+  ['the catalog has expired', (sky: typeof Sky) => {
+    sky.loaded.value = { count: 1, fetched: sky.start.value - 15 * catalog.DAY }
+  }],
+  ['the trace stopped', (sky: typeof Sky) => {
+    sky.loaded.value   = { count: 1, fetched: sky.start.value }
+    sky.untraced.value = true
+  }]
+])('says a satellite with no pass was not traced where %s', async (_, set) => {
+  const { wrapper } = await listed(state => {
+    state.satellites.value = [{ epoch: 0, id: 25544, kind: 'crewed', name: 'ISS (ZARYA)' }]
+    set(state)
+  })
+  expect(wrapper.get('li button').text()).toBe('ISS (ZARYA) Not traced')
+})
+
+it('says when a satellite’s last pass set, of two that have set', async () => {
+  const { sky, wrapper } = await listed(state => {
+    addScanned(state, [
+      passOf(25544, { key: '25544/0', name: 'ISS (ZARYA)', riseAt: 0, setAt: 200 }),
+      passOf(25544, { name: 'ISS (ZARYA)', riseAt: 300, setAt: 600 })
+    ])
+    state.now.value = 1000
+  })
+  expect(wrapper.get('li button').text()).toBe(`ISS (ZARYA) Set ${sky.clockOf(600)}`)
 })
 
 it('moves to the first place on submit, past a satellite listed with no pass', async () => {

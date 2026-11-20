@@ -14,7 +14,9 @@ describe('the satellites a search matches', () => {
     ['takes the pass still up over one that has set', 400, [0, 300], 300],
     ['takes the earliest of the passes yet to set', 0, [2000, 300], 300],
     ['keeps the pass held over a later one yet to set', 0, [300, 2000], 300],
-    ['takes a pass that has set where the satellite has no other', 1000, [300], 300]
+    ['takes a pass that has set where the satellite has no other', 1000, [300], 300],
+    ['takes a pass setting at the present over one rising later', 300, [0, 1000], 0],
+    ['takes a pass setting at the present over one held before it', 300, [1000, 0], 0]
   ])('%s', (_, present, rises, next) => {
     const passes = rises.map(riseAt =>
       passOf(ISS.id, { key: `${ISS.id}/${riseAt}`, name: ISS.name, riseAt, setAt: riseAt + 300 }))
@@ -51,7 +53,10 @@ describe('a place found', () => {
     ['reads a place by its OpenStreetMap place value', {}, 'city'],
     ['reads a boundary by its GeocodeJson type',
       { osm_key: 'boundary', osm_value: 'administrative', type: 'district' }, 'district'],
+    ['reads any other object by its GeocodeJson type',
+      { osm_key: 'highway', osm_value: 'residential', type: 'street' }, 'street'],
     ['writes an OpenStreetMap value in words', { osm_value: 'isolated_dwelling' }, 'isolated dwelling'],
+    ['spells an OpenStreetMap value the American way', { osm_value: 'neighbourhood' }, 'neighborhood'],
     ['leaves the kind empty where Photon names none', { osm_key: 'boundary', type: undefined }, '']
   ])('%s', (_, changes, kind) => {
     const feature = { ...london, properties: { ...london.properties, ...changes } }

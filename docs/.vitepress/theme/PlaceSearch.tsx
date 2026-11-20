@@ -65,11 +65,16 @@ export default defineComponent(
     })
 
     /**
-     * Writes when a satellite's next pass rises, that it is up, or that it
-     * has no pass in the window once the scan has finished.
+     * Writes when a satellite's next pass rises, that it is up, or when its
+     * last pass set, and for a satellite with no pass, that it has none once
+     * the scan has finished, that it was not traced where the catalog expired
+     * or the trace stopped, and that the scan is still tracing otherwise.
      */
     const noteOf = ({ pass }: search.Match) => {
-      if (!pass) return sky.done.value ? 'No pass this hour' : 'Still tracing'
+      if (!pass) {
+        if (sky.done.value) return 'No pass this hour'
+        return sky.expired.value || sky.untraced.value ? 'Not traced' : 'Still tracing'
+      }
       if (pass.riseAt > minute.value) return `Rises ${sky.clockOf(pass.riseAt)}`
       return pass.setAt >= minute.value ? 'Up now' : `Set ${sky.clockOf(pass.setAt)}`
     }
