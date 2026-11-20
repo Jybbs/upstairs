@@ -32,7 +32,7 @@ The site reads the satellite catalog from `docs/public/catalog.bin`, which `mise
 
 ## Checks
 
-Each pull request runs `🛰️ CI`, one row per check below, and the `📓 Logbook` gate that the `main` ruleset requires writes each row's result into the run's summary and passes only where every row passed or was skipped. Neither `🛰️ CI` nor `🛰️ Deploy` runs a job on a draft pull request. Marking it ready runs each once on its head, and `🛰️ Deploy` only where the pull request changes a file [Deploying](#deploying) names.
+Each pull request runs `🛰️ CI`, one row per check below, and the `📓 Logbook` gate that the `main` ruleset requires writes each row's result into the run's summary and passes only where every row passed or was skipped. Neither `🛰️ CI` nor `🛰️ Deploy` runs a job on a draft pull request. Marking it ready runs each once on its head, and `🛰️ Deploy` only where the pull request changes what the site is built from, per [Deploying](#deploying).
 
 | **Row** | **Local Command** | **Fails When** |
 |---|---|---|

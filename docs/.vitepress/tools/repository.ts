@@ -1,6 +1,9 @@
 import { $, Glob, TOML, YAML }              from 'bun'
 import { basename, dirname, extname, join } from 'node:path'
 
+import { Lexer, Parser }       from '@actions/expressions'
+import { Logical }             from '@actions/expressions/ast'
+import { TokenType }           from '@actions/expressions/lexer'
 import { differenceEuclidean } from 'culori'
 
 interface Category {
@@ -86,6 +89,8 @@ const READY_TYPE    = 'ready_for_review'
 const ROW_KEYS      = new Set(['name', 'task', 'tools'])
 const TASK_RUN      = /\bmise run (\w[\w:-]*)/g
 const colorDistance = differenceEuclidean('oklab')
+const statuses      = ['always', 'cancelled', 'failure', 'success']
+  .map(name => ({ maxArgs: 0, minArgs: 0, name }))
 /**
  * The one condition each job that publishes runs under, by the workflow holding
  * it and the job's name.
@@ -109,6 +114,29 @@ const PARSERS = {
   '.yml'  : YAML.parse
 }
 
+/**
+ * Parses `condition`, unwrapped from a `${{ }}` spanning all of it, as GitHub's
+ * expression parser reads a job's `if`, throwing where it cannot.
+ */
+const conditionOf = (condition: string) => new Parser(
+  new Lexer(condition.replace(EXPRESSION, '$1')).lex().tokens, ['github', 'inputs', 'needs', 'vars'], statuses
+).parse()
+
+/**
+ * Whether `condition` is `READY`, or a chain of `&&` whose last operand is
+ * `READY`, where an `||` outside a grouping breaks the chain. A condition that
+ * fails to parse counts as neither.
+ */
+const endsReady = (condition = '') => {
+  try {
+    const tree = conditionOf(condition)
+    const last = tree instanceof Logical && tree.operator.type === TokenType.AND ? tree.args.at(-1) : tree
+    return shapeOf(last) === shapeOf(conditionOf(READY))
+  } catch {
+    return false
+  }
+}
+
 const gatesOf = (workflow: Workflow) => Object.entries(workflow.jobs)
   .filter(([id, job]) => Object.keys(workflow.jobs)
     .every(other => other === id || [job.needs].flat().includes(other)))
@@ -116,6 +144,13 @@ const gatesOf = (workflow: Workflow) => Object.entries(workflow.jobs)
 
 const jobsOf = (workflows: Workflow[]) => workflows
   .flatMap(workflow => Object.values(workflow.jobs).map(job => ({ job, path: workflow.path })))
+
+/**
+ * The parse tree of `expr` without the source positions of its tokens, so two
+ * trees read from different text compare equal where they hold the same
+ * expression.
+ */
+const shapeOf = (expr: unknown) => JSON.stringify(expr, (key, value) => key === 'range' ? undefined : value)
 
 /**
  * Lists each package and the version `manifest` sets it to, across every
@@ -277,8 +312,8 @@ export class Repository {
 
   /**
    * Each workflow a `pull_request` triggers that leaves `ready_for_review` out
-   * of its activity types, and each job of such a workflow whose condition,
-   * read inside any `${{ }}`, is neither `READY` nor ends on `&& ` and `READY`.
+   * of its activity types, and each job of such a workflow whose condition
+   * `endsReady` does not pass.
    */
   private get draftProblems(): string[] {
     return this.pulls.flatMap(({ jobs, on, path }) => [
@@ -286,9 +321,8 @@ export class Repository {
         ? []
         : [`${path} runs on pull_request without the activity type ${READY_TYPE}`],
       ...Object.entries(jobs)
-        .map(([id, job]) => ({ condition: job.if?.replace(EXPRESSION, '$1'), id }))
-        .filter(({ condition }) => condition !== READY && !condition?.endsWith(` && ${READY}`))
-        .map(({ id }) =>
+        .filter(([, job]) => !endsReady(job.if))
+        .map(([id]) =>
           `${path} runs its ${id} job on a draft pull request, its condition not ending on ${READY}`)
     ])
   }

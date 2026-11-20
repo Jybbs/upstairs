@@ -122,7 +122,10 @@ describe('Repository', () => {
   ])('reports nothing for a job that %s', (_, added) =>
     expect(variant(job(added)).problems).toEqual(base.problems))
 
-  it.each([READY, `\${{ ${READY} }}`, `always() && ${READY}`, `\${{ always() && ${READY} }}`])(
+  it.each([
+    READY, `\${{ ${READY} }}`, `always() && ${READY}`, `\${{ always() && ${READY} }}`,
+    `(${MAIN} || always()) && ${READY}`
+  ])(
     'reports nothing for a pull_request job under %s',
     condition =>
       expect(variant(checked({ added: { if: condition } }, ACTIVITY)).problems).toEqual(base.problems)
@@ -374,6 +377,21 @@ describe('Repository', () => {
     [
       'a pull_request job whose expression wrapper leaves out its spaces',
       checked({ added: { if: `\${{${READY}}}` } }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request job joining its draft check through an or',
+      checked({ added: { if: `${MAIN} || ${READY}` } }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request job whose draft check binds to the right of an or',
+      checked({ added: { if: `always() || ${MAIN} && ${READY}` } }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request job whose expression closes before its draft check',
+      checked({ added: { if: `\${{ always() }} && ${READY}` } }, ACTIVITY),
       `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
     ],
     [
