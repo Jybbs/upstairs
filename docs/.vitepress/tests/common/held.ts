@@ -1,7 +1,8 @@
-import type { Dirent }                              from 'node:fs'
-import { tmpdir }                                   from 'node:os'
-import { isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { fileURLToPath }                            from 'node:url'
+import type { Dirent }                        from 'node:fs'
+import { tmpdir }                             from 'node:os'
+import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { fileURLToPath }                      from 'node:url'
+import { callbackify }                        from 'node:util'
 
 import type { GlobScanOptions }  from 'bun'
 import { afterAll, expect, vi } from 'vitest'
@@ -9,33 +10,40 @@ import { afterAll, expect, vi } from 'vitest'
 import { ROOT, declares } from './reads.ts'
 
 type Call  = (...args: never[]) => unknown
-type Found = Dirent | string
+type Found = Buffer | Dirent | string
 type Run   = (args: unknown[]) => [unknown[], unknown]
 type Verb  = 'reads' | 'runs'
 
 vi.mock('node:fs', async load => {
-  const fs      = await load<typeof import('node:fs')>()
-  const checked = {
+  const fs       = await load<typeof import('node:fs')>()
+  const promises = (await import('node:fs/promises')).default
+  const checked  = {
     ...readingAll(fs, [
-      'access', 'accessSync', 'createReadStream', 'existsSync', 'lstat', 'lstatSync', 'open', 'openSync',
-      'readFile', 'readFileSync', 'readlink', 'readlinkSync', 'stat', 'statSync'
+      'access', 'accessSync', 'createReadStream', 'exists', 'existsSync', 'lstat', 'lstatSync', 'open',
+      'openSync', 'readFile', 'readFileSync', 'readlink', 'readlinkSync', 'stat', 'statSync'
     ]),
     ...readingAll(fs, ['copyFile', 'copyFileSync', 'cp', 'cpSync'], filesUnder),
+    ...readingAll(fs, ['opendir', 'opendirSync'], path => filesUnder(path, false)),
     globSync    : finding(fs.globSync, 1),
-    readdirSync : finding(fs.readdirSync, 0)
+    promises,
+    readdir     : callbackify(promises.readdir),
+    readdirSync : finding(fs.readdirSync, 0),
+
+    glob: callbackify((...args: Parameters<typeof promises.glob>) => Array.fromAsync(promises.glob(...args)))
   }
   return { ...fs, ...checked, default: { ...fs, ...checked } }
 })
 
 vi.mock('node:fs/promises', async load => {
-  const fs = await load<typeof import('node:fs/promises')>()
-  return {
-    ...fs,
+  const fs      = await load<typeof import('node:fs/promises')>()
+  const checked = {
     ...readingAll(fs, ['access', 'lstat', 'open', 'readFile', 'readlink', 'stat']),
     ...readingAll(fs, ['copyFile', 'cp'], filesUnder),
+    ...readingAll(fs, ['opendir'], path => filesUnder(path, false)),
     glob    : finding(fs.glob, 1),
     readdir : finding(fs.readdir, 0)
   }
+  return { ...fs, ...checked, default: { ...fs, ...checked } }
 })
 
 vi.mock('node:child_process', async load => {
@@ -47,12 +55,14 @@ vi.mock('node:child_process', async load => {
   }
 })
 
-vi.mock('bun', async load => {
-  const bun = await load<typeof import('bun')>()
-  return {
-    ...bun,
-    $    : running(bun.$, shelledOf),
-    Glob : class extends bun.Glob {
+vi.mock('bun', async load => ({ ...await load<typeof import('bun')>(), $: Bun.$, Glob: Bun.Glob }))
+
+const { $, Glob, file, spawn, spawnSync } = Bun
+Object.assign(
+  Bun,
+  {
+    $    : shelling($),
+    Glob : class extends Glob {
       override scan(options?: string | GlobScanOptions) {
         return heldEach(super.scan(options), holder(cwdOf(options)))
       }
@@ -61,12 +71,11 @@ vi.mock('bun', async load => {
         return heldEach(super.scanSync(options), holder(cwdOf(options)))
       }
     }
-  }
-})
-
-const { file, spawn, spawnSync } = Bun
-Object.assign(Bun, readingAll(Bun, ['file']), runningAll(Bun, ['spawn', 'spawnSync'], spawnedOf))
-afterAll(() => Object.assign(Bun, { file, spawn, spawnSync }))
+  },
+  readingAll(Bun, ['file']),
+  runningAll(Bun, ['spawn', 'spawnSync'], spawnedOf)
+)
+afterAll(() => Object.assign(Bun, { $, Glob, file, spawn, spawnSync }))
 
 const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
 
@@ -76,13 +85,17 @@ const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
  * proper tail call drops.
  */
 function callers(): string[] {
-  const { stackTraceLimit } = Error
-  Error.stackTraceLimit     = Infinity
-  const { stack = '' }      = new Error()
-  Error.stackTraceLimit     = stackTraceLimit
+  const { prepareStackTrace, stackTraceLimit } = Error
+  Object.assign(Error, {
+    prepareStackTrace : (_: Error, sites: NodeJS.CallSite[]) => sites,
+    stackTraceLimit   : Infinity
+  })
+  const sites = new Error().stack as unknown as NodeJS.CallSite[]
+  Object.assign(Error, { prepareStackTrace, stackTraceLimit })
 
-  const frames = [...stack.matchAll(/(\/[^\s():]+):\d+:\d+\)?$/gm)].map(([, path]) => path!)
-  const ours   = frames.filter(path => within(ROOT, path) && !path.split(sep).includes('node_modules'))
+  const ours = sites
+    .flatMap(site => site.getFileName() ?? [])
+    .filter(path => isAbsolute(path) && within(ROOT, path) && !path.split(sep).includes('node_modules'))
   return [...ours, expect.getState().testPath ?? []].flat()
 }
 
@@ -105,16 +118,19 @@ function cwdOf(options: unknown): string {
 }
 
 function entryOf(entry: Found): string {
-  return typeof entry === 'string' ? entry : join(entry.parentPath, entry.name)
+  return typeof entry === 'object' && 'parentPath' in entry
+    ? resolve(entry.parentPath, entry.name)
+    : String(entry)
 }
 
 /**
  * Lists every file under `path` where it is a folder, which a recursive copy
- * reads whole, or else `path` itself.
+ * reads whole, or only the files directly in it where `recursive` is false,
+ * or else `path` itself.
  */
-function filesUnder(path: string): string[] {
+function filesUnder(path: string, recursive = true): string[] {
   return actual.statSync(path, { throwIfNoEntry: false })?.isDirectory()
-    ? actual.readdirSync(path, { recursive: true, withFileTypes: true })
+    ? actual.readdirSync(path, { recursive, withFileTypes: true })
       .filter(entry => entry.isFile())
       .map(entryOf)
     : [path]
@@ -218,7 +234,8 @@ function readingAll<T extends object>(
   names   : (keyof T & string)[],
   filesOf : (path: string) => string[] = path => [path]
 ): Record<string, unknown> {
-  return wrappedAll(module, names, call => holding(call, 'reads', ([path]) => pathsOf(path).flatMap(filesOf)))
+  return wrappedAll(module, names, call =>
+    holding(call, 'reads', ([path]) => pathsOf(path).flatMap(file => filesOf(file))))
 }
 
 /**
@@ -259,6 +276,30 @@ function runningAll<T extends object>(
  */
 function shelledOf([strings, ...values]: unknown[]): [unknown[], unknown] {
   return [[...(strings as string[]).join(' ').split(/\s+/), ...values.flat()], undefined]
+}
+
+/**
+ * Wraps Bun's shell so each command is held to `READS` as `running` holds it,
+ * and again against the folder a later `cwd` call moves it to.
+ */
+function shelling(shell: typeof Bun.$): typeof Bun.$ {
+  return new Proxy(shell, {
+    apply(target, self, args) {
+      const readers = callers()
+      const [words] = shelledOf(args)
+      const held    = (cwd: string) =>
+        hold(readers, words.flatMap(word => pathsOf(word, cwd)).filter(isFile), 'runs')
+      held(process.cwd())
+      const command = Reflect.apply(target, self, args)
+      const { cwd } = command
+      return Object.assign(command, {
+        cwd: (folder: string) => {
+          held(resolve(folder))
+          return cwd.call(command, folder)
+        }
+      })
+    }
+  })
 }
 
 /**

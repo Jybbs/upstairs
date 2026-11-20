@@ -1,9 +1,17 @@
-import { execFile, execFileSync, execSync, spawnSync } from 'node:child_process'
-import { copyFileSync, cpSync, createReadStream, existsSync, globSync, readFileSync } from 'node:fs'
-import { glob, readFile, readdir }                     from 'node:fs/promises'
-import { tmpdir }                                      from 'node:os'
-import { join, relative }                              from 'node:path'
-import { pathToFileURL }                               from 'node:url'
+import { exec, execFile, execFileSync, execSync, fork, spawn, spawnSync } from 'node:child_process'
+import fs, {
+  copyFileSync,
+  cpSync,
+  createReadStream,
+  existsSync,
+  globSync,
+  readFileSync,
+  readdirSync
+} from 'node:fs'
+import * as promises      from 'node:fs/promises'
+import { tmpdir }         from 'node:os'
+import { join, relative } from 'node:path'
+import { pathToFileURL }  from 'node:url'
 
 import { $, Glob }                             from 'bun'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -13,15 +21,16 @@ import * as gh                                                      from './comm
 import { READS, ROOT, declares, readersOf, readersOfGone, watchedOf } from './common/reads.ts'
 import { reads }                                                    from './vitest.config.ts'
 
-const AUDIT  = 'docs/.vitepress/tests/tools/audit.test.ts'
-const CHECK  = 'docs/.vitepress/tests/tools/check.test.ts'
-const CHECKS = join(ROOT, 'docs/.vitepress/tests/reads.test.ts')
-const GH     = join(ROOT, 'docs/.vitepress/tests/common/bin/gh')
-const GONE   = 'docs/.vitepress/tests/gone.test.ts'
-const ORPHAN = join(ROOT, 'LICENSE')
-const PAGE   = join(ROOT, 'docs/gone/index.md')
-const PAGES  = ['cards', 'markdown', 'sections'].map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
-const SYNC   = join(ROOT, 'docs/.vitepress/tests/tools/sync.test.ts')
+const AUDIT    = 'docs/.vitepress/tests/tools/audit.test.ts'
+const CHECK    = 'docs/.vitepress/tests/tools/check.test.ts'
+const CHECKS   = join(ROOT, 'docs/.vitepress/tests/reads.test.ts')
+const FIXTURES = join(ROOT, 'docs/.vitepress/tests/fixtures')
+const GH       = join(ROOT, 'docs/.vitepress/tests/common/bin/gh')
+const GONE     = 'docs/.vitepress/tests/gone.test.ts'
+const ORPHAN   = join(ROOT, 'LICENSE')
+const PAGE     = join(ROOT, 'docs/gone/index.md')
+const PAGES    = ['cards', 'markdown', 'sections'].map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
+const SYNC     = join(ROOT, 'docs/.vitepress/tests/tools/sync.test.ts')
 
 const gitConfig = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('GIT_CONFIG_')))
 
@@ -130,10 +139,10 @@ describe('the read check', () => {
     ['reads', 'existsSync', () => existsSync(ORPHAN)],
     ['reads', 'copyFileSync', () => copyFileSync(ORPHAN, join(tmpdir(), 'upstairs-reads-copy'))],
     ['reads', 'createReadStream', () => createReadStream(ORPHAN).close()],
-    ['reads', 'readFile', () => readFile(ORPHAN)],
+    ['reads', 'readFile', () => promises.readFile(ORPHAN)],
     ['reads', 'Bun.file', () => Bun.file(ORPHAN).text()],
     ['reads', 'globSync', () => globSync('LICENSE', { cwd: ROOT })],
-    ['reads', 'glob', () => Array.fromAsync(glob('LICENSE', { cwd: ROOT }))],
+    ['reads', 'glob', () => Array.fromAsync(promises.glob('LICENSE', { cwd: ROOT }))],
     ['reads', 'Glob.scanSync', () => [...new Glob('LICENSE').scanSync(ROOT)]],
     ['reads', 'Glob.scan', () => Array.fromAsync(new Glob('LICENSE').scan(ROOT))],
     ['runs', "Bun's shell", () => $`cat ${ORPHAN}`.quiet()],
@@ -145,7 +154,10 @@ describe('the read check', () => {
     ['runs', 'spawnSync from the cwd its options give', () => spawnSync('cat', ['LICENSE'], { cwd: ROOT })],
     ['runs', 'execFile', () => execFile('cat', [ORPHAN])],
     ['runs', 'execFileSync', () => execFileSync('cat', [ORPHAN])],
-    ['runs', 'execSync', () => execSync(`cat ${ORPHAN}`)]
+    ['runs', 'execSync', () => execSync(`cat ${ORPHAN}`)],
+    ['runs', 'exec', () => exec(`cat ${ORPHAN}`)],
+    ['runs', 'fork', () => fork(ORPHAN)],
+    ['runs', 'spawn', () => spawn('cat', [ORPHAN])]
   ])('fails a test that %s an undeclared file through %s', (verb, _, touch) =>
     expect(async () => touch()).rejects.toThrow(refused(verb)))
 
@@ -159,19 +171,37 @@ describe('the read check', () => {
       .rejects.toThrow(refused('reads', '\\.github/\\S+'))
   })
 
+  it.each([
+    'access', 'accessSync', 'lstat', 'lstatSync', 'open', 'openSync', 'readlink', 'readlinkSync', 'stat', 'statSync'
+  ] as const)('fails a test that reads an undeclared file through %s of the default export', name => {
+    const read = fs[name] as (path: string, done: () => void) => void
+    expect(() => read(ORPHAN, () => {})).toThrow(refused('reads'))
+  })
+
+  it.each(['access', 'lstat', 'open', 'readlink', 'stat'] as const)(
+    'fails a test that reads an undeclared file through %s of node:fs/promises', name =>
+      expect(async () => promises[name](ORPHAN)).rejects.toThrow(refused('reads')))
+
+  it('fails a test listing a folder of undeclared files through readdirSync', () =>
+    expect(() => readdirSync(join(ROOT, 'rust/src'))).toThrow(refused('reads', 'rust/src/\\S+')))
+
+  it('fails a test copying a folder whose undeclared files follow a declared one', () =>
+    expect(() => cpSync(FIXTURES, join(tmpdir(), 'upstairs-reads-fixtures'), { recursive: true }))
+      .toThrow(refused('reads', 'docs/\\.vitepress/tests/fixtures/\\S+')))
+
   it('fails a test copying a folder that holds an undeclared file', () =>
     expect(() => cpSync(join(ROOT, 'rust/src'), join(tmpdir(), 'upstairs-reads-copy'), { recursive: true }))
       .toThrow(refused('reads', 'rust/src/\\S+')))
 
   it('fails a test listing a folder of undeclared files through readdir', () =>
-    expect(readdir(join(ROOT, 'rust/src'))).rejects.toThrow(refused('reads', 'rust/src/\\S+')))
+    expect(promises.readdir(join(ROOT, 'rust/src'))).rejects.toThrow(refused('reads', 'rust/src/\\S+')))
 
   it('passes a glob matching only a folder', () =>
     expect(() => globSync('rust', { cwd: ROOT })).not.toThrow())
 
   it('passes a read under the temporary folder, wherever it lies', () => {
-    vi.stubEnv('TMPDIR', join(ROOT, 'docs/.vitepress/tests/fixtures'))
-    expect(() => readFileSync(join(ROOT, 'docs/.vitepress/tests/fixtures/photon.json'))).not.toThrow()
+    vi.stubEnv('TMPDIR', FIXTURES)
+    expect(() => readFileSync(join(FIXTURES, 'photon.json'))).not.toThrow()
   })
 
   it('passes a read of a file outside the worktree', () =>
