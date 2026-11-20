@@ -62,6 +62,7 @@ export default defineConfig({
     env                : { TZ: 'UTC' },
     forceRerunTriggers : [...configDefaults.forceRerunTriggers, ...triggers],
     include            : ['.vitepress/tests/**/*.test.ts'],
+    setupFiles         : ['.vitepress/tests/common/held.ts'],
     tags               : [{ description: 'A case taking more than a second when run alone', name: 'slow' }],
     testTimeout        : 30_000,
     coverage           : {
