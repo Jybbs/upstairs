@@ -11,6 +11,7 @@ type Job    = repository.Workflow['jobs'][string]
 
 const ACTIVITY      = ['opened', 'synchronize', 'reopened', 'ready_for_review']
 const CHECKOUT_PIN  = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+const CI            = '.github/workflows/ci.yml'
 const DEPLOY        = '.github/workflows/deploy.yml'
 const DRAFT         = '.github/workflows/draft.yml'
 const HEAD_NOT_MAIN = " && github.head_ref != 'main'"
@@ -27,12 +28,13 @@ let base: repository.Repository
 const action = (uses: string) =>
   ({ actions: [{ jobs: { step: { steps: [{ uses }] } }, on: {}, path: 'action.yml' }] })
 
-const checked = (jobs: Record<string, Job>, types?: string[]): Change => ({ workflows }) => ({
-  workflows: [...workflows, { jobs, on: { pull_request: { paths: ['docs/**'], types } }, path: 'added.yml' }]
-})
+const added = (jobs: Record<string, Job>, on: repository.Workflow['on'] = {}): Change => ({ workflows }) =>
+  ({ workflows: [...workflows, { jobs, on, path: 'added.yml' }] })
 
-const job = (added: Job): Change => ({ workflows }) =>
-  ({ workflows: [...workflows, { jobs: { added }, on: {}, path: 'added.yml' }] })
+const checked = (jobs: Record<string, Job>, types?: string[]) =>
+  added(jobs, { pull_request: { paths: ['docs/**'], types } })
+
+const job = (change: Job) => added({ added: change })
 
 const rejob = (change: Job, file: string, id: string) => rework(file, workflow =>
   ({ ...workflow, jobs: { ...workflow.jobs, [id]: { ...workflow.jobs[id], ...change } } }))
@@ -119,6 +121,12 @@ describe('Repository', () => {
     ]
   ])('reports nothing for a job that %s', (_, added) =>
     expect(variant(job(added)).problems).toEqual(base.problems))
+
+  it.each([READY, `\${{ ${READY} }}`, `always() && ${READY}`, `\${{ always() && ${READY} }}`])(
+    'reports nothing for a pull_request job under %s',
+    condition =>
+      expect(variant(checked({ added: { if: condition } }, ACTIVITY)).problems).toEqual(base.problems)
+  )
 
   it('names a gate two pull-request workflows share once', () => {
     const workflow = (path: string) =>
@@ -315,8 +323,8 @@ describe('Repository', () => {
     ],
     [
       'a publishing job whose guard widens past main',
-      rejob({ if: `${CATALOG} || always()` }, DEPLOY, 'catalog'),
-      `${DEPLOY} runs 📡 Catalog under ${CATALOG} || always() rather than ${CATALOG}`
+      rejob({ if: `(${MAIN} || always()) && ${READY}` }, DEPLOY, 'catalog'),
+      `${DEPLOY} runs 📡 Catalog under (${MAIN} || always()) && ${READY} rather than ${CATALOG}`
     ],
     [
       'a site guard letting a pull request from main run it',
@@ -344,14 +352,29 @@ describe('Repository', () => {
       'added.yml runs on pull_request without the activity type ready_for_review'
     ],
     [
+      'a bare pull_request trigger, which runs the default activity types',
+      rework(CI, workflow => ({ ...workflow, on: { pull_request: null } })),
+      `${join(ROOT, CI)} runs on pull_request without the activity type ready_for_review`
+    ],
+    [
       'a pull_request job with no condition',
       checked({ added: {} }, ACTIVITY),
-      `added.yml runs its added job on a draft pull request, lacking ${READY}`
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
     ],
     [
       'a pull_request gate running under always() alone',
       checked({ gate: { if: 'always()' } }, ACTIVITY),
-      `added.yml runs its gate job on a draft pull request, lacking ${READY}`
+      `added.yml runs its gate job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request job whose draft check another condition widens',
+      checked({ added: { if: `${READY} || always()` } }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request job whose expression wrapper leaves out its spaces',
+      checked({ added: { if: `\${{${READY}}}` } }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
     ],
     [
       'a package at a range rather than one exact version',

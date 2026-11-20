@@ -71,6 +71,7 @@ export const FILES = {
   warm     : '.github/workflows/warm.yml'
 }
 const EXACT         = /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/
+const EXPRESSION    = /^\$\{\{ (.*) \}\}$/
 const FRONTMATTER   = /^---\n([\s\S]*?)\n---\n/
 const KEYS          = 'color, description, name'
 const LABEL_GAP     = 15
@@ -231,7 +232,8 @@ export class Repository {
    * - A matrix row holding a key other than `name`, `task`, and `tools`
    * - A workflow ending on no job that needs every other job
    * - A workflow a `pull_request` triggers leaving `ready_for_review` out of its
-   *   activity types, or holding a job whose condition lacks the draft check
+   *   activity types, or holding a job whose condition does not end on the
+   *   draft check
    * - A `GUARDS` job missing or running under another condition
    */
   get problems(): string[] {
@@ -269,26 +271,26 @@ export class Repository {
    * triggers with no path filter.
    */
   private get checks(): Workflow[] {
-    return this.workflows.filter(({ on }) =>
-      'pull_request' in on && !['paths', 'paths-ignore'].some(key => key in (on.pull_request ?? {})))
+    return this.pulls.filter(({ on }) =>
+      !['paths', 'paths-ignore'].some(key => key in (on.pull_request ?? {})))
   }
 
   /**
    * Each workflow a `pull_request` triggers that leaves `ready_for_review` out
-   * of its activity types, and each job of such a workflow whose condition
-   * lacks the check that the pull request is not a draft.
+   * of its activity types, and each job of such a workflow whose condition,
+   * read inside any `${{ }}`, is neither `READY` nor ends on `&& ` and `READY`.
    */
   private get draftProblems(): string[] {
-    return this.workflows
-      .filter(({ on }) => 'pull_request' in on)
-      .flatMap(({ jobs, on, path }) => [
-        ...on.pull_request?.types?.includes(READY_TYPE)
-          ? []
-          : [`${path} runs on pull_request without the activity type ${READY_TYPE}`],
-        ...Object.entries(jobs)
-          .filter(([, job]) => !job.if?.includes(READY))
-          .map(([id]) => `${path} runs its ${id} job on a draft pull request, lacking ${READY}`)
-      ])
+    return this.pulls.flatMap(({ jobs, on, path }) => [
+      ...on.pull_request?.types?.includes(READY_TYPE)
+        ? []
+        : [`${path} runs on pull_request without the activity type ${READY_TYPE}`],
+      ...Object.entries(jobs)
+        .map(([id, job]) => ({ condition: job.if?.replace(EXPRESSION, '$1'), id }))
+        .filter(({ condition }) => condition !== READY && !condition?.endsWith(` && ${READY}`))
+        .map(({ id }) =>
+          `${path} runs its ${id} job on a draft pull request, its condition not ending on ${READY}`)
+    ])
   }
 
   private get endingProblems(): string[] {
@@ -390,6 +392,13 @@ export class Repository {
         .filter((action, index, actions) => actions.indexOf(action) !== index)
         .map(action => `${action} is pinned to more than one commit`))
     ]
+  }
+
+  /**
+   * Every workflow a `pull_request` triggers.
+   */
+  private get pulls(): Workflow[] {
+    return this.workflows.filter(({ on }) => 'pull_request' in on)
   }
 
   /**
