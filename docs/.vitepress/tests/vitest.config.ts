@@ -26,7 +26,8 @@ const unrenamed = async (find: () => Promise<string[]>): Promise<string[]> => {
   try {
     return await find()
   } finally {
-    before.forEach(([key, value]) => value === undefined ? Reflect.deleteProperty(env, key) : (env[key] = value))
+    before.forEach(([key, value]) =>
+      value === undefined ? Reflect.deleteProperty(env, key) : (env[key] = value))
   }
 }
 

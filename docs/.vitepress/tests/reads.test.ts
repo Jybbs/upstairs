@@ -15,10 +15,12 @@ const CHECKS = join(ROOT, 'docs/.vitepress/tests/reads.test.ts')
 const GH     = join(ROOT, 'docs/.vitepress/tests/common/bin/gh')
 const GONE   = 'docs/.vitepress/tests/gone.test.ts'
 const PAGE   = join(ROOT, 'docs/gone/index.md')
-const PAGES  = ['cards', 'markdown', 'sections'].map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
-const SYNC   = join(ROOT, 'docs/.vitepress/tests/tools/sync.test.ts')
+const PAGES  = ['cards', 'markdown', 'sections']
+  .map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
+const SYNC = join(ROOT, 'docs/.vitepress/tests/tools/sync.test.ts')
 
-const gitConfig = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('GIT_CONFIG_')))
+const gitConfig = () =>
+  Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('GIT_CONFIG_')))
 
 /**
  * The folder holding the module cache every selection in the file shares.
@@ -109,7 +111,12 @@ describe('the reads plugin', () => {
       return []
     }
     await selected({ changed: true, experimental: { vcsProvider: { findChangedFiles } } })
-    expect(seen).toEqual([{ ...before, GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_1: 'diff.renames', GIT_CONFIG_VALUE_1: 'false' }])
+    expect(seen).toEqual([{
+      ...before,
+      GIT_CONFIG_COUNT   : '2',
+      GIT_CONFIG_KEY_1   : 'diff.renames',
+      GIT_CONFIG_VALUE_1 : 'false'
+    }])
     expect(gitConfig()).toEqual(before)
   })
 
