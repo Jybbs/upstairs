@@ -38,15 +38,14 @@ export interface Track extends Omit<Entry, 'source'> {
   source? : Source
 }
 
-const PLANET = 'M-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0'
-const CORE   = 'M8 4.6a3.4 3.4 0 1 1 0 6.8a3.4 3.4 0 1 1 0-6.8z'
+const CORE = 'M8 4.6a3.4 3.4 0 1 1 0 6.8a3.4 3.4 0 1 1 0-6.8z'
 
 /**
  * The lines the map's credit adds beside each source's own, each linking the
  * section of the Data page that lists its sources.
  */
 export const CREDITS = [
-  `<a href="${import.meta.env.BASE_URL}data/#orbits">Orbits from CelesTrak and Space-Track</a>`,
+  `<a href="${import.meta.env.BASE_URL}data/#credits-st">Orbits from Space-Track</a>`,
   `<a href="${import.meta.env.BASE_URL}data/#credits-tt">Terrain from Mapzen and its sources</a>`
 ]
 
@@ -63,20 +62,12 @@ const GROUPS: readonly Group[] = [
     ],
     entries : [
       {
-        glyph : [
-          { d: PLANET, kind: 'land' },
-          { d: PLANET, kind: 'line' },
-          { at: 'rotate(-22)', d: 'M-27 0a27 10 0 1 0 54 0a27 10 0 1 0 -54 0', kind: 'line' },
-          {
-            at   : 'rotate(-22) translate(27 0)',
-            d    : 'M-3.4 0a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0 -6.8 0',
-            kind : 'lake'
-          }
-        ],
-        label : 'Orbits',
-        name  : 'CelesTrak',
-        pick  : '[href$="#orbits"]',
-        text  : 'CelesTrak and Space-Track'
+        glyph  : GLYPHS.track,
+        label  : 'Orbits',
+        name   : 'Space-Track',
+        pick   : '[href$="#credits-st"]',
+        source : 'st',
+        text   : 'USSPACECOM via Space-Track'
       },
       {
         glyph  : GLYPHS.relief,

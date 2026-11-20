@@ -22,7 +22,7 @@ $$
 \rho = \sqrt{e^2 + n^2 + u^2}, \qquad \varepsilon = \arcsin \frac{u}{\rho}, \qquad A = \operatorname{atan2}(e, n)
 $$
 
-The drawing follows the space station through its highest pass over {{ home }} in the day after the catalog was fetched, the sky disc sweeping its azimuth from north and the upright plane beside it raising its elevation from the horizon. Pointing at either plane moves the station along the pass.
+The drawing follows the space station through its highest pass over {{ home }} in the day after the catalog was fetched, the sky disc sweeping its azimuth from north and the upright plane beside it raising its elevation from the horizon, under a line naming the station, the place, and the time the pass rises. Once in view, it plays the pass from rise to set at {{ lapse }} times real speed, and pointing at either plane moves the station along the pass.
 
 <LookAngles />
 
@@ -38,7 +38,7 @@ $$
 
 The search stops once the bracket is at most 10 milliseconds wide, which puts the peak's elevation within a hundredth of a degree of the highest elevation the orbit model gives for a satellite 225 kilometers up or higher.
 
-The drawing samples the space station's pass over {{ home }} that climbs past {{ steep }}° and whose highest sample falls farthest below its peak. Dragging the knob along the scale spreads the samples, and the band between the highest sample and the peak widens with them, which is the gap the search closes.
+The drawing samples the space station's pass over {{ home }} that climbs past {{ steep }}° and whose highest sample falls farthest below its peak, under a line naming the station, the place, and the time the pass rises. Once in view, the knob runs along the scale and returns to the {{ trackSeconds }}-second spacing the scan samples at. Dragging the knob spreads the samples, and the band between the highest sample and the peak widens with them, which is the gap the search closes.
 
 <PeakSearch />
 

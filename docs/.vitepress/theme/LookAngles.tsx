@@ -1,13 +1,15 @@
 import { useElementSize }                                  from '@vueuse/core'
 import { computed, defineComponent, onBeforeUnmount, ref } from 'vue'
 
-import { pointOf }        from '../lib/orbit/compass.ts'
-import type { Look }      from '../lib/orbit/looks.ts'
-import { clamp }          from '../lib/site/motion.ts'
-import { endsOf, pathOf } from '../lib/site/paths.ts'
-import { Slider }         from '../lib/site/slider.ts'
-import { useDrawings }    from '../lib/state/drawings.ts'
-import Readings           from './Readings.tsx'
+import { pointOf }              from '../lib/orbit/compass.ts'
+import { LOOK_STEP, type Look } from '../lib/orbit/looks.ts'
+import { clamp }                from '../lib/site/motion.ts'
+import { endsOf, pathOf }       from '../lib/site/paths.ts'
+import { usePlay }              from '../lib/site/play.ts'
+import { Slider }               from '../lib/site/slider.ts'
+import { CLOCK }                from '../lib/state/clock.ts'
+import { titleOf, useDrawings } from '../lib/state/drawings.ts'
+import Readings                 from './Readings.tsx'
 
 const RADIANS = Math.PI / 180
 
@@ -15,7 +17,8 @@ const RADIANS = Math.PI / 180
  * Draws the day's highest pass of the space station over the home spot in two
  * planes, the azimuth swept clockwise from north in the sky disc and the
  * elevation drawn as the angle above the horizon in the upright plane facing
- * the satellite, each reading set under the plane it is measured in.
+ * the satellite, each reading set under the plane it is measured in. Once in
+ * view, the pass plays from rise to set at the map's lapse.
  */
 export default defineComponent(
   () => {
@@ -104,6 +107,13 @@ export default defineComponent(
     const spoken = (look: Look) =>
       `Azimuth ${Math.round(look.azimuth) % 360} degrees, elevation ${look.elevation.toFixed(1)} degrees`
 
+    usePlay(
+      computed(() => looks.value.length ? frame.value : undefined),
+      LOOK_STEP * 1000 / CLOCK.lapse,
+      index => slider.value.go(index),
+      () => looks.value.keys()
+    )
+
     onBeforeUnmount(() => slider.value.grip.leave())
 
     return () => {
@@ -114,6 +124,9 @@ export default defineComponent(
           {failure.value
             ? <p class="caps m-0 text-base text-soft">{failure.value}</p>
             : [
+              <div class="caps mb-3 text-base leading-snug text-soft">
+                {drawings.value && titleOf(drawings.value, 'highest')}
+              </div>,
               <svg
                 class="drawing cursor-pointer"
                 width={2 * half}

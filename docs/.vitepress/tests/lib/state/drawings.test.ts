@@ -6,7 +6,7 @@ import { defineComponent }          from 'vue'
 import { encode }                        from '../../../catalog/encode.ts'
 import { UNLOADED, agesOf, type Record } from '../../../lib/orbit/catalog.ts'
 import { ISS }                           from '../../../lib/orbit/looks.ts'
-import { UNDRAWN, useDrawings }          from '../../../lib/state/drawings.ts'
+import { UNDRAWN, titleOf, useDrawings } from '../../../lib/state/drawings.ts'
 import { START, drawingsOf }             from '../../common/drawings.ts'
 import full                              from '../../fixtures/records.json' with { type: 'json' }
 
@@ -47,10 +47,22 @@ describe('the drawings read from the catalog', () => {
       const drawings = read.drawings.value!
       served.mockClear()
       expect(drawings.ages.toSorted()).toEqual(agesOf(listed, fetched).toSorted())
-      expect(drawings.color).toBe(expected.color)
+      expect([drawings.color, drawings.name]).toEqual([expected.color, 'ISS (ZARYA)'])
       expect(drawings.highest.pass).toEqual(expected.highest.pass)
       expect(drawings.scanned.pass).toEqual(expected.scanned.pass)
       expect((await mounted()).drawings.value).toBe(drawings)
       expect(served).not.toHaveBeenCalled()
     })
+})
+
+describe('the line naming a drawing’s pass', () => {
+  it('names the station, the home spot, and the time its pass rises', () =>
+    expect(titleOf(expected, 'highest'))
+      .toBe(`ISS (ZARYA) over Boston, ${new Intl.DateTimeFormat([], {
+        day          : 'numeric',
+        hour         : 'numeric',
+        minute       : '2-digit',
+        month        : 'short',
+        timeZoneName : 'short'
+      }).format(expected.highest.pass.riseAt)}`))
 })

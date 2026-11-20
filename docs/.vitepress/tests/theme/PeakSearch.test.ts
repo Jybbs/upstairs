@@ -7,7 +7,7 @@ import PeakSearch         from '../../theme/PeakSearch.tsx'
 import { drawingsOf }     from '../common/drawings.ts'
 import { WIDTH, movesOnEachKey, observeWidth, readingsOf, statesEachFailure } from '../common/drawn.ts'
 import { fakeClock }      from '../common/frames.ts'
-import { stubMatchMedia } from '../common/stubs.ts'
+import { stubIntersection, stubMatchMedia } from '../common/stubs.ts'
 
 vi.mock('../../lib/state/drawings.ts', async original =>
   (await import('../common/drawings.ts')).drawingsModuleOf(await original()))
@@ -40,6 +40,22 @@ describe('the peak search', () => {
     await flushPromises()
     expect([gliding, wrapper.findAll('dd')[1].text()])
       .toEqual([TRACK_STEP, 240].map(step => `${drawings.scanned.miss(step).toFixed(2)}°`))
+  })
+
+  it('runs the knob along the scale and back to the track step once the drawing comes into view', async () => {
+    stubMatchMedia(() => false)
+    fakeClock({ toFake: ['performance', 'requestAnimationFrame', 'setInterval', 'clearInterval'] })
+    const view    = stubIntersection()
+    const wrapper = mount(PeakSearch)
+    await flushPromises()
+    view()
+    const stops: string[] = []
+    for (let stop = 0; stop < 12; stop++) {
+      vi.advanceTimersByTime(650)
+      await flushPromises()
+      stops.push(wrapper.get('svg').attributes('aria-valuenow')!)
+    }
+    expect(stops).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '3', '3'])
   })
 
   it('widens the band under the peak by the miss at each spacing', async () => {

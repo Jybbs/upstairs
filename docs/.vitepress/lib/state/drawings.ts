@@ -18,12 +18,13 @@ import { HOME }         from './address.ts'
 /**
  * The age in days of every element set in the catalog, beside the highest pass
  * of the day, the pass the scan's samples miss the peak of by the most, and the
- * color of the station's kind.
+ * station's name and the color of its kind.
  */
 export interface Drawings {
   ages    : Float64Array
   color   : string
   highest : looks.Watched
+  name    : string
   scanned : looks.Watched
 }
 
@@ -32,6 +33,16 @@ export interface Drawings {
  * catalog that did load.
  */
 export const UNDRAWN = 'The drawing could not be made'
+/**
+ * The form of the time a drawing's pass rises, in the reader's own time zone.
+ */
+const riseFormat = new Intl.DateTimeFormat([], {
+  day          : 'numeric',
+  hour         : 'numeric',
+  minute       : '2-digit',
+  month        : 'short',
+  timeZoneName : 'short'
+})
 
 let pending: Promise<Drawings> | undefined
 
@@ -63,6 +74,7 @@ const load = async (): Promise<Drawings> => {
     ages    : catalog.agesOf(records, fetched),
     color   : kindColor(kindOf(station.OBJECT_NAME)),
     highest : highest,
+    name    : station.OBJECT_NAME,
     scanned : scanned
   }
 }
@@ -83,6 +95,13 @@ const read = async () => {
 }
 
 /**
+ * Returns the line naming the satellite a drawing follows, the place it
+ * passes over, and the time the pass `watched` names rises.
+ */
+export const titleOf = (drawings: Drawings, watched: 'highest' | 'scanned') =>
+  `${drawings.name} over ${HOME.place}, ${riseFormat.format(drawings[watched].pass.riseAt)}`
+
+/**
  * Returns a ref holding the drawings' values once a component has mounted and
  * the catalog is read, beside a ref holding the line each drawing shows in
  * their place where they fail, `UNLOADED` where the catalog read fails and
@@ -94,7 +113,9 @@ export const useDrawings = () => {
   onMounted(() => drawingsOf().then(
     values           => { drawings.value = values },
     (error: unknown) => {
-      failure.value = error instanceof Error && error.message === catalog.UNLOADED ? catalog.UNLOADED : UNDRAWN
+      failure.value = error instanceof Error && error.message === catalog.UNLOADED
+        ? catalog.UNLOADED
+        : UNDRAWN
     }
   ))
   return { drawings, failure }
