@@ -51,7 +51,7 @@ interface Template {
 
 export interface Workflow {
   jobs : Record<string, Job>
-  on   : Record<string, Record<string, unknown> | null>
+  on   : Record<string, (Record<string, unknown> & { types?: string[] }) | null>
   path : string
 }
 
@@ -80,6 +80,8 @@ const MATRIX_TOOLS  = '${{ matrix.tools }}'
 const PIN           = /^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/
 const PINNED        = ['dependencies', 'devDependencies', 'overrides'] as const
 const PROVISION     = '/.github/actions/provision'
+const READY         = '!github.event.pull_request.draft'
+const READY_TYPE    = 'ready_for_review'
 const ROW_KEYS      = new Set(['name', 'task', 'tools'])
 const TASK_RUN      = /\bmise run (\w[\w:-]*)/g
 const colorDistance = differenceEuclidean('oklab')
@@ -90,9 +92,9 @@ const colorDistance = differenceEuclidean('oklab')
 const GUARDS = {
   '.github/workflows/draft.yml'  : { '🏷️ Cut': MAIN },
   '.github/workflows/deploy.yml' : {
-    '🌐 Site'    : `${MAIN} || (github.event_name == 'pull_request' && github.head_ref != 'main' `
-                 + '&& github.event.pull_request.head.repo.full_name == github.repository)',
-    '📡 Catalog' : MAIN
+    '🌐 Site'    : `(${MAIN} || (github.event_name == 'pull_request' && github.head_ref != 'main' `
+                 + `&& github.event.pull_request.head.repo.full_name == github.repository)) && ${READY}`,
+    '📡 Catalog' : `${MAIN} && ${READY}`
   }
 }
 /**
@@ -154,8 +156,9 @@ export const wordOf = (name: string) => name.split(' ').at(-1) ?? ''
  * contributor guide, the site's manifest, the workflows and the action
  * manifests, the rulesets, the tasks, and the task the local sweep runs. It
  * reports where two of them disagree, where a label, a package, an action, a
- * matrix row, or a workflow breaks a rule of its own, and where a publishing
- * job is missing or runs under another condition.
+ * matrix row, or a workflow breaks a rule of its own, where a publishing job is
+ * missing or runs under another condition, and where a draft pull request runs
+ * a job.
  */
 export class Repository {
   constructor(
@@ -227,14 +230,16 @@ export class Repository {
    *   version
    * - A matrix row holding a key other than `name`, `task`, and `tools`
    * - A workflow ending on no job that needs every other job
+   * - A workflow a `pull_request` triggers leaving `ready_for_review` out of its
+   *   activity types, or holding a job whose condition lacks the draft check
    * - A `GUARDS` job missing or running under another condition
    */
   get problems(): string[] {
     return [
-      ...this.categoryProblems, ...this.endingProblems, ...this.gateProblems, ...this.guardProblems,
-      ...this.guideProblems, ...this.labelProblems, ...this.packageProblems, ...this.pinProblems,
-      ...this.rowProblems, ...this.sweepProblems, ...this.taskProblems, ...this.templateProblems,
-      ...this.toolProblems
+      ...this.categoryProblems, ...this.draftProblems, ...this.endingProblems, ...this.gateProblems,
+      ...this.guardProblems, ...this.guideProblems, ...this.labelProblems, ...this.packageProblems,
+      ...this.pinProblems, ...this.rowProblems, ...this.sweepProblems, ...this.taskProblems,
+      ...this.templateProblems, ...this.toolProblems
     ]
   }
 
@@ -266,6 +271,24 @@ export class Repository {
   private get checks(): Workflow[] {
     return this.workflows.filter(({ on }) =>
       'pull_request' in on && !['paths', 'paths-ignore'].some(key => key in (on.pull_request ?? {})))
+  }
+
+  /**
+   * Each workflow a `pull_request` triggers that leaves `ready_for_review` out
+   * of its activity types, and each job of such a workflow whose condition
+   * lacks the check that the pull request is not a draft.
+   */
+  private get draftProblems(): string[] {
+    return this.workflows
+      .filter(({ on }) => 'pull_request' in on)
+      .flatMap(({ jobs, on, path }) => [
+        ...on.pull_request?.types?.includes(READY_TYPE)
+          ? []
+          : [`${path} runs on pull_request without the activity type ${READY_TYPE}`],
+        ...Object.entries(jobs)
+          .filter(([, job]) => !job.if?.includes(READY))
+          .map(([id]) => `${path} runs its ${id} job on a draft pull request, lacking ${READY}`)
+      ])
   }
 
   private get endingProblems(): string[] {

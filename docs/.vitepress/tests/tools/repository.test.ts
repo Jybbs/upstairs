@@ -9,20 +9,27 @@ import { ROOT }        from '../common/reads.ts'
 type Change = (base: repository.Repository) => Partial<repository.Repository>
 type Job    = repository.Workflow['jobs'][string]
 
+const ACTIVITY      = ['opened', 'synchronize', 'reopened', 'ready_for_review']
 const CHECKOUT_PIN  = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
 const DEPLOY        = '.github/workflows/deploy.yml'
 const DRAFT         = '.github/workflows/draft.yml'
 const HEAD_NOT_MAIN = " && github.head_ref != 'main'"
 const MAIN          = "github.ref == 'refs/heads/main'"
 const PROVISION     = '$/.github/actions/provision'
+const READY         = '!github.event.pull_request.draft'
 const SPLIT_ROW     = { Rust: null, name: '🔥 Bun', tools: 'bun' }
-const SITE          = `${MAIN} || (github.event_name == 'pull_request'${HEAD_NOT_MAIN} `
-                    + '&& github.event.pull_request.head.repo.full_name == github.repository)'
+const CATALOG       = `${MAIN} && ${READY}`
+const SITE          = `(${MAIN} || (github.event_name == 'pull_request'${HEAD_NOT_MAIN} `
+                    + `&& github.event.pull_request.head.repo.full_name == github.repository)) && ${READY}`
 
 let base: repository.Repository
 
 const action = (uses: string) =>
   ({ actions: [{ jobs: { step: { steps: [{ uses }] } }, on: {}, path: 'action.yml' }] })
+
+const checked = (jobs: Record<string, Job>, types?: string[]): Change => ({ workflows }) => ({
+  workflows: [...workflows, { jobs, on: { pull_request: { paths: ['docs/**'], types } }, path: 'added.yml' }]
+})
 
 const job = (added: Job): Change => ({ workflows }) =>
   ({ workflows: [...workflows, { jobs: { added }, on: {}, path: 'added.yml' }] })
@@ -308,8 +315,8 @@ describe('Repository', () => {
     ],
     [
       'a publishing job whose guard widens past main',
-      rejob({ if: `${MAIN} || always()` }, DEPLOY, 'catalog'),
-      `${DEPLOY} runs 📡 Catalog under ${MAIN} || always() rather than ${MAIN}`
+      rejob({ if: `${CATALOG} || always()` }, DEPLOY, 'catalog'),
+      `${DEPLOY} runs 📡 Catalog under ${CATALOG} || always() rather than ${CATALOG}`
     ],
     [
       'a site guard letting a pull request from main run it',
@@ -325,6 +332,26 @@ describe('Repository', () => {
       'a publishing job moved to another workflow',
       rework(DRAFT, workflow => ({ ...workflow, path: 'moved.yml' })),
       `${DRAFT} holds no 🏷️ Cut job`
+    ],
+    [
+      'a pull_request trigger running the default activity types alone',
+      checked({ added: { if: READY } }),
+      'added.yml runs on pull_request without the activity type ready_for_review'
+    ],
+    [
+      'a pull_request trigger listing activity types without ready_for_review',
+      checked({ added: { if: READY } }, ACTIVITY.slice(0, 3)),
+      'added.yml runs on pull_request without the activity type ready_for_review'
+    ],
+    [
+      'a pull_request job with no condition',
+      checked({ added: {} }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, lacking ${READY}`
+    ],
+    [
+      'a pull_request gate running under always() alone',
+      checked({ gate: { if: 'always()' } }, ACTIVITY),
+      `added.yml runs its gate job on a draft pull request, lacking ${READY}`
     ],
     [
       'a package at a range rather than one exact version',
