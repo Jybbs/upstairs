@@ -61,6 +61,7 @@ export default defineConfig({
     env                : { TZ: 'UTC' },
     forceRerunTriggers : [...configDefaults.forceRerunTriggers, ...triggers],
     include            : ['.vitepress/tests/**/*.test.ts'],
+    setupFiles         : ['.vitepress/tests/common/held.ts'],
     testTimeout        : 30_000,
     coverage           : {
       include          : ['.vitepress/{catalog,preview,lib,theme,tools}/**/*.{ts,tsx}'],

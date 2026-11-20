@@ -1,9 +1,8 @@
 import { delimiter, join } from 'node:path'
 
-import { $ }      from 'bun'
-import { expect } from 'vitest'
+import { $ } from 'bun'
 
-import { ROOT, declares } from './reads.ts'
+import { ROOT } from './reads.ts'
 
 /**
  * The environment a task runs under, where `STAND_IN_CALLS` names the file the
@@ -34,8 +33,7 @@ export const linesOf = (text: string): string[] => text.split('\n').filter(Boole
  * Runs the task file at `.mise/tasks/<task>` of the worktree from `cwd` under
  * `env` laid over `STAND_IN_PATH`, the nth call to a stand-in other than `gh
  * api` exiting with the nth status in `exit`, every call counted, the last
- * repeating, and throws where the test running it declares no read of that
- * file in `READS`.
+ * repeating.
  */
 export async function runTask(
   task : string,
@@ -44,13 +42,8 @@ export async function runTask(
   args : string[]          = [],
   exit : number | number[] = 0
 ): Promise<TaskRun> {
-  const file         = join('.mise/tasks', task)
-  const { testPath } = expect.getState()
-  if (!testPath || !declares(file, testPath)) {
-    throw new Error(`${testPath} runs ${file}, which READS gives it no glob for`)
-  }
   await Bun.write(env.STAND_IN_CALLS, '')
-  const result = await $`${join(ROOT, file)} ${args}`
+  const result = await $`${join(ROOT, '.mise/tasks', task)} ${args}`
     .cwd(cwd)
     .env({ PATH: STAND_IN_PATH, ...env, STAND_IN_EXIT: [exit].flat().join(' ') })
     .nothrow()
