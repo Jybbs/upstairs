@@ -9,23 +9,32 @@ import { ROOT }        from '../common/reads.ts'
 type Change = (base: repository.Repository) => Partial<repository.Repository>
 type Job    = repository.Workflow['jobs'][string]
 
+const ACTIVITY      = ['opened', 'synchronize', 'reopened', 'ready_for_review']
 const CHECKOUT_PIN  = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+const CI            = '.github/workflows/ci.yml'
 const DEPLOY        = '.github/workflows/deploy.yml'
 const DRAFT         = '.github/workflows/draft.yml'
 const HEAD_NOT_MAIN = " && github.head_ref != 'main'"
 const MAIN          = "github.ref == 'refs/heads/main'"
 const PROVISION     = '$/.github/actions/provision'
+const READY         = '!github.event.pull_request.draft'
 const SPLIT_ROW     = { Rust: null, name: '🔥 Bun', tools: 'bun' }
-const SITE          = `${MAIN} || (github.event_name == 'pull_request'${HEAD_NOT_MAIN} `
-                    + '&& github.event.pull_request.head.repo.full_name == github.repository)'
+const CATALOG       = `${MAIN} && ${READY}`
+const SITE          = `(${MAIN} || (github.event_name == 'pull_request'${HEAD_NOT_MAIN} `
+                    + `&& github.event.pull_request.head.repo.full_name == github.repository)) && ${READY}`
 
 let base: repository.Repository
 
 const action = (uses: string) =>
   ({ actions: [{ jobs: { step: { steps: [{ uses }] } }, on: {}, path: 'action.yml' }] })
 
-const job = (added: Job): Change => ({ workflows }) =>
-  ({ workflows: [...workflows, { jobs: { added }, on: {}, path: 'added.yml' }] })
+const added = (jobs: Record<string, Job>, on: repository.Workflow['on'] = {}): Change => ({ workflows }) =>
+  ({ workflows: [...workflows, { jobs, on, path: 'added.yml' }] })
+
+const checked = (jobs: Record<string, Job>, types?: string[]) =>
+  added(jobs, { pull_request: { paths: ['docs/**'], types } })
+
+const job = (change: Job) => added({ added: change })
 
 const rejob = (change: Job, file: string, id: string) => rework(file, workflow =>
   ({ ...workflow, jobs: { ...workflow.jobs, [id]: { ...workflow.jobs[id], ...change } } }))
@@ -112,6 +121,17 @@ describe('Repository', () => {
     ]
   ])('reports nothing for a job that %s', (_, added) =>
     expect(variant(job(added)).problems).toEqual(base.problems))
+
+  it.each([
+    READY, `\${{ ${READY} }}`, `always() && ${READY}`, `\${{ always() && ${READY} }}`,
+    `\${{ always() &&\n  ${READY} }}`, `(${MAIN} || always()) && ${READY}`,
+    `(success() || failure() || cancelled()) && ${READY}`,
+    `inputs.a == vars.b && needs.c.result == 'success' && ${READY}`
+  ])(
+    'reports nothing for a pull_request job under %s',
+    condition =>
+      expect(variant(checked({ added: { if: condition } }, ACTIVITY)).problems).toEqual(base.problems)
+  )
 
   it('names a gate two pull-request workflows share once', () => {
     const workflow = (path: string) =>
@@ -308,8 +328,8 @@ describe('Repository', () => {
     ],
     [
       'a publishing job whose guard widens past main',
-      rejob({ if: `${MAIN} || always()` }, DEPLOY, 'catalog'),
-      `${DEPLOY} runs 📡 Catalog under ${MAIN} || always() rather than ${MAIN}`
+      rejob({ if: `(${MAIN} || always()) && ${READY}` }, DEPLOY, 'catalog'),
+      `${DEPLOY} runs 📡 Catalog under (${MAIN} || always()) && ${READY} rather than ${CATALOG}`
     ],
     [
       'a site guard letting a pull request from main run it',
@@ -325,6 +345,56 @@ describe('Repository', () => {
       'a publishing job moved to another workflow',
       rework(DRAFT, workflow => ({ ...workflow, path: 'moved.yml' })),
       `${DRAFT} holds no 🏷️ Cut job`
+    ],
+    [
+      'a pull_request trigger running the default activity types alone',
+      checked({ added: { if: READY } }),
+      'added.yml runs on pull_request without the activity type ready_for_review'
+    ],
+    [
+      'a pull_request trigger listing activity types without ready_for_review',
+      checked({ added: { if: READY } }, ACTIVITY.slice(0, 3)),
+      'added.yml runs on pull_request without the activity type ready_for_review'
+    ],
+    [
+      'a bare pull_request trigger, which runs the default activity types',
+      rework(CI, workflow => ({ ...workflow, on: { pull_request: null } })),
+      `${join(ROOT, CI)} runs on pull_request without the activity type ready_for_review`
+    ],
+    [
+      'a pull_request job with no condition',
+      checked({ added: {} }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request gate running under always() alone',
+      checked({ gate: { if: 'always()' } }, ACTIVITY),
+      `added.yml runs its gate job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request job whose draft check another condition widens',
+      checked({ added: { if: `${READY} || always()` } }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request job whose expression wrapper leaves out its spaces',
+      checked({ added: { if: `\${{${READY}}}` } }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request job joining its draft check through an or',
+      checked({ added: { if: `${MAIN} || ${READY}` } }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request job whose draft check binds to the right of an or',
+      checked({ added: { if: `always() || ${MAIN} && ${READY}` } }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request job whose expression closes before its draft check',
+      checked({ added: { if: `\${{ always() }} && ${READY}` } }, ACTIVITY),
+      `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
     ],
     [
       'a package at a range rather than one exact version',
