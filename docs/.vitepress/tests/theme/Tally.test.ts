@@ -27,14 +27,36 @@ it('draws a group for each kind on the map and none for a kind with nothing up',
     .toEqual(['Crewed, 2 on this map', 'Earth, 5 on this map'])
 })
 
-it('names the kind a tap holds, lets it go on a second tap, and lets it go on Escape', async () => {
+it('switches a kind off at a press, naming none, and writes the kinds shown into the address', async () => {
   const { sky, wrapper } = await mounted()
   const [, earth]        = wrapper.findAll('button')
+  expect(earth.attributes('aria-pressed')).toBe('true')
   await earth.trigger('click')
-  expect([sky.named.value, earth.attributes('aria-pressed')]).toEqual(['earth', 'true'])
+  expect([sky.traced.earth, earth.attributes('aria-pressed'), sky.named.value, location.hash])
+    .toEqual([false, 'false', null, '#?kinds=crewed,science,weather,navigation'])
+})
+
+it('keeps a group the keyboard switched off, switching it back on at a second press', async () => {
+  const { sky, wrapper } = await mounted()
+  const earth            = wrapper.findAll('button')[1]
+  vi.spyOn(earth.element, 'matches').mockReturnValue(true)
+  await earth.trigger('focus')
   await earth.trigger('click')
-  expect(sky.named.value).toBe(null)
-  await earth.trigger('click')
+  sky.reading.value = { ...sky.reading.value, kinds: kindOrder.map(kind => kind === 'crewed' ? 2 : 0) }
+  await wrapper.vm.$nextTick()
+  const kept = wrapper.findAll('button')[1]
+  expect([kept.attributes('aria-label'), kept.attributes('aria-pressed')])
+    .toEqual(['Earth, 0 on this map', 'false'])
+  await kept.trigger('click')
+  expect([sky.traced.earth, location.hash]).toEqual([true, ''])
+})
+
+it('lets the name of the kind the keyboard reached go on Escape', async () => {
+  const { sky, wrapper } = await mounted()
+  const earth            = wrapper.findAll('button')[1]
+  vi.spyOn(earth.element, 'matches').mockReturnValue(true)
+  await earth.trigger('focus')
+  expect(sky.named.value).toBe('earth')
   await earth.trigger('keydown', { key: 'Escape' })
   expect(sky.named.value).toBe(null)
 })
@@ -50,20 +72,20 @@ it('takes the tally out of the tab order once no kind is on the map', async () =
 it('dims every group but the one named', async () => {
   const { wrapper }     = await mounted()
   const [crewed, earth] = wrapper.findAll('button')
-  await earth.trigger('click')
+  await earth.trigger('pointerenter', { pointerType: 'mouse' })
   expect([crewed.classes('opacity-25'), earth.classes('opacity-25')]).toEqual([true, false])
 })
 
 it.each([
   ['keeps the group keyboard focus stands on, named, once none of its kind is on the map', true, 'earth', 2],
-  ['lets a group a pointer pressed leave the tally once none of its kind is on the map', false, null, 1]
+  ['lets a group a pointer focused leave the tally, unnamed, once none of its kind is on the map', false,
+    null, 1]
 ])('%s', async (_, keyboard, named, groups) => {
   const { sky, wrapper } = await mounted()
   const earth            = wrapper.findAll('button')[1]
   vi.spyOn(earth.element, 'matches').mockReturnValue(keyboard)
   await earth.trigger('focus')
-  if (!keyboard) await earth.trigger('click')
-  expect(sky.named.value).toBe('earth')
+  expect(sky.named.value).toBe(named)
   sky.reading.value = { ...sky.reading.value, kinds: kindOrder.map(kind => kind === 'crewed' ? 2 : 0) }
   await wrapper.vm.$nextTick()
   expect([sky.named.value, wrapper.findAll('button').length]).toEqual([named, groups])

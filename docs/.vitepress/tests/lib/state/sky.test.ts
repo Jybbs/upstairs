@@ -10,6 +10,7 @@ const NOW       = Date.parse('2026-11-06T18:37:00Z')
 const OTHER     = { epoch: 0, id: 2, kind: 'crewed', name: 'CRAFT 2' } as const
 const SATELLITE = { epoch: 0, id: 1, kind: 'crewed', name: 'CRAFT 1' } as const
 const SAMPLES   = scan.samplesFor(60, scan.TRACK_STEP)
+const SPOT      = { latitude: 1, longitude: 2 }
 
 let fail: () => void
 let listen: (event: MessageEvent<Answer>) => void
@@ -137,14 +138,26 @@ describe('the chosen pass', () => {
     expect(sky.selected.value).toBe(sky.tracks.passes[1])
   })
 
-  it.each([
-    ['while the two cross the sky', true],
-    ['while the filters leave their kind out', false]
-  ])('opens on a station rather than the craft docked to it %s', async (_, shown) => {
-    const sky         = await loaded()
-    sky.traced.crewed = shown
+  it('opens on a station rather than the craft docked to it', async () => {
+    const sky = await loaded()
     traced([passAt(600, 50), passAt(600, 50.5, OTHER)])
     expect(sky.selected.value).toBe(sky.tracks.passes[0])
+  })
+
+  it('opens on no pass of a kind not shown', async () => {
+    const sky = await loaded()
+    sky.trace(['earth'])
+    traced([passAt(600, 50), passAt(1200, 70, OTHER)])
+    expect(sky.selected.value).toBeNull()
+  })
+
+  it('chooses again among the kinds shown once the chosen pass\'s kind is switched off', async () => {
+    const sky = await loaded()
+    traced([passAt(600, 50), passAt(1200, 30, { ...OTHER, kind: 'weather' })])
+    sky.pin(sky.tracks.passes[0])
+    sky.trace(['weather'])
+    expect([sky.selected.value, sky.shown.value, sky.focus.value])
+      .toEqual([sky.tracks.passes[1], null, sky.tracks.passes[1]])
   })
 })
 
@@ -190,6 +203,40 @@ describe('the spot in the address', () => {
     const sky = await loaded()
     sky.pick({ latitude: 48.85837, longitude: 2.29448 }, 'Paris')
     expect(location.hash).toBe('#48.86,2.29')
+  })
+
+  it.each([
+    ['#48.86,2.29?kinds=starlink,crewed', { latitude: 48.86, longitude: 2.29 }, ['crewed', 'starlink']],
+    ['#?kinds=', { latitude: 42.36, longitude: -71.06 }, []],
+    ['#48.86,2.29', { latitude: 48.86, longitude: 2.29 },
+      ['crewed', 'science', 'earth', 'weather', 'navigation']]
+  ])('opens a page addressed %j on %o showing the kinds %o', async (fragment, spot, kinds) => {
+    const sky = await loaded(fragment)
+    expect([sky.spot.value, sky.showing.value]).toEqual([spot, kinds])
+  })
+
+  it.each([
+    ['writes the kinds shown beside the spot the address holds', '#48.86,2.29', ['earth', 'starlink'],
+      '#48.86,2.29?kinds=earth,starlink'],
+    ['writes the kinds shown into an address holding no spot', '', ['comms'], '#?kinds=comms'],
+    ['writes an empty list once every kind is switched off', '#48.86,2.29', [], '#48.86,2.29?kinds='],
+    ['clears the kinds from the address once they are the ones a first visit shows',
+      '#48.86,2.29?kinds=earth', ['crewed', 'science', 'earth', 'weather', 'navigation'], '#48.86,2.29']
+  ] as const)('%s', async (_, fragment, kinds, written) => {
+    const sky = await loaded(fragment)
+    sky.trace(kinds)
+    expect(`${location.pathname}${location.search}${location.hash}`).toBe(`/somewhere?at=1${written}`)
+  })
+
+  it.each([
+    ['keeps the kinds shown beside a chosen spot', (sky: Sky) => sky.pick(SPOT, null),
+      '#1.00,2.00?kinds=starlink'],
+    ['keeps the kinds shown once the browser locates the reader', (sky: Sky) => sky.locate(SPOT),
+      '#?kinds=starlink']
+  ])('%s', async (_, move, written) => {
+    const sky = await loaded('#48.86,2.29?kinds=starlink')
+    move(sky)
+    expect(location.hash).toBe(written)
   })
 
   it('clears the address of any spot once the browser locates the reader', async () => {
@@ -430,6 +477,15 @@ describe('the reading', () => {
     sky.seek(500)
     sky.latch(ON_MAP)
     expect(sky.reading.value).toMatchObject({ above: 2, aboveKinds: [1, 0, 0, 1, 0, 0, 0, 0] })
+  })
+
+  it('counts above the horizon only the kinds shown', async () => {
+    const sky = await loaded()
+    traced([passAt(0, 30), passAt(200, 30, { ...OTHER, kind: 'weather' }), passAt(2000, 30, OTHER)])
+    sky.trace(['weather'])
+    sky.seek(500)
+    sky.latch(ON_MAP)
+    expect(sky.reading.value).toMatchObject({ above: 1, aboveKinds: [0, 0, 0, 1, 0, 0, 0, 0] })
   })
 })
 

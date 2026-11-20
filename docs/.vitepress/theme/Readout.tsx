@@ -2,7 +2,7 @@ import { useEventListener }                      from '@vueuse/core'
 import { computed, defineComponent, ref, watch } from 'vue'
 
 import { coordinatesOf }                          from '../lib/orbit/compass.ts'
-import { KINDS, kindSlots }                       from '../lib/orbit/kinds.ts'
+import { KINDS, kindOrder, kindSlots }            from '../lib/orbit/kinds.ts'
 import { useChooser }                             from '../lib/site/chooser.ts'
 import { CLOCK }                                  from '../lib/state/clock.ts'
 import { minuteFormat, secondFormat, sky }        from '../lib/state/sky.ts'
@@ -13,6 +13,11 @@ import PassReadout                                from './PassReadout.tsx'
 import PlaceSearch                                from './PlaceSearch.tsx'
 import Tally                                      from './Tally.tsx'
 
+/**
+ * The classes of a button set in the run of a line of caps, underlined.
+ */
+const UNDERLINED    = `caps cursor-pointer text-ink underline decoration-rule underline-offset-4
+                       hover:decoration-soft max-sm:py-3.25`
 const dateFormat    = new Intl.DateTimeFormat([], { day: 'numeric', month: 'long', weekday: 'long' })
 const weekdayFormat = new Intl.DateTimeFormat([], { weekday: 'short' })
 
@@ -57,7 +62,11 @@ export default defineComponent(
              + `${aboveKinds[index].toLocaleString()} up`
       }
     })
-    const over = computed(() => sky.place.value ?? coordinatesOf(sky.spot.value))
+    /**
+     * The kinds not shown, which every count the readout gives leaves out.
+     */
+    const hidden = computed(() => kindOrder.filter(kind => !sky.traced[kind]))
+    const over   = computed(() => sky.place.value ?? coordinatesOf(sky.spot.value))
     /**
      * Whether the spot has moved since the page opened, its name then settling
      * in letter by letter.
@@ -102,6 +111,25 @@ export default defineComponent(
       if (named.value) return [<Icon name={named.value.kind} />, named.value.line]
       return `Of ${sky.reading.value.above.toLocaleString()} above the horizon`
     }
+
+    /**
+     * Sets the line naming each kind the counts leave out, each a button
+     * showing its kind again, and nothing while every kind is shown.
+     */
+    const leftOut = () => hidden.value.length > 0 && (
+      <p class="caps text-soft">
+        {'Leaving out '}
+        {hidden.value.map((kind, index) => [
+          index ? ', ' : '',
+          <button
+            type="button"
+            class={UNDERLINED}
+            aria-label={`Show ${KINDS[kind].label}`}
+            onClick={() => sky.trace([...sky.showing.value, kind])}
+          >{KINDS[kind].label}</button>
+        ])}
+      </p>
+    )
 
     /**
      * Sets the foot under the orbits: the line of the step under way, or the
@@ -154,8 +182,7 @@ export default defineComponent(
           {'Above '}
           <button
             {...chooser.value.getTriggerProps()}
-            class="caps cursor-pointer text-ink underline decoration-rule underline-offset-4
-                   hover:decoration-soft max-sm:py-3.25"
+            class={UNDERLINED}
             aria-label={`Choose the spot, now ${over.value}`}
           >
             <Icon name="place" class="-mt-0.5 inline align-middle" />
@@ -205,9 +232,12 @@ export default defineComponent(
             </div>,
             sky.waiting.value
               ? [<Orbits moment={sky.moment.value} size={props.folded ? 72 : 80} />, foot()]
-              : !props.folded && [
-                <Tally />,
-                <p class="caps flex h-3 items-center gap-2 text-soft">{status()}</p>
+              : [
+                !props.folded && [
+                  <Tally />,
+                  <p class="caps flex h-3 items-center gap-2 text-soft">{status()}</p>
+                ],
+                leftOut()
               ]
           ]}
         <p class="sr-only" aria-live="polite">{sky.spoken.value}</p>

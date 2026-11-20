@@ -2,6 +2,9 @@ import * as toggleGroup               from '@zag-js/toggle-group'
 import { normalizeProps, useMachine } from '@zag-js/vue'
 import { computed, useId }            from 'vue'
 
+import { kindOrder } from '../orbit/kinds.ts'
+import { sky }       from '../state/sky.ts'
+
 /**
  * Runs a toggle group whose pressed items are `pressed`, handing each press to
  * `press` as the values pressed after it.
@@ -20,6 +23,13 @@ export const useToggles = (pressed: () => string[], press: (value: string[]) => 
   })))
   return computed(() => toggleGroup.connect(service, normalizeProps))
 }
+
+/**
+ * Runs a toggle group over the kinds, its pressed items the kinds shown, each
+ * press showing the kinds pressed after it.
+ */
+export const useKinds = () =>
+  useToggles(() => sky.showing.value, value => sky.trace(kindOrder.filter(kind => value.includes(kind))))
 
 /**
  * Reads the value a press added to a group holding `held`, or `undefined` where

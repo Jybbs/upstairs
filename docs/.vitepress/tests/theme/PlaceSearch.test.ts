@@ -52,8 +52,8 @@ it('leaves a spot found through Near me out of the address', async () => {
   const coords  = { latitude: 51.50073, longitude: -0.12463 }
   const located = (found: PositionCallback) => found({ coords } as GeolocationPosition)
   vi.stubGlobal('navigator', { geolocation: { getCurrentPosition: located } })
-  history.replaceState(null, '', '/#48.86,2.29')
   const { wrapper } = await mounted()
+  history.replaceState(null, '', '/#48.86,2.29')
   await wrapper.get('button').trigger('click')
   expect(location.hash).toBe('')
 })

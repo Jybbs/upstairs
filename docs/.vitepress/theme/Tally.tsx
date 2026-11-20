@@ -1,22 +1,21 @@
-import { onClickOutside, useElementSize }              from '@vueuse/core'
+import { useElementSize }                              from '@vueuse/core'
 import { mergeProps }                                  from '@zag-js/vue'
 import { computed, defineComponent, ref, watchEffect } from 'vue'
 
 import { KINDS, kindOrder, type Kind } from '../lib/orbit/kinds.ts'
 import { kindColor }                   from '../lib/site/palette.ts'
 import { tallyOf }                     from '../lib/site/tally.ts'
-import { pressedOf, useToggles }       from '../lib/site/toggles.ts'
+import { useKinds }                    from '../lib/site/toggles.ts'
 import { sky }                         from '../lib/state/sky.ts'
 
 /**
- * Counts each kind of satellite on the map as a run of ticks, naming a kind
- * the tally holds, a mouse rests on, or the keyboard reaches.
+ * Counts each kind of satellite on the map as a run of ticks, naming a kind a
+ * mouse rests on or the keyboard reaches, and switching a kind off at a press.
  */
 export default defineComponent(
   () => {
     const bar      = ref<HTMLElement>()
     const focused  = ref<Kind | null>(null)
-    const held     = ref<Kind | null>(null)
     const keyed    = ref(false)
     const released = ref(false)
     const rested   = ref<Kind | null>(null)
@@ -25,13 +24,12 @@ export default defineComponent(
       .filter(({ count, kind }) => count > 0 || (keyed.value && focused.value === kind)))
     const { width } = useElementSize(bar, { height: 16, width: 320 })
     const fitted    = computed(() => tallyOf(shown.value.map(({ count }) => count), width.value))
-    const toggles   = useToggles(() => held.value ? [held.value] : [], value => {
-      held.value = (pressedOf(value, held.value) ?? null) as Kind | null
-    })
+    const toggles   = useKinds()
 
     /**
      * Names a kind once the keyboard reaches its group, leaving a pointer's
-     * press to the toggle group.
+     * press to the toggle group, and keeps that group in the tally once its
+     * kind is switched off so a second press switches it back on.
      */
     const enter = (event: FocusEvent, kind: Kind) => {
       focused.value  = kind
@@ -46,18 +44,15 @@ export default defineComponent(
     }
 
     const letGo = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      held.value     = null
-      released.value = true
+      if (event.key === 'Escape') released.value = true
     }
 
     const rest = (event: PointerEvent, kind: Kind | null) => {
       if (event.pointerType === 'mouse') rested.value = kind
     }
 
-    onClickOutside(bar, () => { held.value = null })
     watchEffect(() => {
-      const named     = rested.value ?? held.value ?? (released.value ? null : focused.value)
+      const named     = rested.value ?? (released.value ? null : focused.value)
       sky.named.value = shown.value.some(({ kind }) => kind === named) ? named : null
     })
 
