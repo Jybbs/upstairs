@@ -112,6 +112,14 @@ it.each([
   ])
 })
 
+it('names each kind the counts leave out while the scan runs', async () => {
+  const { sky, wrapper } = await mounted(0)
+  sky.done.value         = false
+  await wrapper.vm.$nextTick()
+  expect([sky.waiting.value, wrapper.text()])
+    .toEqual([true, expect.stringContaining('Leaving out Comms, Starlink, Other')])
+})
+
 it('names no kind left out while every kind is shown', async () => {
   const { sky, wrapper } = await mounted(0)
   sky.trace(kindOrder)

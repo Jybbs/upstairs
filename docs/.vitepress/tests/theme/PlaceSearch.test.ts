@@ -74,6 +74,18 @@ it('lists the highest pass of each satellite the words typed name, and holds the
   expect([sky.pinned.value, wrapper.find('li').exists()]).toEqual([passes[1], false])
 })
 
+it('shows the kind of a satellite chosen while its kind is switched off, and holds its pass', async () => {
+  const pass             = passOf(44713, { kind: 'starlink', name: 'STARLINK-1007' })
+  const { sky, wrapper } = await mounted(state =>
+    state.tracks.add([pass], new Float32Array(3), Uint32Array.of(0), 1))
+  const before           = sky.traced.starlink
+  await wrapper.get('input').trigger('focusin')
+  await wrapper.get('input').setValue('starlink')
+  await wrapper.get('li button').trigger('click')
+  expect([before, sky.traced.starlink, sky.pinned.value, sky.shown.value])
+    .toEqual([false, true, pass, pass])
+})
+
 it.each([
   ['lists each place found, naming its city, state, and country once each',
     async () => Response.json({ ...photon, features: photon.features.map(feature =>

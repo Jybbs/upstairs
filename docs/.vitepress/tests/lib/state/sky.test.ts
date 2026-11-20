@@ -446,6 +446,15 @@ describe('the reading', () => {
     expect(sky.reading.value.onMap).toBe(9)
   })
 
+  it('takes a reading at once after a kind is switched off', async () => {
+    const sky = await loaded()
+    traced([passAt(0, 30)])
+    sky.latch(ON_MAP)
+    sky.trace(['earth'])
+    sky.latch(Uint16Array.of(0, 0, 1, 0, 0, 0, 0, 0))
+    expect(sky.reading.value.onMap).toBe(1)
+  })
+
   it('takes a reading at once as the traces finish', async () => {
     const sky = await loaded()
     sky.latch(ON_MAP)

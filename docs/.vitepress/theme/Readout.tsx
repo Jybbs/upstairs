@@ -232,13 +232,11 @@ export default defineComponent(
             </div>,
             sky.waiting.value
               ? [<Orbits moment={sky.moment.value} size={props.folded ? 72 : 80} />, foot()]
-              : [
-                !props.folded && [
-                  <Tally />,
-                  <p class="caps flex h-3 items-center gap-2 text-soft">{status()}</p>
-                ],
-                leftOut()
-              ]
+              : !props.folded && [
+                <Tally />,
+                <p class="caps flex h-3 items-center gap-2 text-soft">{status()}</p>
+              ],
+            leftOut()
           ]}
         <p class="sr-only" aria-live="polite">{sky.spoken.value}</p>
         <p class="sr-only" aria-live="polite">{dated.value}</p>
