@@ -6,7 +6,20 @@ import { GRID, iconOf }                     from '../site/icons.ts'
 import { clamp }                            from '../site/motion.ts'
 import { SCHEMES, type Scheme }             from '../site/palette.ts'
 import type { Tracks }                      from '../state/tracks.ts'
-import { View }                             from './mercator.ts'
+import { type Box, View, grown }            from './mercator.ts'
+import * as places                          from './places.ts'
+
+/**
+ * How a tier of names is set: its canvas font and letter spacing on a view at
+ * least `WIDE` pixels wide and on a narrower one, the scheme's token for its
+ * tone, and whether it is set in capitals.
+ */
+interface Face {
+  fonts   : readonly [string, string]
+  spacing : readonly [string, string]
+  tone    : 'label' | 'quiet'
+  upper   : boolean
+}
 
 interface Drawn {
   gathered : boolean
@@ -34,6 +47,12 @@ export interface Label {
  */
 export const BEADS = { count: 5, gap: 9, ink: 0.7, most: 640, size: 0.6, step: 2 } as const
 const BOOK        = '"Newsreader Variable", serif'
+/**
+ * The ring's caption, set along the ring in the mono with `spacing` pixels
+ * between its letters, `above` pixels past the ring on its upper side and
+ * `below` on its lower.
+ */
+const CAPTION     = { above: 9, below: 11, spacing: 1.4 } as const
 /**
  * The share of its own alpha each kind draws at while the tally names another.
  */
@@ -74,6 +93,15 @@ const GATHER      = { ms: 1600, radius: 3 } as const
  */
 const FAINT       = 0.004
 /**
+ * The width in pixels of the halo under each name and the caption's letters.
+ */
+const HALO        = 3.5
+const NOTE        = '60° UP AT 550 KM'
+/**
+ * The most names a view narrower than `WIDE` keeps.
+ */
+const NARROW_MOST = 20
+/**
  * The ring's halo, `halo` pixels wide at `alpha`, under its dots, `width`
  * pixels wide.
  */
@@ -90,16 +118,32 @@ const TRACK = { flown: 1 / 3, heldHigh: 3, heldLow: 0.5, high: 6, low: 1 } as co
  */
 const TURN = { least: 20, most: 180, share: 1 / 12 } as const
 /**
+ * The veil in the page's tone over all that lies outside the ring, easing in
+ * from the ring's edge to full `strength` across `feather` of its radius.
+ */
+const VEIL = { feather: 0.9, strength: 0.4 } as const
+/**
+ * The view width in pixels from which the names take their larger faces.
+ */
+const WIDE = 1280
+/**
  * The days past its epoch after which a satellite's ring spreads its dots to
  * twice and then three times `DOT_GAP`.
  */
 export const SPREADS = [1, AGES.warn] as const
-const FONTS = {
-  city   : `13px ${BOOK}`,
-  region : `500 10.5px ${MONO}`,
-  spot   : `500 10px ${MONO}`,
-  water  : `italic 13px ${BOOK}`
-}
+const FACES = {
+  city   : { fonts: [`500 15.5px ${BOOK}`, `13px ${BOOK}`], spacing: ['0px', '0px'], tone: 'label', upper: false },
+  region : {
+    fonts   : [`500 12px ${MONO}`, `500 10.5px ${MONO}`],
+    spacing : ['3.8px', '1.6px'],
+    tone    : 'quiet',
+    upper   : true
+  },
+  water: { fonts: [`italic 15.5px ${BOOK}`, `italic 13px ${BOOK}`], spacing: ['0.2px', '0px'], tone: 'quiet', upper: false }
+} as const satisfies Record<Label['tier'], Face>
+const CAPTION_FONT = `500 10px ${MONO}`
+const letters      = [...NOTE]
+const untracked    = new Float32Array(0)
 
 /**
  * Returns how near a satellite `height` kilometers up stands at `elevation`
@@ -174,6 +218,10 @@ export class Overlay {
   readonly onMap           = new Uint16Array(kindOrder.length)
   labels: readonly Label[] = []
   scheme: Scheme           = SCHEMES.day
+  /**
+   * Returns the boxes of the panels over the map, which names stay out of.
+   */
+  covered: () => readonly Box[] = () => []
 
   private still: CanvasRenderingContext2D
   private moving: CanvasRenderingContext2D
@@ -192,6 +240,23 @@ export class Overlay {
   private gatherY            = new Float32Array(0)
   private gathered           = 0
   private staleStill         = true
+  /**
+   * The chosen pass the names were last placed around.
+   */
+  private placedFor: Pass | null = null
+  /**
+   * The boxes of the names whose places stand inside the ring, four numbers
+   * each, which the veil leaves clear, and how many there are.
+   */
+  private clearings          = new Float32Array(4 * places.MOST)
+  private cleared            = 0
+  /**
+   * Each letter of the caption as `x`, `y`, and its turn in radians, and
+   * whether the caption found a place.
+   */
+  private letterAt           = new Float32Array(3 * letters.length)
+  private captioned          = false
+  private veilFill: CanvasGradient | null = null
 
   constructor(stillCanvas: HTMLCanvasElement, movingCanvas: HTMLCanvasElement, private state: Drawn) {
     this.still  = stillCanvas.getContext('2d')!
@@ -281,7 +346,7 @@ export class Overlay {
   }
 
   draw(seconds: number) {
-    if (this.staleStill) {
+    if (this.staleStill || this.state.selected !== this.placedFor) {
       this.drawStill()
       this.staleStill = false
     }
@@ -292,36 +357,136 @@ export class Overlay {
     const { ratio, state, still: context, view } = this
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     context.clearRect(0, 0, view.width, view.height)
-    this.drawLabels(context)
-    if (state.spot) this.drawSpot(context, state.spot)
+    this.placedFor = state.selected
+    const ring     = state.spot && {
+      radius : OVERHEAD_KM * view.scale(state.spot.latitude),
+      x      : view.column(state.spot.longitude),
+      y      : view.row(state.spot.latitude)
+    }
+    this.veilFill = ring && this.veilOf(ring.x, ring.y, ring.radius)
+    this.drawLabels(context, ring)
+    if (ring) this.drawSpot(context, ring.x, ring.y, ring.radius)
   }
 
-  private drawLabels(context: CanvasRenderingContext2D) {
-    const { view }       = this
+  /**
+   * Places the names and the ring's caption clear of the panels over the map,
+   * the spot's marker, the chosen pass's track, and each other, per
+   * `places.placeWords` and `places.captionAt`, and sets each name kept,
+   * noting those whose places stand inside the ring for the veil to leave
+   * clear.
+   */
+  private drawLabels(context: CanvasRenderingContext2D, ring: { radius: number, x: number, y: number } | null) {
+    const { state, view } = this
+    const wide            = view.width >= WIDE ? 0 : 1
+    const chosen          = state.selected ? state.tracks.passes.indexOf(state.selected) : -1
+    const track           = chosen < 0 ? untracked : places.trackOf(chosen, state.tracks, view)
+    const covered         = this.covered()
+    const blocked         = [...covered]
+    const words           = this.labels.map(label => this.measure(context, label, wide))
+    this.captioned        = false
+    if (ring) {
+      const { spot } = places.ROOM
+      blocked.push({ bottom: ring.y + spot, left: ring.x - spot, right: ring.x + spot, top: ring.y - spot })
+    }
+    if (ring && ring.radius > 56) {
+      context.font          = CAPTION_FONT
+      context.letterSpacing = `${CAPTION.spacing}px`
+      const width           = context.measureText(NOTE).width
+      const at              = places.captionAt(covered, ring.radius, track, view, width, words, ring.x, ring.y)
+      if (at) {
+        blocked.push(grown(at.box, 2))
+        this.layCaption(context, at.angle, ring.radius, ring.x, ring.y)
+      }
+    }
     context.textAlign    = 'center'
     context.textBaseline = 'middle'
     context.lineJoin     = 'round'
-    context.lineWidth    = 3
-    for (const label of this.labels) {
-      const x = view.column(label.longitude)
-      const y = view.row(label.latitude)
-      if (!view.inside(x, y, 40)) continue
-      const text            = label.tier === 'city' ? label.name : label.name.toUpperCase()
-      context.letterSpacing = label.tier === 'region' ? '1.1px' : '0px'
-      context.font          = FONTS[label.tier]
-      context.strokeStyle   = this.scheme.halo
-      context.fillStyle     = label.tier === 'water' ? this.scheme.soft : this.scheme.ink
-      context.strokeText(text, x, y)
-      context.fillText(text, x, y)
+    context.lineWidth    = HALO
+    context.strokeStyle  = this.scheme.halo
+    this.cleared         = 0
+    for (const { box, word } of places.placeWords(blocked, wide ? NARROW_MOST : Infinity, track, view, words)) {
+      const face = FACES[word.label.tier]
+      const x    = (box.left + box.right) / 2
+      const y    = (box.top + box.bottom) / 2
+      if (ring && Math.hypot(word.x - ring.x, word.y - ring.y) <= ring.radius) this.clear(grown(box, HALO / 2 + 1))
+      context.font          = face.fonts[wide]
+      context.letterSpacing = face.spacing[wide]
+      context.fillStyle     = this.scheme[face.tone]
+      context.strokeText(word.text, x, y)
+      context.fillText(word.text, x, y)
     }
     context.letterSpacing = '0px'
   }
 
-  private drawSpot(context: CanvasRenderingContext2D, spot: Spot) {
-    const { view }      = this
-    const x             = view.column(spot.longitude)
-    const y             = view.row(spot.latitude)
-    const radius        = OVERHEAD_KM * view.scale(spot.latitude)
+  /**
+   * Measures a name in its tier's face on a view of width `wide`, 0 for one
+   * at least `WIDE` pixels across and 1 for a narrower one.
+   */
+  private measure(context: CanvasRenderingContext2D, label: Label, wide: 0 | 1): places.Word {
+    const face            = FACES[label.tier]
+    const text            = face.upper ? label.name.toUpperCase() : label.name
+    context.font          = face.fonts[wide]
+    context.letterSpacing = face.spacing[wide]
+    const metrics         = context.measureText(text)
+    return {
+      height : metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent + 2,
+      label  : label,
+      text   : text,
+      width  : metrics.width + 2,
+      x      : this.view.column(label.longitude),
+      y      : this.view.row(label.latitude)
+    }
+  }
+
+  /**
+   * Notes `box` as one the veil leaves clear.
+   */
+  private clear({ bottom, left, right, top }: Box) {
+    const at                = 4 * this.cleared++
+    this.clearings[at]      = left
+    this.clearings[at + 1]  = top
+    this.clearings[at + 2]  = right - left
+    this.clearings[at + 3]  = bottom - top
+  }
+
+  /**
+   * Sets each letter of the caption along the ring `radius` pixels round the
+   * spot at `x`, `y`, centered on `angle`, upright to a reader on whichever
+   * side of the ring it stands.
+   */
+  private layCaption(context: CanvasRenderingContext2D, angle: number, radius: number, x: number, y: number) {
+    const below           = Math.sin(angle) > 0.2
+    const along           = radius + (below ? CAPTION.below : CAPTION.above)
+    context.font          = CAPTION_FONT
+    context.letterSpacing = '0px'
+    const widths          = letters.map(letter => context.measureText(letter).width + CAPTION.spacing)
+    const span            = widths.reduce((sum, width) => sum + width, 0) / along
+    let at                = below ? angle + span / 2 : angle - span / 2
+    widths.forEach((width, index) => {
+      const step                    = (below ? -width : width) / along
+      const middle                  = at + step / 2
+      this.letterAt[3 * index]      = x + Math.cos(middle) * along
+      this.letterAt[3 * index + 1]  = y + Math.sin(middle) * along
+      this.letterAt[3 * index + 2]  = middle + (below ? -Math.PI / 2 : Math.PI / 2)
+      at                           += step
+    })
+    this.captioned = true
+  }
+
+  /**
+   * Returns the veil's fill round the ring `radius` pixels round the spot at
+   * `x`, `y`, clear to the ring's edge and the page's tone `VEIL.feather` of
+   * the radius past it.
+   */
+  private veilOf(x: number, y: number, radius: number): CanvasGradient {
+    const edge = radius + 1.5
+    const fill = this.moving.createRadialGradient(x, y, edge, x, y, edge + radius * VEIL.feather)
+    fill.addColorStop(0, `${this.scheme.page}00`)
+    fill.addColorStop(1, this.scheme.page)
+    return fill
+  }
+
+  private drawSpot(context: CanvasRenderingContext2D, x: number, y: number, radius: number) {
     context.strokeStyle = this.scheme.ink
     context.globalAlpha = 0.55
     context.lineWidth   = 1
@@ -331,19 +496,6 @@ export class Overlay {
     context.stroke()
     context.setLineDash([])
     context.globalAlpha = 1
-    if (radius > 56) {
-      const note            = '60° UP AT 550 KM'
-      const top             = y - radius - 8
-      context.font          = FONTS.spot
-      context.letterSpacing = '1px'
-      context.textAlign     = 'center'
-      context.lineWidth     = 3
-      context.strokeStyle   = this.scheme.halo
-      context.fillStyle     = this.scheme.ink
-      context.strokeText(note, x, top)
-      context.fillText(note, x, top)
-      context.letterSpacing = '0px'
-    }
     context.fillStyle   = this.scheme.spot
     context.strokeStyle = this.scheme.halo
     context.lineWidth   = 2
@@ -393,10 +545,65 @@ export class Overlay {
       this.drawDot(context, tracks, pass, seconds, state.traced(pass), x, y)
     }
 
-    if (chosen >= 0 && tracks.up(chosen, seconds)) {
-      this.drawRing(context, tracks, chosen, state.start + seconds * 1000)
-    }
+    const flying = chosen >= 0 && tracks.up(chosen, seconds)
+    if (flying) this.drawRing(context, tracks, chosen, state.start + seconds * 1000)
     context.globalAlpha = 1
+    this.drawVeil(context, flying)
+    this.drawCaption(context)
+  }
+
+  /**
+   * Lays the veil over the map, its names, and the tracks outside the ring,
+   * leaving clear each name whose place stands inside it and, while `flying`,
+   * the chosen satellite and its drift ring at the place `tracks.up` wrote.
+   */
+  private drawVeil(context: CanvasRenderingContext2D, flying: boolean) {
+    const { clearings, state, veilFill, view } = this
+    if (!veilFill) return
+    context.save()
+    context.beginPath()
+    context.rect(0, 0, view.width, view.height)
+    for (let index = 0; index < 4 * this.cleared; index += 4) {
+      context.rect(clearings[index], clearings[index + 1], clearings[index + 2], clearings[index + 3])
+    }
+    if (flying) {
+      const { latitude, longitude } = state.tracks
+      const around                  = Math.max(DRIFT_KM * view.scale(latitude), 8) + 6
+      const x                       = view.column(longitude)
+      context.moveTo(x + around, view.row(latitude))
+      context.arc(x, view.row(latitude), around, 0, Math.PI * 2)
+    }
+    context.clip('evenodd')
+    context.globalAlpha = VEIL.strength
+    context.fillStyle   = veilFill
+    context.fillRect(0, 0, view.width, view.height)
+    context.restore()
+  }
+
+  /**
+   * Sets the ring's caption letter by letter where `layCaption` placed it,
+   * over the veil.
+   */
+  private drawCaption(context: CanvasRenderingContext2D) {
+    if (!this.captioned) return
+    const { letterAt, ratio } = this
+    context.font              = CAPTION_FONT
+    context.letterSpacing     = '0px'
+    context.textAlign         = 'center'
+    context.textBaseline      = 'middle'
+    context.lineJoin          = 'round'
+    context.lineWidth         = HALO
+    context.strokeStyle       = this.scheme.halo
+    context.fillStyle         = this.scheme.ink
+    for (let index = 0; index < letters.length; index++) {
+      const cos = Math.cos(letterAt[3 * index + 2])
+      const sin = Math.sin(letterAt[3 * index + 2])
+      context.setTransform(ratio * cos, ratio * sin, -ratio * sin, ratio * cos,
+        ratio * letterAt[3 * index], ratio * letterAt[3 * index + 1])
+      context.strokeText(letters[index], 0, 0)
+      context.fillText(letters[index], 0, 0)
+    }
+    context.setTransform(ratio, 0, 0, ratio, 0, 0)
   }
 
   /**

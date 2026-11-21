@@ -1,7 +1,48 @@
 /**
+ * A rectangle of the view in pixels.
+ */
+export interface Box {
+  bottom : number
+  left   : number
+  right  : number
+  top    : number
+}
+
+/**
  * The kilometers around the Earth at the equator.
  */
 const EQUATOR = 40075.017
+
+/**
+ * Whether the straight line from one pixel to another passes through `box`,
+ * as the overlap of the stretches of the line within its columns and within
+ * its rows.
+ */
+export const crossesBox = (box: Box, fromX: number, fromY: number, toX: number, toY: number): boolean => {
+  const dx = toX - fromX
+  const dy = toY - fromY
+  if (dx === 0 && (fromX < box.left || fromX > box.right)) return false
+  if (dy === 0 && (fromY < box.top || fromY > box.bottom)) return false
+  const left   = dx ? (box.left - fromX) / dx : -Infinity
+  const right  = dx ? (box.right - fromX) / dx : Infinity
+  const top    = dy ? (box.top - fromY) / dy : -Infinity
+  const bottom = dy ? (box.bottom - fromY) / dy : Infinity
+  const enter  = Math.max(0, Math.min(left, right), Math.min(top, bottom))
+  const leave  = Math.min(1, Math.max(left, right), Math.max(top, bottom))
+  return enter <= leave
+}
+
+/**
+ * Returns `box` moved out by `by` pixels on every side.
+ */
+export const grown = (box: Box, by: number): Box =>
+  ({ bottom: box.bottom + by, left: box.left - by, right: box.right + by, top: box.top - by })
+
+/**
+ * Whether two boxes overlap.
+ */
+export const meets = (a: Box, b: Box): boolean =>
+  a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
 
 /**
  * Returns the share of the world's width at which a longitude falls.
@@ -27,13 +68,20 @@ export class View {
   world   = 512
   centerX = 0.5
   centerY = 0.5
+  /**
+   * The view's own box in pixels, its right and bottom moved in place as the
+   * view is set.
+   */
+  readonly bounds: Box = { bottom: 0, left: 0, right: 0, top: 0 }
 
   set(width: number, height: number, zoom: number, longitude: number, latitude: number) {
-    this.width   = width
-    this.height  = height
-    this.world   = 512 * 2 ** zoom
-    this.centerX = xOf(longitude)
-    this.centerY = yOf(latitude)
+    this.width         = width
+    this.height        = height
+    this.bounds.right  = width
+    this.bounds.bottom = height
+    this.world         = 512 * 2 ** zoom
+    this.centerX       = xOf(longitude)
+    this.centerY       = yOf(latitude)
   }
 
   /**
@@ -64,20 +112,9 @@ export class View {
 
   /**
    * Whether the straight line from one pixel to another passes through the
-   * view, as the overlap of the stretches of the line within its columns and
-   * within its rows.
+   * view.
    */
   crosses(fromX: number, fromY: number, toX: number, toY: number): boolean {
-    const dx = toX - fromX
-    const dy = toY - fromY
-    if (dx === 0 && (fromX < 0 || fromX > this.width)) return false
-    if (dy === 0 && (fromY < 0 || fromY > this.height)) return false
-    const left   = dx ? -fromX / dx : -Infinity
-    const right  = dx ? (this.width - fromX) / dx : Infinity
-    const top    = dy ? -fromY / dy : -Infinity
-    const bottom = dy ? (this.height - fromY) / dy : Infinity
-    const enter  = Math.max(0, Math.min(left, right), Math.min(top, bottom))
-    const leave  = Math.min(1, Math.max(left, right), Math.max(top, bottom))
-    return enter <= leave
+    return crossesBox(this.bounds, fromX, fromY, toX, toY)
   }
 }

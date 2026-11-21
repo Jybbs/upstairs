@@ -3,10 +3,18 @@ import { defineComponent } from 'vue'
 
 /**
  * Builds a canvas of no size whose 2D context answers each call `calls` names,
- * takes every other call, and holds every property set on it.
+ * takes every other call, and holds every property set on it. Unless `calls`
+ * names them, a gradient takes its stops and text measures 7 pixels a letter,
+ * 8 above its baseline and 2 below.
  */
 export const canvasWith = (calls: Record<string, unknown>) => {
-  const context = new Proxy<Record<string | symbol, unknown>>({ canvas: { height: 0, width: 0 }, ...calls }, {
+  const base    = {
+    canvas               : { height: 0, width: 0 },
+    createRadialGradient : () => ({ addColorStop: () => {} }),
+    measureText          : (text: string) =>
+      ({ actualBoundingBoxAscent: 8, actualBoundingBoxDescent: 2, width: 7 * text.length })
+  }
+  const context = new Proxy<Record<string | symbol, unknown>>({ ...base, ...calls }, {
     get: (target, key) => target[key] ?? (() => {})
   })
   return { canvas: { getContext: () => context } as unknown as HTMLCanvasElement, context }

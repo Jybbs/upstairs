@@ -7,9 +7,9 @@ import { computed, defineComponent, onBeforeUnmount, onMounted, ref, watch } fro
 
 import { DETENT, Detents, type Step }   from '../lib/map/detents.ts'
 import { Hosts }                        from '../lib/map/hosts.ts'
-import { namesOn, placeNear }           from '../lib/map/places.ts'
 import { numeralIn }                    from '../lib/map/numeral.ts'
 import { Overlay }                      from '../lib/map/overlay.ts'
+import * as places                      from '../lib/map/places.ts'
 import { styleOf }                      from '../lib/map/style.ts'
 import { STEEP, TRACK_STEP, type Pass } from '../lib/orbit/scan.ts'
 import { clamp }                        from '../lib/site/motion.ts'
@@ -214,7 +214,7 @@ export default defineComponent(
       if (sky.choosing.value === 'landing') return void (sky.choosing.value = 'shut')
       if (sky.choosing.value !== 'open') return
       const [x, y] = pinPoint()
-      const near   = placeNear(overlay.labels, x, y, overlay.view)
+      const near   = places.placeNear(overlay.labels, x, y, overlay.view)
       if (!near) return
       const town   = near.label
       if (near.distance > 0.5) return aimAt(town.longitude, town.latitude, PULL_MS)
@@ -238,7 +238,7 @@ export default defineComponent(
     }
 
     const refreshFrame = () => {
-      overlay.labels    = props.backdrop ? [] : namesOn(map, overlay.view)
+      overlay.labels    = props.backdrop ? [] : places.namesOn(map, overlay.view)
       sky.inFrame.value = overlay.crossing(sky.tracks)
       sky.unlatch()
       overlay.invalidate()
@@ -319,7 +319,8 @@ export default defineComponent(
         traced  : sky.traces,
         get tracks() { return props.backdrop && !props.live ? EMPTY : sky.tracks }
       })
-      overlay.scheme = scheme.value
+      overlay.scheme  = scheme.value
+      overlay.covered = () => places.coveredOver(frame.value!)
       fit()
 
       map.on('error', ({ error, sourceId }: maplibregl.ErrorEvent & { sourceId?: string }) => {
@@ -404,6 +405,7 @@ export default defineComponent(
       if (was === 'open') home()
     })
     watch(sky.gather, regather)
+    watch(sky.covered, () => overlay?.invalidate())
     watch([sky.pinned, sky.covered], ([pass, covered], [was]) => {
       if (!map || !covered) return
       const edge    = clamp((map.getContainer().clientHeight - covered) / 4, 0, PADDING)
@@ -453,6 +455,7 @@ export default defineComponent(
                    [&>button]:cursor-pointer [&>button]:place-items-center [&>button:hover]:bg-lift"
             role="group"
             aria-label="Zoom"
+            data-label-clear
           >
             <button type="button" aria-label="Zoom in" onClick={() => zoomBy(1)}><Icon name="zin" /></button>
             <button

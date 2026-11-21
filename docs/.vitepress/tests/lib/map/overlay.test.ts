@@ -673,3 +673,106 @@ it.each([
   overlay.draw(0)
   expect(still.dashed).toHaveLength(rings)
 })
+
+/**
+ * Builds a canvas whose 2D context records each text it fills with its style,
+ * font, and alpha, each rectangle it adds to a path, each rectangle it fills
+ * with its alpha, and each time it clears.
+ */
+const pageOf = () => {
+  const cleared: number[]                                                      = []
+  const filled: { alpha: number, height: number }[]                            = []
+  const rects: number[][]                                                      = []
+  const texts: { alpha: number, font: unknown, style: unknown, text: string }[] = []
+  const calls                                                                   = {
+    clearRect : () => { cleared.push(1) },
+    fillRect  : (_x: number, _y: number, _width: number, height: number) =>
+      filled.push({ alpha: context.globalAlpha as number, height }),
+    fillText  : (text: string) =>
+      texts.push({ alpha: context.globalAlpha as number, font: context.font, style: context.fillStyle, text }),
+    rect      : (...box: number[]) => { rects.push(box) }
+  }
+  const { canvas, context } = canvasWith(calls)
+  return { canvas, cleared, filled, rects, texts }
+}
+
+/**
+ * Draws the names `labels` round a spot over Boston on a view `width` pixels
+ * wide at zoom 6.
+ */
+const namedAt = (labels: { latitude: number, longitude: number, name: string, tier: 'city' | 'region' | 'water' }[],
+  { spot = BOSTON as typeof BOSTON | null, width = 1440 } = {}) => {
+  const still   = pageOf()
+  const moving  = pageOf()
+  const state   = {
+    gathered : false,
+    held     : null,
+    named    : null,
+    reduced  : true,
+    selected : null,
+    spot     : spot,
+    start    : 0,
+    traced   : () => true,
+    tracks   : new Tracks()
+  }
+  const overlay = new Overlay(still.canvas, moving.canvas, state)
+  overlay.labels = labels
+  overlay.resize(width, 800, 1)
+  overlay.view.set(width, 800, 6, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(0)
+  return { moving, overlay, state, still }
+}
+
+const ALBANY = { latitude: 42.65, longitude: -73.75, name: 'Albany', tier: 'city' as const }
+const MAINE  = { latitude: 45.2, longitude: -69.2, name: 'Maine', tier: 'region' as const }
+
+it.each([
+  ['sets a city in its own case in the label tone', ALBANY, 'Albany', SCHEMES.day.label, '500 15.5px'],
+  ['sets a region in capitals in the quiet tone', MAINE, 'MAINE', SCHEMES.day.quiet, '500 12px']
+])('%s', (_, label, text, style, size) => {
+  const [set] = namedAt([label]).still.texts
+  expect([set.text, set.style, String(set.font).startsWith(size)]).toEqual([text, style, true])
+})
+
+it.each([
+  ['sets the larger faces from 1280 px', 1280, '500 15.5px'],
+  ['sets the smaller faces below 1280 px', 1279, '13px']
+])('%s', (_, width, size) =>
+  expect(String(namedAt([ALBANY], { width }).still.texts[0].font).startsWith(size)).toBe(true))
+
+it('keeps at most 20 names below 1280 px', () => {
+  const labels = Array.from({ length: 30 }, (_, index) => ({
+    latitude  : 40 + Math.floor(index / 6) * 0.8,
+    longitude : -78 + (index % 6) * 1.6,
+    name      : `P${index}`,
+    tier      : 'city' as const
+  }))
+  expect([namedAt(labels, { spot: null, width: 1279 }).still.texts.length, namedAt(labels, { spot: null }).still.texts.length])
+    .toEqual([20, 30])
+})
+
+it('passes over a name on the spot\u2019s marker', () =>
+  expect(namedAt([{ ...BOSTON, name: 'Boston', tier: 'city' }]).still.texts).toEqual([]))
+
+it('sets the ring\u2019s caption letter by letter over the veil, and leaves both off with no spot', () => {
+  const ringed = namedAt([])
+  const bare   = namedAt([], { spot: null })
+  expect(ringed.moving.texts.map(({ text }) => text).join('')).toBe('60° UP AT 550 KM')
+  expect(ringed.moving.filled).toEqual([{ alpha: 0.4, height: 800 }])
+  expect([bare.moving.texts, bare.moving.filled, ringed.still.texts]).toEqual([[], [], []])
+})
+
+it('leaves clear of the veil each name whose place stands inside the ring alone', () => {
+  const { moving, overlay } = namedAt([ALBANY, MAINE])
+  expect(moving.rects).toHaveLength(2)
+  expect(moving.rects[1][0]).toBeLessThan(overlay.view.column(ALBANY.longitude))
+})
+
+it('places the names again once another pass is chosen, and not before', () => {
+  const { overlay, state, still } = namedAt([ALBANY])
+  overlay.draw(1)
+  const once = still.cleared.length
+  Object.assign(state, { selected: passOf(25544) })
+  overlay.draw(2)
+  expect([once, still.cleared.length]).toEqual([1, 2])
+})
