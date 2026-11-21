@@ -86,6 +86,13 @@ const selected = async (options: CliOptions) => {
   }
 }
 
+/**
+ * Selects the tests a run under `--changed` reaches where git lists the files
+ * `findChangedFiles` returns.
+ */
+const selectedAfter = (findChangedFiles: () => Promise<string[]>) =>
+  selected({ changed: true, experimental: { vcsProvider: { findChangedFiles } } })
+
 describe('declares', () => {
   it.each([
     ['the file its glob names', AUDIT, '.mise/tasks/lock/audit', true],
@@ -144,6 +151,7 @@ describe('rereadOf', () => {
 
   it.each([
     ['a version holds no table', 'export const ROOT = 1\n'],
+    ['a version spreads another table into READS', 'export const READS = { ...OTHER }\n'],
     ['git holds no earlier version', undefined]
   ])('lists the module itself where %s', async (_, before) =>
     expect(await rereadOf(before, TABLED)).toEqual([TABLE]))
@@ -171,7 +179,7 @@ describe('the reads plugin', () => {
       seen.push(gitConfig())
       return []
     }
-    await selected({ changed: true, experimental: { vcsProvider: { findChangedFiles } } })
+    await selectedAfter(findChangedFiles)
     expect(seen).toEqual([{
       ...before,
       GIT_CONFIG_COUNT   : '2',
@@ -188,9 +196,7 @@ describe('the reads plugin', () => {
     'selects the tests reading a deleted file and the checks of READS, beside the changed files',
     { tags: ['slow'] },
     async () => {
-      const findChangedFiles = async () => [GH, PAGE]
-      expect(await selected({ changed: true, experimental: { vcsProvider: { findChangedFiles } } }))
-        .toEqual([...PAGES, CHECKS, SYNC].sort())
+      expect(await selectedAfter(async () => [GH, PAGE])).toEqual([...PAGES, CHECKS, SYNC].sort())
     }
   )
 
@@ -198,11 +204,12 @@ describe('the reads plugin', () => {
     ["the crate's sources", 'rust/src/lib.rs', BUILT],
     ["the crate's manifest", 'rust/Cargo.toml', [...BUILT, 'lib/site/licenses.test.ts'].sort()],
     ["the crate's lockfile", 'rust/Cargo.lock', [...BUILT, 'lib/site/provenance.test.ts'].sort()],
+    ["the crate's own tests, which its build leaves out", 'rust/tests/answers/main.rs', []],
+    ['the cargo-deny settings under rust/.cargo/', 'rust/.cargo/deny.toml', []],
     ['a file under docs/public/ that one test reads', 'docs/public/_headers', ['config.test.ts']],
     ['a badge no test reads', 'docs/public/badges/rust.svg', []]
   ])('selects the tests an edit to %s reaches', { tags: ['slow'] }, async (_, file, tests) => {
-    const findChangedFiles = async () => [join(ROOT, file)]
-    expect(await selected({ changed: true, experimental: { vcsProvider: { findChangedFiles } } }))
+    expect(await selectedAfter(async () => [join(ROOT, file)]))
       .toEqual(tests.map(test => join(ROOT, 'docs/.vitepress/tests', test)))
   })
 })

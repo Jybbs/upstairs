@@ -70,6 +70,7 @@ export const READS: Record<string, string[]> = {
     'docs/package.json'
   ]
 }
+
 /**
  * The root of the worktree the suite runs in.
  */
