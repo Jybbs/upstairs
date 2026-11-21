@@ -108,11 +108,17 @@ export default defineComponent(
       ...found.value.map(place => ({ place }))
     ])
     /**
-     * Moves to the satellite's next pass or the place a result names.
+     * Moves to the satellite's next pass, showing its kind again where it is
+     * off, or to the place a result names. A satellite with no pass in the
+     * window moves nothing and leaves its kind as it stands.
      */
     const pick = (result: Result) => {
       if ('craft' in result) {
-        if (result.craft.pass) sky.focusOn(result.craft.pass)
+        const { pass } = result.craft
+        if (pass) {
+          if (!sky.traced[pass.kind]) sky.trace([...sky.showing.value, pass.kind])
+          sky.focusOn(pass)
+        }
       } else {
         const { label, latitude, longitude } = result.place
         sky.pick({ latitude, longitude }, label.split(',')[0])
