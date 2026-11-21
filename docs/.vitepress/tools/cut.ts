@@ -42,7 +42,8 @@ export const CODES: Record<Outcome, number> = { create: 0, published: 1, refresh
  * Args:
  *   read    : Reads every release of the repository, drafts included.
  *   create  : Creates the draft of `version`.
- *   refresh : Rewrites the notes, the tag, and the target of the draft with this id.
+ *   refresh : Rewrites the notes, the tag, and the target of the draft with
+ *     this id.
  *   version : The version the manifest carries at `HEAD`.
  */
 export const outcomeOf = async (
@@ -99,9 +100,16 @@ export class Draft {
    */
   get notesArgs(): string[] {
     return [
-      'api', '--method', 'POST', `repos/${this.repository}/releases/generate-notes`,
-      '--raw-field', `tag_name=${this.version}`, '--raw-field', `target_commitish=${this.target}`
+      'api', '--method', 'POST', `repos/${this.repository}/releases/generate-notes`, ...this.tagArgs
     ]
+  }
+
+  /**
+   * The fields naming the version as the tag and `target` as the commit it
+   * lands on, which the notes and the refresh both send.
+   */
+  private get tagArgs(): string[] {
+    return ['--raw-field', `tag_name=${this.version}`, '--raw-field', `target_commitish=${this.target}`]
   }
 
   /**
@@ -119,14 +127,12 @@ export class Draft {
 
   /**
    * The arguments that set the notes of the draft `id` to `body`, its tag to
-   * the version, and its target to `target`, since an update leaving out
-   * `tag_name` leaves the draft untagged.
+   * the version, and its target to `target`.
    */
   refreshArgs(id: number, body: string): string[] {
     return [
       'api', '--method', 'PATCH', `repos/${this.repository}/releases/${id}`,
-      '--raw-field', `body=${body}`, '--raw-field', `tag_name=${this.version}`,
-      '--raw-field', `target_commitish=${this.target}`, '--silent'
+      '--raw-field', `body=${body}`, ...this.tagArgs, '--silent'
     ]
   }
 }

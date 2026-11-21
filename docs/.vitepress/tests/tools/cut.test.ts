@@ -21,7 +21,7 @@ describe('outcomeOf', () => {
     ],
     [
       'two drafts carry the version',
-      [release('0.2.0', true, 9), release('0.2.0', true, 4)], 'refresh', [9], 0
+      [release('0.2.0', true, 4), release('0.2.0', true, 9)], 'refresh', [9], 0
     ],
     [
       'only an untagged draft titled for the version carries it',
@@ -30,6 +30,18 @@ describe('outcomeOf', () => {
     [
       'three untagged drafts titled for the version carry it, the newest listed between the others',
       [untagged(5), untagged(9), untagged(4)], 'refresh', [9], 0
+    ],
+    [
+      'a tagged draft and older untagged drafts titled for the version carry it',
+      [untagged(4), release('0.2.0', true, 9), untagged(5)], 'refresh', [9], 0
+    ],
+    [
+      'the one draft tags the version under another title',
+      [release('0.2.0', true, 9, 'Next')], 'refresh', [9], 0
+    ],
+    [
+      'the one draft is titled for the version but tags another',
+      [release('0.1.9', true, 9, '0.2.0')], 'refresh', [9], 0
     ],
     ['the one untagged draft carries another title', [untagged(9, '0.1.9')], 'create', [], 1],
     ['the one untagged draft carries no title', [untagged(9, null)], 'create', [], 1],
