@@ -2,9 +2,10 @@ import { cp, mkdtempDisposable } from 'node:fs/promises'
 import { tmpdir }                from 'node:os'
 import { join }                  from 'node:path'
 
-import { $ }                         from 'bun'
-import { beforeAll, describe, test } from 'vitest'
+import { $ }                   from 'bun'
+import { beforeAll, describe } from 'vitest'
 
+import { it as scratched } from '../common/scratch.ts'
 import { type Env, STAND_IN_PATH, type TaskRun, linesOf, runTask } from '../common/tasks.ts'
 
 type Change = (repo: Repo) => Promise<unknown>
@@ -137,11 +138,7 @@ beforeAll(async () => {
   return () => scratch.remove()
 })
 
-const it = test.extend('repo', async ({ onTestFinished }) => {
-  const scratch = await mkdtempDisposable(join(tmpdir(), 'upstairs-check-'))
-  onTestFinished(() => scratch.remove())
-  return Repo.copied(seed, scratch.path)
-})
+const it = scratched.extend('repo', ({ scratch }) => Repo.copied(seed, scratch))
 
 /**
  * Commits `change` on a branch of its own, moves `origin/main` to that commit,
