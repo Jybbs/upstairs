@@ -20,6 +20,7 @@ const MAIN          = "github.ref == 'refs/heads/main'"
 const PROVISION     = '$/.github/actions/provision'
 const READY         = '!github.event.pull_request.draft'
 const SPLIT_ROW     = { Rust: null, name: '🔥 Bun', tools: 'bun' }
+const TRIGGERS      = { push: { branches: ['main'] }, workflow_dispatch: null }
 const CANCELS       = 'lets a draft run cancel a ready one, '
                     + `its concurrency group not ending on ${DRAFT_GROUP}`
 const CATALOG       = `${MAIN} && ${READY}`
@@ -47,6 +48,9 @@ const rejob = (change: Job, file: string, id: string) => rework(file, workflow =
 
 const relabel = (change: object, index: number): Change => ({ labels }) =>
   ({ labels: labels.with(index, { ...labels[index], ...change }) })
+
+const retrigger = (on: repository.Workflow['on']): [Change, string] =>
+  [refit(DRAFT, { on }), `${DRAFT} runs on ${JSON.stringify(on)} rather than ${JSON.stringify(TRIGGERS)}`]
 
 const rework = (file: string, change: (workflow: repository.Workflow) => repository.Workflow): Change =>
   ({ workflows }) =>
@@ -364,6 +368,9 @@ describe('Repository', () => {
       refit(DRAFT, { path: 'moved.yml' }),
       `${DRAFT} holds no 🏷️ Cut job`
     ],
+    ['a Draft push filtered by path', ...retrigger({ ...TRIGGERS, push: { ...TRIGGERS.push, paths: ['docs/**'] } })],
+    ['a Draft workflow no longer run by hand', ...retrigger({ push: TRIGGERS.push })],
+    ['a Draft workflow run on a push to any branch', ...retrigger({ ...TRIGGERS, push: null })],
     [
       'a pull_request trigger running the default activity types alone',
       checked({ added: { if: READY } }),

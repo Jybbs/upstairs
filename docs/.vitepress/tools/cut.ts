@@ -24,6 +24,12 @@ export const NOTES = {
 }
 
 /**
+ * The exit status `gha:cut` ends on for each outcome, failing the run where a
+ * published release carries the version.
+ */
+export const CODES: Record<Outcome, number> = { create: 0, published: 1, refresh: 0 }
+
+/**
  * Decides what the cut does for `version` from the releases carrying it,
  * running `create` where none does and `refresh` on the draft where only a
  * draft does. A release carries the version where its `tag_name` equals it, a
@@ -94,6 +100,18 @@ export class Draft {
   }
 
   /**
+   * Replaces the notes of the draft `id` with the ones `notes` generates for
+   * the version through `notesArgs`, and moves its target, through `send`.
+   */
+  async refresh(
+    id    : number,
+    notes : (args: string[]) => Promise<{ body: string }>,
+    send  : (args: string[]) => Promise<unknown>
+  ): Promise<unknown> {
+    return send(this.refreshArgs(id, (await notes(this.notesArgs)).body))
+  }
+
+  /**
    * The arguments that set the notes of the draft `id` to `body` and move its
    * target to `target`.
    */
@@ -110,11 +128,8 @@ if (import.meta.main) {
   const read    = async (): Promise<Release[]> =>
     (await $`gh api --paginate --slurp repos/${draft.repository}/releases`.json()).flat()
   const create  = () => $`gh ${draft.createArgs}`
-  const refresh = async (id: number) => {
-    const { body } = await $`gh ${draft.notesArgs}`.json()
-    return $`gh ${draft.refreshArgs(id, body)}`
-  }
+  const refresh = (id: number) => draft.refresh(id, args => $`gh ${args}`.json(), args => $`gh ${args}`)
   const outcome = await outcomeOf(read, create, refresh, draft.version)
   console.log(NOTES[outcome](draft.version))
-  process.exitCode = outcome === 'published' ? 1 : 0
+  process.exitCode = CODES[outcome]
 }

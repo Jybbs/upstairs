@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { Draft, NOTES, outcomeOf } from '../../tools/cut.ts'
+import { CODES, Draft, NOTES, outcomeOf } from '../../tools/cut.ts'
 
 const SHA = '761cc15aaf0c1e2a3b4c5d6e7f8091a2b3c4d5e6'
 
@@ -73,6 +73,18 @@ describe('Draft', () => {
       ]
     ]
   ])('%s', (_, actual, expected) => expect(actual).toEqual(expected))
+
+  it('sends the notes GitHub generates for the version to the draft', async () => {
+    const notes = vi.fn(async (_args: string[]) => ({ body: '@notes' }))
+    const send  = vi.fn(async (_args: string[]) => {})
+    await draft.refresh(9, notes, send)
+    expect([notes.mock.calls, send.mock.calls]).toEqual([[[draft.notesArgs]], [[draft.refreshArgs(9, '@notes')]]])
+  })
+})
+
+describe('CODES', () => {
+  it.each([['create', 0], ['published', 1], ['refresh', 0]] as const)('ends the %s outcome on status %i',
+    (outcome, code) => expect(CODES[outcome]).toBe(code))
 })
 
 describe('NOTES', () => {

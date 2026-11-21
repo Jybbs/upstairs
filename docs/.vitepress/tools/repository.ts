@@ -1,5 +1,6 @@
 import { $, Glob, TOML, YAML }              from 'bun'
 import { basename, dirname, extname, join } from 'node:path'
+import { isDeepStrictEqual }                from 'node:util'
 
 import { Lexer, Parser }       from '@actions/expressions'
 import { Logical }             from '@actions/expressions/ast'
@@ -105,6 +106,13 @@ const GUARDS = {
                  + `&& github.event.pull_request.head.repo.full_name == github.repository)) && ${READY}`,
     '📡 Catalog' : `${MAIN} && ${READY}`
   }
+}
+/**
+ * The triggers each workflow runs on, by its path, `🛰️ Draft` running on every
+ * push to `main` and by hand.
+ */
+const TRIGGERS = {
+  '.github/workflows/draft.yml' : { push: { branches: ['main'] }, workflow_dispatch: null }
 }
 /**
  * The parser for each extension `parseFile` reads, a Markdown file yielding
@@ -276,13 +284,14 @@ export class Repository {
    *   check, or sharing a concurrency group between a draft run and a ready one
    * - A `GUARDS` job missing or running under another condition
    * - A settings file leaving `immutable-releases` off or undeclared
+   * - A `TRIGGERS` workflow running on triggers other than the ones it gives
    */
   get problems(): string[] {
     return [
       ...this.categoryProblems, ...this.draftProblems, ...this.endingProblems, ...this.gateProblems,
       ...this.guardProblems, ...this.guideProblems, ...this.labelProblems, ...this.packageProblems,
       ...this.pinProblems, ...this.rowProblems, ...this.sweepProblems, ...this.taskProblems,
-      ...this.templateProblems, ...this.toggleProblems, ...this.toolProblems
+      ...this.templateProblems, ...this.toggleProblems, ...this.toolProblems, ...this.triggerProblems
     ]
   }
 
@@ -500,6 +509,16 @@ export class Repository {
     return [...new Set(provisions
       .filter(({ cache, tools }) => cache !== 'false' && !saved.has(tools))
       .map(({ path, tools }) => `${path} restores the tools ${tools}, which no ${FILES.warm} row saves`))]
+  }
+
+  /**
+   * Each workflow `TRIGGERS` names whose triggers differ from the ones
+   * `TRIGGERS` gives it.
+   */
+  private get triggerProblems(): string[] {
+    return Object.entries(TRIGGERS).flatMap(([file, triggers]) => this.workflows
+      .filter(({ on, path }) => path.endsWith(file) && !isDeepStrictEqual(on, triggers))
+      .map(({ on }) => `${file} runs on ${JSON.stringify(on)} rather than ${JSON.stringify(triggers)}`))
   }
 }
 
