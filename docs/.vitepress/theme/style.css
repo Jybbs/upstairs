@@ -52,6 +52,10 @@
   --vp-nav-bg-color     : var(--page);
 }
 
+/* The share of a kind's color the chosen row is tinted with, stronger in the dark scheme */
+:root { --chosen-tint: 15%; }
+html.dark { --chosen-tint: 26%; }
+
 @utility caps {
   font-family: var(--font-mono);
   font-size: 0.6875rem;

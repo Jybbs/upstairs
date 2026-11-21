@@ -208,14 +208,14 @@ class Sky {
     return !this.tracks.docked.has(index) && this.traced[pass.kind] && pass.peak >= this.lowest.value
   }
 
-  readonly rows = computed<{ list: Pass[], more: number }>(() => {
+  readonly rows = computed<{ list: Pass[], more: number, total: number }>(() => {
     void this.version.value
     const inFrame = this.inFrame.value
     const map     = this.scope.value === 'map'
     const list    = this.tracks.passes
       .filter((_, index) => this.traces(index) && (!map || inFrame[index] === 1))
       .sort((a, b) => a.peakAt - b.peakAt)
-    return { list: list.slice(0, ROWS), more: Math.max(list.length - ROWS, 0) }
+    return { list: list.slice(0, ROWS), more: Math.max(list.length - ROWS, 0), total: list.length }
   })
 
   /**

@@ -76,6 +76,19 @@ it.each([
   expect([await filters.press(text), filters.shown().listed]).toEqual(['true', listed])
 })
 
+it('folds the filters away under their heading and opens them again', async () => {
+  const { component: Filters, sky } = await freshSky(() => import('../../theme/Filters.tsx'))
+  const wrapper                     = mount(Filters)
+  const heading                     = wrapper.get('h2 button')
+  const read                        = () => [heading.attributes('aria-expanded'),
+    wrapper.get('[inert], h2 + div').attributes('inert') !== undefined]
+  const opened = read()
+  await heading.trigger('click')
+  const folded = read()
+  const named  = `Show me ${sky.showing.value.length} of ${kindOrder.length} kinds`
+  expect([heading.text(), opened, folded]).toEqual([named, ['true', false], ['false', true]])
+})
+
 it.each([
   ['moves to the next kind on the right arrow', 0, 'ArrowRight', 1],
   ['moves to the kind before on the left arrow', 1, 'ArrowLeft', 0],

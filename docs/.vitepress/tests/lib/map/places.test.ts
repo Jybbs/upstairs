@@ -274,4 +274,27 @@ describe('the panels over the map', () => {
     const map = { closest: () => null, getBoundingClientRect: () => ({ left: 0, top: 0 }) }
     expect(places.coveredOver(map as unknown as HTMLElement)).toEqual([])
   })
+
+  it.each([
+    ['pads each side by the margin alone with no panel over the map', [],
+      { bottom: 24, left: 24, right: 24, top: 24 }],
+    ['pads the foot clear of a strip running across it and the left clear of a card at that side',
+      [[16, 16, 360, 300], [16, 460, 968, 124]], { bottom: 164, left: 400, right: 24, top: 24 }],
+    ['pads the head clear of a panel across the top and the right clear of a card at that side',
+      [[0, 0, 1000, 80], [700, 200, 284, 100]], { bottom: 24, left: 24, right: 324, top: 104 }]
+  ] as const)('%s', (_, boxes, padding) => {
+    const rect  = (left: number, top: number, width: number, height: number) =>
+      ({ bottom: top + height, height, left, right: left + width, top, width })
+    const stage = { querySelectorAll: (selector: string) => selector === places.CLEAR
+      ? boxes.map(([left, top, width, height]: readonly number[]) =>
+        ({ getBoundingClientRect: () => rect(left, top, width, height) }))
+      : [] }
+    const map   = {
+      clientHeight          : 600,
+      clientWidth           : 1000,
+      closest               : () => ({ parentElement: stage }),
+      getBoundingClientRect : () => rect(0, 0, 1000, 600)
+    }
+    expect(places.paddingOver(map as unknown as HTMLElement, 24)).toEqual(padding)
+  })
 })
