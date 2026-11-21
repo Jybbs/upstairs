@@ -32,6 +32,10 @@ const CARGO = [
   [...DENY, '--target', 'wasm32-unknown-unknown', 'check', 'licenses']
 ]
 
+/**
+ * Writes each advisory `ANSWERS` holds into `advisories/<id>` under the case's
+ * `scratch` folder, which `gh api` reads as `STAND_IN_REMOTE`.
+ */
 const it = scratched.extend('advisories', { auto: true }, async ({ scratch }) => {
   await Promise.all(Object.entries(ANSWERS)
     .map(([id, answer]) => Bun.write(join(scratch, 'advisories', id), answer)))
