@@ -319,7 +319,7 @@ it('clears words too short to search on Escape', async () => {
 it.each([
   ['opens the list above the search where the space below cannot hold it', 600, 'top', '588px'],
   ['opens the list below the search where the space below holds it', 80, 'bottom', '531px']
-])('%s, no taller than the space it opens into', async (_, top, side, height) => {
+])('%s, as wide as the search and no taller than the space it opens into', async (_, top, side, height) => {
   vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(667)
   vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(390)
   vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(448)
@@ -328,7 +328,11 @@ it.each([
   })
   const { wrapper } = await listed(state => addScanned(state, [passOf(25544, { name: 'ISS (ZARYA)' })]))
   await vi.advanceTimersByTimeAsync(100)
-  const positioner = wrapper.get('[data-part=positioner]').element as HTMLElement
-  expect([wrapper.get('ul').attributes('data-placement'), positioner.style.getPropertyValue('--available-height')])
-    .toEqual([side, height])
+  const { style } = wrapper.get('[data-part=positioner]').element as HTMLElement
+  expect([
+    wrapper.get('ul').attributes('data-placement'),
+    style.getPropertyValue('--available-height'),
+    style.width,
+    style.getPropertyValue('--reference-width')
+  ]).toEqual([side, height, 'var(--reference-width)', '358px'])
 })
