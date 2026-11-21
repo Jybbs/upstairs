@@ -321,4 +321,19 @@ describe('a catalog shared with a helper', () => {
     expect([early, heard])
       .toEqual([0, [{ count: shares[0].count, fetched: FETCHED, satellites: [], type: 'loaded' }]])
   })
+
+  it('drops a share held for its module once the helper follows another port meanwhile', async () => {
+    const { shares } = await shared()
+    let open         = () => {}
+    built.ready      = new Promise<void>(resolve => { open = resolve })
+    const port       = portOf()
+    const helper     = await started()
+    heard            = []
+    await helper({ from: port as unknown as MessagePort, type: 'follow' })
+    const held       = port.onmessage!({ data: shares[0] })
+    await helper({ from: portOf() as unknown as MessagePort, type: 'follow' })
+    open()
+    await held
+    expect([heard, port.close.mock.calls.length]).toEqual([[], 1])
+  })
 })
