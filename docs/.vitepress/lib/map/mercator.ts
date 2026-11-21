@@ -14,6 +14,13 @@ export interface Box {
 const EQUATOR = 40075.017
 
 /**
+ * Returns the box `halfWidth` pixels each side of `x` and `halfHeight` above
+ * and below `y`.
+ */
+export const boxAround = (x: number, y: number, halfWidth: number, halfHeight: number): Box =>
+  ({ bottom: y + halfHeight, left: x - halfWidth, right: x + halfWidth, top: y - halfHeight })
+
+/**
  * Whether the straight line from one pixel to another passes through `box`,
  * as the overlap of the stretches of the line within its columns and within
  * its rows.

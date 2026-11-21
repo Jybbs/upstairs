@@ -1,17 +1,24 @@
 import type { Map } from 'maplibre-gl'
 
-import { TRACK_STEP }                                    from '../orbit/scan.ts'
-import type { Tracks }                                   from '../state/tracks.ts'
-import { type Box, type View, crossesBox, grown, meets } from './mercator.ts'
-import type { Label }                                    from './overlay.ts'
+import { type Tracks, pointsOf, secondsOf }                         from '../state/tracks.ts'
+import { type Box, type View, boxAround, crossesBox, grown, meets } from './mercator.ts'
+import type { Label }                                               from './overlay.ts'
 
 /**
  * The ring's caption placed beside the ring, at `angle` radians round from
  * the right, inside `box`.
  */
-export interface Caption {
+interface Caption {
   angle : number
   box   : Box
+}
+
+/**
+ * A name kept on the map inside `box`.
+ */
+interface Placed {
+  box  : Box
+  word : Word
 }
 
 /**
@@ -35,13 +42,13 @@ const GAP          = 64
 /**
  * The most names the map keeps.
  */
-export const MOST  = 40
-const PULL         = 14
+export const MOST = 40
+const PULL        = 14
 /**
  * How the names make room on the map:
  *
- * - `angles`: each place round the ring the caption tries, in degrees from
- *   the right, in order
+ * - `angles`: each place round the ring tried for the caption, in degrees
+ *   from the right, in order
  * - `caption`: how far past the ring the caption's middle stands, and the
  *   least half size of its box
  * - `edge`: how far inside the view's edge a name and the caption keep
@@ -64,22 +71,8 @@ export const ROOM = {
 /**
  * Returns the box of `word` moved `nudge` of its height off its place.
  */
-const boxOf = ({ height, width, x, y }: Word, nudge: number): Box => {
-  const middle = y + nudge * height
-  return { bottom: middle + height / 2, left: x - width / 2, right: x + width / 2, top: middle - height / 2 }
-}
-
-/**
- * Whether any segment of `track`, as `trackOf` lays it out, passes through
- * `box`, reading no segment across a gap.
- */
-const crossesTrack = (box: Box, track: Float32Array) => {
-  for (let index = 0; index + 3 < track.length; index += 2) {
-    if (Number.isNaN(track[index] + track[index + 2])) continue
-    if (crossesBox(box, track[index], track[index + 1], track[index + 2], track[index + 3])) return true
-  }
-  return false
-}
+const boxOf = ({ height, width, x, y }: Word, nudge: number): Box =>
+  boxAround(x, y + nudge * height, width / 2, height / 2)
 
 const textOf = (properties: Record<string, unknown>): string | null =>
   (properties['name:en'] ?? properties.name ?? null) as string | null
@@ -91,49 +84,6 @@ const tierOf = (kind: string, zoom: number): { order: number, tier: Label['tier'
   if (kind === 'town' && zoom >= 7) return { order: 3, tier: 'city' }
   if (kind === 'village' && zoom >= 10) return { order: 4, tier: 'city' }
   return null
-}
-
-/**
- * Whether `box` stands at least `edge` pixels inside the view.
- */
-const within = (box: Box, edge: number, view: View) =>
-  box.left >= edge && box.top >= edge && box.right <= view.width - edge && box.bottom <= view.height - edge
-
-/**
- * Places the ring's caption, `width` pixels long and set along the ring
- * `radius` pixels round the spot at `x`, `y`, at the first of `room.angles`
- * that crosses none of `words` at their places, `track`, and `covered`, or
- * else at the one crossing the fewest, weighing a panel over a track over a
- * name, and keeping inside the view.
- */
-export const captionAt = (
-  covered : readonly Box[],
-  radius  : number,
-  track   : Float32Array,
-  view    : View,
-  width   : number,
-  words   : readonly Word[],
-  x       : number,
-  y       : number,
-  room    : typeof ROOM = ROOM
-): Caption | null => {
-  const names                                    = words.map(word => boxOf(word, 0))
-  let best: (Caption & { score: number }) | null = null
-  for (const degrees of room.angles) {
-    const angle   = degrees * Math.PI / 180
-    const middleX = x + Math.cos(angle) * (radius + room.caption.out)
-    const middleY = y + Math.sin(angle) * (radius + room.caption.out)
-    const half    = Math.max(width / 2 * Math.abs(Math.sin(angle)), room.caption.half)
-    const tall    = Math.max(width / 2 * Math.abs(Math.cos(angle)), room.caption.half)
-    const box     = { bottom: middleY + tall, left: middleX - half, right: middleX + half, top: middleY - tall }
-    if (!within(box, room.edge.caption, view)) continue
-    const score = 3 * names.filter(name => meets(name, box)).length
-      + (crossesTrack(grown(box, room.track), track) ? 4 : 0)
-      + (covered.some(panel => meets(panel, box)) ? 10 : 0)
-    if (!best || score < best.score) best = { angle, box, score }
-    if (!score) break
-  }
-  return best && { angle: best.angle, box: best.box }
 }
 
 /**
@@ -215,33 +165,6 @@ export const placeNear = (labels: readonly Label[], x: number, y: number, view: 
   }, null)
 
 /**
- * Keeps each of `words` in order, up to `most`, at the first of `room.nudges`
- * that holds it `room.edge.name` pixels inside the view, clear of `blocked`,
- * `room.track` pixels clear of `track`, and `room.gap` pixels clear of each
- * word kept before it, passing over a word no nudge makes room for.
- */
-export const placeWords = (
-  blocked : readonly Box[],
-  most    : number,
-  track   : Float32Array,
-  view    : View,
-  words   : readonly Word[],
-  room    : typeof ROOM = ROOM
-): { box: Box, word: Word }[] => {
-  const kept: { box: Box, word: Word }[] = []
-  for (const word of words) {
-    if (kept.length === most) break
-    const box = room.nudges.map(nudge => boxOf(word, nudge)).find(box =>
-      within(box, room.edge.name, view)
-      && !blocked.some(each => meets(each, box))
-      && !crossesTrack(grown(box, room.track), track)
-      && !kept.some(each => meets(grown(each.box, room.gap), box)))
-    if (box) kept.push({ box, word })
-  }
-  return kept
-}
-
-/**
  * Lays out the track of pass `pass` as the pixels of the points its ribbon
  * draws through from its rise to its set, in pairs, leaving a pair of `NaN`
  * where the model had no place and at the first point past the edge of the
@@ -249,13 +172,11 @@ export const placeWords = (
  */
 export const trackOf = (pass: number, tracks: Tracks, view: View): Float32Array => {
   const { riseAt, setAt } = tracks.passes[pass]
-  const first             = Math.ceil(riseAt / TRACK_STEP + 1e-6)
-  const count             = Math.max(Math.floor(setAt / TRACK_STEP - 1e-6) - first + 1, 0) + 2
+  const count             = pointsOf(setAt, riseAt)
   const points            = new Float32Array(2 * count).fill(NaN)
   let lastX               = NaN
   for (let step = 0; step < count; step++) {
-    const seconds = step === 0 ? riseAt : step === count - 1 ? setAt : (first + step - 1) * TRACK_STEP
-    if (!tracks.at(pass, seconds)) continue
+    if (!tracks.at(pass, secondsOf(setAt, step, count, riseAt))) continue
     const x    = view.column(tracks.longitude)
     const jump = Math.abs(x - lastX) > view.world / 2
     lastX      = x
@@ -264,4 +185,96 @@ export const trackOf = (pass: number, tracks: Tracks, view: View): Float32Array 
     points[2 * step + 1] = view.row(tracks.latitude)
   }
   return points
+}
+
+/**
+ * The names measured for one view and the chosen pass's track, laid out as
+ * `trackOf` returns it, which places the names and the ring's caption clear
+ * of the track by `room.track` pixels and inside the view by `room.edge`.
+ */
+export class Layout {
+  private readonly room: typeof ROOM
+  private readonly track: Float32Array
+  private readonly view: View
+  private readonly words: readonly Word[]
+
+  constructor(track: Float32Array, view: View, words: readonly Word[], room: typeof ROOM = ROOM) {
+    this.room  = room
+    this.track = track
+    this.view  = view
+    this.words = words
+  }
+
+  /**
+   * Places the ring's caption, `width` pixels long and set along the ring
+   * `radius` pixels round the spot at `x`, `y`, at the first of `room.angles`
+   * that crosses none of the words at their places, the track, and `covered`,
+   * or else at the one crossing the fewest, weighing a panel over the track
+   * over a name.
+   */
+  caption(covered: readonly Box[], radius: number, width: number, x: number, y: number): Caption | null {
+    const { room, words }                          = this
+    const along                                    = radius + room.caption.out
+    const names                                    = words.map(word => boxOf(word, 0))
+    let best: (Caption & { score: number }) | null = null
+    for (const degrees of room.angles) {
+      const angle = degrees * Math.PI / 180
+      const box   = boxAround(
+        x + Math.cos(angle) * along,
+        y + Math.sin(angle) * along,
+        Math.max(width / 2 * Math.abs(Math.sin(angle)), room.caption.half),
+        Math.max(width / 2 * Math.abs(Math.cos(angle)), room.caption.half)
+      )
+      if (!this.within(box, room.edge.caption)) continue
+      const score = 3 * names.filter(name => meets(name, box)).length
+        + (this.crossesTrack(box) ? 4 : 0)
+        + (covered.some(panel => meets(panel, box)) ? 10 : 0)
+      if (!best || score < best.score) best = { angle, box, score }
+      if (!score) break
+    }
+    return best
+  }
+
+  /**
+   * Keeps each word in order, up to `most`, at the first of `room.nudges` that
+   * holds it inside the view, clear of `blocked` and the track, and `room.gap`
+   * pixels clear of each word kept before it, passing over a word no nudge
+   * makes room for.
+   */
+  place(blocked: readonly Box[], most: number): Placed[] {
+    const { room }       = this
+    const kept: Placed[] = []
+    for (const word of this.words) {
+      if (kept.length === most) break
+      const box = room.nudges.map(nudge => boxOf(word, nudge)).find(box =>
+        this.within(box, room.edge.name)
+        && !blocked.some(each => meets(each, box))
+        && !this.crossesTrack(box)
+        && !kept.some(each => meets(grown(each.box, room.gap), box)))
+      if (box) kept.push({ box, word })
+    }
+    return kept
+  }
+
+  /**
+   * Whether any segment of the track passes within `room.track` pixels of
+   * `box`, reading no segment across a gap.
+   */
+  private crossesTrack(box: Box): boolean {
+    const { track } = this
+    const near      = grown(box, this.room.track)
+    for (let index = 0; index + 3 < track.length; index += 2) {
+      if (Number.isNaN(track[index] + track[index + 2])) continue
+      if (crossesBox(near, track[index], track[index + 1], track[index + 2], track[index + 3])) return true
+    }
+    return false
+  }
+
+  /**
+   * Whether `box` stands at least `edge` pixels inside the view.
+   */
+  private within(box: Box, edge: number): boolean {
+    const { height, width } = this.view
+    return box.left >= edge && box.top >= edge && box.right <= width - edge && box.bottom <= height - edge
+  }
 }

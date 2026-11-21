@@ -1,14 +1,15 @@
 import { expect, it, vi } from 'vitest'
 
-import { BEADS, fadeOf, nearnessOf, openOf, Overlay } from '../../../lib/map/overlay.ts'
-import { DAY }                                        from '../../../lib/orbit/catalog.ts'
-import { kindOrder, type Kind }                       from '../../../lib/orbit/kinds.ts'
-import { iconOf }                                     from '../../../lib/site/icons.ts'
-import { SCHEMES }                                    from '../../../lib/site/palette.ts'
-import { TRACK_WIDTH }                                from '../../../lib/orbit/scan.ts'
-import { Tracks }                                     from '../../../lib/state/tracks.ts'
-import { passOf }                                     from '../../common/passes.ts'
-import { canvasWith }                                 from '../../common/stubs.ts'
+import type { Box }             from '../../../lib/map/mercator.ts'
+import { BEADS, type Label, Overlay, fadeOf, nearnessOf, openOf } from '../../../lib/map/overlay.ts'
+import { DAY }                  from '../../../lib/orbit/catalog.ts'
+import { kindOrder, type Kind } from '../../../lib/orbit/kinds.ts'
+import { iconOf }               from '../../../lib/site/icons.ts'
+import { SCHEMES }              from '../../../lib/site/palette.ts'
+import { TRACK_WIDTH }          from '../../../lib/orbit/scan.ts'
+import { Tracks }               from '../../../lib/state/tracks.ts'
+import { passOf }               from '../../common/passes.ts'
+import { canvasWith }           from '../../common/stubs.ts'
 
 const BOSTON = { latitude: 42.36, longitude: -71.06 }
 const CRAFT  = { latitude: 41.86, longitude: -70.56 }
@@ -676,32 +677,53 @@ it.each([
 
 /**
  * Builds a canvas whose 2D context records each text it fills with its style,
- * font, and alpha, each rectangle it adds to a path, each rectangle it fills
- * with its alpha, and each time it clears.
+ * font, alpha, and the column its transform last moved to, each rectangle it
+ * adds to a path, each rectangle it fills with its alpha, each time it clears,
+ * and the order of its path calls.
  */
 const pageOf = () => {
-  const cleared: number[]                                                      = []
-  const filled: { alpha: number, height: number }[]                            = []
-  const rects: number[][]                                                      = []
-  const texts: { alpha: number, font: unknown, style: unknown, text: string }[] = []
-  const calls                                                                   = {
+  const cleared: number[]                           = []
+  const filled: { alpha: number, height: number }[] = []
+  const paths: string[]                             = []
+  const rects: number[][]                           = []
+  const texts: { alpha: number, at: number, font: unknown, style: unknown, text: string }[] = []
+  let at                                            = 0
+  const calls                                       = {
+    arc       : () => { paths.push('arc') },
     clearRect : () => { cleared.push(1) },
+    clip      : () => { paths.push('clip') },
     fillRect  : (_x: number, _y: number, _width: number, height: number) =>
       filled.push({ alpha: context.globalAlpha as number, height }),
     fillText  : (text: string) =>
-      texts.push({ alpha: context.globalAlpha as number, font: context.font, style: context.fillStyle, text }),
-    rect      : (...box: number[]) => { rects.push(box) }
+      texts.push({
+        alpha : context.globalAlpha as number,
+        at    : at,
+        font  : context.font,
+        style : context.fillStyle,
+        text  : text
+      }),
+    rect         : (...box: number[]) => {
+      paths.push('rect')
+      rects.push(box)
+    },
+    setTransform : (...matrix: number[]) => { at = matrix[4] }
   }
   const { canvas, context } = canvasWith(calls)
-  return { canvas, cleared, filled, rects, texts }
+  return { canvas, cleared, filled, paths, rects, texts }
 }
 
 /**
  * Draws the names `labels` round a spot over Boston on a view `width` pixels
  * wide at zoom 6.
  */
-const namedAt = (labels: { latitude: number, longitude: number, name: string, tier: 'city' | 'region' | 'water' }[],
-  { spot = BOSTON as typeof BOSTON | null, width = 1440 } = {}) => {
+const namedAt = (
+  labels  : Label[],
+  {
+    covered = [] as Box[],
+    spot    = BOSTON as typeof BOSTON | null,
+    width   = 1440
+  } = {}
+) => {
   const still   = pageOf()
   const moving  = pageOf()
   const state   = {
@@ -716,7 +738,8 @@ const namedAt = (labels: { latitude: number, longitude: number, name: string, ti
     tracks   : new Tracks()
   }
   const overlay = new Overlay(still.canvas, moving.canvas, state)
-  overlay.labels = labels
+  overlay.covered = () => covered
+  overlay.labels  = labels
   overlay.resize(width, 800, 1)
   overlay.view.set(width, 800, 6, BOSTON.longitude, BOSTON.latitude)
   overlay.draw(0)
@@ -747,14 +770,15 @@ it('keeps at most 20 names below 1280 px', () => {
     name      : `P${index}`,
     tier      : 'city' as const
   }))
-  expect([namedAt(labels, { spot: null, width: 1279 }).still.texts.length, namedAt(labels, { spot: null }).still.texts.length])
-    .toEqual([20, 30])
+  const narrow = namedAt(labels, { spot: null, width: 1279 }).still.texts
+  const wide   = namedAt(labels, { spot: null }).still.texts
+  expect([narrow.length, wide.length]).toEqual([20, 30])
 })
 
-it('passes over a name on the spot\u2019s marker', () =>
+it('passes over a name on the spot’s marker', () =>
   expect(namedAt([{ ...BOSTON, name: 'Boston', tier: 'city' }]).still.texts).toEqual([]))
 
-it('sets the ring\u2019s caption letter by letter over the veil, and leaves both off with no spot', () => {
+it('sets the ring’s caption letter by letter over the veil, and leaves both off with no spot', () => {
   const ringed = namedAt([])
   const bare   = namedAt([], { spot: null })
   expect(ringed.moving.texts.map(({ text }) => text).join('')).toBe('60° UP AT 550 KM')
@@ -775,4 +799,42 @@ it('places the names again once another pass is chosen, and not before', () => {
   Object.assign(state, { selected: passOf(25544) })
   overlay.draw(2)
   expect([once, still.cleared.length]).toEqual([1, 2])
+})
+
+it.each([
+  ['above the ring where nothing covers it', []],
+  ['below the ring where a panel covers the map above the spot',
+    [{ bottom: 400, left: 0, right: 1440, top: 0 }]]
+])('sets the caption left to right %s', (_, covered) => {
+  const columns = namedAt([], { covered }).moving.texts.map(({ at }) => at)
+  expect(columns.slice(1).every((column, index) => column > columns[index])).toBe(true)
+})
+
+it.each([
+  ['leaves a circle clear round the chosen satellite while it flies', 1800, 'arc'],
+  ['leaves no circle once the chosen pass has set', 3700, 'rect']
+])('the veil %s', (_, seconds, last) => {
+  const tracks = new Tracks()
+  const track  = new Float32Array(121 * TRACK_WIDTH)
+  for (let sample = 0; sample < 121; sample++) {
+    track.set([BOSTON.latitude, BOSTON.longitude - 1 + sample / 60, 45], sample * TRACK_WIDTH)
+  }
+  const pass   = passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600 })
+  tracks.add([pass], track, Uint32Array.of(0), 121)
+  const moving  = pageOf()
+  const overlay = new Overlay(pageOf().canvas, moving.canvas, {
+    gathered : false,
+    held     : null,
+    named    : null,
+    reduced  : true,
+    selected : pass,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => true,
+    tracks   : tracks
+  })
+  overlay.resize(1440, 800, 1)
+  overlay.view.set(1440, 800, 6, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(seconds)
+  expect(moving.paths[moving.paths.lastIndexOf('clip') - 1]).toBe(last)
 })

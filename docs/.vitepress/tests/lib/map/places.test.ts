@@ -1,12 +1,12 @@
 import type { Map }             from 'maplibre-gl'
 import { describe, expect, it } from 'vitest'
 
-import { View }       from '../../../lib/map/mercator.ts'
-import type { Label } from '../../../lib/map/overlay.ts'
-import * as places    from '../../../lib/map/places.ts'
+import { type Box, View }          from '../../../lib/map/mercator.ts'
+import type { Label }              from '../../../lib/map/overlay.ts'
+import * as places                 from '../../../lib/map/places.ts'
 import { TRACK_STEP, TRACK_WIDTH } from '../../../lib/orbit/scan.ts'
-import { Tracks }     from '../../../lib/state/tracks.ts'
-import { passOf }     from '../../common/passes.ts'
+import { Tracks }                  from '../../../lib/state/tracks.ts'
+import { passOf }                  from '../../common/passes.ts'
 
 interface Feature {
   geometry   : { coordinates: [number, number], type: string }
@@ -149,13 +149,18 @@ const wordAt = (name: string, x: number, y: number): places.Word =>
   ({ height: 10, label: labelAt(name, x - 500, y - 300), text: name, width: 40, x, y })
 
 /**
+ * Returns a panel running across the view from `top` to `bottom`.
+ */
+const bandOf = (top: number, bottom: number): Box => ({ bottom, left: 0, right: 1000, top })
+
+/**
  * Returns a track running straight between the given points, in pairs.
  */
 const lineOf = (...points: number[]) => Float32Array.from(points)
 
-const keptOf = (words: places.Word[], blocked: { bottom: number, left: number, right: number, top: number }[] = [],
-  track = lineOf(), most = Infinity) =>
-  places.placeWords(blocked, most, track, view, words).map(({ box, word }) => [word.text, (box.top + box.bottom) / 2])
+const keptOf = (words: places.Word[], blocked: Box[] = [], track = lineOf(), most = Infinity) =>
+  new places.Layout(track, view, words).place(blocked, most)
+    .map(({ box, word }) => [word.text, (box.top + box.bottom) / 2])
 
 describe('the names placed on the map', () => {
   it.each([
@@ -165,9 +170,9 @@ describe('the names placed on the map', () => {
 
   it.each([
     ['keeps a word at its place where nothing covers it', [], [['Clear', 300]]],
-    ['moves a word up off a panel over its lower half', [{ bottom: 320, left: 0, right: 1000, top: 302 }], [['Clear', 292]]],
-    ['moves a word down off a panel over its upper half', [{ bottom: 298, left: 0, right: 1000, top: 280 }], [['Clear', 308]]],
-    ['passes over a word a panel covers whole', [{ bottom: 320, left: 0, right: 1000, top: 280 }], []]
+    ['moves a word up off a panel over its lower half', [bandOf(302, 320)], [['Clear', 292]]],
+    ['moves a word down off a panel over its upper half', [bandOf(280, 298)], [['Clear', 308]]],
+    ['passes over a word a panel covers whole', [bandOf(280, 320)], []]
   ])('%s', (_, blocked, kept) => expect(keptOf([wordAt('Clear', 500, 300)], blocked)).toEqual(kept))
 
   it.each([
@@ -180,17 +185,18 @@ describe('the names placed on the map', () => {
   it.each([
     ['keeps a word 4 px below another', 314, [['First', 300], ['Second', 314]]],
     ['moves a word nearer than that below the first', 312, [['First', 300], ['Second', 320]]]
-  ])('%s', (_, y, kept) => expect(keptOf([wordAt('First', 500, 300), wordAt('Second', 500, y)])).toEqual(kept))
+  ])('%s', (_, y, kept) =>
+    expect(keptOf([wordAt('First', 500, 300), wordAt('Second', 500, y)])).toEqual(kept))
 
-  it('keeps no more words than it is given room for', () =>
-    expect(keptOf([wordAt('One', 200, 100), wordAt('Two', 200, 200), wordAt('Three', 200, 300)], [], lineOf(), 2))
-      .toEqual([['One', 100], ['Two', 200]]))
+  it('keeps no more words than it is given room for', () => {
+    const words = ['One', 'Two', 'Three'].map((name, index) => wordAt(name, 200, 100 * (index + 1)))
+    expect(keptOf(words, [], lineOf(), 2)).toEqual([['One', 100], ['Two', 200]])
+  })
 })
 
-describe('the ring\u2019s caption', () => {
-  const at = (covered = [] as { bottom: number, left: number, right: number, top: number }[], words = [] as places.Word[],
-    track = lineOf(), y = 300) =>
-    places.captionAt(covered, 100, track, view, 80, words, 500, y)?.angle ?? null
+describe('the ring’s caption', () => {
+  const at = (covered: Box[] = [], words: places.Word[] = [], track = lineOf()) =>
+    new places.Layout(track, view, words).caption(covered, 100, 80, 500, 300)?.angle ?? null
 
   it('stands above the ring where nothing crosses it', () => expect(at()).toBeCloseTo(-Math.PI / 2))
   it('moves round the ring off a name above it', () =>
@@ -198,11 +204,11 @@ describe('the ring\u2019s caption', () => {
   it('moves round the ring off a track above it', () =>
     expect(at([], [], lineOf(500, 0, 500, 250))).toBeCloseTo(-Math.PI / 3))
   it('takes the place crossing the fewest where every place crosses something', () => {
-    const covered = [{ bottom: 600, left: 0, right: 1000, top: 0 }]
+    const covered = [bandOf(0, 600)]
     expect(at(covered, [wordAt('Above', 500, 190)])).toBeCloseTo(-Math.PI / 3)
   })
   it('finds no place where the ring fills the view', () =>
-    expect(places.captionAt([], 700, lineOf(), view, 80, [], 500, 300)).toBeNull())
+    expect(new places.Layout(lineOf(), view, []).caption([], 700, 80, 500, 300)).toBeNull())
 })
 
 describe('the chosen track', () => {
@@ -225,10 +231,17 @@ describe('the chosen track', () => {
     expect(Array.from(places.trackOf(0, tracks, view)).map(Number.isNaN))
       .toEqual([false, false, false, false, true, true, true, true])
   })
+  it('leaves a gap at the first point past the edge of the world', () => {
+    const tracks = new Tracks()
+    const track  = Float32Array.of(0, 179.9, 45, 0, -179.9, 45, 0, -179.8, 45)
+    tracks.add([passOf(1, { riseAt: 0, setAt: 60 })], track, Uint32Array.of(0), 3)
+    expect(Array.from(places.trackOf(0, tracks, view)).map(Number.isNaN))
+      .toEqual([false, false, true, true, false, false])
+  })
 })
 
 describe('the panels over the map', () => {
-  it('reads each marked panel in the map\u2019s own pixels, passing over one with no size', () => {
+  it('reads each marked panel in the map’s own pixels, passing over one with no size', () => {
     const rect  = (left: number, top: number, width: number, height: number) =>
       ({ bottom: top + height, height, left, right: left + width, top, width })
     const panel = (box: ReturnType<typeof rect>) => ({ getBoundingClientRect: () => box })
@@ -241,5 +254,9 @@ describe('the panels over the map', () => {
     }
     expect(places.coveredOver(map as unknown as HTMLElement))
       .toEqual([{ bottom: 66, left: 10, right: 110, top: 16 }])
+  })
+  it('reads no panel where the map stands on no stage', () => {
+    const map = { closest: () => null, getBoundingClientRect: () => ({ left: 0, top: 0 }) }
+    expect(places.coveredOver(map as unknown as HTMLElement)).toEqual([])
   })
 })
