@@ -12,14 +12,52 @@ const SATELLITE = { epoch: 0, id: 1, kind: 'crewed', name: 'CRAFT 1' } as const
 const SAMPLES   = scan.samplesFor(60, scan.TRACK_STEP)
 const SPOT      = { latitude: 1, longitude: 2 }
 
-let fail: () => void
-let listen: (event: MessageEvent<Answer>) => void
+/**
+ * A stand-in worker, holding the listeners the shared state gives it.
+ */
+interface Stand {
+  fail       : () => void
+  listen     : (event: MessageEvent<Answer>) => void
+  terminated : boolean
+}
+
 let posted: Asked[]
-let workers: { terminated: boolean }[]
+let workers: Stand[]
 
 type Sky = Awaited<ReturnType<typeof loaded>>
 
-const hear = (answer: Answer) => listen({ data: answer } as MessageEvent<Answer>)
+/**
+ * Returns counts of `count` satellites up at every step of the scan's grid.
+ */
+const countsOf = (count: number) => new Uint16Array(scan.samplesFor(60, scan.GRID_STEP)).fill(count)
+
+/**
+ * Fails the first worker started as it starts.
+ */
+const fail = () => workers[0].fail()
+
+/**
+ * Answers `answer` from the first running worker, and from every other running
+ * worker the answer `quietOf` gives for a helper with no satellite that rises.
+ */
+const hear = (answer: Answer) => workers.filter(({ terminated }) => !terminated).forEach((worker, index) => {
+  const echoed = index ? quietOf(answer) : answer
+  if (echoed) hearFrom(worker, echoed)
+})
+
+const hearFrom = (worker: Stand, answer: Answer) => worker.listen({ data: answer } as MessageEvent<Answer>)
+
+/**
+ * Returns what a helper holding no satellite that rises answers beside the
+ * lead's `answer`, meaning the segment without its satellites, counts of zero,
+ * and the end of the scan, and nothing beside passes, a failure, or a scan
+ * that threw.
+ */
+const quietOf = (answer: Answer): Answer | null => {
+  if (answer.type === 'loaded') return { ...answer, satellites: [] }
+  if (answer.type === 'counts') return { ...answer, counts: new Uint16Array(answer.counts.length) }
+  return answer.type === 'done' ? answer : null
+}
 
 /**
  * Returns the id of the latest scan asked for.
@@ -51,11 +89,13 @@ const opened = async (fragment = '', reduced = false) => {
   posted  = []
   workers = []
   stubMatchMedia(() => reduced)
-  vi.stubGlobal('Worker', class {
-    terminated = false
+  vi.stubGlobal('Worker', class implements Stand {
+    fail: Stand['fail']     = () => {}
+    listen: Stand['listen'] = () => {}
+    terminated              = false
     constructor() { workers.push(this) }
-    set onerror(listener: typeof fail) { fail = listener }
-    set onmessage(listener: typeof listen) { listen = listener }
+    set onerror(listener: () => void) { this.fail = listener }
+    set onmessage(listener: (event: MessageEvent<Answer>) => void) { this.listen = listener }
     postMessage(asked: Asked) { posted.push(asked) }
     terminate() { this.terminated = true }
   })
@@ -104,10 +144,10 @@ describe('the count a screen reader hears', () => {
   it('announces the count once the grid arrives, and a changed count only after 20 seconds', async () => {
     const sky      = await loaded()
     const id       = scanned()
-    const countsOf = (count: number) => new Uint16Array(scan.samplesFor(60, scan.GRID_STEP)).fill(count)
     hear({ counts: countsOf(5), id, step: scan.GRID_STEP, type: 'counts' })
     expect(sky.spoken.value).toBe('5 satellites above the horizon')
-    hear({ counts: countsOf(7), id, step: scan.GRID_STEP, type: 'counts' })
+    sky.scan()
+    hear({ counts: countsOf(7), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
     expect(sky.spoken.value).toBe('5 satellites above the horizon')
     vi.advanceTimersByTime(19_999)
     sky.tally()
@@ -586,7 +626,7 @@ describe('the stage', () => {
     failed()
     sky.load()
     expect([sky.stage.value, sky.tracks.passes.length, posted.at(-1), workers.length])
-      .toEqual(['fetching', 0, { type: 'load', url: `/${catalog.FILE}` }, 1])
+      .toMatchObject(['fetching', 0, { type: 'load', url: `/${catalog.FILE}` }, 4])
   })
 
   it('asks for the catalog only once the page loads it, and once however often it does', async () => {
@@ -598,7 +638,7 @@ describe('the stage', () => {
     sky.loadOnce()
     sky.loadOnce()
     expect([before, workers.length, posted.map(({ type }) => type), sky.stage.value])
-      .toEqual([1, 2, ['load'], 'fetching'])
+      .toEqual([4, 8, ['follow', 'follow', 'follow', 'load'], 'fetching'])
   })
 
   it('starts a new worker to load again where the first failed to start', async () => {
@@ -606,6 +646,82 @@ describe('the stage', () => {
     fail()
     sky.load()
     expect([workers.map(({ terminated }) => terminated), sky.stage.value])
-      .toEqual([[true, false], 'fetching'])
+      .toEqual([[true, true, true, true, false, false, false, false], 'fetching'])
+  })
+})
+
+describe('the scan workers', () => {
+  /**
+   * Returns a batch of scan `id` holding no pass that brings a worker halfway
+   * through its traces.
+   */
+  const halfwayOf = (id: number): Answer => ({
+    done    : 1,
+    id      : id,
+    offsets : new Uint32Array(),
+    passes  : [],
+    samples : SAMPLES,
+    total   : 2,
+    track   : new Float32Array(),
+    type    : 'passes'
+  })
+
+  it.each([[2, 2], [2, 5], [4, 8], [4, 16]])('starts %s workers on %s cores', async (size, cores) => {
+    const spy = vi.spyOn(navigator, 'hardwareConcurrency', 'get').mockReturnValue(cores)
+    await opened()
+    spy.mockRestore()
+    expect(workers.length).toBe(size)
+  })
+
+  it('hands the lead a port to each helper and each helper the other end of its own', async () => {
+    await opened()
+    const [follows, [load]] = [posted.slice(0, -1), posted.slice(-1)] as [
+      Extract<Asked, { type: 'follow' }>[], Extract<Asked, { type: 'load' }>[]
+    ]
+    expect([follows.length, new Set(follows.map(({ from }) => from)).size, load.helpers.length])
+      .toEqual([3, 3, 3])
+  })
+
+  it('scans a segment only once every worker holds it', async () => {
+    await opened()
+    const segment: Answer = { count: 1, fetched: NOW, satellites: [SATELLITE], type: 'loaded' }
+    const scans           = () => posted.filter(({ type }) => type === 'scan').length
+    const counted         = workers.map((worker, index) => {
+      hearFrom(worker, index ? quietOf(segment)! : segment)
+      return scans()
+    })
+    expect(counted).toEqual([0, 0, 0, 4])
+  })
+
+  it('counts the sky once every worker has posted its counts, summing them', async () => {
+    const sky     = await loaded()
+    const id      = scanned()
+    const counted = workers.map(worker => {
+      hearFrom(worker, { counts: countsOf(2), id, step: scan.GRID_STEP, type: 'counts' })
+      return sky.spoken.value
+    })
+    expect(counted).toEqual(['', '', '', '8 satellites above the horizon'])
+  })
+
+  it('reads the share traced across every worker, finishing once every worker has', async () => {
+    const sky   = await loaded()
+    const id    = scanned()
+    const steps = workers.map(worker => {
+      hearFrom(worker, halfwayOf(id))
+      hearFrom(worker, { id, type: 'done' })
+      return [sky.share.value, sky.done.value]
+    })
+    expect(steps).toEqual([[0.25, false], [0.5, false], [0.75, false], [1, true]])
+  })
+
+  it('starts the share over on a new scan, reading no batch of the scan before it', async () => {
+    const sky = await loaded()
+    const old = scanned()
+    for (const worker of workers) hearFrom(worker, halfwayOf(old))
+    sky.scan()
+    const reset = sky.share.value
+    hearFrom(workers[0], halfwayOf(old))
+    hearFrom(workers[0], halfwayOf(scanned()))
+    expect([reset, sky.share.value]).toEqual([0, 0.125])
   })
 })
