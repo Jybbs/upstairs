@@ -1,0 +1,16 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE alias       = "bump"
+#MISE description = "Move `version` in `docs/package.json` to the next minor release, or to the next patch or major one through `--patch` or `--major`, leaving the rest of the manifest as it stands"
+#MISE dir         = "{{config_root}}/docs"
+#USAGE flag "--major" help="Move to the next major release"
+#USAGE flag "--patch" help="Move to the next patch release"
+
+increment=minor
+[[ "${usage_patch:-}" != true ]] || increment=patch
+[[ "${usage_major:-}" != true ]] || increment=major
+[[ "${usage_major:-}${usage_patch:-}" != truetrue ]] || {
+  echo "Pass --major or --patch, not both" >&2
+  exit 1
+}
+
+bun pm version --no-git-tag-version "$increment"

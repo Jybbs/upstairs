@@ -26,6 +26,7 @@ secret_scanning_push_protection = { status = "enabled" }
 
 [toggles]
 automated-security-fixes = false
+immutable-releases       = true
 pages                    = false
 vulnerability-alerts     = true
 
