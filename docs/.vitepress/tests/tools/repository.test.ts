@@ -14,11 +14,14 @@ const CHECKOUT_PIN  = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 const CI            = '.github/workflows/ci.yml'
 const DEPLOY        = '.github/workflows/deploy.yml'
 const DRAFT         = '.github/workflows/draft.yml'
+const DRAFT_GROUP   = '${{ github.event.pull_request.draft }}'
 const HEAD_NOT_MAIN = " && github.head_ref != 'main'"
 const MAIN          = "github.ref == 'refs/heads/main'"
 const PROVISION     = '$/.github/actions/provision'
 const READY         = '!github.event.pull_request.draft'
 const SPLIT_ROW     = { Rust: null, name: '🔥 Bun', tools: 'bun' }
+const CANCELS       = 'lets a draft run cancel a run in progress, '
+                    + `its concurrency group not ending on ${DRAFT_GROUP}`
 const CATALOG       = `${MAIN} && ${READY}`
 const SITE          = `(${MAIN} || (github.event_name == 'pull_request'${HEAD_NOT_MAIN} `
                     + `&& github.event.pull_request.head.repo.full_name == github.repository)) && ${READY}`
@@ -131,6 +134,16 @@ describe('Repository', () => {
     'reports nothing for a pull_request job under %s',
     condition =>
       expect(variant(checked({ added: { if: condition } }, ACTIVITY)).problems).toEqual(base.problems)
+  )
+
+  it.each<[string, repository.Workflow['concurrency']]>([
+    ['a group string', `ci-\${{ github.ref }}-${DRAFT_GROUP}`],
+    ['a group under its key', { group: `\${{ github.workflow }}-${DRAFT_GROUP}` }],
+    ['no key at all', undefined]
+  ])(
+    'reports nothing for a pull_request workflow whose concurrency, as %s, holds no draft run beside a ready one',
+    (_, concurrency) =>
+      expect(variant(rework(CI, workflow => ({ ...workflow, concurrency }))).problems).toEqual(base.problems)
   )
 
   it('names a gate two pull-request workflows share once', () => {
@@ -395,6 +408,21 @@ describe('Repository', () => {
       'a pull_request job whose expression closes before its draft check',
       checked({ added: { if: `\${{ always() }} && ${READY}` } }, ACTIVITY),
       `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
+    ],
+    [
+      'a pull_request workflow whose concurrency group leaves out the draft flag',
+      rework(CI, workflow => ({ ...workflow, concurrency: { group: '${{ github.ref }}' } })),
+      `${join(ROOT, CI)} ${CANCELS}`
+    ],
+    [
+      'a pull_request workflow whose concurrency group string leaves out the draft flag',
+      rework(DEPLOY, workflow => ({ ...workflow, concurrency: 'deploy' })),
+      `${join(ROOT, DEPLOY)} ${CANCELS}`
+    ],
+    [
+      'a pull_request workflow whose concurrency group carries the draft flag before its ref',
+      rework(CI, workflow => ({ ...workflow, concurrency: { group: `${DRAFT_GROUP}-\${{ github.ref }}` } })),
+      `${join(ROOT, CI)} ${CANCELS}`
     ],
     [
       'a package at a range rather than one exact version',
