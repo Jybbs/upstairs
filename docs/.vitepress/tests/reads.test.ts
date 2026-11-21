@@ -34,6 +34,7 @@ import {
   watchedOf
 } from './common/reads.ts'
 import { reads } from './vitest.config.ts'
+import TABLE_TEXT from './common/reads.ts?raw'
 
 const AUDIT    = 'docs/.vitepress/tests/tools/audit.test.ts'
 const CHECK    = 'docs/.vitepress/tests/tools/check.test.ts'
@@ -151,7 +152,7 @@ describe('rereadOf', () => {
 
   it.each([
     ['a version holds no table', 'export const ROOT = 1\n'],
-    ['a version spreads another table into READS', 'export const READS = { ...OTHER }\n'],
+    ['a version spreads another table into READS', edited("'b.ts' : ['b']", '...OTHER')],
     ['git holds no earlier version', undefined]
   ])('lists the module itself where %s', async (_, before) =>
     expect(await rereadOf(before, TABLED)).toEqual([TABLE]))
@@ -212,6 +213,21 @@ describe('the reads plugin', () => {
     expect(await selectedAfter(async () => [join(ROOT, file)]))
       .toEqual(tests.map(test => join(ROOT, 'docs/.vitepress/tests', test)))
   })
+
+  it(
+    'selects the tests loading a module whose READS entry an edit changes, beside the checks of READS',
+    { tags: ['slow'] },
+    async ({ onTestFinished }) => {
+      const scratch = await promises.mkdtempDisposable(join(tmpdir(), 'upstairs-reads-git-'))
+      onTestFinished(() => scratch.remove())
+      const looks = 'docs/.vitepress/tests/lib/orbit/looks.test.ts'
+      await Bun.write(join(scratch.path, relative(ROOT, TABLE)), TABLE_TEXT.replace('= {\n', `= {\n  '${looks}': [],\n`))
+      await $`git init --quiet && git add --all && git -c user.email=reads@upstairs.fyi -c user.name=reads commit --message=before --quiet`
+        .cwd(scratch.path).quiet()
+      vi.stubEnv('GIT_DIR', join(scratch.path, '.git'))
+      expect(await selectedAfter(async () => [TABLE])).toEqual([CHECKS, join(ROOT, looks)].sort())
+    }
+  )
 })
 
 describe('the read check', () => {
