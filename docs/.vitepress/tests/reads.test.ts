@@ -33,14 +33,16 @@ import {
   rereadOf,
   watchedOf
 } from './common/reads.ts'
-import { reads } from './vitest.config.ts'
 import TABLE_TEXT from './common/reads.ts?raw'
+import { reads }  from './vitest.config.ts'
 
 const AUDIT    = 'docs/.vitepress/tests/tools/audit.test.ts'
 const CHECK    = 'docs/.vitepress/tests/tools/check.test.ts'
+const DRAWN    = join(ROOT, 'docs/.vitepress/tests/lib/state/drawings.test.ts')
 const FIXTURES = join(ROOT, 'docs/.vitepress/tests/fixtures')
 const GH       = join(ROOT, 'docs/.vitepress/tests/common/bin/gh')
 const GONE     = 'docs/.vitepress/tests/gone.test.ts'
+const LOOKS    = join(ROOT, 'docs/.vitepress/tests/lib/orbit/looks.test.ts')
 const ORPHAN   = join(ROOT, 'LICENSE')
 const PAGE     = join(ROOT, 'docs/gone/index.md')
 const PAGES    = ['cards', 'markdown', 'sections']
@@ -88,11 +90,12 @@ const selected = async (options: CliOptions) => {
 }
 
 /**
- * Selects the tests a run under `--changed` reaches where git lists the files
+ * Selects the tests a run under `--changed`, given `changed` as its ref or
+ * `true` for the working tree, reaches where git lists the files
  * `findChangedFiles` returns.
  */
-const selectedAfter = (findChangedFiles: () => Promise<string[]>) =>
-  selected({ changed: true, experimental: { vcsProvider: { findChangedFiles } } })
+const selectedAfter = (findChangedFiles: () => Promise<string[]>, changed: string | true = true) =>
+  selected({ changed, experimental: { vcsProvider: { findChangedFiles } } })
 
 describe('declares', () => {
   it.each([
@@ -214,18 +217,53 @@ describe('the reads plugin', () => {
       .toEqual(tests.map(test => join(ROOT, 'docs/.vitepress/tests', test)))
   })
 
+  /**
+   * The text of this module with an empty `READS` entry for `test`, an
+   * absolute path, ahead of every other entry.
+   */
+  const adding = (test: string) => TABLE_TEXT.replace('= {\n', `= {\n  '${relative(ROOT, test)}': [],\n`)
+
+  /**
+   * Makes a scratch repository on `main`, which `GIT_DIR` names until the case
+   * ends, returning a function running git in it and one committing `text` as
+   * this module, and removing the repository once disposed.
+   */
+  const scratchRepo = async () => {
+    const scratch = await promises.mkdtempDisposable(join(tmpdir(), 'upstairs-reads-git-'))
+    const git     = (...args: string[]) =>
+      $`git -c user.email=reads@upstairs.fyi -c user.name=reads ${args}`.cwd(scratch.path).quiet()
+    const commit = async (text: string) => {
+      await Bun.write(join(scratch.path, relative(ROOT, TABLE)), text)
+      await git('add', '--all')
+      await git('commit', '--message=table', '--quiet')
+    }
+    await git('init', '--initial-branch=main', '--quiet')
+    vi.stubEnv('GIT_DIR', join(scratch.path, '.git'))
+    return { commit, git, [Symbol.asyncDispose]: () => scratch.remove() }
+  }
+
   it(
     'selects the tests loading a module whose READS entry an edit changes, beside the checks of READS',
     { tags: ['slow'] },
-    async ({ onTestFinished }) => {
-      const scratch = await promises.mkdtempDisposable(join(tmpdir(), 'upstairs-reads-git-'))
-      onTestFinished(() => scratch.remove())
-      const looks = 'docs/.vitepress/tests/lib/orbit/looks.test.ts'
-      await Bun.write(join(scratch.path, relative(ROOT, TABLE)), TABLE_TEXT.replace('= {\n', `= {\n  '${looks}': [],\n`))
-      await $`git init --quiet && git add --all && git -c user.email=reads@upstairs.fyi -c user.name=reads commit --message=before --quiet`
-        .cwd(scratch.path).quiet()
-      vi.stubEnv('GIT_DIR', join(scratch.path, '.git'))
-      expect(await selectedAfter(async () => [TABLE])).toEqual([CHECKS, join(ROOT, looks)].sort())
+    async () => {
+      await using repo = await scratchRepo()
+      await repo.commit(adding(LOOKS))
+      expect(await selectedAfter(async () => [TABLE])).toEqual([CHECKS, LOOKS].sort())
+    }
+  )
+
+  it(
+    'compares READS against its merge base with the branch --changed names',
+    { tags: ['slow'] },
+    async () => {
+      await using repo = await scratchRepo()
+      await repo.commit(adding(LOOKS))
+      await repo.git('switch', '--create', 'topic', '--quiet')
+      await repo.commit(TABLE_TEXT)
+      await repo.git('switch', 'main', '--quiet')
+      await repo.commit(adding(DRAWN))
+      await repo.git('switch', 'topic', '--quiet')
+      expect(await selectedAfter(async () => [TABLE], 'main')).toEqual([CHECKS, LOOKS].sort())
     }
   )
 })
