@@ -384,6 +384,18 @@ describe('the read check', () => {
   it('keeps the setting a shell from new $.Shell() takes through nothrow', () =>
     expect(new $.Shell().nothrow()`false`.quiet()).resolves.toMatchObject({ exitCode: 1 }))
 
+  it("moves the commands of Bun's shell to the folder $.cwd gives", async () => {
+    $.cwd(FIXTURES)
+    try {
+      expect((await $`pwd`.text()).trim()).toBe(FIXTURES)
+    } finally {
+      $.cwd()
+    }
+  })
+
+  it('keeps a shell new $.Shell() makes an instance of $.Shell', () =>
+    expect(new $.Shell()).toBeInstanceOf($.Shell))
+
   it('reads no Shell off a shell new $.Shell() makes', () => expect(new $.Shell().Shell).toBeUndefined())
 
   it('passes a fetch of a URL of another scheme', () =>

@@ -120,7 +120,7 @@ function entryOf(entry: Found): string {
 }
 
 /**
- * Reads the file a call to `fetch` reads from a `file:` URL, given as a string,
+ * Lists the file a call to `fetch` reads from a `file:` URL, given as a string,
  * a `URL`, or a `Request`, and no file for any other scheme.
  */
 function fetchedOf([input]: unknown[]): string[] {
@@ -312,13 +312,17 @@ function shelledOf([strings, ...values]: unknown[]): unknown[] {
  * to `READS` as `running` holds it, from the folder the shell's own `cwd` last
  * set or else the folder the suite runs in, and again against the folder the
  * command's `cwd` moves it to. The proxy stands over a function calling
- * `shell` and passes every other read and write to `shell`, because `$` holds
- * `Shell` as a non-configurable property, which a proxy of `$` itself must
- * return unchanged.
+ * `shell` and passes every other read, write, `in` check, and prototype lookup
+ * to `shell`, because `$` holds `Shell` as a non-configurable property, which a
+ * proxy of `$` itself must return unchanged.
  */
 function shelling(shell: typeof Bun.$): typeof Bun.$ {
   let folder: string | undefined
   const wrapped = new Proxy(((...args: Parameters<typeof shell>) => shell(...args)) as typeof shell, {
+    getPrototypeOf : () => Reflect.getPrototypeOf(shell),
+    has            : (_, key) => Reflect.has(shell, key),
+    set            : (_, key, value) => Reflect.set(shell, key, value),
+
     apply(_, self, args) {
       const readers = callers()
       const words   = shelledOf(args)
@@ -333,6 +337,7 @@ function shelling(shell: typeof Bun.$): typeof Bun.$ {
         }
       })
     },
+
     get(_, key) {
       if (key === 'cwd') {
         return (path?: string) => {
@@ -344,8 +349,7 @@ function shelling(shell: typeof Bun.$): typeof Bun.$ {
       return key === 'Shell' && key in shell
         ? new Proxy(shell.Shell, { construct: (Shell, args) => shelling(Reflect.construct(Shell, args)) })
         : Reflect.get(shell, key)
-    },
-    set: (_, key, value) => Reflect.set(shell, key, value)
+    }
   })
   return wrapped
 }
