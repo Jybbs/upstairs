@@ -19,7 +19,11 @@ const {
   draw            : vi.fn(),
   drawn           : {
     overlay : { covered: () => [] as unknown[], labels: [] as unknown[] },
-    state   : { spot: null as unknown, tracks: { passes: [] as unknown[] } }
+    state   : {
+      kinds  : {} as Record<string, boolean>,
+      spot   : null as unknown,
+      tracks : { passes: [] as unknown[] }
+    }
   },
   easeTo          : vi.fn(),
   fitBounds       : vi.fn(),
@@ -126,6 +130,12 @@ const mounted = async (error: Error | null = null, props = {}) => {
   easeTo.mockClear()
   return { SkyMap, pass, sky, turn, wrapper }
 }
+
+it('hands the overlay the kinds shown as they are switched', async () => {
+  const { sky } = await mounted()
+  sky.trace(['earth'])
+  expect(drawn.state.kinds).toMatchObject({ crewed: false, earth: true })
+})
 
 it('holds the credit open over the map it makes', async () => {
   const { sky } = await mounted()

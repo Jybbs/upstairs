@@ -3,7 +3,7 @@ import mlcontour                         from 'maplibre-contour'
 import * as maplibregl                   from 'maplibre-gl'
 import mapWorker                         from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { useData }                       from 'vitepress'
-import { computed, defineComponent, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, defineComponent, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, watch } from 'vue'
 
 import { DETENT, Detents, type Step }   from '../lib/map/detents.ts'
 import { Hosts }                        from '../lib/map/hosts.ts'
@@ -314,6 +314,7 @@ export default defineComponent(
       overlay = new Overlay(lower.value!, upper.value!, {
         get gathered() { return sky.gather.value !== null },
         get held() { return sky.shown.value },
+        kinds   : toRaw(sky.traced),
         get named() { return sky.named.value },
         reduced : sky.reduced,
         get selected() { return sky.selected.value },

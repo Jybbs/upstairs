@@ -44,13 +44,15 @@ const mounted = async () => {
 }
 
 it.each([
-  ['lets the passes of a kind traced from the start go, their dots at half strength', 'crewed', 'false',
-    { listed: [3], strong: [false, true, true, false] }],
-  ['traces the passes of a kind left out from the start, their dots at full strength', 'comms', 'true',
-    { listed: [1, 3, 4], strong: [true, true, true, true] }]
-] as const)('%s', async (_, kind: Kind, pressed, shown) => {
+  ['lets the passes of a kind traced from the start go from the list and the address', 'crewed', 'false',
+    { listed: [3], strong: [false, true, true, false] }, '#?kinds=science,earth,weather,navigation'],
+  ['traces the passes of a kind left out from the start into the list and the address', 'comms', 'true',
+    { listed: [1, 3, 4], strong: [true, true, true, true] },
+    '#?kinds=crewed,science,earth,weather,navigation,comms']
+] as const)('%s', async (_, kind: Kind, pressed, shown, written) => {
   const filters = await mounted()
-  expect([await filters.press(KINDS[kind].label), filters.shown()]).toEqual([pressed, shown])
+  expect([await filters.press(KINDS[kind].label), filters.shown(), location.hash])
+    .toEqual([pressed, shown, written])
 })
 
 it.each([

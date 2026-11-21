@@ -31,6 +31,7 @@ interface Filled {
 const BOSTON = { latitude: 42.36, longitude: -71.06 }
 const CRAFT  = { latitude: 41.86, longitude: -70.56 }
 const NORTH  = { latitude: 60, longitude: -71.06 }
+const SHOWN  = Object.fromEntries(kindOrder.map(kind => [kind, true])) as Record<Kind, boolean>
 
 /**
  * Builds a canvas whose 2D context ignores every call but `arc`, `fill`,
@@ -97,6 +98,7 @@ it.each([
   const overlay = new Overlay(still.canvas, moving.canvas, {
     gathered : false,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : chosen ? pass : null,
@@ -118,12 +120,18 @@ it.each([
 
 /**
  * Draws a crewed pass over Plymouth and an Earth-observing one over Boston at
- * `zoom` with `named` set on the tally, returning the overlay and the moving
- * canvas.
+ * `zoom` with `named` set on the tally, the pass at `chosen` chosen and the
+ * kinds `kinds` shown, returning the overlay and the moving canvas.
  */
-const pairAt = (zoom: number, named: Kind | null, traced: boolean) => {
-  const tracks = new Tracks()
-  const track  = new Float32Array(6 * TRACK_WIDTH)
+const pairAt = (
+  zoom    : number,
+  named   : Kind | null,
+  traced  : boolean,
+  options : { chosen?: number, kinds?: Record<Kind, boolean> } = {}
+) => {
+  const { chosen, kinds = SHOWN } = options
+  const tracks                    = new Tracks()
+  const track                     = new Float32Array(6 * TRACK_WIDTH)
   trackAt(track, CRAFT, 0)
   trackAt(track, BOSTON, 3 * TRACK_WIDTH)
   const passes = [
@@ -134,9 +142,10 @@ const pairAt = (zoom: number, named: Kind | null, traced: boolean) => {
   const overlay = new Overlay(canvasOf().canvas, moving.canvas, {
     gathered : false,
     held     : null,
+    kinds    : kinds,
     named    : named,
     reduced  : true,
-    selected : null,
+    selected : chosen === undefined ? null : passes[chosen],
     spot     : BOSTON,
     start    : 0,
     traced   : () => traced,
@@ -165,6 +174,26 @@ it('draws a satellite the filters leave out at half strength, its beads included
 })
 
 it.each([
+  ['draws no dot of a kind not shown and counts none of it', undefined, { ...SHOWN, crewed: false },
+    [false, 0, 0]],
+  ['draws the dot, track, and ring of a chosen pass whose kind is shown', 0, SHOWN, [true, 1, 1]],
+  ['draws no dot, track, or ring of a chosen pass whose kind is not shown', 0, { ...SHOWN, crewed: false },
+    [false, 0, 0]]
+] as const)('%s', (_, chosen, kinds, drawn) => {
+  const { moving, overlay } = pairAt(7, null, true, { chosen, kinds })
+  const { view }            = overlay
+  const atCraft             = moving.centers.some(([x, y]) =>
+    Math.hypot(x - view.column(CRAFT.longitude), y - view.row(CRAFT.latitude)) < 1)
+  expect([atCraft, overlay.onMap[kindOrder.indexOf('crewed')], moving.dashed.length]).toEqual(drawn)
+})
+
+it('draws no more of a chosen pass whose kind is not shown than of the same pass left unchosen', () => {
+  const kinds = { ...SHOWN, crewed: false }
+  expect(pairAt(7, null, true, { chosen: 0, kinds }).moving.alphas)
+    .toEqual(pairAt(7, null, true, { kinds }).moving.alphas)
+})
+
+it.each([
   ['counts each kind standing inside the view', 7, { crewed: 1, earth: 1 }],
   ['leaves out a satellite inside the drawing margin but past the edge of the view', 7.8, { earth: 1 }]
 ])('%s', (_, zoom, counts) => {
@@ -189,6 +218,7 @@ const ringAt = (zoom: number) => {
   const state   = {
     gathered : false,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : pass,
@@ -240,6 +270,7 @@ it.each(Object.entries(SCHEMES))('strokes the %s ring in its halo and the kindâ€
   const overlay = new Overlay(canvasOf().canvas, moving.canvas, {
     gathered : false,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : pass,
@@ -269,6 +300,7 @@ it.each([
   const overlay = new Overlay(still.canvas, canvasOf().canvas, {
     gathered : false,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : null,
@@ -330,6 +362,7 @@ const beadsAt = (seconds: number) => {
   const drawing = new Overlay(canvasOf().canvas, moving.canvas, {
     gathered : false,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : null,
@@ -373,6 +406,7 @@ it.each([
   const overlay = new Overlay(canvasOf().canvas, moving.canvas, {
     gathered : false,
     held     : pass,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : null,
@@ -407,6 +441,7 @@ it.each([
   const overlay = new Overlay(canvasOf().canvas, moving.canvas, {
     gathered : gathered,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : null,
@@ -491,6 +526,7 @@ const drawnAt = (
   const overlay = new Overlay(sketchOf().canvas, sketch.canvas, {
     gathered : false,
     held     : as === 'held' ? pass : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : as === 'selected' ? pass : null,
@@ -573,6 +609,7 @@ it.each([
   const overlay = new Overlay(sketchOf().canvas, sketch.canvas, {
     gathered : false,
     held     : as === 'held' ? pass : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : as === 'selected' ? pass : null,
@@ -605,6 +642,7 @@ it.each([
   const overlay = new Overlay(canvasOf().canvas, canvasOf().canvas, {
     gathered : true,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : null,
@@ -630,6 +668,7 @@ it('draws each gathered satellite 3 px round on its halo once the sky has gather
   const overlay = new Overlay(sketchOf().canvas, sketch.canvas, {
     gathered : true,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : null,
@@ -654,6 +693,7 @@ it('draws none of the gathered points once their tracks are cleared', () => {
   const overlay = new Overlay(sketchOf().canvas, sketch.canvas, {
     gathered : true,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : null,
@@ -678,6 +718,7 @@ it.each([
   const overlay = new Overlay(still.canvas, canvasOf().canvas, {
     gathered : false,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : null,
@@ -758,6 +799,7 @@ const namedAt = (
   const state   = {
     gathered : false,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : null,
@@ -890,6 +932,7 @@ it.each([
   const overlay = new Overlay(pageOf().canvas, moving.canvas, {
     gathered : false,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : pass,
@@ -921,6 +964,7 @@ it('passes over a name the chosen track crosses', () => {
   const overlay = new Overlay(still.canvas, pageOf().canvas, {
     gathered : false,
     held     : null,
+    kinds    : SHOWN,
     named    : null,
     reduced  : true,
     selected : pass,
