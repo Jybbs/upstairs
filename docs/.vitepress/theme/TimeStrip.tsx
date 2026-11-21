@@ -109,14 +109,15 @@ export default defineComponent(
       .map(ridge => ({ ...ridge, heavy: ridge.pass === sky.shown.value || ridge.pass === sky.focus.value }))
       .toSorted((a, b) =>
         Number(a.pass === sky.held.value) - Number(b.pass === sky.held.value) || b.pass.peak - a.pass.peak))
+    const ridgeFor = (wanted: Pass | null) => ridges.value.find(({ pass }) => pass === wanted) ?? null
     /**
      * The ridge the map follows, whether its row or its ridge chose it.
      */
-    const chosen = computed(() => ridges.value.find(({ pass }) => pass === sky.focus.value) ?? null)
+    const chosen = computed(() => ridgeFor(sky.focus.value))
     /**
      * The ridge a pointer, a finger, or a key raises, which the tip names.
      */
-    const raised = computed(() => ridges.value.find(({ pass }) => pass === sky.held.value) ?? null)
+    const raised = computed(() => ridgeFor(sky.held.value))
     /**
      * The strip's ticks, each label centered on its own, labeled every so many
      * ticks that each label clears the next by `LABEL.gap`.
@@ -272,7 +273,7 @@ export default defineComponent(
 
       return (
         <section ref={root} class="shrink-0 border-t border-rule bg-panel" aria-label="Time">
-          <div class="flex items-center gap-2 pl-4 sm:pr-4">
+          <div class="flex items-center gap-2 px-4">
             <button
               type="button"
               class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full border border-rule

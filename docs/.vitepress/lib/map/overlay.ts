@@ -1,13 +1,13 @@
-import { AGES, ageOf }                      from '../orbit/catalog.ts'
-import { slantOf }                          from '../orbit/compass.ts'
-import { kindOrder, kindSlots, type Kind }  from '../orbit/kinds.ts'
-import { TRACK_STEP, type Pass, type Spot } from '../orbit/scan.ts'
-import { GRID, iconOf }                     from '../site/icons.ts'
-import { clamp }                            from '../site/motion.ts'
-import { SCHEMES, type Scheme }             from '../site/palette.ts'
-import { type Tracks, pointsOf, secondsOf } from '../state/tracks.ts'
-import { type Box, View, boxAround, grown } from './mercator.ts'
-import * as places                          from './places.ts'
+import { AGES, ageOf }                                  from '../orbit/catalog.ts'
+import { slantOf }                                      from '../orbit/compass.ts'
+import { kindOrder, kindSlots, type Kind }              from '../orbit/kinds.ts'
+import { TRACK_STEP, type Pass, type Spot }             from '../orbit/scan.ts'
+import { GRID, iconOf }                                 from '../site/icons.ts'
+import { clamp }                                        from '../site/motion.ts'
+import { SCHEMES, type Scheme }                         from '../site/palette.ts'
+import { type Tracks, pointsOf, secondsOf }             from '../state/tracks.ts'
+import { type Box, View, boxAround, enteringOf, grown } from './mercator.ts'
+import * as places                                      from './places.ts'
 
 interface Drawn {
   gathered : boolean
@@ -264,7 +264,7 @@ export class Overlay {
    * pointer toward a chosen satellite stays clear of.
    */
   private panels: readonly Box[] = []
-  private open                   = { bottom: 0, left: 0, right: 0, top: 0 }
+  private open: Box              = { bottom: 0, left: 0, right: 0, top: 0 }
   private still: CanvasRenderingContext2D
   private moving: CanvasRenderingContext2D
   private ratio              = 1
@@ -623,10 +623,10 @@ export class Overlay {
     open.right           = view.width - AIM.edge
     open.top             = AIM.edge
     open.bottom          = view.height - AIM.edge
-    for (const { bottom, left, right, top } of covered) {
-      if (right - left < view.width * places.ACROSS) continue
-      if (top + bottom > view.height) open.bottom = Math.min(open.bottom, top - AIM.edge)
-      else open.top = Math.max(open.top, bottom + AIM.edge)
+    for (const box of covered) {
+      const edge = places.edgeOf(box, view.width, view.height)
+      if (edge === 'bottom') open.bottom = Math.min(open.bottom, box.top - AIM.edge)
+      else if (edge === 'top') open.top = Math.max(open.top, box.bottom + AIM.edge)
     }
   }
 
@@ -640,12 +640,12 @@ export class Overlay {
     const { open, panels, ratio, state, view } = this
     let under = false
     for (let index = 0; index < panels.length; index++) {
-      under ||= !across(panels[index], view.width) && insideOf(panels[index], x, y, AIM.edge)
+      under ||= !places.across(panels[index], view.width) && insideOf(panels[index], x, y, AIM.edge)
     }
-    if (!under && x > open.left && x < open.right && y > open.top && y < open.bottom) return
+    if (!under && insideOf(open, x, y, 0)) return
     const spotX  = state.spot ? view.column(state.spot.longitude) : view.width / 2
     const spotY  = state.spot ? view.row(state.spot.latitude) : view.height / 2
-    const inside = spotX > open.left && spotX < open.right && spotY > open.top && spotY < open.bottom
+    const inside = insideOf(open, spotX, spotY, 0)
     const fromX  = inside ? spotX : (open.left + open.right) / 2
     const fromY  = inside ? spotY : (open.top + open.bottom) / 2
     const length = Math.hypot(x - fromX, y - fromY)
@@ -659,7 +659,7 @@ export class Overlay {
     )
     for (let index = 0; index < panels.length; index++) {
       const box = panels[index]
-      if (across(box, view.width) || insideOf(box, fromX, fromY, AIM.clear)) continue
+      if (places.across(box, view.width) || insideOf(box, fromX, fromY, AIM.clear)) continue
       reach = Math.min(reach, enteringOf(box, AIM.clear, fromX, fromY, dx, dy))
     }
     const tipX = fromX + dx * reach
@@ -1057,33 +1057,10 @@ const dotAt = (
 }
 
 /**
- * Whether a panel runs across a map `width` pixels wide rather than standing
- * at one side.
- */
-const across = ({ left, right }: Box, width: number) => right - left >= width * places.ACROSS
-
-/**
  * Whether `x`, `y` stands inside `box` grown by `by` pixels.
  */
 const insideOf = ({ bottom, left, right, top }: Box, x: number, y: number, by: number) =>
   x > left - by && x < right + by && y > top - by && y < bottom + by
-
-/**
- * Returns how far along the ray from `x`, `y` by `dx`, `dy` it enters `box`
- * grown by `by` pixels, or Infinity where it never does.
- */
-const enteringOf = (box: Box, by: number, x: number, y: number, dx: number, dy: number) => {
-  const { bottom, left, right, top } = box
-  if (dx === 0 && (x <= left - by || x >= right + by)) return Infinity
-  if (dy === 0 && (y <= top - by || y >= bottom + by)) return Infinity
-  const x1   = dx === 0 ? -Infinity : (left - by - x) / dx
-  const x2   = dx === 0 ? Infinity : (right + by - x) / dx
-  const y1   = dy === 0 ? -Infinity : (top - by - y) / dy
-  const y2   = dy === 0 ? Infinity : (bottom + by - y) / dy
-  const near = Math.max(0, Math.min(x1, x2), Math.min(y1, y2))
-  const far  = Math.min(Math.max(x1, x2), Math.max(y1, y2))
-  return near <= far ? near : Infinity
-}
 
 /**
  * Fills a disc `radius` pixels round at `x`, `y`.

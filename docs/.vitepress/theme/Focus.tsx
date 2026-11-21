@@ -108,8 +108,10 @@ export default defineComponent(
               <div>
                 <dt class="sr-only">Crosses</dt>
                 <dd class="inline-flex items-center gap-1">
-                  {bound.value && <Icon name={BOUNDS[bound.value].mark} />}
-                  {bound.value && <span class="sr-only">{BOUNDS[bound.value].label}, </span>}
+                  {bound.value && [
+                    <Icon name={BOUNDS[bound.value].mark} />,
+                    <span class="sr-only">{BOUNDS[bound.value].label}, </span>
+                  ]}
                   {crossingOf(pass.value)}
                 </dd>
               </div>

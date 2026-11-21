@@ -1,3 +1,4 @@
+import { useTimeoutFn }                       from '@vueuse/core'
 import { defineComponent, ref, type SlotsType } from 'vue'
 
 import { sky }  from '../lib/state/sky.ts'
@@ -6,13 +7,22 @@ import Focus    from './Focus.tsx'
 import PassList from './PassList.tsx'
 
 /**
- * The easing every move of the sidebar takes, the time in ms its column
- * widens or closes over, and the time between one block's move and the next.
+ * The sidebar's motion: the easing every move takes, the time in ms its
+ * column widens or closes over, the time between one block's move and the
+ * next, the time a block fades out over and the time between one block's fade
+ * and the next as the sidebar folds, the time the rail's count fades out
+ * over, how far a block slides, and the column's width.
  */
-const EASE  = 'cubic-bezier(0.22, 0.61, 0.36, 1)'
-const MAIN  = 600
-const STEP  = 120
-const WIDTH = '26rem'
+const MOTION = {
+  ease   : 'cubic-bezier(0.22, 0.61, 0.36, 1)',
+  fade   : 300,
+  label  : 200,
+  main   : 600,
+  settle : 40,
+  slide  : '1.5rem',
+  step   : 120,
+  width  : '26rem'
+} as const
 
 /**
  * Draws the map beside a sidebar holding the chosen pass's card, the pass
@@ -27,17 +37,21 @@ const WIDTH = '26rem'
  */
 export default defineComponent(
   (_, { slots }) => {
+    const { ease, fade, label, main, settle, slide, step, width } = MOTION
     const open  = ref(true)
     const drawn = ref(true)
-    let timer: ReturnType<typeof setTimeout> | undefined
+    const close = useTimeoutFn(
+      () => { drawn.value = false },
+      sky.reduced ? 0 : main + step,
+      { immediate: false }
+    )
 
     const toggle = () => {
-      clearTimeout(timer)
       if (open.value) {
         open.value = false
-        timer      = setTimeout(() => { drawn.value = false }, sky.reduced ? 0 : MAIN + STEP)
-        return
+        return close.start()
       }
+      close.stop()
       drawn.value = true
       requestAnimationFrame(() => requestAnimationFrame(() => { open.value = true }))
     }
@@ -45,7 +59,7 @@ export default defineComponent(
     const motion = (opening: string, closing: string) => sky.reduced ? 'none' : open.value ? opening : closing
 
     return () => {
-      const total  = sky.rows.value.list.length + sky.rows.value.more
+      const total  = sky.rows.value.total
       const blocks = [<Focus />, <PassList boxed />, <Filters />]
       return (
         <div class="flex h-[calc(100dvh-var(--vp-nav-height))]">
@@ -66,7 +80,7 @@ export default defineComponent(
               aria-hidden="true"
               style={{
                 transform  : `rotate(${open.value ? 180 : 0}deg)`,
-                transition : motion(`transform ${MAIN}ms ${EASE}`, `transform ${MAIN}ms ${EASE}`)
+                transition : sky.reduced ? 'none' : `transform ${main}ms ${ease}`
               }}
             >
               <path d="M10 3L5 8L10 13" fill="none" stroke="currentColor" stroke-width="1.75" />
@@ -75,7 +89,7 @@ export default defineComponent(
               class="caps whitespace-nowrap text-soft [writing-mode:vertical-rl]"
               style={{
                 opacity    : open.value ? 0 : 1,
-                transition : motion('opacity 200ms ease', `opacity ${MAIN}ms ease ${2 * STEP}ms`)
+                transition : motion(`opacity ${label}ms ease`, `opacity ${main}ms ease ${2 * step}ms`)
               }}
               aria-hidden="true"
             >
@@ -85,14 +99,14 @@ export default defineComponent(
           <div
             class="h-full shrink-0 overflow-hidden"
             style={{
-              width      : open.value ? WIDTH : '0px',
-              transition : motion(`width ${MAIN}ms ${EASE}`, `width ${MAIN}ms ${EASE} ${STEP}ms`)
+              width      : open.value ? width : '0px',
+              transition : motion(`width ${main}ms ${ease}`, `width ${main}ms ${ease} ${step}ms`)
             }}
           >
             {drawn.value && (
               <aside
                 class="flex h-full flex-col border-l border-rule bg-page"
-                style={{ width: WIDTH }}
+                style={{ width: width }}
                 aria-label="The chosen pass and the list"
               >
                 {blocks.map((block, index) => (
@@ -101,12 +115,12 @@ export default defineComponent(
                     class={['flex flex-col', index === 1 ? 'min-h-0 flex-1' : 'shrink-0']}
                     style={{
                       opacity    : open.value ? 1 : 0,
-                      transform  : open.value ? 'none' : 'translateX(1.5rem)',
+                      transform  : open.value ? 'none' : `translateX(${slide})`,
                       transition : motion(
-                        `opacity ${MAIN}ms ${EASE} ${(index + 1) * STEP}ms, `
-                        + `transform ${MAIN}ms ${EASE} ${(index + 1) * STEP}ms`,
-                        `opacity 300ms ease ${(blocks.length - 1 - index) * 40}ms, `
-                        + `transform 300ms ease ${(blocks.length - 1 - index) * 40}ms`
+                        `opacity ${main}ms ${ease} ${(index + 1) * step}ms, `
+                        + `transform ${main}ms ${ease} ${(index + 1) * step}ms`,
+                        `opacity ${fade}ms ease ${(blocks.length - 1 - index) * settle}ms, `
+                        + `transform ${fade}ms ease ${(blocks.length - 1 - index) * settle}ms`
                       )
                     }}
                   >

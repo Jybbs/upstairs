@@ -1,15 +1,15 @@
 import { expect, it, onTestFinished, vi } from 'vitest'
 
-import type { Box }             from '../../../lib/map/mercator.ts'
+import type { Box }               from '../../../lib/map/mercator.ts'
 import { BEADS, type Label, Overlay, fadeOf, nearnessOf, openOf } from '../../../lib/map/overlay.ts'
-import { DAY }                  from '../../../lib/orbit/catalog.ts'
-import { kindOrder, type Kind } from '../../../lib/orbit/kinds.ts'
-import { iconOf }               from '../../../lib/site/icons.ts'
-import { SCHEMES }              from '../../../lib/site/palette.ts'
-import { TRACK_WIDTH }          from '../../../lib/orbit/scan.ts'
-import { Tracks }               from '../../../lib/state/tracks.ts'
-import { passOf }               from '../../common/passes.ts'
-import { canvasWith }           from '../../common/stubs.ts'
+import { DAY }                    from '../../../lib/orbit/catalog.ts'
+import { kindOrder, type Kind }   from '../../../lib/orbit/kinds.ts'
+import { iconOf }                 from '../../../lib/site/icons.ts'
+import { SCHEMES }                from '../../../lib/site/palette.ts'
+import { TRACK_WIDTH, type Pass } from '../../../lib/orbit/scan.ts'
+import { Tracks }                 from '../../../lib/state/tracks.ts'
+import { passOf }                 from '../../common/passes.ts'
+import { canvasWith }             from '../../common/stubs.ts'
 
 /**
  * A text a canvas filled: its alpha, style, font, letter spacing, and halo's
@@ -513,14 +513,20 @@ const sketchOf = () => {
 /**
  * Draws one satellite crossing the view eastward at `elevation` degrees,
  * through a pass `changes` sets, chosen or held as `as` names, at `seconds`
- * into the window, its kind shown or left out by the filters as `traced` sets.
+ * into the window, its kind shown or left out by the filters as `traced` sets,
+ * under the panels `covered` names, on a view centered `north` degrees north
+ * of the spot.
  */
 const drawnAt = (
   seconds   : number,
   elevation : number,
   as        : 'held' | 'none' | 'selected',
-  changes   = {},
-  traced    = true
+  { changes = {}, covered = [], north = 0, traced = true }: {
+    changes? : Partial<Pass>,
+    covered? : Box[],
+    north?   : number,
+    traced?  : boolean
+  } = {}
 ) => {
   vi.stubGlobal('Path2D', class { constructor(readonly d: string) {} })
   onTestFinished(() => { vi.unstubAllGlobals() })
@@ -544,8 +550,9 @@ const drawnAt = (
     traced   : () => traced,
     tracks   : tracks
   })
+  overlay.covered = () => covered
   overlay.resize(400, 400, 1)
-  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
+  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude + north)
   overlay.draw(seconds)
   return sketch
 }
@@ -582,17 +589,29 @@ it.each([
 })
 
 it.each([
+  ['stops the pointer clear of a panel at one side over a chosen satellite', 1620, 0,
+    { bottom: 400, left: 0, right: 150, top: 0 }, { at: [194, 200], turn: [-1, 0] }],
+  ['stops the pointer short of a panel running across the map’s foot', 1800, 0.3,
+    { bottom: 400, left: 0, right: 400, top: 300 }, { at: [200, 278], turn: [0, 1] }],
+  ['leaves the pointer at the map’s edge past a panel off its path', 900, 0,
+    { bottom: 400, left: 250, right: 400, top: 0 }, { at: [22, 200], turn: [-1, 0] }]
+] as const)('%s', (_, seconds, north, panel, shown) => {
+  const [{ at, turn }] = drawnAt(seconds, 45, 'selected', { covered: [panel], north }).shapes
+  expect({ at: at.map(Math.round), turn: turn.map(value => Math.round(value) + 0) }).toEqual(shown)
+})
+
+it.each([
   ['draws the held track of a pass whose kind the filters leave out', 'held'],
   ['draws the chosen track and its peak for a pass whose kind the filters leave out', 'selected']
 ] as const)('%s', (_, as) => {
   const shown = drawnAt(900, 45, as)
-  const left  = drawnAt(900, 45, as, {}, false)
+  const left  = drawnAt(900, 45, as, { traced: false })
   expect([left.ribbons, left.marks.length]).toEqual([shown.ribbons, shown.marks.length])
   expect(left.ribbons.length).toBeGreaterThan(0)
 })
 
 it('leaves filled beads behind a satellite drawing nearer and open ones behind one going', () => {
-  const { marks } = drawnAt(1800, 45, 'none', { peakAt: 1760, riseAt: 1700, setAt: 1900 })
+  const { marks } = drawnAt(1800, 45, 'none', { changes: { peakAt: 1760, riseAt: 1700, setAt: 1900 } })
   expect(marks.slice(0, 3).map(({ filled }) => filled)).toEqual([false, true, true])
 })
 

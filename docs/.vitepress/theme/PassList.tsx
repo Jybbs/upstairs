@@ -90,10 +90,10 @@ export default defineComponent(
     }, { flush: 'post' })
 
     /**
-     * Scrolls the pinned pass's row into the box, leaving the page where it
-     * stands.
+     * Scrolls the pinned pass's row into the box as it is pinned and as the
+     * rows change around it, leaving the page where it stands.
      */
-    watch(sky.pinned, pass => {
+    watch([sky.pinned, () => sky.rows.value.list], ([pass]) => {
       const box = list.value
       const row = rowOf(pass)
       if (!props.boxed || !box || !row) return
@@ -110,7 +110,7 @@ export default defineComponent(
           ]}
         >
           <span {...passes.value.getLabelProps()}>
-            {sky.rows.value.list.length + sky.rows.value.more} passes
+            {sky.rows.value.total} passes
           </span>
           <span>Highest</span>
         </p>
@@ -121,37 +121,38 @@ export default defineComponent(
           {...passes.value.getContentProps()}
           class={['group outline-none', props.boxed && 'relative min-h-0 flex-1 overflow-y-auto']}
         >
-          {sky.rows.value.list.map(pass => (
-            <li
-              key={pass.key}
-              onClick={() => pass === sky.selected.value && sky.focusOn(pass)}
-              {...passes.value.getItemProps({ item: pass })}
-              class={[
-                `grid h-12 w-full cursor-pointer grid-cols-[4.25rem_1fr_auto] items-center gap-2 border-b
-                 border-rule/60 px-4 text-left transition-colors hover:bg-lift
-                 group-focus-visible:data-highlighted:[outline:4px_auto_-webkit-focus-ring-color]`,
-                { 'opacity-55': pass.setAt < sky.at.value }
-              ]}
-              style={pass === sky.selected.value ? chosenOf(pass) : undefined}
-            >
-              <span
-                class={['caps whitespace-nowrap', pass === sky.selected.value ? 'text-ink' : 'text-soft']}
+          {sky.rows.value.list.map(pass => {
+            const chosen = pass === sky.selected.value
+            return (
+              <li
+                key={pass.key}
+                onClick={() => pass === sky.selected.value && sky.focusOn(pass)}
+                {...passes.value.getItemProps({ item: pass })}
+                class={[
+                  `grid h-12 w-full cursor-pointer grid-cols-[4.25rem_1fr_auto] items-center gap-2 border-b
+                   border-rule/60 px-4 text-left transition-colors hover:bg-lift
+                   group-focus-visible:data-highlighted:[outline:4px_auto_-webkit-focus-ring-color]`,
+                  { 'opacity-55': pass.setAt < sky.at.value }
+                ]}
+                style={chosen ? chosenOf(pass) : undefined}
               >
-                {sky.clockOf(pass.peakAt)}
-              </span>
-              <span class="min-w-0">
-                <span class="flex items-center gap-1.5 truncate text-base leading-tight">
-                  <Icon name={pass.kind} />
-                  <SatelliteName name={pass.name} class="truncate" />
+                <span class={['caps whitespace-nowrap', chosen ? 'text-ink' : 'text-soft']}>
+                  {sky.clockOf(pass.peakAt)}
                 </span>
-                <span class="caps flex items-center gap-1 truncate text-soft">
-                  <Icon name={BOUNDS[boundOf(pass)].mark} />
-                  {crossingOf(pass)}
+                <span class="min-w-0">
+                  <span class="flex items-center gap-1.5 truncate text-base leading-tight">
+                    <Icon name={pass.kind} />
+                    <SatelliteName name={pass.name} class="truncate" />
+                  </span>
+                  <span class="caps flex items-center gap-1 truncate text-soft">
+                    <Icon name={BOUNDS[boundOf(pass)].mark} />
+                    {crossingOf(pass)}
+                  </span>
                 </span>
-              </span>
-              <span class="caps text-sm! text-ink">{Math.round(pass.peak)}°</span>
-            </li>
-          ))}
+                <span class="caps text-sm! text-ink">{Math.round(pass.peak)}°</span>
+              </li>
+            )
+          })}
         </ul>
         {sky.rows.value.more
           ? (

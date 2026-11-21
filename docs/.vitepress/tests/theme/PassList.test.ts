@@ -226,4 +226,30 @@ describe('the list in its box', () => {
     await wrapper.vm.$nextTick()
     expect(scrolls.mock.calls.map(([options]) => options)).toEqual(calls)
   })
+
+  it('scrolls the pinned row back into the box once rows peaking earlier push it below', async () => {
+    const { component: PassList, sky } = await lateSky(() => import('../../theme/PassList.tsx'))
+    addScanned(sky, weatherOf(12))
+    sky.scope.value = 'sky'
+    const scrolls   = vi.fn()
+    const sizes     = {
+      clientHeight : { get: () => 192 },
+      offsetHeight : { get: () => 48 },
+      offsetTop    : {
+        get(this: HTMLElement) { return [...this.parentElement!.children].indexOf(this) * 48 }
+      },
+      scrollTo     : { value: scrolls }
+    }
+    Object.defineProperties(HTMLElement.prototype, Object.fromEntries(Object.entries(sizes)
+      .map(([name, size]) => [name, { ...size, configurable: true }])))
+    onTestFinished(() => {
+      Object.keys(sizes).forEach(name => Reflect.deleteProperty(HTMLElement.prototype, name))
+    })
+    const wrapper = mount(PassList, { props: { boxed: true } })
+    sky.pin(sky.rows.value.list[2])
+    await wrapper.vm.$nextTick()
+    addScanned(sky, [1, 2, 3, 4, 5, 6].map(id => passOf(100 + id, { kind: 'weather', peakAt: id })))
+    await flushPromises()
+    expect(scrolls.mock.calls.map(([options]) => options)).toEqual([{ behavior: 'smooth', top: 5 * 48 }])
+  })
 })

@@ -112,7 +112,23 @@ export const coveredOver = (map: HTMLElement): Box[] => {
  * as the time strip does, rather than standing at one side, as the readout
  * does.
  */
-export const ACROSS = 0.8
+const ACROSS = 0.8
+
+/**
+ * Whether a panel runs across a map `width` pixels wide rather than standing
+ * at one side.
+ */
+export const across = ({ left, right }: Box, width: number) => right - left >= width * ACROSS
+
+/**
+ * Returns the edge of a map `width` by `height` pixels that a panel covers,
+ * the top or the bottom for a panel running across the map and the left or
+ * the right for one standing at one side, whichever it stands nearer.
+ */
+export const edgeOf = (box: Box, width: number, height: number) =>
+  across(box, width)
+    ? box.top + box.bottom > height ? 'bottom' : 'top'
+    : box.left + box.right < width ? 'left' : 'right'
 
 /**
  * Returns the padding in pixels that keeps a framing clear of each panel over
@@ -122,13 +138,15 @@ export const ACROSS = 0.8
 export const paddingOver = (map: HTMLElement, pad: number) => {
   const { clientHeight: height, clientWidth: width } = map
   const padding = { bottom: pad, left: pad, right: pad, top: pad }
-  for (const { bottom, left, right, top } of coveredOver(map)) {
-    if (right - left >= width * ACROSS) {
-      if (top + bottom > height) padding.bottom = Math.max(padding.bottom, height - top + pad)
-      else padding.top = Math.max(padding.top, bottom + pad)
-    }
-    else if (left + right < width) padding.left = Math.max(padding.left, right + pad)
-    else padding.right = Math.max(padding.right, width - left + pad)
+  for (const box of coveredOver(map)) {
+    const edge    = edgeOf(box, width, height)
+    const reach   = {
+      bottom : height - box.top,
+      left   : box.right,
+      right  : width - box.left,
+      top    : box.bottom
+    }[edge]
+    padding[edge] = Math.max(padding[edge], reach + pad)
   }
   return padding
 }

@@ -67,3 +67,13 @@ it('opens the sidebar again on a second press, drawn closed and opened a frame l
     { drawn: true, expanded: 'true', label: 'Fold the list away', map: true }
   ])
 })
+
+it('keeps the sidebar drawn when a second press lands partway through folding', async () => {
+  const { rail, read } = await mounted(false)
+  await rail.trigger('click')
+  await vi.advanceTimersByTimeAsync(300)
+  await rail.trigger('click')
+  await framesOf(2)
+  await vi.advanceTimersByTimeAsync(720)
+  expect(read()).toEqual({ drawn: true, expanded: 'true', label: 'Fold the list away', map: true })
+})
