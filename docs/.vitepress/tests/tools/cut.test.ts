@@ -15,6 +15,10 @@ describe('outcomeOf', () => {
       'only a draft carries the version',
       [release('0.1.0', false, 3), release('0.2.0', true, 9)], 'refresh', [9], 0
     ],
+    [
+      'two drafts carry the version',
+      [release('0.2.0', true, 4), release('0.2.0', true, 9)], 'refresh', [4], 0
+    ],
     ['a published release carries the version', [release('0.2.0')], 'published', [], 0],
     [
       'a draft and a published release carry the version',
@@ -42,26 +46,33 @@ describe('outcomeOf', () => {
 describe('Draft', () => {
   const draft = Draft.from('0.2.0', { GITHUB_REPOSITORY: 'Jybbs/upstairs', GITHUB_SHA: SHA })
 
-  it('reads the repository and the commit the draft targets', () =>
-    expect({ ...draft }).toEqual({ repository: 'Jybbs/upstairs', target: SHA, version: '0.2.0' }))
-
-  it('creates the version as a draft with generated notes, titled for it and targeting the commit', () =>
-    expect(draft.createArgs).toEqual([
-      'release', 'create', '0.2.0', '--draft', '--generate-notes',
-      '--repo', 'Jybbs/upstairs', '--target', SHA, '--title', '0.2.0'
-    ]))
-
-  it('generates the notes of the version up to the commit', () =>
-    expect(draft.notesArgs).toEqual([
-      'api', '--method', 'POST', 'repos/Jybbs/upstairs/releases/generate-notes',
-      '--raw-field', 'tag_name=0.2.0', '--raw-field', `target_commitish=${SHA}`
-    ]))
-
-  it('sets the draft’s notes as written and moves its target to the commit', () =>
-    expect(draft.refreshArgs(9, '@notes')).toEqual([
-      'api', '--method', 'PATCH', 'repos/Jybbs/upstairs/releases/9',
-      '--raw-field', 'body=@notes', '--raw-field', `target_commitish=${SHA}`, '--silent'
-    ]))
+  it.each([
+    [
+      'reads the repository and the commit the draft targets',
+      { ...draft }, { repository: 'Jybbs/upstairs', target: SHA, version: '0.2.0' }
+    ],
+    [
+      'creates the version as a draft with generated notes, titled for it and targeting the commit',
+      draft.createArgs, [
+        'release', 'create', '0.2.0', '--draft', '--generate-notes',
+        '--repo', 'Jybbs/upstairs', '--target', SHA, '--title', '0.2.0'
+      ]
+    ],
+    [
+      'generates the notes of the version up to the commit',
+      draft.notesArgs, [
+        'api', '--method', 'POST', 'repos/Jybbs/upstairs/releases/generate-notes',
+        '--raw-field', 'tag_name=0.2.0', '--raw-field', `target_commitish=${SHA}`
+      ]
+    ],
+    [
+      'sets the draft’s notes as written and moves its target to the commit',
+      draft.refreshArgs(9, '@notes'), [
+        'api', '--method', 'PATCH', 'repos/Jybbs/upstairs/releases/9',
+        '--raw-field', 'body=@notes', '--raw-field', `target_commitish=${SHA}`, '--silent'
+      ]
+    ]
+  ])('%s', (_, actual, expected) => expect(actual).toEqual(expected))
 })
 
 describe('NOTES', () => {
@@ -72,6 +83,6 @@ describe('NOTES', () => {
   ] as const)('prints the %s outcome with the version, opening on %s', (outcome, opening) =>
     expect(NOTES[outcome]('0.2.0')).toMatch(new RegExp(`^${opening}.*0\\.2\\.0`)))
 
-  it('names the bump command where a published release carries the version', () =>
-    expect(NOTES.published('0.2.0')).toContain('mise bump'))
+  it.each(['mise bump', 'docs/package.json'])('names %s where a published release carries the version',
+    named => expect(NOTES.published('0.2.0')).toContain(named))
 })
