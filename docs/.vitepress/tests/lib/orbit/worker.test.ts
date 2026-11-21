@@ -334,6 +334,7 @@ describe('a catalog shared with a helper', () => {
     await helper({ from: portOf() as unknown as MessagePort, type: 'follow' })
     open()
     await held
+    await helper(scanOf(1))
     expect([heard, port.close.mock.calls.length]).toEqual([[], 1])
   })
 })
