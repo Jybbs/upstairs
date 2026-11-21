@@ -318,6 +318,9 @@ function shelledOf([strings, ...values]: unknown[]): unknown[] {
  */
 function shelling(shell: typeof Bun.$): typeof Bun.$ {
   let folder: string | undefined
+  const Shell = 'Shell' in shell
+    ? new Proxy(shell.Shell, { construct: (base, args) => shelling(Reflect.construct(base, args)) })
+    : undefined
   const wrapped = new Proxy(((...args: Parameters<typeof shell>) => shell(...args)) as typeof shell, {
     getPrototypeOf : () => Reflect.getPrototypeOf(shell),
     has            : (_, key) => Reflect.has(shell, key),
@@ -346,9 +349,7 @@ function shelling(shell: typeof Bun.$): typeof Bun.$ {
           return wrapped
         }
       }
-      return key === 'Shell' && key in shell
-        ? new Proxy(shell.Shell, { construct: (Shell, args) => shelling(Reflect.construct(Shell, args)) })
-        : Reflect.get(shell, key)
+      return key === 'Shell' ? Shell : Reflect.get(shell, key)
     }
   })
   return wrapped

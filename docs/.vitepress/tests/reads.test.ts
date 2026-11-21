@@ -396,6 +396,11 @@ describe('the read check', () => {
   it('keeps a shell new $.Shell() makes an instance of $.Shell', () =>
     expect(new $.Shell()).toBeInstanceOf($.Shell))
 
+  it("finds cwd and Shell on Bun's shell through an in check", () =>
+    expect(['cwd', 'Shell'].filter(key => key in $)).toEqual(['cwd', 'Shell']))
+
+  it('reads the same $.Shell on every access', () => expect($.Shell).toBe($.Shell))
+
   it('reads no Shell off a shell new $.Shell() makes', () => expect(new $.Shell().Shell).toBeUndefined())
 
   it('passes a fetch of a URL of another scheme', () =>
