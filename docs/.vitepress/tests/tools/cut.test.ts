@@ -46,6 +46,10 @@ describe('outcomeOf', () => {
     ['the one untagged draft carries another title', [untagged(9, '0.1.9')], 'create', [], 1],
     ['the one untagged draft carries no title', [untagged(9, null)], 'create', [], 1],
     [
+      'the one untagged draft is titled for the version behind a v prefix',
+      [untagged(9, 'v0.2.0')], 'create', [], 1
+    ],
+    [
       'a published release titled for the version tags another',
       [release('0.1.0', false, 3, '0.2.0')], 'create', [], 1
     ],
@@ -129,4 +133,7 @@ describe('NOTES', () => {
 
   it.each(['mise bump', 'docs/package.json'])('names %s where a published release carries the version',
     named => expect(NOTES.published('0.2.0')).toContain(named))
+
+  it('names the tag among what a refresh rewrites', () =>
+    expect(NOTES.refresh('0.2.0')).toContain('the tag'))
 })
