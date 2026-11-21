@@ -21,22 +21,26 @@ export const boxAround = (x: number, y: number, halfWidth: number, halfHeight: n
   ({ bottom: y + halfHeight, left: x - halfWidth, right: x + halfWidth, top: y - halfHeight })
 
 /**
- * Whether the straight line from one pixel to another passes through `box`,
- * as the overlap of the stretches of the line within its columns and within
- * its rows.
+ * Whether the straight line from one pixel to another passes through `box`.
  */
-export const crossesBox = (box: Box, fromX: number, fromY: number, toX: number, toY: number): boolean => {
-  const dx = toX - fromX
-  const dy = toY - fromY
-  if (dx === 0 && (fromX < box.left || fromX > box.right)) return false
-  if (dy === 0 && (fromY < box.top || fromY > box.bottom)) return false
-  const left   = dx ? (box.left - fromX) / dx : -Infinity
-  const right  = dx ? (box.right - fromX) / dx : Infinity
-  const top    = dy ? (box.top - fromY) / dy : -Infinity
-  const bottom = dy ? (box.bottom - fromY) / dy : Infinity
-  const enter  = Math.max(0, Math.min(left, right), Math.min(top, bottom))
-  const leave  = Math.min(1, Math.max(left, right), Math.max(top, bottom))
-  return enter <= leave
+export const crossesBox = (box: Box, fromX: number, fromY: number, toX: number, toY: number): boolean =>
+  enteringOf(box, 0, fromX, fromY, toX - fromX, toY - fromY) <= 1
+
+/**
+ * Returns how far along the ray from `x`, `y` by `dx`, `dy` it enters `box`
+ * grown by `by` pixels, as the overlap of the stretches of the ray within its
+ * columns and within its rows, or Infinity where it never does.
+ */
+export const enteringOf = (box: Box, by: number, x: number, y: number, dx: number, dy: number) => {
+  const { bottom, left, right, top } = box
+  if (dx === 0 && (x < left - by || x > right + by)) return Infinity
+  if (dy === 0 && (y < top - by || y > bottom + by)) return Infinity
+  const x1   = dx ? (left - by - x) / dx : -Infinity
+  const x2   = dx ? (right + by - x) / dx : Infinity
+  const y1   = dy ? (top - by - y) / dy : -Infinity
+  const y2   = dy ? (bottom + by - y) / dy : Infinity
+  const near = Math.max(0, Math.min(x1, x2), Math.min(y1, y2))
+  return near <= Math.min(Math.max(x1, x2), Math.max(y1, y2)) ? near : Infinity
 }
 
 /**
