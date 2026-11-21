@@ -1,4 +1,4 @@
-import { mergeProps }                              from '@zag-js/vue'
+import { mergeProps }                                  from '@zag-js/vue'
 import { computed, defineComponent, ref, watchEffect } from 'vue'
 
 import { KINDS, kindOrder, type Kind } from '../lib/orbit/kinds.ts'
@@ -68,7 +68,7 @@ export default defineComponent(
             key={kind}
             {...toggles.value.getItemProps({ value: kind })}
             class={[
-              `caps grid h-6 cursor-pointer grid-cols-[auto_11ch_minmax(0,1fr)_6ch] items-center gap-2
+              `caps grid h-6 cursor-pointer grid-cols-[auto_12ch_minmax(0,1fr)_7ch] items-center gap-2
                text-left text-ink transition-opacity hover:bg-lift focus:outline-none focus-visible:outline-2
                focus-visible:outline-offset-1 focus-visible:outline-u`,
               { 'opacity-25': sky.named.value && sky.named.value !== kind }
@@ -82,8 +82,11 @@ export default defineComponent(
             <Icon name={kind} />
             <span>{KINDS[kind].label}</span>
             <span
-              class="h-2 min-w-0.5 rounded-[1px] transition-[width] duration-600
-                     ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none"
+              class={[
+                `h-2 rounded-[1px] transition-[width] duration-600 ease-[cubic-bezier(.32,.72,0,1)]
+                 motion-reduce:transition-none`,
+                { 'min-w-0.5': count > 0 }
+              ]}
               style={{ background: kindColor(kind), width: `${count / most.value * 100}%` }}
             />
             <span class="text-right tabular-nums">{count.toLocaleString()}</span>

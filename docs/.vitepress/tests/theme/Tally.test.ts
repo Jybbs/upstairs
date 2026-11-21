@@ -3,6 +3,7 @@ import { type VueWrapper, enableAutoUnmount, mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi }                 from 'vitest'
 
 import { kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
+import { kindColor }            from '../../lib/site/palette.ts'
 import { fakeClock, framesOf }  from '../common/frames.ts'
 import { freshSky }             from '../common/sky.ts'
 
@@ -44,6 +45,12 @@ it('draws every bar on one scale, the longest across its whole column', async ()
   expect(barsOf(wrapper)).toEqual(['40%', '100%'])
 })
 
+it('draws each bar solid in its kind’s color', async () => {
+  const { wrapper } = await mounted()
+  expect(wrapper.findAll<HTMLElement>('button > span:nth-of-type(2)').map(bar => bar.element.style.background))
+    .toEqual([kindColor('crewed'), kindColor('earth')])
+})
+
 it('draws an empty bar for the one row the keyboard keeps once no kind is on the map', async () => {
   const { sky, wrapper } = await mounted()
   const earth            = wrapper.findAll('button')[1]
@@ -51,7 +58,8 @@ it('draws an empty bar for the one row the keyboard keeps once no kind is on the
   await earth.trigger('focus')
   sky.reading.value = { ...sky.reading.value, kinds: kindOrder.map(() => 0) }
   await wrapper.vm.$nextTick()
-  expect(barsOf(wrapper)).toEqual(['0%'])
+  const [bar] = wrapper.findAll('button > span:nth-of-type(2)')
+  expect([barsOf(wrapper), bar.classes('min-w-0.5')]).toEqual([['0%'], false])
 })
 
 it('switches a kind off at a press, naming none, and writes the kinds shown into the address', async () => {
