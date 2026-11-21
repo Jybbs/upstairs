@@ -318,11 +318,11 @@ it('clears words too short to search on Escape', async () => {
 
 it.each([
   ['opens the list above the search where the space below cannot hold it', 600, 'top', '588px'],
-  ['opens the list below the search where the space below holds it', 80, 'bottom', '531px']
+  ['opens the list below the search where the space on either side holds it', 80, 'bottom', '531px']
 ])('%s, as wide as the search and no taller than the space it opens into', async (_, top, side, height) => {
   vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(667)
   vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(390)
-  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(448)
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(54)
   vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
     return this.matches('form') ? DOMRect.fromRect({ height: 44, width: 358, x: 16, y: top }) : new DOMRect()
   })
