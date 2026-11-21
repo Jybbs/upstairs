@@ -8,6 +8,7 @@ type Outcome = keyof typeof NOTES
 interface Release {
   draft    : boolean
   id       : number
+  name     : string | null
   tag_name : string
 }
 
@@ -20,7 +21,8 @@ export const NOTES = {
   published : (version: string) =>
       `::error::A published release carries ${version}, so run mise bump to move the version `
     + `in ${FILES.manifest} to the next release`,
-  refresh   : (version: string) => `::notice::Refreshed the notes and the target of the ${version} draft`
+  refresh   : (version: string) =>
+    `::notice::Refreshed the notes, the tag, and the target of the ${version} draft`
 }
 
 /**
@@ -31,14 +33,16 @@ export const CODES: Record<Outcome, number> = { create: 0, published: 1, refresh
 
 /**
  * Decides what the cut does for `version` from the releases carrying it,
- * running `create` where none does and `refresh` on the draft where only a
- * draft does. A release carries the version where its `tag_name` equals it, a
- * field a draft sets before its tag exists.
+ * running `create` where none does and `refresh` on the newest draft, the one
+ * with the highest id, where only drafts do. A release carries the version
+ * where its `tag_name` equals it, and a draft also where its `name` does, since
+ * GitHub reports a draft's `tag_name` as `untagged-*` once an update leaves it
+ * out.
  *
  * Args:
  *   read    : Reads every release of the repository, drafts included.
  *   create  : Creates the draft of `version`.
- *   refresh : Rewrites the notes and the target of the draft with this id.
+ *   refresh : Rewrites the notes, the tag, and the target of the draft with this id.
  *   version : The version the manifest carries at `HEAD`.
  */
 export const outcomeOf = async (
@@ -47,9 +51,10 @@ export const outcomeOf = async (
   refresh : (id: number) => Promise<unknown>,
   version : string
 ): Promise<Outcome> => {
-  const releases = (await read()).filter(({ tag_name }) => tag_name === version)
+  const releases = (await read())
+    .filter(({ draft, name, tag_name }) => tag_name === version || (draft && name === version))
   if (releases.some(({ draft }) => !draft)) return 'published'
-  const [draft] = releases
+  const [draft] = releases.toSorted((a, b) => b.id - a.id)
   if (!draft) {
     await create()
     return 'create'
@@ -61,7 +66,7 @@ export const outcomeOf = async (
 /**
  * The draft release of `version` in `repository`, whose tag lands on `target`
  * once it is published, holding the arguments `gh` takes to create the draft
- * and to refresh its notes and its target.
+ * and to refresh its notes, its tag, and its target.
  */
 export class Draft {
   constructor(
@@ -101,7 +106,8 @@ export class Draft {
 
   /**
    * Replaces the notes of the draft `id` with the ones `notes` generates for
-   * the version through `notesArgs`, and moves its target, through `send`.
+   * the version through `notesArgs`, and sets its tag and its target, through
+   * `send`.
    */
   async refresh(
     id    : number,
@@ -112,13 +118,15 @@ export class Draft {
   }
 
   /**
-   * The arguments that set the notes of the draft `id` to `body` and move its
-   * target to `target`.
+   * The arguments that set the notes of the draft `id` to `body`, its tag to
+   * the version, and its target to `target`, since an update leaving out
+   * `tag_name` leaves the draft untagged.
    */
   refreshArgs(id: number, body: string): string[] {
     return [
       'api', '--method', 'PATCH', `repos/${this.repository}/releases/${id}`,
-      '--raw-field', `body=${body}`, '--raw-field', `target_commitish=${this.target}`, '--silent'
+      '--raw-field', `body=${body}`, '--raw-field', `tag_name=${this.version}`,
+      '--raw-field', `target_commitish=${this.target}`, '--silent'
     ]
   }
 }

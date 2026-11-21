@@ -4,7 +4,11 @@ import { CODES, Draft, NOTES, outcomeOf } from '../../tools/cut.ts'
 
 const SHA = '761cc15aaf0c1e2a3b4c5d6e7f8091a2b3c4d5e6'
 
-const release = (tag_name: string, draft = false, id = 7) => ({ draft, id, tag_name })
+const release = (tag_name: string, draft = false, id = 7, name: string | null = tag_name) =>
+  ({ draft, id, name, tag_name })
+
+const untagged = (id: number, name: string | null = '0.2.0') =>
+  release('untagged-2062677af4ac4d95b4d0', true, id, name)
 
 describe('outcomeOf', () => {
   it.each([
@@ -17,7 +21,21 @@ describe('outcomeOf', () => {
     ],
     [
       'two drafts carry the version',
-      [release('0.2.0', true, 4), release('0.2.0', true, 9)], 'refresh', [4], 0
+      [release('0.2.0', true, 9), release('0.2.0', true, 4)], 'refresh', [9], 0
+    ],
+    [
+      'only an untagged draft titled for the version carries it',
+      [release('0.1.0', false, 3), untagged(9)], 'refresh', [9], 0
+    ],
+    [
+      'three untagged drafts titled for the version carry it, the newest listed between the others',
+      [untagged(5), untagged(9), untagged(4)], 'refresh', [9], 0
+    ],
+    ['the one untagged draft carries another title', [untagged(9, '0.1.9')], 'create', [], 1],
+    ['the one untagged draft carries no title', [untagged(9, null)], 'create', [], 1],
+    [
+      'a published release titled for the version tags another',
+      [release('0.1.0', false, 3, '0.2.0')], 'create', [], 1
     ],
     ['a published release carries the version', [release('0.2.0')], 'published', [], 0],
     [
@@ -66,10 +84,11 @@ describe('Draft', () => {
       ]
     ],
     [
-      'sets the draft’s notes as written and moves its target to the commit',
+      'sets the draft’s notes as written, keeps its tag on the version, and moves its target to the commit',
       draft.refreshArgs(9, '@notes'), [
         'api', '--method', 'PATCH', 'repos/Jybbs/upstairs/releases/9',
-        '--raw-field', 'body=@notes', '--raw-field', `target_commitish=${SHA}`, '--silent'
+        '--raw-field', 'body=@notes', '--raw-field', 'tag_name=0.2.0',
+        '--raw-field', `target_commitish=${SHA}`, '--silent'
       ]
     ]
   ])('%s', (_, actual, expected) => expect(actual).toEqual(expected))
@@ -78,7 +97,8 @@ describe('Draft', () => {
     const notes = vi.fn(async (_args: string[]) => ({ body: '@notes' }))
     const send  = vi.fn(async (_args: string[]) => {})
     await draft.refresh(9, notes, send)
-    expect([notes.mock.calls, send.mock.calls]).toEqual([[[draft.notesArgs]], [[draft.refreshArgs(9, '@notes')]]])
+    expect([notes.mock.calls, send.mock.calls])
+      .toEqual([[[draft.notesArgs]], [[draft.refreshArgs(9, '@notes')]]])
   })
 })
 
