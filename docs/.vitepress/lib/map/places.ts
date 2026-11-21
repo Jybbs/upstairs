@@ -1,4 +1,4 @@
-import type { Map } from 'maplibre-gl'
+import type { FilterSpecification, Map } from 'maplibre-gl'
 
 import { type Tracks, pointsOf, secondsOf }                         from '../state/tracks.ts'
 import { type Box, type View, boxAround, crossesBox, grown, meets } from './mercator.ts'
@@ -70,6 +70,21 @@ export const ROOM = {
   spot    : 10,
   track   : 5
 } as const
+/**
+ * Each class of place the map names, beside its order among the names, its
+ * tier, and the zooms it is named from and below.
+ */
+const TIERS: Record<string, { below: number, from: number, order: number, tier: Label['tier'] }> = {
+  city    : { below: Infinity, from: 4, order: 2, tier: 'city' },
+  country : { below: 7, from: 0, order: 0, tier: 'region' },
+  state   : { below: 8, from: 4, order: 1, tier: 'region' },
+  town    : { below: Infinity, from: 7, order: 3, tier: 'city' },
+  village : { below: Infinity, from: 10, order: 4, tier: 'city' }
+}
+/**
+ * The zoom the map names waters from.
+ */
+const WATERS = 4
 
 /**
  * Returns the box of `word` moved `nudge` of its height off its place.
@@ -77,17 +92,14 @@ export const ROOM = {
 const boxOf = ({ height, width, x, y }: Word, nudge: number): Box =>
   boxAround(x, y + nudge * height, width / 2, height / 2)
 
+/**
+ * Returns the classes of place the map names at `zoom`.
+ */
+const classesAt = (zoom: number) =>
+  Object.entries(TIERS).filter(([, { below, from }]) => zoom >= from && zoom < below).map(([kind]) => kind)
+
 const textOf = (properties: Record<string, unknown>): string | null =>
   (properties['name:en'] ?? properties.name ?? null) as string | null
-
-const tierOf = (kind: string, zoom: number): { order: number, tier: Label['tier'] } | null => {
-  if (kind === 'country' && zoom < 7) return { order: 0, tier: 'region' }
-  if (kind === 'state' && zoom >= 4 && zoom < 8) return { order: 1, tier: 'region' }
-  if (kind === 'city' && zoom >= 4) return { order: 2, tier: 'city' }
-  if (kind === 'town' && zoom >= 7) return { order: 3, tier: 'city' }
-  if (kind === 'village' && zoom >= 10) return { order: 4, tier: 'city' }
-  return null
-}
 
 /**
  * Returns the box of each panel over the map that `panelsOver` finds, in the
@@ -108,16 +120,17 @@ export const coveredOver = (map: HTMLElement): Box[] => {
 }
 
 /**
- * Reads the names in the map tiles on screen, largest places first, keeping
- * those with room around them. The map carries no text of its own, and the
+ * Reads the names in the map tiles on screen of the classes the zoom names,
+ * largest places first, keeping those with room around them. The map carries no text of its own, and the
  * overlay sets cities and waters in the book serif and regions in the mono.
  */
 export const namesOn = (map: Map, view: View): Label[] => {
-  const zoom  = map.getZoom()
-  const found = new globalThis.Map<string, Label & { order: number, rank: number }>()
-  for (const { geometry, properties } of map.querySourceFeatures('base', { sourceLayer: 'place' })) {
+  const zoom                       = map.getZoom()
+  const filter: FilterSpecification = ['in', ['get', 'class'], ['literal', classesAt(zoom)]]
+  const found                      = new globalThis.Map<string, Label & { order: number, rank: number }>()
+  for (const { geometry, properties } of map.querySourceFeatures('base', { filter, sourceLayer: 'place' })) {
     const name = textOf(properties)
-    const tier = tierOf(String(properties.class), zoom)
+    const tier = TIERS[String(properties.class)]
     if (!name || !tier || geometry.type !== 'Point') continue
     found.set(name, {
       latitude  : geometry.coordinates[1],
@@ -128,9 +141,10 @@ export const namesOn = (map: Map, view: View): Label[] => {
       tier      : tier.tier
     })
   }
-  for (const { geometry, properties } of map.querySourceFeatures('base', { sourceLayer: 'water_name' })) {
+  const waters = zoom < WATERS ? [] : map.querySourceFeatures('base', { sourceLayer: 'water_name' })
+  for (const { geometry, properties } of waters) {
     const name = textOf(properties)
-    if (!name || geometry.type !== 'Point' || zoom < 4) continue
+    if (!name || geometry.type !== 'Point') continue
     found.set(name, {
       latitude  : geometry.coordinates[1],
       longitude : geometry.coordinates[0],

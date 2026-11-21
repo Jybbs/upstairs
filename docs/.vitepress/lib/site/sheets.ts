@@ -24,6 +24,14 @@ class Sheet {
   get href() {
     return `/${this.name}/${this.files[0]}`
   }
+
+  /**
+   * The address of the sheet as release `version` of the package ships it,
+   * which a browser caches apart from every other release's.
+   */
+  hrefOf(version: string) {
+    return `${this.href}?v=${version}`
+  }
 }
 
 /**

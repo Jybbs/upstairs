@@ -55,7 +55,7 @@ it('asks for the catalog once the home page mounts', async () => {
   const { component: HomeMap } = await freshSky(() => import('../../theme/HomeMap.tsx'))
   const posted                 = vi.spyOn(Worker.prototype, 'postMessage')
   shallowMount(HomeMap)
-  expect(posted.mock.calls.map(([asked]) => asked.type)).toEqual(['load'])
+  expect(posted.mock.calls.map(([asked]) => asked.type).filter(type => type === 'load')).toEqual(['load'])
 })
 
 it.each([

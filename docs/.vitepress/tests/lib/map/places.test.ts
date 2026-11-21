@@ -1,5 +1,5 @@
-import type { Map }             from 'maplibre-gl'
-import { describe, expect, it } from 'vitest'
+import type { FilterSpecification, Map } from 'maplibre-gl'
+import { describe, expect, it }         from 'vitest'
 
 import { type Box, View }          from '../../../lib/map/mercator.ts'
 import type { Label }              from '../../../lib/map/overlay.ts'
@@ -13,7 +13,12 @@ interface Feature {
   properties : Record<string, unknown>
 }
 
-const view = new View()
+/**
+ * The source layer each read of the tiles asked for, beside the classes its
+ * filter keeps, or null where it set none.
+ */
+const asked: [string, string[] | null][] = []
+const view                              = new View()
 view.set(1000, 600, 9, 0, 0)
 
 /**
@@ -30,13 +35,23 @@ const labelAt = (name: string, x: number, y: number, tier: Label['tier'] = 'city
 
 /**
  * Returns the names `namesOn` reads off a map at `zoom` whose tiles hold
- * `place` and `water_name` features.
+ * `place` and `water_name` features, keeping the features of the classes a
+ * filter of the form `['in', ['get', 'class'], ['literal', classes]]` lists and
+ * recording each read in `asked`.
  */
 const namesAt = (layers: { place?: Feature[], water_name?: Feature[] }, zoom: number) => {
-  const map = {
+  asked.length = 0
+  const map    = {
     getZoom             : () => zoom,
-    querySourceFeatures : (_: string, { sourceLayer }: { sourceLayer: keyof typeof layers }) =>
-      layers[sourceLayer] ?? []
+    querySourceFeatures : (
+      _                       : string,
+      { filter, sourceLayer } : { filter?: FilterSpecification, sourceLayer: keyof typeof layers }
+    ) => {
+      const classes = filter ? (filter as [string, unknown, [string, string[]]])[2][1] : null
+      asked.push([sourceLayer, classes])
+      return (layers[sourceLayer] ?? [])
+        .filter(({ properties }) => !classes || classes.includes(String(properties.class)))
+    }
   }
   return places.namesOn(map as unknown as Map, view)
 }
@@ -66,6 +81,16 @@ describe('the names on the map', () => {
   ])('sets a %s at zoom %s in the tiers %j', (kind, zoom, tiers) => {
     const names = namesAt({ place: [featureAt({ class: kind, name: 'Place' })] }, zoom)
     expect(names.map(label => label.tier)).toEqual(tiers)
+  })
+
+  it.each([
+    [2.3, [['place', ['country']]]],
+    [4, [['place', ['city', 'country', 'state']], ['water_name', null]]],
+    [9, [['place', ['city', 'town']], ['water_name', null]]],
+    [12, [['place', ['city', 'town', 'village']], ['water_name', null]]]
+  ])('reads off the tiles at zoom %s only the classes it names, and waters from zoom 4', (zoom, reads) => {
+    namesAt({}, zoom)
+    expect(asked).toEqual(reads)
   })
 
   it.each([

@@ -1,5 +1,6 @@
 import tailwindcss            from '@tailwindcss/vite'
 import vueJsx                 from '@vitejs/plugin-vue-jsx'
+import maplibre               from 'maplibre-gl/package.json' with { type: 'json' }
 import { viteStaticCopy }     from 'vite-plugin-static-copy'
 import { defineConfig }       from 'vitepress'
 
@@ -15,7 +16,7 @@ import { SHEETS }             from './lib/site/sheets.ts'
 import { navOf, neighborsOf } from './lib/site/sections.ts'
 
 const LICENSES = 'licenses.txt'
-const home     = preloadOf('/theme/HomeMap.tsx', 'index.md')
+const home     = preloadOf('/theme/HomeMap.tsx', 'index.md', [SHEETS.map.hrefOf(maplibre.version)])
 const notices  = licensesOf(
   LICENSES,
   new URL('../../rust/Cargo.toml', import.meta.url),

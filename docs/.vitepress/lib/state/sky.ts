@@ -197,7 +197,21 @@ class Sky {
   private latchedAt                  = -Infinity
   private scanId                     = 0
   private spokenAt                   = 0
-  private worker: Worker | null      = null
+  /**
+   * The scan workers, the first downloading the catalog and handing each of
+   * the others its share.
+   */
+  private workers: Worker[]          = []
+  /**
+   * What each worker has answered: the segments of the catalog it holds, and
+   * for the scan under way the share of its traces done and whether it has
+   * posted its counts and finished.
+   */
+  private heard                      = this.heardOf(0)
+  /**
+   * The counts of the scan under way summed over the workers that posted them.
+   */
+  private summed: Uint16Array | null = null
 
   /**
    * Returns whether the filters keep the pass at `index`, leaving out each
@@ -280,61 +294,102 @@ class Sky {
    */
   get present(): number { return (Date.now() - this.start.value) / 1000 }
 
-  private ask(asked: Asked) { this.worker?.postMessage(asked) }
+  private askAll(asked: Asked) { for (const worker of this.workers) worker.postMessage(asked) }
 
   /**
-   * Loads the site's catalog file unless a worker already holds it.
+   * Returns what `size` workers have answered before any answers.
    */
-  loadOnce() { if (!this.worker) this.load() }
+  private heardOf(size: number) {
+    return {
+      counted  : new Uint8Array(size),
+      finished : new Uint8Array(size),
+      segments : new Uint32Array(size),
+      shares   : new Float64Array(size)
+    }
+  }
+
+  /**
+   * Loads the site's catalog file unless the workers already hold it.
+   */
+  loadOnce() { if (!this.workers.length) this.load() }
 
   /**
    * Loads the site's catalog file from the start, dropping every pass traced
-   * so far and starting the worker again where it failed to start.
+   * so far and starting the workers again where they failed to start, the
+   * first worker downloading the catalog and handing each of the others its
+   * share over a channel of their own.
    */
   load() {
     this.clear()
     this.failed.value     = null
     this.loaded.value     = null
     this.satellites.value = []
-    this.worker         ??= this.started()
-    this.ask({ type: 'load', url: `${import.meta.env.BASE_URL}${catalog.FILE}` })
+    if (!this.workers.length) this.workers = this.started()
+    this.heard               = this.heardOf(this.workers.length)
+    const [lead, ...helpers] = this.workers
+    const channels           = helpers.map(() => new MessageChannel())
+    const ports              = channels.map(({ port1 }) => port1)
+    const url                = `${import.meta.env.BASE_URL}${catalog.FILE}`
+    helpers.forEach((helper, index) => {
+      const from = channels[index].port2
+      helper.postMessage({ from, type: 'follow' } satisfies Asked, [from])
+    })
+    lead.postMessage({ helpers: ports, type: 'load', url } satisfies Asked, ports)
   }
 
   /**
-   * Starts the worker, reading a failure to start as the catalog failing to
-   * load.
+   * Starts half as many workers as the device has cores, at least 2 and at
+   * most 4, reading a failure of any to start as the catalog failing to load.
    */
   private started() {
-    const worker     = new Worker(new URL('../orbit/worker.ts', import.meta.url), { type: 'module' })
-    worker.onmessage = ({ data }: MessageEvent<Answer>) => this.hear(data)
-    worker.onerror   = () => {
-      worker.terminate()
-      this.worker       = null
-      this.failed.value = 'The worker did not start'
-    }
-    return worker
+    const size = clamp(Math.floor(navigator.hardwareConcurrency / 2), 2, 4)
+    return Array.from({ length: size }, (_, index) => {
+      const worker     = new Worker(new URL('../orbit/worker.ts', import.meta.url), { type: 'module' })
+      worker.onmessage = ({ data }: MessageEvent<Answer>) => this.hear(data, index)
+      worker.onerror   = () => {
+        for (const each of this.workers) each.terminate()
+        this.workers      = []
+        this.failed.value = 'The worker did not start'
+      }
+      return worker
+    })
   }
 
-  private hear(answer: Answer) {
+  /**
+   * Reads an answer of worker `from`, scanning once every worker holds a new
+   * segment, counting once every worker has posted its counts, and finishing
+   * once every worker has finished.
+   */
+  private hear(answer: Answer, from: number) {
+    const { counted, finished, segments } = this.heard
     if (answer.type === 'loaded') {
-      this.loaded.value     = { count: answer.count, fetched: answer.fetched }
-      this.satellites.value = [...this.satellites.value, ...answer.satellites]
+      if (answer.satellites.length) this.satellites.value = [...this.satellites.value, ...answer.satellites]
+      segments[from]++
+      if (segments.some(held => held < segments[from])) return
+      this.loaded.value = { count: answer.count, fetched: answer.fetched }
       this.scan()
     } else if (answer.type === 'failed') {
       this.failed.value = answer.reason
     } else if (answer.id !== this.scanId) {
       return
     } else if (answer.type === 'counts') {
-      this.counts    = answer.counts
+      const summed  = this.summed
+      this.summed   = summed ? summed.map((sum, index) => sum + answer.counts[index]) : answer.counts
+      counted[from] = 1
+      if (counted.includes(0)) return
+      this.counts    = this.summed
       this.countStep = answer.step
       this.tally()
     } else if (answer.type === 'passes') {
       this.tracks.add(answer.passes, answer.track, answer.offsets, answer.samples)
-      this.share.value = answer.done / answer.total
+      this.progressed(from, answer.done / answer.total)
       this.version.value++
     } else if (answer.type === 'untraced') {
       this.untraced.value = true
     } else {
+      finished[from] = 1
+      this.progressed(from, 1)
+      if (finished.includes(0)) return
       this.done.value = true
       this.chooseFocus()
       this.version.value++
@@ -344,13 +399,23 @@ class Sky {
   }
 
   /**
+   * Records the share of its traces worker `from` has done, setting `share` to
+   * the share done across every worker.
+   */
+  private progressed(from: number, done: number) {
+    const { shares } = this.heard
+    shares[from]     = done
+    this.share.value = shares.reduce((sum, share) => sum + share, 0) / shares.length
+  }
+
+  /**
    * Starts over for the current spot and window, placing nothing once the
    * catalog has expired.
    */
   scan() {
     this.clear()
     if (this.expired.value) return
-    this.ask({
+    this.askAll({
       id      : this.scanId,
       minutes : MINUTES,
       spot    : { ...this.spot.value },
@@ -363,8 +428,13 @@ class Sky {
    * Drops the scan under way and every pass it traced.
    */
   private clear() {
+    const { counted, finished, shares } = this.heard
     this.scanId++
     this.tracks.clear()
+    counted.fill(0)
+    finished.fill(0)
+    shares.fill(0)
+    this.summed         = null
     this.done.value     = false
     this.untraced.value = false
     this.share.value    = 0

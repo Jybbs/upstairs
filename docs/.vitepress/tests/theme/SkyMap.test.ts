@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
-import { flushPromises, mount } from '@vue/test-utils'
-import { expect, it, vi }       from 'vitest'
-import { ref }                  from 'vue'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { afterEach, expect, it, vi }               from 'vitest'
+import { ref }                                     from 'vue'
 
 import { STEEP, TRACK_WIDTH } from '../../lib/orbit/scan.ts'
 import { SHEETS }             from '../../lib/site/sheets.ts'
@@ -10,8 +10,8 @@ import { freshSky }           from '../common/sky.ts'
 import { stubMatchMedia }     from '../common/stubs.ts'
 
 const {
-  GPU, TOWN, cameraForBounds, caught, draw, drawn, easeTo, fitBounds, frame, gather, handlers, invalidate, made,
-  thrown
+  GPU, TOWN, cameraForBounds, caught, draw, drawn, easeTo, fitBounds, frame, gather, handlers, invalidate,
+  made, queried, thrown
 } = vi.hoisted(() => ({
   GPU             : class extends Error {},
   TOWN            : 10 * 360 / (512 * 2 ** 5),
@@ -29,9 +29,10 @@ const {
   fitBounds       : vi.fn(),
   frame           : vi.fn((_loop: FrameRequestCallback) => 0),
   gather          : vi.fn(),
-  handlers        : new Map<string, (event: unknown) => void>(),
+  handlers        : new Map<string, ((event: unknown) => void)[]>(),
   invalidate      : vi.fn(),
   made            : vi.fn(),
+  queried         : vi.fn(),
   thrown          : { value: null as Error | null },
   cameraForBounds : vi.fn((_bounds: { points: unknown[] }, _options: object) =>
     ({ center: [-71, 42], zoom: 8 }))
@@ -62,14 +63,19 @@ vi.mock('maplibre-gl', () => ({
     getCenter()    { return { lat: 0, lng: 0 } }
     getContainer() { return { clientHeight: 600, clientWidth: 800 } }
     getZoom()      { return 5 }
-    on(type: string, run: (event: unknown) => void) { handlers.set(type, run) }
+    on(type: string, run: (event: unknown) => void) { handlers.set(type, [...handlers.get(type) ?? [], run]) }
     querySourceFeatures(_: string, { sourceLayer }: { sourceLayer: string }) {
+      queried(sourceLayer)
       return sourceLayer === 'place'
-        ? [{ geometry: { coordinates: [0, 0], type: 'Point' }, properties: { class: 'city', name: 'Town' } }]
+        ? [{
+            geometry   : { coordinates: [TOWN, 0], type: 'Point' },
+            properties : { class: 'city', name: 'Town' }
+          }]
         : []
     }
     remove()       {}
   },
+  getVersion   : () => '6.19.0',
   setWorkerUrl() {}
 }))
 vi.mock('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url', () => ({ default: '' }))
@@ -106,6 +112,13 @@ vi.mock('../../lib/map/overlay.ts', async () => {
   }
 })
 
+enableAutoUnmount(afterEach)
+
+/**
+ * Runs every listener the map holds for `type` with `event`.
+ */
+const fire = (type: string, event: unknown = {}) => handlers.get(type)?.forEach(run => run(event))
+
 /**
  * Mounts the map over a fresh copy of the shared state holding one pass on the
  * horizon and a stand-in worker, its frame 600 pixels tall, with its
@@ -120,7 +133,7 @@ const mounted = async (error: Error | null = null, props = {}) => {
   const turn = stubMatchMedia(() => false)
   vi.stubGlobal('requestAnimationFrame', frame)
   Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } })
-  document.head.append(Object.assign(document.createElement('link'), { href: SHEETS.map.href }))
+  document.head.append(Object.assign(document.createElement('link'), { href: SHEETS.map.hrefOf('6.19.0'), rel: 'stylesheet' }))
   const { component: SkyMap, sky } = await freshSky(() => import('../../theme/SkyMap.tsx'))
   const wrapper                    = mount(SkyMap, { global: { config: { errorHandler: caught } }, props })
   await flushPromises()
@@ -188,7 +201,10 @@ it.each([
     [false, false, false, false, 'auto', 0, 1]]
 ])('%s', async (_, props, answers) => {
   const { wrapper } = await mounted(null, props)
-  handlers.get('idle')!({})
+  vi.useFakeTimers()
+  fire('idle')
+  vi.runAllTimers()
+  vi.useRealTimers()
   expect([
     made.mock.lastCall![0].interactive,
     handlers.has('click'),
@@ -200,10 +216,29 @@ it.each([
   ]).toEqual(answers)
 })
 
+it.each([
+  ['once the map rests 200 ms after a run of moves', ['moveend', 'movestart', 'moveend'], [0, 1]],
+  ['never while a move starts within 200 ms of the last', ['moveend', 'movestart'], [0, 0]],
+  ['once after the tiles in view load', ['idle'], [0, 1]]
+])('reads the names in view %s', async (_, events, reads) => {
+  await mounted()
+  vi.useFakeTimers()
+  queried.mockClear()
+  for (const type of events) {
+    fire(type)
+    vi.advanceTimersByTime(199)
+  }
+  const before = queried.mock.calls.filter(([layer]) => layer === 'place').length
+  vi.advanceTimersByTime(1)
+  const after  = queried.mock.calls.filter(([layer]) => layer === 'place').length
+  vi.useRealTimers()
+  expect([before, after]).toEqual(reads)
+})
+
 it('lets the pinned pass go on a press of the empty map', async () => {
   const { pass, sky } = await mounted()
   sky.pin(pass)
-  handlers.get('click')!({ point: { x: 10, y: 10 } })
+  fire('click', { point: { x: 10, y: 10 } })
   expect(sky.pinned.value).toBeNull()
 })
 
@@ -221,7 +256,7 @@ it('pulls the pin onto a town 10 px away once the map rests', async () => {
   const { sky } = await mounted()
   sky.choose()
   await flushPromises()
-  handlers.get('moveend')!({})
+  fire('moveend')
   expect(easeTo).toHaveBeenLastCalledWith(expect.objectContaining({
     center   : [expect.closeTo(TOWN), 0],
     duration : 120
@@ -233,7 +268,7 @@ it('shuts the chooser once the map lands on the spot it set', async () => {
   sky.choose()
   sky.land()
   await flushPromises()
-  handlers.get('moveend')!({})
+  fire('moveend')
   expect(sky.choosing.value).toBe('shut')
 })
 
@@ -277,7 +312,7 @@ it('takes the spot into the high stretch of a pass climbing past STEEP', async (
 
 it.each([
   ['the browser offers no WebGL2 context', new GPU(), () => {}],
-  ['a lost context fails to come back', null, () => handlers.get('error')!({ error: new GPU() })]
+  ['a lost context fails to come back', null, () => fire('error', { error: new GPU() })]
 ])('marks the map blank with no text over it where %s, its zoom raising no error', async (_, error, lose) => {
   const { sky, wrapper } = await mounted(error)
   lose()
@@ -291,7 +326,7 @@ it.each([
 it.each([
   ['draws each frame while the map can draw', () => {}, 1],
   ['draws no frame once a lost context fails to come back', () => {
-    handlers.get('error')!({ error: new GPU() })
+    fire('error', { error: new GPU() })
   }, 0]
 ])('%s', async (_, lose, drawn) => {
   await mounted()
@@ -304,7 +339,7 @@ it.each([
 
 it('names the host a source fails to reach', async () => {
   const { wrapper } = await mounted()
-  handlers.get('error')!({ error: new Error('Failed to fetch'), sourceId: 'base' })
+  fire('error', { error: new Error('Failed to fetch'), sourceId: 'base' })
   await flushPromises()
   expect(wrapper.get('[role="alert"]').text()).toBe('Could not reach OpenFreeMap')
 })
@@ -324,7 +359,7 @@ it('leaves the wheel to the page once a lost context fails to come back, whateve
   const { pass, sky, wrapper } = await mounted()
   sky.selected.value           = pass
   sky.done.value               = true
-  handlers.get('error')!({ error: new GPU() })
+  fire('error', { error: new GPU() })
   await flushPromises()
   const wheel = new WheelEvent('wheel', { cancelable: true, deltaY: -100 })
   wrapper.get('[data-map] > div').element.dispatchEvent(wheel)
