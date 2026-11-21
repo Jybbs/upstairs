@@ -415,6 +415,18 @@ describe('Repository', () => {
       'an action pinned to two commits',
       () => action(CHECKOUT_PIN.replace('3d3c', '0000')),
       'actions/checkout is pinned to more than one commit'
+    ],
+    [
+      'settings turning immutable releases off',
+      ({ toggles }) => ({ toggles: { ...toggles, 'immutable-releases': false } }),
+      '.github/settings.toml leaves immutable-releases off'
+    ],
+    [
+      'settings leaving immutable releases out',
+      ({ toggles }) => ({
+        toggles: Object.fromEntries(Object.entries(toggles).filter(([name]) => name !== 'immutable-releases'))
+      }),
+      '.github/settings.toml leaves immutable-releases off'
     ]
   ])('reports %s', (_, change, problem) =>
     expect(variant(change).problems.filter(found => !base.problems.includes(found))).toEqual([problem]))

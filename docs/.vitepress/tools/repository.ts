@@ -60,9 +60,9 @@ export interface Workflow {
 
 /**
  * The path of each declaration the repository tools read from a single file,
- * where `Repository.read` reads `guide`, `labels`, `manifest`, `release`, and
- * `sweep`, `sync.ts` reads `settings`, and `toolProblems` matches `warm` as the
- * end of a workflow's path.
+ * where `Repository.read` reads `guide`, `labels`, `manifest`, `release`,
+ * `settings`, and `sweep`, `sync.ts` reads `settings`, and `toolProblems`
+ * matches `warm` as the end of a workflow's path.
  */
 export const FILES = {
   guide    : '.github/CONTRIBUTING.md',
@@ -189,11 +189,12 @@ export const wordOf = (name: string) => name.split(' ').at(-1) ?? ''
  * Holds the declarations under `.github/` and `.mise/` that name one another,
  * meaning the label registry, the release categories, the issue templates, the
  * contributor guide, the site's manifest, the workflows and the action
- * manifests, the rulesets, the tasks, and the task the local sweep runs. It
- * reports where two of them disagree, where a label, a package, an action, a
- * matrix row, or a workflow breaks a rule of its own, where a publishing job is
- * missing or runs under another condition, and where a draft pull request runs
- * a job.
+ * manifests, the rulesets, the tasks, the task the local sweep runs, and the
+ * toggles of the repository settings. It reports where two of them disagree,
+ * where a label, a package, an action, a matrix row, or a workflow breaks a
+ * rule of its own, where a publishing job is missing or runs under another
+ * condition, where a draft pull request runs a job, and where the settings
+ * leave immutable releases off.
  */
 export class Repository {
   constructor(
@@ -206,6 +207,7 @@ export class Repository {
     readonly sweep      : string[],
     readonly tasks      : string[],
     readonly templates  : Template[],
+    readonly toggles    : Record<string, boolean>,
     readonly workflows  : Workflow[]
   ) {}
 
@@ -228,6 +230,7 @@ export class Repository {
       await Promise.all((await pathsOf(root, '.github/ISSUE_TEMPLATE/*.{md,yml}'))
         .filter(path => !path.endsWith('config.yml'))
         .map(async path => ({ labels: (await parseFile(path)).labels ?? [], path }))),
+      (await parseFile(at(FILES.settings))).toggles,
       await Promise.all((await pathsOf(root, '.github/workflows/*.yml'))
         .map(async path => ({ ...await parseFile(path), path })))
     )
@@ -269,13 +272,14 @@ export class Repository {
    *   activity types, or holding a job whose condition does not end on the
    *   draft check
    * - A `GUARDS` job missing or running under another condition
+   * - A settings file leaving `immutable-releases` off or undeclared
    */
   get problems(): string[] {
     return [
       ...this.categoryProblems, ...this.draftProblems, ...this.endingProblems, ...this.gateProblems,
       ...this.guardProblems, ...this.guideProblems, ...this.labelProblems, ...this.packageProblems,
       ...this.pinProblems, ...this.rowProblems, ...this.sweepProblems, ...this.taskProblems,
-      ...this.templateProblems, ...this.toolProblems
+      ...this.templateProblems, ...this.toggleProblems, ...this.toolProblems
     ]
   }
 
@@ -473,6 +477,12 @@ export class Repository {
     return this.templates.flatMap(template => template.labels
       .filter(name => !names.has(name))
       .map(name => `${template.path} names ${name}, which ${FILES.labels} lacks`))
+  }
+
+  private get toggleProblems(): string[] {
+    return this.toggles['immutable-releases'] === true
+      ? []
+      : [`${FILES.settings} leaves immutable-releases off`]
   }
 
   private get toolProblems(): string[] {

@@ -5,7 +5,6 @@ permissions : { contents: read }
 on:
   push:
     branches : [main]
-    paths    : [docs/package.json]
 
   workflow_dispatch:
 
@@ -22,16 +21,17 @@ jobs:
     timeout-minutes : &timeout 15
 
     steps:
-      - name : Check out
+      - &checkout
+        name : Check out
         uses : actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with : { fetch-depth: 0, persist-credentials: false }
+        with : { persist-credentials: false }
 
       - name : Provision
         uses : $/.github/actions/provision
         with : { cache: 'false', tools: &bun bun }
 
-      - name : Draft the release where no release carries the version
-        env  : { BEFORE: "${{ github.event.before }}", GH_TOKEN: "${{ github.token }}" }
+      - name : Draft the release of the version or refresh its draft
+        env  : { GH_TOKEN: "${{ github.token }}" }
         run  : mise run gha:cut
 
   logbook:
@@ -43,9 +43,7 @@ jobs:
     timeout-minutes : *timeout
 
     steps:
-      - name : Check out
-        uses : actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with : { persist-credentials: false }
+      - *checkout
 
       - name : Provision
         uses : $/.github/actions/provision

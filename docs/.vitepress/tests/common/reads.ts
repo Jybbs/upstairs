@@ -65,7 +65,7 @@ export const READS: Record<string, string[]> = {
   ],
 
   'docs/.vitepress/tools/repository.ts': [
-    '.github/{CONTRIBUTING.md,labels.toml,release.yml}',
+    '.github/{CONTRIBUTING.md,labels.toml,release.yml,settings.toml}',
     '.github/{ISSUE_TEMPLATE,actions,rulesets,workflows}/**', '.mise/tasks/**',
     'docs/package.json'
   ]
