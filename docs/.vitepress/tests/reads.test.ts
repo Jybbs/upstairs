@@ -337,7 +337,8 @@ describe('the read check', () => {
   })
 
   it.each([
-    'access', 'accessSync', 'lstat', 'lstatSync', 'open', 'openSync', 'readlink', 'readlinkSync', 'stat', 'statSync'
+    'access', 'accessSync', 'lstat', 'lstatSync', 'open', 'openSync', 'readlink', 'readlinkSync',
+    'stat', 'statSync'
   ] as const)('fails a test that reads an undeclared file through %s of the default export', name => {
     const read = fs[name] as (path: string, done: () => void) => void
     expect(() => read(ORPHAN, () => {})).toThrow(refused('reads'))
@@ -379,6 +380,14 @@ describe('the read check', () => {
     vi.stubEnv('TMPDIR', FIXTURES)
     expect(() => readFileSync(join(FIXTURES, 'photon.json'))).not.toThrow()
   })
+
+  it('keeps the setting a shell from new $.Shell() takes through nothrow', () =>
+    expect(new $.Shell().nothrow()`false`.quiet()).resolves.toMatchObject({ exitCode: 1 }))
+
+  it('reads no Shell off a shell new $.Shell() makes', () => expect(new $.Shell().Shell).toBeUndefined())
+
+  it('passes a fetch of a URL of another scheme', () =>
+    expect(fetch('data:,')).resolves.toBeInstanceOf(Response))
 
   it('passes a read of a file outside the worktree', () =>
     expect(() => existsSync(join(ROOT, '../LICENSE'))).not.toThrow())
