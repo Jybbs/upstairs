@@ -324,7 +324,7 @@ export class Repository {
         : [`${path} runs on pull_request without the activity type ${READY_TYPE}`],
       ...(typeof concurrency === 'object' ? concurrency.group : concurrency)?.endsWith(DRAFT_GROUP) ?? true
         ? []
-        : [  `${path} lets a draft run cancel a run in progress, `
+        : [  `${path} lets a draft run cancel a ready one, `
            + `its concurrency group not ending on ${DRAFT_GROUP}`],
       ...Object.entries(jobs)
         .filter(([, job]) => !endsReady(job.if))

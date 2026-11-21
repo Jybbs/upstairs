@@ -32,7 +32,7 @@ The site reads the satellite catalog from `docs/public/catalog.bin`, which `mise
 
 ## Checks
 
-Each pull request runs `🛰️ CI`, one row per check below, and the `📓 Logbook` gate that the `main` ruleset requires writes each row's result into the run's summary and passes only where every row passed or was skipped. Neither `🛰️ CI` nor `🛰️ Deploy` runs a job on a draft pull request. Marking it ready runs each once on its head, and `🛰️ Deploy` only where the pull request changes what the site is built from, per [Deploying](#deploying). Each workflow's concurrency group ends on the pull request's draft flag, so a run skipped for a draft cancels no other run, while a newer run on a ready pull request still cancels the one before it.
+Each pull request runs `🛰️ CI`, one row per check below, and the `📓 Logbook` gate that the `main` ruleset requires writes each row's result into the run's summary and passes only where every row passed or was skipped. Neither `🛰️ CI` nor `🛰️ Deploy` runs a job on a draft pull request. Marking it ready runs each once on its head, and `🛰️ Deploy` only where the pull request changes what the site is built from, per [Deploying](#deploying). The concurrency group of each ends on the pull request's draft flag, so a run skipped for a draft cancels no run of a ready pull request, while a newer run on a ready pull request still cancels the one before it.
 
 | **Row** | **Local Command** | **Fails When** |
 |---|---|---|
