@@ -1,9 +1,9 @@
-import { useEventListener, useRafFn } from '@vueuse/core'
+import { useEventListener, useRafFn, useResizeObserver } from '@vueuse/core'
 import mlcontour                         from 'maplibre-contour'
 import * as maplibregl                   from 'maplibre-gl'
 import mapWorker                         from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { useData }                       from 'vitepress'
-import { computed, defineComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import { DETENT, Detents, type Step }   from '../lib/map/detents.ts'
 import { Hosts }                        from '../lib/map/hosts.ts'
@@ -14,6 +14,7 @@ import { styleOf }                      from '../lib/map/style.ts'
 import { STEEP, TRACK_STEP, type Pass } from '../lib/orbit/scan.ts'
 import { clamp }                        from '../lib/site/motion.ts'
 import { SCHEMES }                      from '../lib/site/palette.ts'
+import { usePhone }                     from '../lib/site/phone.ts'
 import { SHEETS }                       from '../lib/site/sheets.ts'
 import { sky }                          from '../lib/state/sky.ts'
 import { Tracks }                       from '../lib/state/tracks.ts'
@@ -46,6 +47,8 @@ export default defineComponent(
     const hosts   = new Hosts()
     const lifted  = ref(false)
     const lower   = ref<HTMLCanvasElement>()
+    const panels  = shallowRef<HTMLElement[]>([])
+    const phone   = usePhone()
     const pin     = ref<{ x: number, y: number } | null>(null)
     const upper   = ref<HTMLCanvasElement>()
 
@@ -406,6 +409,8 @@ export default defineComponent(
     })
     watch(sky.gather, regather)
     watch(sky.covered, () => overlay?.invalidate())
+    watch([frame, phone], ([map]) => { panels.value = map ? places.panelsOver(map) : [] }, { flush: 'post' })
+    useResizeObserver(panels, () => overlay?.invalidate())
     watch([sky.pinned, sky.covered], ([pass, covered], [was]) => {
       if (!map || !covered) return
       const edge    = clamp((map.getContainer().clientHeight - covered) / 4, 0, PADDING)

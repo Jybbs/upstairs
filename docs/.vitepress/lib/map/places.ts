@@ -2,7 +2,7 @@ import type { Map } from 'maplibre-gl'
 
 import { type Tracks, pointsOf, secondsOf }                         from '../state/tracks.ts'
 import { type Box, type View, boxAround, crossesBox, grown, meets } from './mercator.ts'
-import type { Label }                                               from './overlay.ts'
+import type { Label, Ring }                                         from './overlay.ts'
 
 /**
  * The ring's caption placed beside the ring, at `angle` radians round from
@@ -55,6 +55,8 @@ const PULL        = 14
  * - `gap`: how far apart two names keep
  * - `nudges`: how far a name may move up or down off its place, as shares of
  *   its height, tried in order
+ * - `ring`: how far a name keeps from the ring's line, as far as from the
+ *   track's middle
  * - `spot`: how far a name keeps from the spot's marker, each way
  * - `track`: how far a name keeps from the chosen track's middle
  */
@@ -64,6 +66,7 @@ export const ROOM = {
   edge    : { caption: 8, name: 6 },
   gap     : 4,
   nudges  : [0, -0.8, 0.8],
+  ring    : 5,
   spot    : 10,
   track   : 5
 } as const
@@ -87,13 +90,12 @@ const tierOf = (kind: string, zoom: number): { order: number, tier: Label['tier'
 }
 
 /**
- * Returns the box of each panel over the map that `map`'s stage marks with
- * `CLEAR`, in the map's own pixels, passing over a panel with no size.
+ * Returns the box of each panel over the map that `panelsOver` finds, in the
+ * map's own pixels, passing over a panel with no size.
  */
 export const coveredOver = (map: HTMLElement): Box[] => {
   const frame = map.getBoundingClientRect()
-  const stage = map.closest('[data-map]')?.parentElement
-  return [...stage?.querySelectorAll(CLEAR) ?? []].flatMap(panel => {
+  return panelsOver(map).flatMap(panel => {
     const { bottom, height, left, right, top, width } = panel.getBoundingClientRect()
     if (!width || !height) return []
     return [{
@@ -154,6 +156,12 @@ export const namesOn = (map: Map, view: View): Label[] => {
 }
 
 /**
+ * Returns each panel over the map that `map`'s stage marks with `CLEAR`.
+ */
+export const panelsOver = (map: HTMLElement): HTMLElement[] =>
+  [...map.closest('[data-map]')?.parentElement?.querySelectorAll<HTMLElement>(CLEAR) ?? []]
+
+/**
  * Returns the town in the tiles on screen nearest a point of the view beside
  * its distance in pixels, if one stands within `PULL` pixels of it.
  */
@@ -188,17 +196,27 @@ export const trackOf = (pass: number, tracks: Tracks, view: View): Float32Array 
 }
 
 /**
- * The names measured for one view and the chosen pass's track, laid out as
- * `trackOf` returns it, which places the names and the ring's caption clear
- * of the track by `room.track` pixels and inside the view by `room.edge`.
+ * The names measured for one view, the chosen pass's track laid out as
+ * `trackOf` returns it, and the ring round the spot, which places the names
+ * clear of the track by `room.track` pixels and of the ring's line by
+ * `room.ring`, and the names and the ring's caption inside the view by
+ * `room.edge`.
  */
 export class Layout {
+  private readonly ring: Ring | null
   private readonly room: typeof ROOM
   private readonly track: Float32Array
   private readonly view: View
   private readonly words: readonly Word[]
 
-  constructor(track: Float32Array, view: View, words: readonly Word[], room: typeof ROOM = ROOM) {
+  constructor(
+    track : Float32Array,
+    view  : View,
+    words : readonly Word[],
+    ring  : Ring | null = null,
+    room  : typeof ROOM = ROOM
+  ) {
+    this.ring  = ring
     this.room  = room
     this.track = track
     this.view  = view
@@ -206,14 +224,15 @@ export class Layout {
   }
 
   /**
-   * Places the ring's caption, `width` pixels long and set along the ring
-   * `radius` pixels round the spot at `x`, `y`, at the first of `room.angles`
-   * that crosses none of the words at their places, the track, and `covered`,
-   * or else at the one crossing the fewest, weighing a panel over the track
-   * over a name.
+   * Places the ring's caption, `width` pixels long and set along the ring, at
+   * the first of `room.angles` that crosses none of the words at their places,
+   * the track, and `covered`, or else at the one crossing the fewest, weighing
+   * a panel over the track over a name, and places none without a ring.
    */
-  caption(covered: readonly Box[], radius: number, width: number, x: number, y: number): Caption | null {
-    const { room, words }                          = this
+  caption(covered: readonly Box[], width: number): Caption | null {
+    const { ring, room, words } = this
+    if (!ring) return null
+    const { radius, x, y }                         = ring
     const along                                    = radius + room.caption.out
     const names                                    = words.map(word => boxOf(word, 0))
     let best: (Caption & { score: number }) | null = null
@@ -250,10 +269,25 @@ export class Layout {
         this.within(box, room.edge.name)
         && !blocked.some(each => meets(each, box))
         && !this.crossesTrack(box)
+        && !this.crossesRing(box)
         && !kept.some(each => meets(grown(each.box, room.gap), box)))
       if (box) kept.push({ box, word })
     }
     return kept
+  }
+
+  /**
+   * Whether the ring's line passes within `room.ring` pixels of `box`, which
+   * holds where the nearest point of `box` to the ring's middle stands inside
+   * the outer edge of that band and its farthest point outside the inner edge.
+   */
+  private crossesRing({ bottom, left, right, top }: Box): boolean {
+    const { ring, room } = this
+    if (!ring) return false
+    const { radius, x, y } = ring
+    const near             = Math.hypot(Math.max(left - x, 0, x - right), Math.max(top - y, 0, y - bottom))
+    const far              = Math.hypot(Math.max(x - left, right - x), Math.max(y - top, bottom - y))
+    return near <= radius + room.ring && far >= radius - room.ring
   }
 
   /**

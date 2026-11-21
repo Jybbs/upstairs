@@ -188,6 +188,18 @@ describe('the names placed on the map', () => {
   ])('%s', (_, y, kept) =>
     expect(keptOf([wordAt('First', 500, 300), wordAt('Second', 500, y)])).toEqual(kept))
 
+  it.each([
+    ['passes over a word the ring’s line crosses', 600, 300, []],
+    ['keeps a word 6 px outside the ring’s line', 626, 300, [['Ring', 300]]],
+    ['moves a word 5 px outside the ring’s line up off it', 625, 300, [['Ring', 292]]],
+    ['keeps a word inside the ring', 500, 300, [['Ring', 300]]],
+    ['moves a word down off the ring’s line into the ring', 500, 205, [['Ring', 213]]]
+  ])('%s', (_, x, y, kept) => {
+    const ring = new places.Layout(lineOf(), view, [wordAt('Ring', x, y)], { radius: 100, x: 500, y: 300 })
+    expect(ring.place([], Infinity).map(({ box, word }) => [word.text, (box.top + box.bottom) / 2]))
+      .toEqual(kept)
+  })
+
   it('keeps no more words than it is given room for', () => {
     const words = ['One', 'Two', 'Three'].map((name, index) => wordAt(name, 200, 100 * (index + 1)))
     expect(keptOf(words, [], lineOf(), 2)).toEqual([['One', 100], ['Two', 200]])
@@ -196,7 +208,7 @@ describe('the names placed on the map', () => {
 
 describe('the ring’s caption', () => {
   const at = (covered: Box[] = [], words: places.Word[] = [], track = lineOf()) =>
-    new places.Layout(track, view, words).caption(covered, 100, 80, 500, 300)?.angle ?? null
+    new places.Layout(track, view, words, { radius: 100, x: 500, y: 300 }).caption(covered, 80)?.angle ?? null
 
   it('stands above the ring where nothing crosses it', () => expect(at()).toBeCloseTo(-Math.PI / 2))
   it('moves round the ring off a name above it', () =>
@@ -207,8 +219,10 @@ describe('the ring’s caption', () => {
     const covered = [bandOf(0, 600)]
     expect(at(covered, [wordAt('Above', 500, 190)])).toBeCloseTo(-Math.PI / 3)
   })
-  it('finds no place where the ring fills the view', () =>
-    expect(new places.Layout(lineOf(), view, []).caption([], 700, 80, 500, 300)).toBeNull())
+  it.each([
+    ['finds no place where the ring fills the view', { radius: 700, x: 500, y: 300 }],
+    ['finds no place with no ring', null]
+  ])('%s', (_, ring) => expect(new places.Layout(lineOf(), view, [], ring).caption([], 80)).toBeNull())
 })
 
 describe('the chosen track', () => {

@@ -43,7 +43,7 @@ export interface Label {
 /**
  * The ring round the spot, `radius` pixels round its middle at `x`, `y`.
  */
-interface Ring {
+export interface Ring {
   radius : number
   x      : number
   y      : number
@@ -395,9 +395,9 @@ export class Overlay {
 
   /**
    * Places the names and the ring's caption clear of the panels over the map,
-   * the spot's marker, the chosen pass's track, and each other, per
-   * `places.Layout`, and sets each name kept, noting those whose places stand
-   * inside the ring for the veil to leave clear.
+   * the spot's marker, the ring's line, the chosen pass's track, and each
+   * other, per `places.Layout`, and sets each name kept, noting those whose
+   * places stand inside the ring for the veil to leave clear.
    */
   private drawLabels(context: CanvasRenderingContext2D, ring: Ring | null) {
     const { state, view } = this
@@ -405,17 +405,15 @@ export class Overlay {
     const chosen          = state.selected ? state.tracks.passes.indexOf(state.selected) : -1
     const track           = chosen < 0 ? untracked : places.trackOf(chosen, state.tracks, view)
     const words           = this.labels.map(label => this.measure(context, label, narrow))
-    const layout          = new places.Layout(track, view, words)
+    const layout          = new places.Layout(track, view, words, ring)
     const covered         = this.covered()
     const blocked         = [...covered]
     this.captioned        = false
     if (ring) blocked.push(boxAround(ring.x, ring.y, places.ROOM.spot, places.ROOM.spot))
     if (ring && ring.radius > CAPTION.least) {
-      context.font           = CAPTION_FONT
-      context.letterSpacing  = `${CAPTION.spacing}px`
-      const width            = context.measureText(NOTE).width
-      const { radius, x, y } = ring
-      const at               = layout.caption(covered, radius, width, x, y)
+      context.font          = CAPTION_FONT
+      context.letterSpacing = `${CAPTION.spacing}px`
+      const at              = layout.caption(covered, context.measureText(NOTE).width)
       if (at) {
         blocked.push(grown(at.box, CAPTION.clear))
         this.layCaption(context, at.angle, ring)

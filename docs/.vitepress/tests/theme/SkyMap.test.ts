@@ -10,14 +10,15 @@ import { freshSky }           from '../common/sky.ts'
 import { stubMatchMedia }     from '../common/stubs.ts'
 
 const {
-  GPU, TOWN, cameraForBounds, caught, draw, drawn, easeTo, fitBounds, frame, gather, handlers, made, thrown
+  GPU, TOWN, cameraForBounds, caught, draw, drawn, easeTo, fitBounds, frame, gather, handlers, invalidate, made,
+  thrown
 } = vi.hoisted(() => ({
   GPU             : class extends Error {},
   TOWN            : 10 * 360 / (512 * 2 ** 5),
   caught          : vi.fn(),
   draw            : vi.fn(),
   drawn           : {
-    overlay : { labels: [] as unknown[] },
+    overlay : { covered: () => [] as unknown[], labels: [] as unknown[] },
     state   : { spot: null as unknown, tracks: { passes: [] as unknown[] } }
   },
   easeTo          : vi.fn(),
@@ -25,6 +26,7 @@ const {
   frame           : vi.fn((_loop: FrameRequestCallback) => 0),
   gather          : vi.fn(),
   handlers        : new Map<string, (event: unknown) => void>(),
+  invalidate      : vi.fn(),
   made            : vi.fn(),
   thrown          : { value: null as Error | null },
   cameraForBounds : vi.fn((_bounds: { points: unknown[] }, _options: object) =>
@@ -82,19 +84,20 @@ vi.mock('../../lib/map/overlay.ts', async () => {
   const { View } = await import('../../lib/map/mercator.ts')
   return {
     Overlay: class {
-      draw   = draw
-      gather = gather
-      labels = [{ latitude: 0, longitude: TOWN, name: 'Town', tier: 'city' }]
-      onMap  = new Uint16Array()
-      view   = new View()
+      covered    = () => [] as unknown[]
+      draw       = draw
+      gather     = gather
+      invalidate = invalidate
+      labels     = [{ latitude: 0, longitude: TOWN, name: 'Town', tier: 'city' }]
+      onMap      = new Uint16Array()
+      view       = new View()
       constructor(_lower: unknown, _upper: unknown, state: typeof drawn.state) {
         drawn.overlay = this
         drawn.state   = state
       }
-      crossing()   { return new Uint8Array(1) }
-      invalidate() {}
-      nearest()    { return null }
-      resize()     {}
+      crossing() { return new Uint8Array(1) }
+      nearest()  { return null }
+      resize()   {}
     }
   }
 })
@@ -330,4 +333,35 @@ it('passes on any other error the map throws as it is made, leaving the map draw
   const error   = new Error('Invalid style')
   const { sky } = await mounted(error)
   expect([caught.mock.lastCall?.[0], sky.blank.value]).toEqual([error, false])
+})
+
+it('keeps names out of the zoom buttons, reading each marked panel’s box', async () => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    .mockReturnValue({ bottom: 120, height: 100, left: 20, right: 70, top: 20, width: 50 } as DOMRect)
+  const { wrapper } = await mounted()
+  expect([wrapper.get('[aria-label="Zoom"]').attributes('data-label-clear'), drawn.overlay.covered()])
+    .toEqual(['true', [{ bottom: 100, left: 0, right: 50, top: 0 }]])
+  vi.restoreAllMocks()
+})
+
+it('places the names again once the sheet covers more of the map', async () => {
+  const { sky } = await mounted()
+  invalidate.mockClear()
+  sky.covered.value = 200
+  await flushPromises()
+  expect(invalidate).toHaveBeenCalledOnce()
+})
+
+it('places the names again once a marked panel changes size', async () => {
+  const resized = { run: () => {}, targets: [] as Element[] }
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(run: () => void) { resized.run = run }
+    disconnect() {}
+    observe(target: Element) { resized.targets.push(target) }
+  })
+  const { wrapper } = await mounted()
+  invalidate.mockClear()
+  resized.run()
+  expect([resized.targets.at(-1), invalidate.mock.calls.length])
+    .toEqual([wrapper.get('[aria-label="Zoom"]').element, 1])
 })
