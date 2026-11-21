@@ -23,10 +23,14 @@ const mounted = async () => {
 }
 
 /**
+ * Finds each row's bar, in the order the rows stand.
+ */
+const bars = (wrapper: VueWrapper) => wrapper.findAll<HTMLElement>('button > span:nth-of-type(2)')
+
+/**
  * Reads the width of each row's bar, in the order the rows stand.
  */
-const barsOf = (wrapper: VueWrapper) =>
-  wrapper.findAll<HTMLElement>('button > span:nth-of-type(2)').map(bar => bar.element.style.width)
+const barsOf = (wrapper: VueWrapper) => bars(wrapper).map(bar => bar.element.style.width)
 
 it('draws a row for each kind on the map and none for a kind with nothing up', async () => {
   const { wrapper } = await mounted()
@@ -47,8 +51,13 @@ it('draws every bar on one scale, the longest across its whole column', async ()
 
 it('draws each bar solid in its kind’s color', async () => {
   const { wrapper } = await mounted()
-  expect(wrapper.findAll<HTMLElement>('button > span:nth-of-type(2)').map(bar => bar.element.style.background))
+  expect(bars(wrapper).map(bar => bar.element.style.background))
     .toEqual([kindColor('crewed'), kindColor('earth')])
+})
+
+it('keeps the bar of each kind on the map at least 2 px long', async () => {
+  const { wrapper } = await mounted()
+  expect(bars(wrapper).map(bar => bar.classes('min-w-0.5'))).toEqual([true, true])
 })
 
 it('draws an empty bar for the one row the keyboard keeps once no kind is on the map', async () => {
@@ -58,7 +67,7 @@ it('draws an empty bar for the one row the keyboard keeps once no kind is on the
   await earth.trigger('focus')
   sky.reading.value = { ...sky.reading.value, kinds: kindOrder.map(() => 0) }
   await wrapper.vm.$nextTick()
-  const [bar] = wrapper.findAll('button > span:nth-of-type(2)')
+  const [bar] = bars(wrapper)
   expect([barsOf(wrapper), bar.classes('min-w-0.5')]).toEqual([['0%'], false])
 })
 
