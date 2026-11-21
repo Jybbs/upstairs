@@ -144,6 +144,25 @@ it('opens the spot chooser from the place it reads', async () => {
     .toEqual(['open', 'true'])
 })
 
+it('lets the pinned pass go on a press of the card’s close control', async () => {
+  const { sky, wrapper } = await mounted(0)
+  addScanned(sky, [passOf(1)])
+  sky.pin(sky.tracks.passes[0])
+  await wrapper.vm.$nextTick()
+  await wrapper.get('button[aria-label="Close the card"]').trigger('click')
+  expect([sky.pinned.value, wrapper.find('button[aria-label="Close the card"]').exists()])
+    .toEqual([null, false])
+})
+
+it('sets no close control on the card of a pass the pointer only rests on', async () => {
+  const { sky, wrapper } = await mounted(0)
+  addScanned(sky, [passOf(1)])
+  sky.held.value = sky.tracks.passes[0]
+  await wrapper.vm.$nextTick()
+  expect([wrapper.text().includes('CRAFT 1'), wrapper.find('button[aria-label="Close the card"]').exists()])
+    .toEqual([true, false])
+})
+
 it('keeps the pinned pass on Escape while the spot chooser is open', async () => {
   const { sky } = await mounted(0)
   const pass    = passOf(1)

@@ -202,7 +202,35 @@ export default defineComponent(
           {' · '}<span class="text-ink">{when.value}</span>
         </p>
         {!props.folded && sky.shown.value && !sky.moment.value.failure
-          ? <PassReadout key={sky.shown.value.key} pass={sky.shown.value} />
+          ? (
+            <div class="relative">
+              <PassReadout
+                key={sky.shown.value.key}
+                pass={sky.shown.value}
+                class="[&>:first-child]:block [&>:first-child]:pr-10"
+              />
+              {sky.shown.value === sky.pinned.value && (
+                <button
+                  type="button"
+                  class="absolute -top-1 -right-1 grid size-8 cursor-pointer place-items-center rounded-sm
+                         border border-rule bg-panel text-ink transition-colors hover:border-soft
+                         hover:bg-lift focus-visible:outline-2 focus-visible:outline-offset-2
+                         focus-visible:outline-u"
+                  aria-label="Close the card"
+                  title="Close (Esc)"
+                  onClick={() => sky.release()}
+                >
+                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                    <path
+                      d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )
           : [
             <div class="flex items-baseline gap-2.5">
               <output class="font-mono text-5xl leading-none font-medium tabular-nums" aria-live="off">

@@ -81,41 +81,41 @@ export default defineComponent(
       <section
         class={[
           'flex shrink-0 flex-col border-b border-rule bg-lift p-4',
-          sky.moment.value.failure ? 'min-h-[218px]' : 'h-[218px]'
+          !pass.value && 'min-h-[150px]'
         ]}
         aria-live="polite"
       >
         {sky.moment.value.failure ? failed() : pass.value
           ? [
-            <p class="caps flex justify-between text-soft">
-              <span class="inline-flex items-center gap-1.5">
-                <Icon name={pass.value.kind} />{KINDS[pass.value.kind].label}
-              </span>
-              <span>No. {pass.value.id}</span>
-            </p>,
-            <h2 class="mt-1.5 truncate">
-              <SatelliteName name={pass.value.name} class="text-[22px] leading-tight" />
+            <h2
+              class="flex items-baseline justify-between font-display text-lg leading-tight font-bold
+                     text-ink"
+            >
+              Watching{' '}
+              <span class="caps font-normal text-soft">No. {pass.value.id}</span>
             </h2>,
-            bound.value && (
-              <p class="caps inline-flex items-center gap-1 text-soft">
-                <Icon name={BOUNDS[bound.value].mark} />{BOUNDS[bound.value].label}
-              </p>
-            ),
-            <p class="mt-1.5 line-clamp-2 h-10 text-sm leading-5">{about.value}</p>,
-            <dl class="mt-auto grid grid-cols-3 gap-2 border-t border-rule pt-2">
+            <p class="mt-2 flex min-w-0 items-center gap-2">
+              <Icon name={pass.value.kind} />
+              <span class="sr-only">{KINDS[pass.value.kind].label}: </span>
+              <SatelliteName name={pass.value.name} class="truncate text-[22px] leading-tight" />
+            </p>,
+            <p class="mt-1 truncate text-sm leading-5" title={about.value}>{about.value}</p>,
+            <dl class="caps mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-ink">
               <div>
-                <dt class="caps text-soft">Highest</dt>
-                <dd class="caps text-ink">
-                  {Math.round(pass.value.peak)}° at {sky.clockOf(pass.value.peakAt)}
+                <dt class="sr-only">Highest</dt>
+                <dd>{Math.round(pass.value.peak)}° at {sky.clockOf(pass.value.peakAt)}</dd>
+              </div>
+              <div>
+                <dt class="sr-only">Crosses</dt>
+                <dd class="inline-flex items-center gap-1">
+                  {bound.value && <Icon name={BOUNDS[bound.value].mark} />}
+                  {bound.value && <span class="sr-only">{BOUNDS[bound.value].label}, </span>}
+                  {crossingOf(pass.value)}
                 </dd>
               </div>
               <div>
-                <dt class="caps text-soft">Crosses</dt>
-                <dd class="caps text-ink">{crossingOf(pass.value)}</dd>
-              </div>
-              <div>
-                <dt class="caps text-soft">Altitude</dt>
-                <dd class="caps text-ink">{distance(pass.value.height)}</dd>
+                <dt class="sr-only">Altitude</dt>
+                <dd>{distance(pass.value.height)} up</dd>
               </div>
             </dl>
           ]

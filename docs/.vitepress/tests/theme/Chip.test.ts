@@ -18,6 +18,19 @@ it.each<[string, { kind?: Kind, on: boolean }, (string | null)[]]>([
     .toEqual(shown)
 })
 
+it.each([
+  ['names its choice in the chip', false, ['Crewed', false]],
+  ['names its choice on a tip above the mark alone', true, ['Crewed', true]]
+])('%s', (_, tip, shown) => {
+  const wrapper = shallowMount(Chip, {
+    props : { kind: 'crewed', on: false, tip },
+    slots : { default: 'Crewed' }
+  })
+  const label   = wrapper.find('button > span')
+  expect([wrapper.get('button').text(), label.exists() && label.classes('group-hover:opacity-100')])
+    .toEqual(shown)
+})
+
 it('sends a press for each click', async () => {
   const wrapper = shallowMount(Chip, { props: { on: false }, slots: { default: '30°' } })
   await wrapper.get('button').trigger('click')

@@ -108,6 +108,32 @@ export const coveredOver = (map: HTMLElement): Box[] => {
 }
 
 /**
+ * The share of the map's width a panel spans to count as running across it,
+ * as the time strip does, rather than standing at one side, as the readout
+ * does.
+ */
+export const ACROSS = 0.8
+
+/**
+ * Returns the padding in pixels that keeps a framing clear of each panel over
+ * the map by `pad`, a panel running across the map padding the edge it stands
+ * nearer and a panel at one side padding that side.
+ */
+export const paddingOver = (map: HTMLElement, pad: number) => {
+  const { clientHeight: height, clientWidth: width } = map
+  const padding = { bottom: pad, left: pad, right: pad, top: pad }
+  for (const { bottom, left, right, top } of coveredOver(map)) {
+    if (right - left >= width * ACROSS) {
+      if (top + bottom > height) padding.bottom = Math.max(padding.bottom, height - top + pad)
+      else padding.top = Math.max(padding.top, bottom + pad)
+    }
+    else if (left + right < width) padding.left = Math.max(padding.left, right + pad)
+    else padding.right = Math.max(padding.right, width - left + pad)
+  }
+  return padding
+}
+
+/**
  * Reads the names in the map tiles on screen, largest places first, keeping
  * those with room around them. The map carries no text of its own, and the
  * overlay sets cities and waters in the book serif and regions in the mono.

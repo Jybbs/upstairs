@@ -3,11 +3,11 @@ import { mount, type VueWrapper }         from '@vue/test-utils'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { ref }                            from 'vue'
 
-import { TRACK_WIDTH }          from '../../lib/orbit/scan.ts'
-import type { sky as Sky }      from '../../lib/state/sky.ts'
-import { passOf }               from '../common/passes.ts'
-import { addScanned, freshSky } from '../common/sky.ts'
-import { stubMatchMedia }       from '../common/stubs.ts'
+import { TRACK_WIDTH, type Pass } from '../../lib/orbit/scan.ts'
+import type { sky as Sky }        from '../../lib/state/sky.ts'
+import { passOf }                 from '../common/passes.ts'
+import { addScanned, freshSky }   from '../common/sky.ts'
+import { stubMatchMedia }         from '../common/stubs.ts'
 
 /**
  * The width the strip measures, 800 px unless a case narrows it.
@@ -216,6 +216,53 @@ it('shades the outline of the ridge the readout shows deeper than the rest', asy
   )
 })
 
+it.each([
+  ['a row of the list', (sky: typeof Sky, pass: Pass) => sky.focusOn(pass)],
+  ['its ridge', (_: typeof Sky, __: Pass, wrapper: VueWrapper) =>
+    wrapper.findAll('g.cursor-pointer')[0].trigger('pointerdown')]
+] as const)('draws the pass chosen from %s in front, filled, over a bar of its kind', async (_, choose) => {
+  const { passes, sky, wrapper } = await mounted(false, false, THREE)
+  await choose(sky, passes[1], wrapper)
+  await wrapper.vm.$nextTick()
+  const chosen         = wrapper.get('[data-chosen]')
+  const [outline, bar] = [chosen.get('path'), chosen.get('line')]
+  const ends           = outline.attributes('d')!.match(/^M([\d.]+) .*L([\d.]+) [\d.]+Z$/)!
+    .slice(1)
+    .map(Number)
+  expect({
+    after   : chosen.element.nextElementSibling?.classList.contains('stroke-dim'),
+    bar     : [
+      ...['x1', 'x2'].map(end => Number(Number(bar.attributes(end)).toFixed(1))),
+      bar.attributes('stroke')
+    ],
+    fill    : [outline.attributes('fill'), outline.attributes('fill-opacity')],
+    peak    : chosen.get('circle').attributes('cx'),
+    pressed : chosen.classes('pointer-events-none')
+  }).toEqual({
+    after   : true,
+    bar     : [...ends, `var(--kind-${passes[1].kind})`],
+    fill    : [`var(--kind-${passes[1].kind})`, '0.35'],
+    peak    : wrapper.findAll('g.cursor-pointer')[0].get('circle').attributes('cx'),
+    pressed : true
+  })
+})
+
+it.each([
+  ['a pointer rests on', async (wrapper: VueWrapper) => {
+    await wrapper.findAll('g.cursor-pointer')[0].trigger('pointerenter')
+  }],
+  ['the keyboard raises', async (wrapper: VueWrapper) => {
+    await wrapper.get('svg[role="slider"]').trigger('keydown', { key: 'ArrowUp' })
+    await wrapper.get('svg[role="slider"]').trigger('keydown', { key: 'ArrowUp' })
+  }]
+] as const)('names the satellite and its highest angle for the ridge %s', async (_, raise) => {
+  const { wrapper } = await mounted(false, false, THREE)
+  const tip         = wrapper.get('[role="status"]')
+  const before      = tip.classes('invisible')
+  await raise(wrapper)
+  expect([before, tip.classes('invisible'), tip.text()]).toEqual([true, false, 'CRAFT 2, Highest 80°'])
+})
+
 it('raises each pass’s own ridge to its peak elevation', async () => {
   const { wrapper } = await mounted(false, false, THREE)
   const ridges      = wrapper.findAll('g.cursor-pointer')
@@ -291,7 +338,8 @@ it.each([
   ['labels every tick on a strip wide enough for each', false, 800, [0, 1, 2, 3, 4, 5, 6]],
   ['labels every tick on the strip of a page 768 px wide', false, 666, [0, 1, 2, 3, 4, 5, 6]],
   ['labels every tick on the strip of a page 800 px wide', false, 698, [0, 1, 2, 3, 4, 5, 6]],
-  ['labels every third tick on a phone, clear of the labels at either end', true, 322, [0, 3, 6]]
+  ['labels every other tick on a phone', true, 322, [0, 2, 4, 6]],
+  ['labels every third tick on the narrowest phone strip', true, 250, [0, 3, 6]]
 ] as const)('%s', async (_, phone, width, labeled) => {
   const { sky, wrapper } = await mounted(false, phone, [passOf(1)], width)
   await clocked(sky, wrapper, 'en-US', new Date(2026, 10, 7, 22, 15).getTime())
@@ -302,14 +350,14 @@ it.each([
 it('spaces the hour labels by the root font size a reader sets', async () => {
   document.documentElement.style.fontSize = '20px'
   onTestFinished(() => { document.documentElement.style.fontSize = '' })
-  const { sky, wrapper } = await mounted(false, false, [passOf(1)], 698)
+  const { sky, wrapper } = await mounted(false, false, [passOf(1)], 560)
   await clocked(sky, wrapper, 'en-US', new Date(2026, 10, 7, 22, 15).getTime())
   const ticks            = wrapper.findAll('text.fill-soft')
   expect(ticks.flatMap((tick, index) => tick.text() ? [index] : [])).toEqual([0, 2, 4, 6])
 })
 
 it('spaces the hour labels by the widest, where the window runs from 9 into 10 o’clock', async () => {
-  const { sky, wrapper } = await mounted(false, false, [passOf(1)], 598)
+  const { sky, wrapper } = await mounted(false, false, [passOf(1)], 470)
   await clocked(sky, wrapper, 'en-US', new Date(2026, 10, 7, 9, 45).getTime())
   const ticks            = wrapper.findAll('text.fill-soft')
   expect(ticks.flatMap((tick, index) => tick.text() ? [index] : [])).toEqual([0, 2, 4, 6])
@@ -329,6 +377,29 @@ it.each(PAGES)('keeps the %s hour labels 8 px apart on a %i px page', async (loc
     })
   const gaps = spans.slice(1).map(([left], index) => left - spans[index]![1])
   expect(Math.min(...gaps)).toBeGreaterThanOrEqual(8)
+})
+
+it.each(PAGES)('centers each %s hour label on its tick, %i px page', async (locale, _, phone, width) => {
+  const { sky, wrapper } = await mounted(false, phone, [passOf(1)], width)
+  await clocked(sky, wrapper, locale, new Date(2026, 10, 7, 22, 15).getTime())
+  const em     = phone ? 12 : 11
+  const marks  = wrapper.findAll('line.stroke-dim').slice(1).map(tick => Number(tick.attributes('x1')))
+  const labels = wrapper.findAll('text.fill-soft').map(label => ({
+    anchor : label.attributes('text-anchor'),
+    half   : label.text().length * (0.6 + 0.1) * em / 2,
+    x      : Number(label.attributes('x'))
+  }))
+  expect({
+    centered : labels.every(({ anchor }, index) => anchor === 'middle' && labels[index].x === marks[index]),
+    inside   : labels.every(({ half, x }) => x - half >= 0 && x + half <= width)
+  }).toEqual({ centered: true, inside: true })
+})
+
+it('ends the playhead’s line above the Now beneath the ground', async () => {
+  const { wrapper } = await mounted(false)
+  const playhead    = wrapper.get('line.stroke-u')
+  const now         = wrapper.get('text.fill-ink')
+  expect(Number(playhead.attributes('y2'))).toBeLessThan(Number(now.attributes('y')) - 11)
 })
 
 it.each([

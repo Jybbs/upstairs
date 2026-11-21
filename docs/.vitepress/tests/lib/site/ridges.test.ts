@@ -59,6 +59,7 @@ describe('ridgeOf', () => {
     ['draws the crest seen at both ends of each stretch as one line', 'seen',
       'M90.0 75.0L120.0 50.0L150.0 75.0'],
     ['draws every other stretch apart', 'unseen', 'M60.0 100.0L90.0 75.0M150.0 75.0L180.0 100.0'],
-    ['places the peak at the moment and elevation the scan found', 'peak', [120, 50]]
+    ['places the peak at the moment and elevation the scan found', 'peak', [120, 50]],
+    ['sets the ends of the ground it rises and sets over', 'ends', [60, 180]]
   ] as const)('%s', (_, part, expected) => expect(ridge[part]).toEqual(expected))
 })

@@ -88,6 +88,12 @@ const DOT_GAP     = 4.5
  */
 const BADGE       = { halo: 11, off: 15, size: 16 } as const
 /**
+ * The pointer toward a chosen satellite past the open map: how far in pixels
+ * it stands inside the map's edge and outside a panel running across it, how
+ * far it stands clear of a panel at one side, and the length of its arrowhead.
+ */
+const AIM         = { clear: 44, edge: 22, head: 9 } as const
+/**
  * The ease in and out of a held or chosen track in milliseconds.
  */
 const EASE        = { in: 120, out: 260 } as const
@@ -253,6 +259,12 @@ export class Overlay {
    */
   covered: () => readonly Box[] = () => []
 
+  /**
+   * The panels over the map as the still layer last read them, which the
+   * pointer toward a chosen satellite stays clear of.
+   */
+  private panels: readonly Box[] = []
+  private open                   = { bottom: 0, left: 0, right: 0, top: 0 }
   private still: CanvasRenderingContext2D
   private moving: CanvasRenderingContext2D
   private ratio              = 1
@@ -413,6 +425,7 @@ export class Overlay {
     const layout          = new places.Layout(track, view, words, ring)
     const covered         = this.covered()
     const blocked         = [...covered]
+    this.opened(covered)
     this.captioned        = false
     if (ring) blocked.push(boxAround(ring.x, ring.y, places.ROOM.spot, places.ROOM.spot))
     if (ring && ring.radius > CAPTION.least) {
@@ -567,6 +580,9 @@ export class Overlay {
     }
 
     let chosen               = -1
+    let aimed                = false
+    let aimX                 = 0
+    let aimY                 = 0
     const { held, selected } = state
     for (let pass = 0; pass < tracks.passes.length; pass++) {
       const record = tracks.passes[pass]
@@ -575,6 +591,11 @@ export class Overlay {
       if (!tracks.up(pass, seconds)) continue
       const x = view.column(tracks.longitude)
       const y = view.row(tracks.latitude)
+      if (record === selected) {
+        aimed = true
+        aimX  = x
+        aimY  = y
+      }
       if (!view.inside(x, y, PADDING)) continue
       if (view.inside(x, y)) this.onMap[kindSlots[record.kind]]++
       this.remember(x, y, pass)
@@ -587,6 +608,80 @@ export class Overlay {
     context.globalAlpha = 1
     this.drawVeil(context, flying)
     this.drawCaption(context)
+    if (aimed && selected) this.drawPointer(context, selected.kind, aimX, aimY)
+  }
+
+  /**
+   * Sets the part of the map the pointer stands in: the view inside
+   * `AIM.edge`, short of each panel in `covered` running across it, which
+   * keeps the panels at one side for the pointer to stay clear of.
+   */
+  private opened(covered: readonly Box[]) {
+    const { open, view } = this
+    this.panels          = covered
+    open.left            = AIM.edge
+    open.right           = view.width - AIM.edge
+    open.top             = AIM.edge
+    open.bottom          = view.height - AIM.edge
+    for (const { bottom, left, right, top } of covered) {
+      if (right - left < view.width * places.ACROSS) continue
+      if (top + bottom > view.height) open.bottom = Math.min(open.bottom, top - AIM.edge)
+      else open.top = Math.max(open.top, bottom + AIM.edge)
+    }
+  }
+
+  /**
+   * Points toward the chosen satellite at `x`, `y` where it stands past the
+   * open map or under a panel at one side: an arrowhead in its kind's color
+   * where the line from the spot toward it leaves the open map or meets a
+   * panel, and the kind's mark on its halo behind the arrowhead.
+   */
+  private drawPointer(context: CanvasRenderingContext2D, kind: Kind, x: number, y: number) {
+    const { open, panels, ratio, state, view } = this
+    let under = false
+    for (let index = 0; index < panels.length; index++) {
+      under ||= !across(panels[index], view.width) && insideOf(panels[index], x, y, AIM.edge)
+    }
+    if (!under && x > open.left && x < open.right && y > open.top && y < open.bottom) return
+    const spotX  = state.spot ? view.column(state.spot.longitude) : view.width / 2
+    const spotY  = state.spot ? view.row(state.spot.latitude) : view.height / 2
+    const inside = spotX > open.left && spotX < open.right && spotY > open.top && spotY < open.bottom
+    const fromX  = inside ? spotX : (open.left + open.right) / 2
+    const fromY  = inside ? spotY : (open.top + open.bottom) / 2
+    const length = Math.hypot(x - fromX, y - fromY)
+    if (length < 1) return
+    const dx     = (x - fromX) / length
+    const dy     = (y - fromY) / length
+    let reach    = Math.min(
+      dx > 0 ? (open.right - fromX) / dx : dx < 0 ? (open.left - fromX) / dx : Infinity,
+      dy > 0 ? (open.bottom - fromY) / dy : dy < 0 ? (open.top - fromY) / dy : Infinity,
+      length
+    )
+    for (let index = 0; index < panels.length; index++) {
+      const box = panels[index]
+      if (across(box, view.width) || insideOf(box, fromX, fromY, AIM.clear)) continue
+      reach = Math.min(reach, enteringOf(box, AIM.clear, fromX, fromY, dx, dy))
+    }
+    const tipX = fromX + dx * reach
+    const tipY = fromY + dy * reach
+    const head = AIM.head
+    context.globalAlpha = 1
+    context.setTransform(ratio * dx, ratio * dy, -ratio * dy, ratio * dx, ratio * tipX, ratio * tipY)
+    context.beginPath()
+    context.moveTo(head, 0)
+    context.lineTo(-head * 0.7, -head * 0.8)
+    context.lineTo(-head * 0.3, 0)
+    context.lineTo(-head * 0.7, head * 0.8)
+    context.closePath()
+    context.lineJoin    = 'round'
+    context.lineWidth   = 2
+    context.strokeStyle = this.scheme.halo
+    context.stroke()
+    context.fillStyle   = this.scheme.kinds[kind]
+    context.fill()
+    context.setTransform(ratio, 0, 0, ratio, 0, 0)
+    const back = head + BADGE.halo + 6
+    this.drawMark(context, kind, tipX - dx * back, tipY - dy * back)
   }
 
   /**
@@ -839,11 +934,18 @@ export class Overlay {
    * the view.
    */
   private drawBadge(context: CanvasRenderingContext2D, kind: Kind, x: number, y: number) {
-    this.marks ??= Object.fromEntries(kindOrder.map(each => [each, new Path2D(iconOf(each, BADGE.size))])) as
-      Record<Kind, Path2D>
     const { view } = this
     const centerX  = x + (x + BADGE.off + BADGE.halo > view.width ? -BADGE.off : BADGE.off)
     const centerY  = y + (y - BADGE.off - BADGE.halo < 0 ? BADGE.off : -BADGE.off)
+    this.drawMark(context, kind, centerX, centerY)
+  }
+
+  /**
+   * Draws the kind's mark on its halo centered on `centerX`, `centerY`.
+   */
+  private drawMark(context: CanvasRenderingContext2D, kind: Kind, centerX: number, centerY: number) {
+    this.marks ??= Object.fromEntries(kindOrder.map(each => [each, new Path2D(iconOf(each, BADGE.size))])) as
+      Record<Kind, Path2D>
     context.globalAlpha = 0.9
     context.fillStyle   = this.scheme.halo
     discAt(context, centerX, centerY, BADGE.halo)
@@ -952,6 +1054,35 @@ const dotAt = (
   context.beginPath()
   context.arc(x, y, radius + grow * open - width / 2, 0, Math.PI * 2)
   context.stroke()
+}
+
+/**
+ * Whether a panel runs across a map `width` pixels wide rather than standing
+ * at one side.
+ */
+const across = ({ left, right }: Box, width: number) => right - left >= width * places.ACROSS
+
+/**
+ * Whether `x`, `y` stands inside `box` grown by `by` pixels.
+ */
+const insideOf = ({ bottom, left, right, top }: Box, x: number, y: number, by: number) =>
+  x > left - by && x < right + by && y > top - by && y < bottom + by
+
+/**
+ * Returns how far along the ray from `x`, `y` by `dx`, `dy` it enters `box`
+ * grown by `by` pixels, or Infinity where it never does.
+ */
+const enteringOf = (box: Box, by: number, x: number, y: number, dx: number, dy: number) => {
+  const { bottom, left, right, top } = box
+  if (dx === 0 && (x <= left - by || x >= right + by)) return Infinity
+  if (dy === 0 && (y <= top - by || y >= bottom + by)) return Infinity
+  const x1   = dx === 0 ? -Infinity : (left - by - x) / dx
+  const x2   = dx === 0 ? Infinity : (right + by - x) / dx
+  const y1   = dy === 0 ? -Infinity : (top - by - y) / dy
+  const y2   = dy === 0 ? Infinity : (bottom + by - y) / dy
+  const near = Math.max(0, Math.min(x1, x2), Math.min(y1, y2))
+  const far  = Math.min(Math.max(x1, x2), Math.max(y1, y2))
+  return near <= far ? near : Infinity
 }
 
 /**

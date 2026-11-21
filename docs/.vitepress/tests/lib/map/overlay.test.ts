@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vitest'
 
 import type { Box }             from '../../../lib/map/mercator.ts'
 import { BEADS, type Label, Overlay, fadeOf, nearnessOf, openOf } from '../../../lib/map/overlay.ts'
@@ -469,38 +469,45 @@ it.each([
 
 /**
  * Builds a canvas whose 2D context ignores every call but `arc`, `beginPath`,
- * `fill`, `lineTo`, and `stroke`, recording the width and alpha of each
- * ribbon filled and the alpha, radius, and fill style of each disc and ring
- * drawn.
+ * `fill`, `lineTo`, `setTransform`, and `stroke`, recording the width and
+ * alpha of each ribbon filled, the alpha, radius, and fill style of each disc
+ * and ring drawn, and the place, turn, and fill style of each shape filled
+ * from a path or under a moved transform.
  */
 const sketchOf = () => {
   const marks: { alpha: number, filled: boolean, radius: number, style: unknown }[] = []
   const ribbons: { alpha: number, width: number }[] = []
+  const shapes: { at: number[], style: unknown, turn: number[] }[] = []
   let points: number[][] = []
   let radius             = 0
   let round              = false
+  let transform          = [1, 0, 0, 1, 0, 0]
   const calls            = {
-    arc       : (_x: number, _y: number, size: number) => {
+    arc          : (_x: number, _y: number, size: number) => {
       radius = size
       round  = true
     },
-    beginPath : () => {
+    beginPath    : () => {
       points = []
       round  = false
     },
-    fill      : () => {
+    fill         : (path?: unknown) => {
       const alpha = context.globalAlpha as number
+      if (path || transform[4] || transform[5]) {
+        return shapes.push({ at: transform.slice(4), style: context.fillStyle, turn: transform.slice(0, 2) })
+      }
       if (round) return marks.push({ alpha, filled: true, radius, style: context.fillStyle })
       const [[x, y], [u, v]] = [points[0], points.at(-1)!]
       ribbons.push({ alpha, width: Math.hypot(u - x, v - y) })
     },
-    lineTo    : (x: number, y: number) => points.push([x, y]),
-    stroke    : () => {
+    lineTo       : (x: number, y: number) => points.push([x, y]),
+    setTransform : (...values: number[]) => { transform = values },
+    stroke       : () => {
       if (round) marks.push({ alpha: context.globalAlpha as number, filled: false, radius, style: null })
     }
   }
   const { canvas, context } = canvasWith(calls)
-  return { canvas, marks, ribbons }
+  return { canvas, marks, ribbons, shapes }
 }
 
 /**
@@ -515,6 +522,8 @@ const drawnAt = (
   changes   = {},
   traced    = true
 ) => {
+  vi.stubGlobal('Path2D', class { constructor(readonly d: string) {} })
+  onTestFinished(() => { vi.unstubAllGlobals() })
   const tracks = new Tracks()
   const track  = new Float32Array(121 * TRACK_WIDTH)
   for (let sample = 0; sample < 121; sample++) {
@@ -555,8 +564,21 @@ it.each([
 
 it('draws the stretch flown at a third, at once under reduced motion, and marks the peak', () => {
   const { marks, ribbons } = drawnAt(900, 45, 'selected')
-  expect([ribbons.map(({ alpha }) => alpha), marks.length])
-    .toEqual([[0.7 / 3, 1 / 3, 0.7, 1].map(alpha => expect.closeTo(alpha)), 2])
+  const peak               = marks.filter(({ alpha }) => alpha !== 0.9)
+  expect([ribbons.map(({ alpha }) => alpha), peak.map(({ radius }) => radius)])
+    .toEqual([[0.7 / 3, 1 / 3, 0.7, 1].map(alpha => expect.closeTo(alpha)), [4.5, 2.5]])
+})
+
+it.each([
+  ['points west along the map’s edge toward a chosen satellite past it', 900, 'selected',
+    [[{ at: [22, 200], style: SCHEMES.day.kinds.crewed, turn: [-1, 0] }], 2]],
+  ['points toward no chosen satellite inside the map', 1800, 'selected', [[], 0]],
+  ['points toward no held satellite past the map’s edge', 900, 'held', [[], 0]]
+] as const)('%s', (_, seconds, as, shown) => {
+  const { shapes } = drawnAt(seconds, 45, as)
+  const whole      = (values: number[]) => values.map(value => Math.round(value) + 0)
+  expect([shapes.slice(0, 1).map(({ at, style, turn }) => ({ at: whole(at), style, turn: whole(turn) })),
+    shapes.length]).toEqual(shown)
 })
 
 it.each([
