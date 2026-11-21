@@ -5,7 +5,7 @@ import { join }      from 'node:path'
 import { describe, expect, vi } from 'vitest'
 
 import { RUN_ADDRESS, run } from '../../catalog/request.ts'
-import { it, tilded }       from '../common/home.ts'
+import { it, tilded }       from '../common/scratch.ts'
 
 const CATALOG = join(import.meta.dirname, '../../catalog')
 const HELD    = 'held-token'
@@ -86,36 +86,36 @@ describe('a run of the task', () => {
         'No token for the catalog service is saved in ~/.netrc, so make one through mise run catalog:mint.'
       ]
     }]
-  ])('%s, printing nothing of the token', async ([, { lines, netrc, reply, status }], { home }) => {
-    const ran = await runIn(home, netrc, reply)
+  ])('%s, printing nothing of the token', async ([, { lines, netrc, reply, status }], { scratch }) => {
+    const ran = await runIn(scratch, netrc, reply)
     expect(ran.status).toBe(status)
     expect(ran.lines).toEqual(lines)
     expect(ran.lines.join('\n')).not.toContain(HELD)
   })
 
-  it('sends a POST to the run path carrying the saved token', async ({ home }) => {
-    const { fetcher } = await runIn(home, SAVED, () => Response.json('early'))
+  it('sends a POST to the run path carrying the saved token', async ({ scratch }) => {
+    const { fetcher } = await runIn(scratch, SAVED, () => Response.json('early'))
     expect(fetcher).toHaveBeenCalledExactlyOnceWith(RUN_ADDRESS, {
       headers : { authorization: `Bearer ${HELD}` },
       method  : 'POST'
     })
   })
 
-  it('rejects an error other than an unreachable service', async ({ home }) => {
-    await expect(runIn(home, SAVED, () => { throw new RangeError('stray') })).rejects.toThrow('stray')
+  it('rejects an error other than an unreachable service', async ({ scratch }) => {
+    await expect(runIn(scratch, SAVED, () => { throw new RangeError('stray') })).rejects.toThrow('stray')
   })
 
-  it('exits on the no-token line where no token is saved', async ({ home }) => {
-    const offline = join(home, 'offline.ts')
+  it('exits on the no-token line where no token is saved', async ({ scratch }) => {
+    const offline = join(scratch, 'offline.ts')
     await writeFile(offline, 'globalThis.fetch = () => process.exit(2)\n')
     const ran = spawnSync(process.execPath, ['--preload', offline, join(CATALOG, 'request.ts')], {
       encoding : 'utf8',
-      env      : { ...process.env, HOME: home },
+      env      : { ...process.env, HOME: scratch },
       timeout  : 10_000
     })
     expect(ran.status).toBe(1)
     expect(ran.stdout).toBe('')
-    expect(ran.stderr).toBe(`No token for the catalog service is saved in ${join(home, '.netrc')}, so make `
-                          + 'one through mise run catalog:mint.\n')
+    expect(ran.stderr).toBe(`No token for the catalog service is saved in ${join(scratch, '.netrc')}, `
+                          + 'so make one through mise run catalog:mint.\n')
   })
 })
