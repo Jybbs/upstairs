@@ -11,23 +11,32 @@ import fs, {
   readdir,
   readdirSync
 } from 'node:fs'
-import * as promises      from 'node:fs/promises'
-import { tmpdir }         from 'node:os'
-import { join, relative } from 'node:path'
-import { pathToFileURL }  from 'node:url'
-import { promisify }      from 'node:util'
+import * as promises               from 'node:fs/promises'
+import { tmpdir }                  from 'node:os'
+import { join, relative, resolve } from 'node:path'
+import { pathToFileURL }           from 'node:url'
+import { promisify }               from 'node:util'
 
 import { $, Glob }                                        from 'bun'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { type CliOptions, createVitest }                  from 'vitest/node'
 
-import * as gh                                                      from './common/gh.ts'
-import { READS, ROOT, declares, readersOf, readersOfGone, watchedOf } from './common/reads.ts'
-import { reads }                                                    from './vitest.config.ts'
+import * as gh from './common/gh.ts'
+import {
+  CHECKS,
+  READS,
+  ROOT,
+  TABLE,
+  declares,
+  readersOf,
+  readersOfGone,
+  rereadOf,
+  watchedOf
+} from './common/reads.ts'
+import { reads } from './vitest.config.ts'
 
 const AUDIT    = 'docs/.vitepress/tests/tools/audit.test.ts'
 const CHECK    = 'docs/.vitepress/tests/tools/check.test.ts'
-const CHECKS   = join(ROOT, 'docs/.vitepress/tests/reads.test.ts')
 const FIXTURES = join(ROOT, 'docs/.vitepress/tests/fixtures')
 const GH       = join(ROOT, 'docs/.vitepress/tests/common/bin/gh')
 const GONE     = 'docs/.vitepress/tests/gone.test.ts'
@@ -37,6 +46,16 @@ const PAGES    = ['cards', 'markdown', 'sections']
   .map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
 const SOURCES  = join(ROOT, 'rust/src')
 const SYNC     = join(ROOT, 'docs/.vitepress/tests/tools/sync.test.ts')
+
+/**
+ * The tests loading the crate's build under `rust/pkg/`, by their paths from
+ * the folder of the suite.
+ */
+const BUILT = [
+  'lib/orbit/catalog.test.ts', 'lib/orbit/looks.test.ts', 'lib/orbit/worker.test.ts',
+  'lib/state/drawings.test.ts', 'theme/LookAngles.test.ts', 'theme/OrbitAges.test.ts',
+  'theme/PeakSearch.test.ts', 'theme/index.test.ts'
+]
 
 const gitConfig = () =>
   Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('GIT_CONFIG_')))
@@ -108,6 +127,28 @@ describe('readersOfGone', () => {
     expect(readersOfGone(gone, { ...READS, [GONE]: [] }).sort()).toEqual(readers.sort()))
 })
 
+describe('rereadOf', () => {
+  const TABLED = "export const READS = {\n  'a.ts' : ['a'],\n  'b.ts' : ['b']\n}\nexport const ROOT = '/'\n"
+
+  const edited = (from: string, to: string) => TABLED.replace(from, to)
+
+  it.each<[string, string, string[]]>([
+    ['the checks of READS alone for a table left as it was', TABLED, [CHECKS]],
+    ['the checks of READS alone for a realigned table', edited("a.ts' :", "a.ts'   :"), [CHECKS]],
+    ['a module whose globs the edit changes', edited("['a']", "['a', 'c']"), ['a.ts', CHECKS]],
+    ['a module whose entry the edit adds', edited("['b']", "['b'],\n  'c.ts' : ['c']"), ['c.ts', CHECKS]],
+    ['a module whose entry the edit removes', edited("  'a.ts' : ['a'],\n", ''), ['a.ts', CHECKS]],
+    ['the module itself for an edit outside the table', edited("'/'", "'/root'"), [TABLE]]
+  ])('lists %s', async (_, after, reached) =>
+    expect(await rereadOf(TABLED, after)).toEqual(reached.map(file => resolve(ROOT, file))))
+
+  it.each([
+    ['a version holds no table', 'export const ROOT = 1\n'],
+    ['git holds no earlier version', undefined]
+  ])('lists the module itself where %s', async (_, before) =>
+    expect(await rereadOf(before, TABLED)).toEqual([TABLE]))
+})
+
 describe('the reads plugin', () => {
   afterEach(() => vi.unstubAllEnvs())
 
@@ -152,6 +193,18 @@ describe('the reads plugin', () => {
         .toEqual([...PAGES, CHECKS, SYNC].sort())
     }
   )
+
+  it.each<[string, string, string[]]>([
+    ["the crate's sources", 'rust/src/lib.rs', BUILT],
+    ["the crate's manifest", 'rust/Cargo.toml', [...BUILT, 'lib/site/licenses.test.ts'].sort()],
+    ["the crate's lockfile", 'rust/Cargo.lock', [...BUILT, 'lib/site/provenance.test.ts'].sort()],
+    ['a file under docs/public/ that one test reads', 'docs/public/_headers', ['config.test.ts']],
+    ['a badge no test reads', 'docs/public/badges/rust.svg', []]
+  ])('selects the tests an edit to %s reaches', { tags: ['slow'] }, async (_, file, tests) => {
+    const findChangedFiles = async () => [join(ROOT, file)]
+    expect(await selected({ changed: true, experimental: { vcsProvider: { findChangedFiles } } }))
+      .toEqual(tests.map(test => join(ROOT, 'docs/.vitepress/tests', test)))
+  })
 })
 
 describe('the read check', () => {
