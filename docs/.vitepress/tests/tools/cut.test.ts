@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { contextOf, draftOf, NOTES, notesOf, outcomeOf, refreshOf } from '../../tools/cut.ts'
+import { Draft, NOTES, outcomeOf } from '../../tools/cut.ts'
 
 const SHA = '761cc15aaf0c1e2a3b4c5d6e7f8091a2b3c4d5e6'
 
@@ -39,34 +39,29 @@ describe('outcomeOf', () => {
     expect(outcomeOf(read, fail, fail, '0.2.0')).rejects.toThrow(message))
 })
 
-describe('draftOf', () => {
-  it('creates the version as a draft with generated notes, titled for it and targeting the commit', () =>
-    expect(draftOf('0.2.0', 'Jybbs/upstairs', SHA)).toEqual([
-      'release', 'create', '0.2.0',
-      '--draft', '--generate-notes', '--repo', 'Jybbs/upstairs', '--target', SHA, '--title', '0.2.0'
-    ]))
-})
+describe('Draft', () => {
+  const draft = Draft.from('0.2.0', { GITHUB_REPOSITORY: 'Jybbs/upstairs', GITHUB_SHA: SHA })
 
-describe('notesOf', () => {
+  it('reads the repository and the commit the draft targets', () =>
+    expect({ ...draft }).toEqual({ repository: 'Jybbs/upstairs', target: SHA, version: '0.2.0' }))
+
+  it('creates the version as a draft with generated notes, titled for it and targeting the commit', () =>
+    expect(draft.createArgs).toEqual([
+      'release', 'create', '0.2.0', '--draft', '--generate-notes',
+      '--repo', 'Jybbs/upstairs', '--target', SHA, '--title', '0.2.0'
+    ]))
+
   it('generates the notes of the version up to the commit', () =>
-    expect(notesOf('0.2.0', 'Jybbs/upstairs', SHA)).toEqual([
+    expect(draft.notesArgs).toEqual([
       'api', '--method', 'POST', 'repos/Jybbs/upstairs/releases/generate-notes',
       '--raw-field', 'tag_name=0.2.0', '--raw-field', `target_commitish=${SHA}`
     ]))
-})
 
-describe('refreshOf', () => {
   it('sets the draft’s notes as written and moves its target to the commit', () =>
-    expect(refreshOf(9, '@notes', 'Jybbs/upstairs', SHA)).toEqual([
+    expect(draft.refreshArgs(9, '@notes')).toEqual([
       'api', '--method', 'PATCH', 'repos/Jybbs/upstairs/releases/9',
       '--raw-field', 'body=@notes', '--raw-field', `target_commitish=${SHA}`, '--silent'
     ]))
-})
-
-describe('contextOf', () => {
-  it('reads the repository and the commit the draft targets', () =>
-    expect(contextOf({ GITHUB_REPOSITORY: 'Jybbs/upstairs', GITHUB_SHA: SHA }))
-      .toEqual({ repository: 'Jybbs/upstairs', target: SHA }))
 })
 
 describe('NOTES', () => {

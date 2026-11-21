@@ -61,8 +61,9 @@ export interface Workflow {
 /**
  * The path of each declaration the repository tools read from a single file,
  * where `Repository.read` reads `guide`, `labels`, `manifest`, `release`,
- * `settings`, and `sweep`, `sync.ts` reads `settings`, and `toolProblems`
- * matches `warm` as the end of a workflow's path.
+ * `settings`, and `sweep`, `sync.ts` reads `settings` as well, `cut.ts` names
+ * `manifest` in its error, and `toolProblems` matches `warm` as the end of a
+ * workflow's path.
  */
 export const FILES = {
   guide    : '.github/CONTRIBUTING.md',
@@ -480,9 +481,7 @@ export class Repository {
   }
 
   private get toggleProblems(): string[] {
-    return this.toggles['immutable-releases'] === true
-      ? []
-      : [`${FILES.settings} leaves immutable-releases off`]
+    return this.toggles['immutable-releases'] ? [] : [`${FILES.settings} leaves immutable-releases off`]
   }
 
   private get toolProblems(): string[] {

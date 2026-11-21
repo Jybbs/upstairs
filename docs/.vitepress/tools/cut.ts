@@ -1,6 +1,7 @@
 import { $ } from 'bun'
 
-import manifest from '../../package.json' with { type: 'json' }
+import manifest  from '../../package.json' with { type: 'json' }
+import { FILES } from './repository.ts'
 
 type Outcome = keyof typeof NOTES
 
@@ -18,7 +19,7 @@ export const NOTES = {
   create    : (version: string) => `::notice::Drafted ${version} with generated notes`,
   published : (version: string) =>
       `::error::A published release carries ${version}, so run mise bump to move the version `
-    + 'in docs/package.json to the next release',
+    + `in ${FILES.manifest} to the next release`,
   refresh   : (version: string) => `::notice::Refreshed the notes and the target of the ${version} draft`
 }
 
@@ -52,51 +53,68 @@ export const outcomeOf = async (
 }
 
 /**
- * The arguments `gh` takes to create `version` in `repository` as a draft
- * with the notes GitHub generates, whose tag lands on `target` once the draft
- * is published.
+ * The draft release of `version` in `repository`, whose tag lands on `target`
+ * once it is published, holding the arguments `gh` takes to create the draft
+ * and to refresh its notes and its target.
  */
-export const draftOf = (version: string, repository?: string, target?: string) => [
-  'release', 'create', version,
-  '--draft', '--generate-notes', '--repo', repository, '--target', target, '--title', version
-]
+export class Draft {
+  constructor(
+    readonly version     : string,
+    readonly repository? : string,
+    readonly target?     : string
+  ) {}
 
-/**
- * The arguments `gh` takes to generate the notes of `version` in
- * `repository`, counted from the release before it up to `target`.
- */
-export const notesOf = (version: string, repository?: string, target?: string) => [
-  'api', '--method', 'POST', `repos/${repository}/releases/generate-notes`,
-  '--raw-field', `tag_name=${version}`, '--raw-field', `target_commitish=${target}`
-]
+  /**
+   * Reads the repository and the commit the draft of `version` targets from
+   * the variables the workflow sets for the step.
+   */
+  static from(version: string, env: Record<string, string | undefined>): Draft {
+    return new Draft(version, env.GITHUB_REPOSITORY, env.GITHUB_SHA)
+  }
 
-/**
- * The arguments `gh` takes to set the notes of the draft `id` in `repository`
- * to `body` and move its target to `target`.
- */
-export const refreshOf = (id: number, body: string, repository?: string, target?: string) => [
-  'api', '--method', 'PATCH', `repos/${repository}/releases/${id}`,
-  '--raw-field', `body=${body}`, '--raw-field', `target_commitish=${target}`, '--silent'
-]
+  /**
+   * The arguments that create the draft with the notes GitHub generates.
+   */
+  get createArgs(): (string | undefined)[] {
+    return [
+      'release', 'create', this.version, '--draft', '--generate-notes',
+      '--repo', this.repository, '--target', this.target, '--title', this.version
+    ]
+  }
 
-/**
- * Reads the repository and the commit the draft targets from the variables
- * the workflow sets for the step.
- */
-export const contextOf = (env: Record<string, string | undefined>) =>
-  ({ repository: env.GITHUB_REPOSITORY, target: env.GITHUB_SHA })
+  /**
+   * The arguments that generate the notes of the version, counted from the
+   * release before it up to `target`.
+   */
+  get notesArgs(): string[] {
+    return [
+      'api', '--method', 'POST', `repos/${this.repository}/releases/generate-notes`,
+      '--raw-field', `tag_name=${this.version}`, '--raw-field', `target_commitish=${this.target}`
+    ]
+  }
+
+  /**
+   * The arguments that set the notes of the draft `id` to `body` and move its
+   * target to `target`.
+   */
+  refreshArgs(id: number, body: string): string[] {
+    return [
+      'api', '--method', 'PATCH', `repos/${this.repository}/releases/${id}`,
+      '--raw-field', `body=${body}`, '--raw-field', `target_commitish=${this.target}`, '--silent'
+    ]
+  }
+}
 
 if (import.meta.main) {
-  const { repository, target } = contextOf(process.env)
-  const version = manifest.version
+  const draft   = Draft.from(manifest.version, process.env)
   const read    = async (): Promise<Release[]> =>
-    (await $`gh api --paginate --slurp repos/${repository}/releases`.json()).flat()
-  const create  = () => $`gh ${draftOf(version, repository, target)}`
+    (await $`gh api --paginate --slurp repos/${draft.repository}/releases`.json()).flat()
+  const create  = () => $`gh ${draft.createArgs}`
   const refresh = async (id: number) => {
-    const { body } = await $`gh ${notesOf(version, repository, target)}`.json()
-    return $`gh ${refreshOf(id, body, repository, target)}`
+    const { body } = await $`gh ${draft.notesArgs}`.json()
+    return $`gh ${draft.refreshArgs(id, body)}`
   }
-  const outcome = await outcomeOf(read, create, refresh, version)
-  console.log(NOTES[outcome](version))
+  const outcome = await outcomeOf(read, create, refresh, draft.version)
+  console.log(NOTES[outcome](draft.version))
   process.exitCode = outcome === 'published' ? 1 : 0
 }
