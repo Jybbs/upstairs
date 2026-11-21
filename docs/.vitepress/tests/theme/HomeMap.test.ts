@@ -57,3 +57,11 @@ it('asks for the catalog once the home page mounts', async () => {
   shallowMount(HomeMap)
   expect(posted.mock.calls.map(([asked]) => asked.type)).toEqual(['load'])
 })
+
+it.each([
+  ['keeps names out of the readout and the strip on a wide page', false, ['readout-stub', 'time-strip-stub']],
+  ['keeps names out of the sheet on a phone', true, ['sheet-stub']]
+])('%s', async (_, phone, names) => {
+  const wrapper = await mounted(false, phone)
+  expect(wrapper.findAll('[data-label-clear]').map(found => found.element.localName)).toEqual(names)
+})

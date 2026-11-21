@@ -5,6 +5,25 @@ const DOCKED_KM      = 5
 const DOCKED_SECONDS = 30
 
 /**
+ * Returns the index of the first sample strictly after `start` seconds.
+ */
+const firstAfter = (start: number) => Math.ceil(start / scan.TRACK_STEP + 1e-6)
+
+/**
+ * Returns how many points a stretch of track from `start` to `end` seconds
+ * draws through, meaning its two ends and each sample strictly between them.
+ */
+export const pointsOf = (end: number, start: number) =>
+  Math.max(Math.floor(end / scan.TRACK_STEP - 1e-6) - firstAfter(start) + 1, 0) + 2
+
+/**
+ * Returns the seconds of point `index` of the `points` a stretch of track from
+ * `start` to `end` seconds draws through, per `pointsOf`.
+ */
+export const secondsOf = (end: number, index: number, points: number, start: number) =>
+  index === 0 ? start : index === points - 1 ? end : (firstAfter(start) + index - 1) * scan.TRACK_STEP
+
+/**
  * Every traced pass of the current scan. The samples stay in the typed arrays
  * the worker sent, and reading one writes to fixed fields, so the drawing loop
  * makes no objects.

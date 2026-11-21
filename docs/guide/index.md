@@ -22,11 +22,13 @@ The readout names the spot and the time above its count of the satellites the ma
 
 ### The Count and the Tally
 
-Beneath the count, a tally sets one tick per satellite on the map in its kind's color, grouped by kind, and its last line gives how many stand above the horizon in all. Pointing at a group, focusing it from the keyboard, or tapping it names its kind on that line with how many of the kind the map draws and how many stand above the horizon. It also dims every other kind on the map and in the tally until the pointer leaves, the focus moves, or a second tap or Escape lets it go.
+Beneath the count, a tally sets one row for each kind on the map, holding the kind's mark, its name, a bar in its color whose length gives its count on one scale shared by every row, and the count itself. Beneath the tally, a line gives how many stand above the horizon in all. Pointing at a row or focusing it from the keyboard names its kind on that line with how many of the kind the map draws and how many stand above the horizon, and dims every other kind on the map and in the tally, until the pointer leaves, the focus moves, or Escape lets it go.
+
+Pressing anywhere on a row switches its kind off, leaving it out of the map, the counts, and the pass list, and a row the keyboard has reached stays in the tally, so a second press shows the kind again. While a kind is switched off, a line at the foot of the readout names each kind left out, and pressing a name there shows that kind again.
 
 The count and the tally hold each reading for {{ latchSeconds }} seconds, so the figures stay still while they are read, and take a new one whenever the time is dragged, stepped, or returned to the present, the spot changes, or the map is moved. While the hour runs at {{ lapse }} times real speed, they follow the satellites on the map instead. A screen reader announces how many satellites stand above the horizon at most once every {{ spokenSeconds }} seconds.
 
-While the passes are still being traced, the tally's last line shows how far the scan has reached. Where the catalog was fetched longer ago than [Accuracy](/method/#accuracy) allows, the map draws no satellite at all, and that line gives the catalog's age instead.
+While the passes are still being traced, a line in the tally's place shows how far the scan has reached. Where the catalog was fetched longer ago than [Accuracy](/method/#accuracy) allows, the map draws no satellite at all, and the line beneath the tally gives the catalog's age instead.
 
 ### A Chosen Pass
 
@@ -50,6 +52,6 @@ The list holds every pass each satellite makes in the window, so one rising twic
 
 ## The Filters
 
-Each kind of satellite takes its own color in the filters, the tally, and the pass list, and on the map for the pass the readout holds or the list chooses, every other satellite drawing in one tone. Choosing a kind under Show passes of keeps its passes in the list, and the map draws at half strength every other satellite whose kind is left out or whose pass stays below the height Reaching at least sets.
+Each kind of satellite takes its own color in the filters, the tally, and the pass list, and on the map for the pass the readout holds or the list chooses, every other satellite drawing in one tone. Choosing a kind under Show passes of draws its satellites on the map and keeps them in the readout's counts and in the list, while a kind left out draws no dot and no track, and the page's address keeps the kinds chosen, so a reload or a shared link opens on them. The map draws at half strength every satellite whose pass stays below the height Reaching at least sets.
 
-Only the pass the readout holds or the list chooses draws a track, whichever kinds the filters show, and Reaching at least keeps only the passes climbing to the height chosen or above. List passes switches the list between the passes crossing the map as it is framed and those anywhere in the sky over the spot.
+Only the pass the readout holds or the list chooses draws a track, and Reaching at least keeps only the passes climbing to the height chosen or above. List passes switches the list between the passes crossing the map as it is framed and those anywhere in the sky over the spot.

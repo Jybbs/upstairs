@@ -2,7 +2,7 @@ import { mkdtempDisposable } from 'node:fs/promises'
 import { tmpdir }            from 'node:os'
 import { join }              from 'node:path'
 
-import { describe, expect, test } from 'vitest'
+import { describe, test } from 'vitest'
 
 import { type TaskRun, runTask } from '../common/tasks.ts'
 
@@ -59,13 +59,13 @@ const run = (
   STAND_IN_REMOTE : dir
 }, args, exit)
 
-describe('lock:audit', () => {
-  it('runs the plain audit given an empty list', async ({ scratch }) =>
+describe.concurrent('lock:audit', () => {
+  it('runs the plain audit given an empty list', async ({ expect, scratch }) =>
     expect(await run(scratch, '')).toMatchObject({ calls: [BUN, ...CARGO], code: 0, stderr: '' }))
 
   it(
     'reads each listed advisory and passes --ignore for each no release patches, ahead of further arguments',
-    async ({ scratch }) =>
+    async ({ expect, scratch }) =>
       expect(await run(scratch, `${UNPATCHED} A ReDoS\n\n${ANOTHER} Another\n`, ['--json']))
         .toMatchObject({
           code   : 0,
@@ -79,22 +79,25 @@ describe('lock:audit', () => {
         })
   )
 
-  it('fails before either audit, naming each entry to delete and its patched release', async ({ scratch }) =>
-    expect(await run(scratch, `${PATCHED} patched\n${UNPATCHED} unpatched\n${LIFTED} patched\n`))
-      .toMatchObject({
-        code   : 1,
-        stderr : `lock:audit found a release patching ${PATCHED}, so delete its line from AUDIT_IGNORE in `
-               + '.mise/config.toml and lift ws to 5.2.4, ws to 8.17.1\n'
-               + `lock:audit found a release patching ${LIFTED}, so delete its line from AUDIT_IGNORE in `
-               + '.mise/config.toml and lift picomatch to 4.0.8\n',
-        calls  : [
-          ['api', `/advisories/${PATCHED}`],
-          ['api', `/advisories/${UNPATCHED}`],
-          ['api', `/advisories/${LIFTED}`]
-        ]
-      }))
+  it(
+    'fails before either audit, naming each entry to delete and its patched release',
+    async ({ expect, scratch }) =>
+      expect(await run(scratch, `${PATCHED} patched\n${UNPATCHED} unpatched\n${LIFTED} patched\n`))
+        .toMatchObject({
+          code   : 1,
+          stderr : `lock:audit found a release patching ${PATCHED}, so delete its line from AUDIT_IGNORE in `
+                 + '.mise/config.toml and lift ws to 5.2.4, ws to 8.17.1\n'
+                 + `lock:audit found a release patching ${LIFTED}, so delete its line from AUDIT_IGNORE in `
+                 + '.mise/config.toml and lift picomatch to 4.0.8\n',
+          calls  : [
+            ['api', `/advisories/${PATCHED}`],
+            ['api', `/advisories/${UNPATCHED}`],
+            ['api', `/advisories/${LIFTED}`]
+          ]
+        })
+  )
 
-  it('fails before either audit where gh cannot read a listed advisory', async ({ scratch }) =>
+  it('fails before either audit where gh cannot read a listed advisory', async ({ expect, scratch }) =>
     expect(await run(scratch, 'GHSA-xxxx-xxxx-xxxx unknown'))
       .toMatchObject({ calls: [['api', '/advisories/GHSA-xxxx-xxxx-xxxx']], code: 1 }))
 
@@ -103,7 +106,7 @@ describe('lock:audit', () => {
     ['the first cargo-deny check', [0, 3], [BUN, CARGO[0]]]
   ])(
     'exits with the status of %s where it fails, running nothing after it',
-    async ([, exit, calls], { scratch }) =>
+    async ([, exit, calls], { expect, scratch }) =>
       expect(await run(scratch, '', [], exit)).toMatchObject({ calls, code: 3 })
   )
 })

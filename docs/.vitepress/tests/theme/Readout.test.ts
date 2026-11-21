@@ -86,8 +86,8 @@ it('names the kind the tally holds last, with how many the map draws of how many
     onMap      : 5
   }
   await wrapper.vm.$nextTick()
-  await wrapper.get('[aria-label="Earth, 5 on this map"]').trigger('click')
-  expect(wrapper.findAll('p.caps').at(-1)!.text()).toBe('Earth · 5 of 7 up')
+  await wrapper.get('[aria-label="Earth, 5 on this map"]').trigger('pointerenter', { pointerType: 'mouse' })
+  expect(wrapper.get('p.h-3').text()).toBe('Earth · 5 of 7 up')
 })
 
 it('sets the figure to what the map draws and the last line to what stands above the horizon', async () => {
@@ -95,8 +95,36 @@ it('sets the figure to what the map draws and the last line to what stands above
   sky.up.value           = 12
   sky.reading.value      = { ...sky.reading.value, above: 9, onMap: 5 }
   await wrapper.vm.$nextTick()
-  expect([wrapper.get('output').text(), wrapper.findAll('p.caps').at(-1)!.text()])
-    .toEqual(['5', 'Of 9 above the horizon'])
+  expect([wrapper.get('output').text(), wrapper.get('p.h-3').text()]).toEqual(['5', 'Of 9 above the horizon'])
+})
+
+it.each([
+  ['names each kind the counts leave out under the tally', false],
+  ['names each kind the counts leave out under the count folded into the sheet', true]
+])('%s, each a button showing its kind again', async (_, folded) => {
+  const { Readout, sky } = await mounted(0)
+  const wrapper          = mount(Readout, { props: { folded } })
+  const leftOut          = () => wrapper.findAll('p').find(line => line.text().startsWith('Leaving'))?.text()
+  const before           = leftOut()
+  await wrapper.get('[aria-label="Show Starlink"]').trigger('click')
+  expect([before, leftOut(), sky.traced.starlink]).toEqual([
+    'Leaving out Comms, Starlink, Other', 'Leaving out Comms, Other', true
+  ])
+})
+
+it('names each kind the counts leave out while the scan runs', async () => {
+  const { sky, wrapper } = await mounted(0)
+  sky.done.value         = false
+  await wrapper.vm.$nextTick()
+  expect([sky.waiting.value, wrapper.text()])
+    .toEqual([true, expect.stringContaining('Leaving out Comms, Starlink, Other')])
+})
+
+it('names no kind left out while every kind is shown', async () => {
+  const { sky, wrapper } = await mounted(0)
+  sky.trace(kindOrder)
+  await wrapper.vm.$nextTick()
+  expect(wrapper.text()).not.toContain('Leaving out')
 })
 
 it.each([
@@ -211,7 +239,7 @@ it('reads no count and the orbits’ age once the catalog has expired', async ()
   const { sky, wrapper } = await mounted(0)
   sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
   await wrapper.vm.$nextTick()
-  expect([wrapper.get('output').text(), wrapper.findAll('p.caps').at(-1)!.text()])
+  expect([wrapper.get('output').text(), wrapper.get('p.h-3').text()])
     .toEqual(['—', 'Orbits 15 days old, too old to draw'])
 })
 
