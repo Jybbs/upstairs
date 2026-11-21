@@ -10,11 +10,12 @@ import { freshSky }           from '../common/sky.ts'
 import { stubMatchMedia }     from '../common/stubs.ts'
 
 const {
-  GPU, TOWN, cameraForBounds, caught, draw, drawn, easeTo, fitBounds, frame, gather, handlers, invalidate,
-  made, queried, thrown
+  GPU, TOWN, VERSION, cameraForBounds, caught, draw, drawn, easeTo, fitBounds, frame, gather, handlers,
+  invalidate, made, queried, thrown
 } = vi.hoisted(() => ({
   GPU             : class extends Error {},
   TOWN            : 10 * 360 / (512 * 2 ** 5),
+  VERSION         : '6.19.0',
   caught          : vi.fn(),
   draw            : vi.fn(),
   drawn           : {
@@ -75,7 +76,7 @@ vi.mock('maplibre-gl', () => ({
     }
     remove()       {}
   },
-  getVersion   : () => '6.19.0',
+  getVersion   : () => VERSION,
   setWorkerUrl() {}
 }))
 vi.mock('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url', () => ({ default: '' }))
@@ -120,6 +121,11 @@ enableAutoUnmount(afterEach)
 const fire = (type: string, event: unknown = {}) => handlers.get(type)?.forEach(run => run(event))
 
 /**
+ * Returns how many reads of the map's tiles asked for the names of places.
+ */
+const placeReads = () => queried.mock.calls.filter(([layer]) => layer === 'place').length
+
+/**
  * Mounts the map over a fresh copy of the shared state holding one pass on the
  * horizon and a stand-in worker, its frame 600 pixels tall, with its
  * stylesheet already linked, the map's constructor throwing `error` where one
@@ -133,7 +139,9 @@ const mounted = async (error: Error | null = null, props = {}) => {
   const turn = stubMatchMedia(() => false)
   vi.stubGlobal('requestAnimationFrame', frame)
   Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } })
-  document.head.append(Object.assign(document.createElement('link'), { href: SHEETS.map.hrefOf('6.19.0'), rel: 'stylesheet' }))
+  document.head.append(
+    Object.assign(document.createElement('link'), { href: SHEETS.map.hrefOf(VERSION), rel: 'stylesheet' })
+  )
   const { component: SkyMap, sky } = await freshSky(() => import('../../theme/SkyMap.tsx'))
   const wrapper                    = mount(SkyMap, { global: { config: { errorHandler: caught } }, props })
   await flushPromises()
@@ -228,11 +236,26 @@ it.each([
     fire(type)
     vi.advanceTimersByTime(199)
   }
-  const before = queried.mock.calls.filter(([layer]) => layer === 'place').length
+  const before = placeReads()
   vi.advanceTimersByTime(1)
-  const after  = queried.mock.calls.filter(([layer]) => layer === 'place').length
+  const after  = placeReads()
   vi.useRealTimers()
   expect([before, after]).toEqual(reads)
+})
+
+it('links the map sheet itself where the page holds only its preload, '
+ + 'building the map once it loads', async () => {
+  const href = SHEETS.map.hrefOf(VERSION)
+  await mounted()
+  document.head.replaceChildren(
+    Object.assign(document.createElement('link'), { as: 'style', href, rel: 'preload' })
+  )
+  const { component: SkyMap } = await freshSky(() => import('../../theme/SkyMap.tsx'))
+  made.mockClear()
+  mount(SkyMap)
+  await flushPromises()
+  const linked = [...document.head.querySelectorAll<HTMLLinkElement>(`link[href="${href}"]`)]
+  expect([linked.map(link => link.rel), made.mock.calls.length]).toEqual([['preload', 'stylesheet'], 1])
 })
 
 it('lets the pinned pass go on a press of the empty map', async () => {

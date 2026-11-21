@@ -83,6 +83,47 @@ const tracedOf = () => {
 }
 
 /**
+ * What each of `size` scan workers has answered: the segments of the catalog
+ * it holds, and for the scan under way whether it has posted its counts and
+ * finished, the share of its traces done, and the counts posted so far summed.
+ */
+class Heard {
+  readonly counted  : Uint8Array
+  readonly finished : Uint8Array
+  readonly segments : Uint32Array
+  readonly shares   : Float64Array
+
+  summed: Uint16Array | null = null
+
+  constructor(size: number) {
+    this.counted  = new Uint8Array(size)
+    this.finished = new Uint8Array(size)
+    this.segments = new Uint32Array(size)
+    this.shares   = new Float64Array(size)
+  }
+
+  /**
+   * The share of their traces done across every worker.
+   */
+  get share() { return this.shares.reduce((sum, share) => sum + share, 0) / this.shares.length }
+
+  /**
+   * Adds one worker's `counts` to the counts posted so far.
+   */
+  add(counts: Uint16Array) { this.summed = this.summed?.map((sum, index) => sum + counts[index]) ?? counts }
+
+  /**
+   * Forgets what every worker answered of the scan under way.
+   */
+  clear() {
+    this.counted.fill(0)
+    this.finished.fill(0)
+    this.shares.fill(0)
+    this.summed = null
+  }
+}
+
+/**
  * The one shared state of the page: the spot, the window, the clock, the
  * filters, and what the worker has found so far.
  */
@@ -194,6 +235,7 @@ class Sky {
   private aboveKinds                 = new Uint16Array(kinds.kindOrder.length)
   private counts: Uint16Array | null = null
   private countStep                  = 120
+  private heard                      = new Heard(0)
   private latchedAt                  = -Infinity
   private scanId                     = 0
   private spokenAt                   = 0
@@ -201,17 +243,7 @@ class Sky {
    * The scan workers, the first downloading the catalog and handing each of
    * the others its share.
    */
-  private workers: Worker[]          = []
-  /**
-   * What each worker has answered: the segments of the catalog it holds, and
-   * for the scan under way the share of its traces done and whether it has
-   * posted its counts and finished.
-   */
-  private heard                      = this.heardOf(0)
-  /**
-   * The counts of the scan under way summed over the workers that posted them.
-   */
-  private summed: Uint16Array | null = null
+  private workers: Worker[] = []
 
   /**
    * Returns whether the filters keep the pass at `index`, leaving out each
@@ -297,18 +329,6 @@ class Sky {
   private askAll(asked: Asked) { for (const worker of this.workers) worker.postMessage(asked) }
 
   /**
-   * Returns what `size` workers have answered before any answers.
-   */
-  private heardOf(size: number) {
-    return {
-      counted  : new Uint8Array(size),
-      finished : new Uint8Array(size),
-      segments : new Uint32Array(size),
-      shares   : new Float64Array(size)
-    }
-  }
-
-  /**
    * Loads the site's catalog file unless the workers already hold it.
    */
   loadOnce() { if (!this.workers.length) this.load() }
@@ -325,14 +345,13 @@ class Sky {
     this.loaded.value     = null
     this.satellites.value = []
     if (!this.workers.length) this.workers = this.started()
-    this.heard               = this.heardOf(this.workers.length)
+    this.heard               = new Heard(this.workers.length)
     const [lead, ...helpers] = this.workers
-    const channels           = helpers.map(() => new MessageChannel())
-    const ports              = channels.map(({ port1 }) => port1)
     const url                = `${import.meta.env.BASE_URL}${catalog.FILE}`
-    helpers.forEach((helper, index) => {
-      const from = channels[index].port2
-      helper.postMessage({ from, type: 'follow' } satisfies Asked, [from])
+    const ports              = helpers.map(helper => {
+      const { port1, port2 } = new MessageChannel()
+      helper.postMessage({ from: port2, type: 'follow' } satisfies Asked, [port2])
+      return port1
     })
     lead.postMessage({ helpers: ports, type: 'load', url } satisfies Asked, ports)
   }
@@ -373,11 +392,10 @@ class Sky {
     } else if (answer.id !== this.scanId) {
       return
     } else if (answer.type === 'counts') {
-      const summed  = this.summed
-      this.summed   = summed ? summed.map((sum, index) => sum + answer.counts[index]) : answer.counts
+      this.heard.add(answer.counts)
       counted[from] = 1
       if (counted.includes(0)) return
-      this.counts    = this.summed
+      this.counts    = this.heard.summed
       this.countStep = answer.step
       this.tally()
     } else if (answer.type === 'passes') {
@@ -403,9 +421,8 @@ class Sky {
    * the share done across every worker.
    */
   private progressed(from: number, done: number) {
-    const { shares } = this.heard
-    shares[from]     = done
-    this.share.value = shares.reduce((sum, share) => sum + share, 0) / shares.length
+    this.heard.shares[from] = done
+    this.share.value        = this.heard.share
   }
 
   /**
@@ -428,13 +445,9 @@ class Sky {
    * Drops the scan under way and every pass it traced.
    */
   private clear() {
-    const { counted, finished, shares } = this.heard
     this.scanId++
     this.tracks.clear()
-    counted.fill(0)
-    finished.fill(0)
-    shares.fill(0)
-    this.summed         = null
+    this.heard.clear()
     this.done.value     = false
     this.untraced.value = false
     this.share.value    = 0

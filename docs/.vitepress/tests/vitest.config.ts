@@ -81,6 +81,7 @@ export default defineConfig({
 
   test: {
     env                : { TZ: 'UTC' },
+    environmentOptions : { happyDOM: { settings: { handleDisabledFileLoadingAsSuccess: true } } },
     forceRerunTriggers : [...configDefaults.forceRerunTriggers, ...triggers],
     include            : ['.vitepress/tests/**/*.test.ts'],
     setupFiles         : ['.vitepress/tests/common/held.ts'],

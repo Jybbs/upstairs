@@ -17,14 +17,16 @@ vi.mock('../lib/site/licenses.ts', () =>
   ({ licensesOf: (...args: unknown[]) => ({ copied: args[3], name: 'upstairs:licenses' }) }))
 
 const BUNDLE = {
-  home: {
+  'assets/chunks/HomeMap.abc.js': {
     facadeModuleId : '/site/.vitepress/theme/HomeMap.tsx',
     fileName       : 'assets/chunks/HomeMap.abc.js',
+    imports        : [],
     type           : 'chunk'
   }
 }
 
-it('preloads the map chunk and the map sheet of the installed release from the head of the home page', () => {
+it('preloads the map chunk and the map sheet of the installed release '
+ + 'from the head of the home page', () => {
   const plugin = (config.vite!.plugins as Plugin[]).find(({ name }) => name === 'upstairs:preload')!
   ;(plugin.generateBundle as Generate).call({}, {}, BUNDLE)
   const context = {

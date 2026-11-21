@@ -1,8 +1,8 @@
 import { useEventListener, useRafFn, useResizeObserver, useTimeoutFn } from '@vueuse/core'
-import mlcontour           from 'maplibre-contour'
-import * as maplibregl     from 'maplibre-gl'
-import mapWorker           from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { useData }         from 'vitepress'
+import mlcontour       from 'maplibre-contour'
+import * as maplibregl from 'maplibre-gl'
+import mapWorker       from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
+import { useData }     from 'vitepress'
 import { computed, defineComponent, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, watch } from 'vue'
 
 import { DETENT, Detents, type Step }   from '../lib/map/detents.ts'
@@ -14,8 +14,8 @@ import { styleOf }                      from '../lib/map/style.ts'
 import { STEEP, TRACK_STEP, type Pass } from '../lib/orbit/scan.ts'
 import { clamp }                        from '../lib/site/motion.ts'
 import { SCHEMES }                      from '../lib/site/palette.ts'
-import { SHEETS }                       from '../lib/site/sheets.ts'
 import { usePhone }                     from '../lib/site/phone.ts'
+import { SHEETS }                       from '../lib/site/sheets.ts'
 import { sky }                          from '../lib/state/sky.ts'
 import { Tracks }                       from '../lib/state/tracks.ts'
 import Icon                             from './Icon.tsx'
@@ -25,9 +25,8 @@ const FLY_MS  = 900
 const PADDING = 48
 const PULL_MS = 120
 /**
- * How long the map rests after a move before its names are read again, as
- * long as MapLibre's own wheel zoom holds a move open after the last wheel
- * event.
+ * How long the map rests after a move before its names are read again, the
+ * 200 ms MapLibre's wheel zoom holds a move open after its last wheel event.
  */
 const SETTLE_MS = 200
 const SYNC_MS   = 250
@@ -501,7 +500,10 @@ export default defineComponent(
         <canvas ref={lower} class="pointer-events-none absolute inset-0 size-full" />
         <canvas ref={upper} class="pointer-events-none absolute inset-0 size-full" />
         {sky.stage.value === 'unloaded' && (
-          <div class="pointer-events-none absolute inset-0 bg-panel/70 backdrop-grayscale" aria-hidden="true" />
+          <div
+            aria-hidden="true"
+            class="pointer-events-none absolute inset-0 bg-panel/70 backdrop-grayscale"
+          />
         )}
         {hosts.message.value && (
           <div

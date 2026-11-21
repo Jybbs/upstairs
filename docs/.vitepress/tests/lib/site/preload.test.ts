@@ -10,23 +10,26 @@ type Generate = (options: object, bundle: object) => void
  * framework's chunk.
  */
 const BUNDLE = {
+  'assets/style.def.css': { fileName: 'assets/style.def.css', type: 'asset' },
+
   'assets/chunks/HomeMap.abc.js': {
     facadeModuleId : '/site/.vitepress/theme/HomeMap.tsx',
     fileName       : 'assets/chunks/HomeMap.abc.js',
     imports        : ['assets/chunks/maplibre.ghi.js'],
     type           : 'chunk'
   },
+
   'assets/chunks/framework.jkl.js': {
     fileName : 'assets/chunks/framework.jkl.js',
     imports  : [],
     type     : 'chunk'
   },
+
   'assets/chunks/maplibre.ghi.js': {
     fileName : 'assets/chunks/maplibre.ghi.js',
     imports  : ['assets/chunks/framework.jkl.js'],
     type     : 'chunk'
-  },
-  'assets/style.def.css': { fileName: 'assets/style.def.css', type: 'asset' }
+  }
 }
 
 const built = () => {

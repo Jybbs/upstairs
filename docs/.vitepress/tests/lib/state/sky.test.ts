@@ -27,13 +27,18 @@ let workers: Stand[]
 type Sky = Awaited<ReturnType<typeof loaded>>
 
 /**
+ * Returns counts of `count` satellites up at every step of the scan's grid.
+ */
+const countsOf = (count: number) => new Uint16Array(scan.samplesFor(60, scan.GRID_STEP)).fill(count)
+
+/**
  * Fails the first worker started as it starts.
  */
 const fail = () => workers[0].fail()
 
 /**
- * Answers `answer` from the first of the workers running, every other one
- * answering as a helper holding no satellite that rises would beside it.
+ * Answers `answer` from the first running worker, and from every other running
+ * worker the answer `quietOf` gives for a helper with no satellite that rises.
  */
 const hear = (answer: Answer) => workers.filter(({ terminated }) => !terminated).forEach((worker, index) => {
   const echoed = index ? quietOf(answer) : answer
@@ -139,7 +144,6 @@ describe('the count a screen reader hears', () => {
   it('announces the count once the grid arrives, and a changed count only after 20 seconds', async () => {
     const sky      = await loaded()
     const id       = scanned()
-    const countsOf = (count: number) => new Uint16Array(scan.samplesFor(60, scan.GRID_STEP)).fill(count)
     hear({ counts: countsOf(5), id, step: scan.GRID_STEP, type: 'counts' })
     expect(sky.spoken.value).toBe('5 satellites above the horizon')
     sky.scan()
@@ -647,9 +651,22 @@ describe('the stage', () => {
 })
 
 describe('the scan workers', () => {
-  const countsOf = (count: number) => new Uint16Array(scan.samplesFor(60, scan.GRID_STEP)).fill(count)
+  /**
+   * Returns a batch of scan `id` holding no pass that brings a worker halfway
+   * through its traces.
+   */
+  const halfwayOf = (id: number): Answer => ({
+    done    : 1,
+    id      : id,
+    offsets : new Uint32Array(),
+    passes  : [],
+    samples : SAMPLES,
+    total   : 2,
+    track   : new Float32Array(),
+    type    : 'passes'
+  })
 
-  it.each([[2, 2], [5, 2], [8, 4], [16, 4]])('starts on %s cores %s workers', async (cores, size) => {
+  it.each([[2, 2], [2, 5], [4, 8], [4, 16]])('starts %s workers on %s cores', async (size, cores) => {
     const spy = vi.spyOn(navigator, 'hardwareConcurrency', 'get').mockReturnValue(cores)
     await opened()
     spy.mockRestore()
@@ -670,7 +687,7 @@ describe('the scan workers', () => {
     const segment: Answer = { count: 1, fetched: NOW, satellites: [SATELLITE], type: 'loaded' }
     const scans           = () => posted.filter(({ type }) => type === 'scan').length
     const counted         = workers.map((worker, index) => {
-      hearFrom(worker, index ? { ...segment, satellites: [] } : segment)
+      hearFrom(worker, index ? quietOf(segment)! : segment)
       return scans()
     })
     expect(counted).toEqual([0, 0, 0, 4])
@@ -690,19 +707,21 @@ describe('the scan workers', () => {
     const sky   = await loaded()
     const id    = scanned()
     const steps = workers.map(worker => {
-      hearFrom(worker, {
-        done    : 1,
-        id      : id,
-        offsets : new Uint32Array(),
-        passes  : [],
-        samples : SAMPLES,
-        total   : 2,
-        track   : new Float32Array(),
-        type    : 'passes'
-      })
+      hearFrom(worker, halfwayOf(id))
       hearFrom(worker, { id, type: 'done' })
       return [sky.share.value, sky.done.value]
     })
     expect(steps).toEqual([[0.25, false], [0.5, false], [0.75, false], [1, true]])
+  })
+
+  it('starts the share over on a new scan, reading no batch of the scan before it', async () => {
+    const sky = await loaded()
+    const old = scanned()
+    for (const worker of workers) hearFrom(worker, halfwayOf(old))
+    sky.scan()
+    const reset = sky.share.value
+    hearFrom(workers[0], halfwayOf(old))
+    hearFrom(workers[0], halfwayOf(scanned()))
+    expect([reset, sky.share.value]).toEqual([0, 0.125])
   })
 })

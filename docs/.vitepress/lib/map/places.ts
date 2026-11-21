@@ -95,8 +95,9 @@ const boxOf = ({ height, width, x, y }: Word, nudge: number): Box =>
 /**
  * Returns the classes of place the map names at `zoom`.
  */
-const classesAt = (zoom: number) =>
-  Object.entries(TIERS).filter(([, { below, from }]) => zoom >= from && zoom < below).map(([kind]) => kind)
+const classesAt = (zoom: number) => Object.entries(TIERS)
+  .filter(([, { below, from }]) => zoom >= from && zoom < below)
+  .map(([kind]) => kind)
 
 const textOf = (properties: Record<string, unknown>): string | null =>
   (properties['name:en'] ?? properties.name ?? null) as string | null
@@ -121,13 +122,14 @@ export const coveredOver = (map: HTMLElement): Box[] => {
 
 /**
  * Reads the names in the map tiles on screen of the classes the zoom names,
- * largest places first, keeping those with room around them. The map carries no text of its own, and the
- * overlay sets cities and waters in the book serif and regions in the mono.
+ * largest places first, keeping those with room around them. The map carries
+ * no text of its own, and the overlay sets cities and waters in the book serif
+ * and regions in the mono.
  */
 export const namesOn = (map: Map, view: View): Label[] => {
-  const zoom                       = map.getZoom()
+  const zoom                        = map.getZoom()
   const filter: FilterSpecification = ['in', ['get', 'class'], ['literal', classesAt(zoom)]]
-  const found                      = new globalThis.Map<string, Label & { order: number, rank: number }>()
+  const found                       = new globalThis.Map<string, Label & { order: number, rank: number }>()
   for (const { geometry, properties } of map.querySourceFeatures('base', { filter, sourceLayer: 'place' })) {
     const name = textOf(properties)
     const tier = TIERS[String(properties.class)]

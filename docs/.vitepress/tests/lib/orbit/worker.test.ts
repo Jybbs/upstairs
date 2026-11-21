@@ -12,7 +12,7 @@ import full                          from '../../fixtures/records.json' with { t
 const FETCHED     = Date.parse('2026-11-06T18:53:57.264Z')
 const LOAD: Asked = { helpers: [], type: 'load', url: '/catalog.bin' }
 const START       = Date.parse(answers.start)
-const file    = encode(FETCHED, full as unknown as Record[])
+const file        = encode(FETCHED, full as unknown as Record[])
 /**
  * The committed records copied under new catalog numbers until more of them
  * rise over the spot than the 100 the worker traces in one batch.
@@ -108,6 +108,12 @@ const scanOf = (id: number, spot = answers.spot, start = START): Extract<Asked, 
   ({ id, minutes: answers.grid.minutes, spot, start, type: 'scan' })
 
 /**
+ * Returns every answer of type `type` the worker has posted.
+ */
+const answersOf = <T extends Answer['type']>(type: T) =>
+  heard.filter((answer): answer is Extract<Answer, { type: T }> => answer.type === type)
+
+/**
  * Returns the type of each answer to scan `id`, in the order it was posted.
  */
 const typesOf = (id: number) =>
@@ -126,7 +132,7 @@ describe('loading the catalog', () => {
 
   it('posts each satellite of the catalog once across its segments', async () => {
     await loaded()
-    const posted = heard.flatMap(answer => answer.type === 'loaded' ? answer.satellites : [])
+    const posted = answersOf('loaded').flatMap(({ satellites }) => satellites)
     expect(posted.map(({ id, name }) => [id, name]).sort())
       .toEqual(full.map(record => [record.NORAD_CAT_ID, record.OBJECT_NAME]).sort())
   })
@@ -155,7 +161,7 @@ describe('a scan', () => {
 
   it('counts the sky over the spot as the known answers do, then traces each pass and finishes', async () => {
     await hear(scanOf(1))
-    const [counts] = heard.filter(answer => answer.type === 'counts')
+    const [counts] = answersOf('counts')
     expect(Array.from(counts.counts)).toEqual(answers.grid.counts)
     const types = typesOf(1)
     expect(types).toEqual(['counts', ...types.slice(1, -1).map(() => 'passes'), 'done'])
@@ -163,7 +169,7 @@ describe('a scan', () => {
 
   it('traces every satellite but Starlink before any Starlink', async () => {
     await hear(scanOf(1))
-    const starlink = heard.flatMap(answer => answer.type === 'passes' ? answer.passes : [])
+    const starlink = answersOf('passes').flatMap(answer => answer.passes)
       .map(pass => pass.kind === 'starlink')
     expect(starlink).toEqual(starlink.toSorted((a, b) => Number(a) - Number(b)))
     expect(new Set(starlink)).toEqual(new Set([false, true]))
@@ -223,13 +229,19 @@ describe('a scan of more than one batch', () => {
     }
     await hear(scanOf(1))
     await newer
-    const [first] = heard.filter(answer => answer.type === 'passes')
+    const [first] = answersOf('passes')
     expect([typesOf(1), first.done < first.total, typesOf(2).at(-1)])
       .toEqual([['counts', 'passes'], true, 'done'])
   })
 })
 
 describe('a catalog shared with a helper', () => {
+  /**
+   * Returns a stand-in port holding the listener a helper sets on it.
+   */
+  const portOf = () =>
+    ({ close: vi.fn(), onmessage: null as ((event: { data: Share }) => Promise<void>) | null })
+
   /**
    * Loads the catalog into a lead handing a helper its share over a stand-in
    * port, returning the lead's handler and each share the port carried.
@@ -242,50 +254,50 @@ describe('a catalog shared with a helper', () => {
 
   it('hands the helper every other row of the catalog and posts every satellite from the lead', async () => {
     const { shares } = await shared()
-    const posted     = heard.flatMap(answer => answer.type === 'loaded' ? answer.satellites : [])
+    const posted     = answersOf('loaded').flatMap(({ satellites }) => satellites)
     expect([
       shares.flatMap(share => share.records.map(record => record.NORAD_CAT_ID)),
       shares.map(({ count, fetched }) => [count, fetched])
     ]).toEqual([
       posted.filter((_, row) => row % 2 === 1).map(({ id }) => id),
-      heard.flatMap(answer => answer.type === 'loaded' ? [[answer.count, answer.fetched]] : [])
+      answersOf('loaded').map(({ count, fetched }) => [count, fetched])
     ])
   })
 
-  it('counts the sky as the known answers do and traces every pass once, between the lead and the helper',
-    async () => {
-      await loaded()
-      await hear(scanOf(1))
-      const alone           = heard.flatMap(answer => answer.type === 'passes' ? answer.passes : [])
-      const { lead, shares } = await shared()
-      const port            = { close() {}, onmessage: null as ((event: { data: Share }) => Promise<void>) | null }
-      const helper          = await started()
-      await helper({ from: port as unknown as MessagePort, type: 'follow' })
-      for (const data of shares) await port.onmessage!({ data })
-      heard = []
-      await lead(scanOf(1))
-      await helper(scanOf(1))
-      const counts = heard.flatMap(answer => answer.type === 'counts' ? [Array.from(answer.counts)] : [])
-      const passes = heard.flatMap(answer => answer.type === 'passes' ? answer.passes : [])
-      expect([
-        counts[0].map((count, index) => count + counts[1][index]),
-        passes.map(pass => pass.key).sort(),
-        typesOf(1).filter(type => type === 'done')
-      ]).toEqual([answers.grid.counts, alone.map(pass => pass.key).sort(), ['done', 'done']])
-    })
+  it('counts the sky as the known answers do and traces every pass once, '
+   + 'between the lead and the helper', async () => {
+    await loaded()
+    await hear(scanOf(1))
+    const alone            = answersOf('passes').flatMap(answer => answer.passes)
+    const { lead, shares } = await shared()
+    const port             = portOf()
+    const helper           = await started()
+    await helper({ from: port as unknown as MessagePort, type: 'follow' })
+    for (const data of shares) await port.onmessage!({ data })
+    heard = []
+    await lead(scanOf(1))
+    await helper(scanOf(1))
+    const counts = answersOf('counts').map(answer => Array.from(answer.counts))
+    const passes = answersOf('passes').flatMap(answer => answer.passes)
+    expect([
+      counts[0].map((count, index) => count + counts[1][index]),
+      passes.map(pass => pass.key).sort(),
+      typesOf(1).filter(type => type === 'done')
+    ]).toEqual([answers.grid.counts, alone.map(pass => pass.key).sort(), ['done', 'done']])
+  })
 
-  it('posts the count of every row loaded once it holds each share, and nothing after following another port',
-    async () => {
-      const { shares } = await shared()
-      const port       = { close: vi.fn(), onmessage: null as ((event: { data: Share }) => Promise<void>) | null }
-      const helper     = await started()
-      heard            = []
-      await helper({ from: port as unknown as MessagePort, type: 'follow' })
-      await port.onmessage!({ data: shares[0] })
-      const first      = port.onmessage!
-      await helper({ from: { close() {} } as unknown as MessagePort, type: 'follow' })
-      await first({ data: shares[1] })
-      expect([heard, port.close.mock.calls.length])
-        .toEqual([[{ count: shares[0].count, fetched: FETCHED, satellites: [], type: 'loaded' }], 1])
-    })
+  it('posts the count of every row loaded once it holds each share, '
+   + 'and nothing after following another port', async () => {
+    const { shares } = await shared()
+    const port       = portOf()
+    const helper     = await started()
+    heard            = []
+    await helper({ from: port as unknown as MessagePort, type: 'follow' })
+    await port.onmessage!({ data: shares[0] })
+    const first      = port.onmessage!
+    await helper({ from: { close() {} } as unknown as MessagePort, type: 'follow' })
+    await first({ data: shares[1] })
+    expect([heard, port.close.mock.calls.length])
+      .toEqual([[{ count: shares[0].count, fetched: FETCHED, satellites: [], type: 'loaded' }], 1])
+  })
 })

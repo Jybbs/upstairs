@@ -86,6 +86,7 @@ describe('the names on the map', () => {
   it.each([
     [2.3, [['place', ['country']]]],
     [4, [['place', ['city', 'country', 'state']], ['water_name', null]]],
+    [7, [['place', ['city', 'state', 'town']], ['water_name', null]]],
     [9, [['place', ['city', 'town']], ['water_name', null]]],
     [12, [['place', ['city', 'town', 'village']], ['water_name', null]]]
   ])('reads off the tiles at zoom %s only the classes it names, and waters from zoom 4', (zoom, reads) => {

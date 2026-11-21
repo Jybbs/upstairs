@@ -139,13 +139,15 @@ const load = async (url: string, helpers: MessagePort[]) => {
   try {
     const body = await catalog.bodyOf(url)
     await ready
-    let count = 0
+    let count  = 0
+    const size = helpers.length + 1
     for await (const { fetched, records } of catalog.segmentsOf(body)) {
       const first = count
       count      += records.length
-      helpers.forEach((port, index) =>
-        port.postMessage({ count, fetched, records: shareOf(records, first, index + 1, helpers.length + 1) }))
-      hold(shareOf(records, first, 0, helpers.length + 1))
+      helpers.forEach((port, index) => port.postMessage(
+        { count, fetched, records: shareOf(records, first, index + 1, size) } satisfies Share
+      ))
+      hold(shareOf(records, first, 0, size))
       post({ count, fetched, satellites: scan.satellitesOf(records), type: 'loaded' })
     }
   } catch (error) {
@@ -164,14 +166,6 @@ const passOf = (traced: orbit.Traced): scan.Pass => {
 }
 
 const post = (answer: Answer, transfer: Transferable[] = []) => self.postMessage(answer, { transfer })
-
-/**
- * Returns the rows of a segment whose first row is row `first` of the catalog
- * that fall to share `index` of `size`, every `size`th row from the share's
- * own.
- */
-const shareOf = <T>(rows: readonly T[], first: number, index: number, size: number) =>
-  rows.filter((_, row) => (first + row) % size === index)
 
 const run = async (orbits: orbit.Orbits, id: number, minutes: number, spot: scan.Spot, start: number) => {
   const grid = await gridOf(orbits, id, minutes, start)
@@ -205,6 +199,14 @@ const run = async (orbits: orbit.Orbits, id: number, minutes: number, spot: scan
     tracer.free()
   }
 }
+
+/**
+ * Returns the rows of a segment whose first row is row `first` of the catalog
+ * that fall to share `index` of `size`, every `size`th row from the share's
+ * own.
+ */
+const shareOf = <T>(rows: readonly T[], first: number, index: number, size: number) =>
+  rows.filter((_, row) => (first + row) % size === index)
 
 self.onmessage = async ({ data }: MessageEvent<Asked>) => {
   if (data.type === 'load') return load(data.url, data.helpers)
