@@ -15,6 +15,7 @@ describe('outcomeOf', () => {
     ['no release carries the version', [release('0.1.0')], 'create', [], 1],
     ['the repository holds no release', [], 'create', [], 1],
     ['the one release tags the version behind a v prefix', [release('v0.2.0')], 'create', [], 1],
+    ['the one release tags a prerelease of the version', [release('0.2.0-rc.1')], 'create', [], 1],
     [
       'only a draft carries the version',
       [release('0.1.0', false, 3), release('0.2.0', true, 9)], 'refresh', [9], 0
@@ -34,6 +35,10 @@ describe('outcomeOf', () => {
     [
       'a tagged draft and older untagged drafts titled for the version carry it',
       [untagged(4), release('0.2.0', true, 9), untagged(5)], 'refresh', [9], 0
+    ],
+    [
+      'an untagged draft titled for the version is newer than the draft tagging it',
+      [release('0.2.0', true, 4), untagged(9)], 'refresh', [9], 0
     ],
     [
       'the one draft tags the version under another title',
