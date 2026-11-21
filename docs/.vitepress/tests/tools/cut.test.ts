@@ -50,6 +50,10 @@ describe('outcomeOf', () => {
       [untagged(9, 'v0.2.0')], 'create', [], 1
     ],
     [
+      'the one untagged draft is titled for a prerelease of the version',
+      [untagged(9, '0.2.0-rc.1')], 'create', [], 1
+    ],
+    [
       'a published release titled for the version tags another',
       [release('0.1.0', false, 3, '0.2.0')], 'create', [], 1
     ],
