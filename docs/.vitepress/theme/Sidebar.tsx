@@ -27,8 +27,7 @@ const MOTION = {
 /**
  * Draws the map, and under `beside` a sidebar beside it holding the chosen
  * pass's card, the pass list, and the filters, and the rail between them that
- * folds the sidebar away and opens it again, so the map stays one instance as
- * the page crosses the width that sets `beside`.
+ * folds the sidebar away and opens it again.
  *
  * Opening, the column widens as the map gives way and its blocks slide in one
  * after another; folding, the blocks fade first and the column closes after

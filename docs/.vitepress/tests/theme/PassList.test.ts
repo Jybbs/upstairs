@@ -216,7 +216,7 @@ describe('the list in its box', () => {
     expect([opened, box.scrollTop]).toEqual([5 * 48, 0])
   })
 
-  it('opens the box on the next pass again once a new spot’s scan finishes', async () => {
+  it('opens the box on the next pass again once each later scan finishes', async () => {
     const { box, sky, wrapper } = await boxed()
     sky.at.value   = 300 + 5 * 60
     sky.done.value = true

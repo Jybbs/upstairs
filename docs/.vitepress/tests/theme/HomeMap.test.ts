@@ -57,15 +57,16 @@ it.each([
   expect([panels.attributes('inert'), wrapper.findComponent({ name: 'SpotChooser' }).exists()]).toEqual(shown)
 })
 
-it('keeps one map as the page widens past the desktop breakpoint', async () => {
-  const widen                  = stubMatchMedia(() => false)
+it('keeps one map as the page narrows past the desktop breakpoint', async () => {
+  const narrow                 = stubMatchMedia(query => query.includes('64rem'))
   const { component: HomeMap } = await freshSky(() => import('../../theme/HomeMap.tsx'))
   const wrapper                = shallowMount(HomeMap, { global: { stubs: { Sidebar: false } } })
   const before                 = wrapper.findComponent({ name: 'SkyMap' }).vm
-  widen(true)
+  const aside                  = wrapper.find('aside').exists()
+  narrow(false)
   await wrapper.vm.$nextTick()
-  expect([wrapper.find('aside').exists(), wrapper.findComponent({ name: 'SkyMap' }).vm === before])
-    .toEqual([true, true])
+  expect([aside, wrapper.find('aside').exists(), wrapper.findComponent({ name: 'SkyMap' }).vm === before])
+    .toEqual([true, false, true])
 })
 
 it('asks for the catalog once the home page mounts', async () => {
