@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
-import { mount }                from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { flushPromises, mount }                     from '@vue/test-utils'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
 import type { Pass }           from '../../lib/orbit/scan.ts'
 import type { sky as Sky }     from '../../lib/state/sky.ts'
 import { passOf }              from '../common/passes.ts'
 import { addScanned, lateSky } from '../common/sky.ts'
+import { stubMatchMedia }      from '../common/stubs.ts'
 
 /**
  * Mounts the pass list over a fresh copy of the shared state and a stand-in
@@ -54,19 +55,20 @@ describe('the rows', () => {
   })
 
   it.each([
-    ['marks the chosen pass current', (sky: typeof Sky) => { sky.selected.value = sky.tracks.passes[0] },
-      { current: 'true', faded: false, lifted: true }],
+    ['marks the chosen pass current with a bar in its kind’s color',
+      (sky: typeof Sky) => { sky.selected.value = sky.tracks.passes[0] },
+      { barred: true, current: 'true', faded: false }],
     ['fades a pass that has already set', (sky: typeof Sky) => { sky.at.value = 1000 },
-      { current: 'false', faded: true, lifted: false }],
+      { barred: false, current: 'false', faded: true }],
     ['leaves a pass unfaded at the moment it sets', (sky: typeof Sky) => { sky.at.value = 900 },
-      { current: 'false', faded: false, lifted: false }]
+      { barred: false, current: 'false', faded: false }]
   ])('%s', async (_, set, shown) => {
-    const { wrapper } = await mounted([passOf(7)], set)
+    const { wrapper } = await mounted([passOf(7, { kind: 'weather' })], set)
     const row         = wrapper.get('[role="option"]')
     expect({
+      barred  : (row.attributes('style') ?? '').includes('inset 5px 0 0 var(--kind-weather)'),
       current : row.attributes('aria-selected'),
-      faded   : row.classes('opacity-55'),
-      lifted  : row.classes('bg-lift')
+      faded   : row.classes('opacity-55')
     }).toEqual(shown)
   })
 
@@ -125,5 +127,143 @@ describe('the line beneath the list', () => {
   ])('%s', async (_, passes, done, lines) => {
     const { wrapper } = await mounted(passes, sky => { sky.done.value = done })
     expect(wrapper.findAll('section > p').slice(1).map(line => line.text())).toEqual(lines)
+  })
+})
+
+describe('the list in its box', () => {
+  /**
+   * Mounts the list boxed over twelve weather passes a minute apart, each row
+   * 48 px high in a box 192 px high, the scan still running, the device
+   * asking for reduced motion where `reduced` is set, and returns the box
+   * with each call it takes to scroll and a call that shows the share
+   * `ratio` of the last row.
+   */
+  const boxed = async (reduced = false) => {
+    const heard: ((entries: { intersectionRatio: number }[]) => void)[] = []
+    stubMatchMedia(query => reduced && query.includes('reduce'))
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(back: (entries: { intersectionRatio: number }[]) => void) { heard.push(back) }
+      disconnect() {}
+      observe() {}
+    })
+    const { component: PassList, sky } = await lateSky(() => import('../../theme/PassList.tsx'))
+    addScanned(sky, weatherOf(12))
+    sky.scope.value = 'sky'
+    sky.done.value  = false
+    const wrapper   = mount(PassList, { props: { boxed: true } })
+    const box       = wrapper.get('[role="listbox"]').element as HTMLElement
+    const scrolls   = vi.fn()
+    Object.defineProperties(box, {
+      clientHeight : { value: 192 },
+      scrollHeight : { value: 12 * 48 },
+      scrollTo     : { value: scrolls }
+    })
+    wrapper.findAll('[role="option"]').forEach((row, index) => Object.defineProperties(row.element, {
+      offsetHeight : { value: 48 },
+      offsetTop    : { value: index * 48 }
+    }))
+    const show = (ratio: number) => heard.forEach(back => back([{ intersectionRatio: ratio }]))
+    return { box, scrolls, show, sky, wrapper }
+  }
+
+  it.each([
+    ['says the list runs on while its last row sits below the box', 0, true],
+    ['says the list runs on while its last row shows only in part', 0.5, true],
+    ['drops the line once the last row shows whole', 1, false]
+  ])('%s', async (_, ratio, cue) => {
+    const { show, wrapper } = await boxed()
+    await flushPromises()
+    show(ratio)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text().includes('The list runs on below')).toBe(cue)
+  })
+
+  it('opens the box on the next pass to peak when it mounts after the scan has finished', async () => {
+    const { component: PassList, sky } = await lateSky(() => import('../../theme/PassList.tsx'))
+    addScanned(sky, weatherOf(12))
+    sky.scope.value = 'sky'
+    sky.at.value    = 300 + 5 * 60
+    sky.done.value  = true
+    const opened: number[] = []
+    const sizes            = {
+      clientHeight : { get: () => 192 },
+      offsetHeight : { get: () => 48 },
+      offsetTop    : {
+        get(this: HTMLElement) { return [...this.parentElement!.children].indexOf(this) * 48 }
+      },
+      scrollHeight : { get: () => 12 * 48 },
+      scrollTop    : { set: (top: number) => opened.push(top) }
+    }
+    Object.defineProperties(HTMLElement.prototype, Object.fromEntries(Object.entries(sizes)
+      .map(([name, size]) => [name, { ...size, configurable: true }])))
+    onTestFinished(() => {
+      Object.keys(sizes).forEach(name => Reflect.deleteProperty(HTMLElement.prototype, name))
+    })
+    mount(PassList, { props: { boxed: true } })
+    await flushPromises()
+    expect(opened).toEqual([5 * 48])
+  })
+
+  it('opens the box on the next pass to peak once the scan finishes, and only once', async () => {
+    const { box, sky, wrapper } = await boxed()
+    sky.at.value   = 300 + 5 * 60
+    sky.done.value = true
+    await wrapper.vm.$nextTick()
+    const opened   = box.scrollTop
+    box.scrollTop  = 0
+    addScanned(sky, [passOf(99, { kind: 'weather', peakAt: 2000 })])
+    await wrapper.vm.$nextTick()
+    expect([opened, box.scrollTop]).toEqual([5 * 48, 0])
+  })
+
+  it('opens the box on the next pass again once each later scan finishes', async () => {
+    const { box, sky, wrapper } = await boxed()
+    sky.at.value   = 300 + 5 * 60
+    sky.done.value = true
+    await wrapper.vm.$nextTick()
+    const opened   = box.scrollTop
+    box.scrollTop  = 0
+    sky.done.value = false
+    await wrapper.vm.$nextTick()
+    sky.done.value = true
+    await wrapper.vm.$nextTick()
+    expect([opened, box.scrollTop]).toEqual([5 * 48, 5 * 48])
+  })
+
+  it.each([
+    ['scrolls a pinned row below the box up into it', 8, false, [{ behavior: 'smooth', top: 5 * 48 }]],
+    ['scrolls at once under reduced motion', 8, true, [{ behavior: 'auto', top: 5 * 48 }]],
+    ['leaves the box where it stands for a pinned row already in it', 2, false, []]
+  ])('%s', async (_, index, reduced, calls) => {
+    const { scrolls, sky, wrapper } = await boxed(reduced)
+    sky.pin(sky.rows.value.list[index])
+    await wrapper.vm.$nextTick()
+    expect(scrolls.mock.calls.map(([options]) => options)).toEqual(calls)
+  })
+
+  it('scrolls the pinned row back into the box once rows peaking earlier push it below', async () => {
+    const { component: PassList, sky } = await lateSky(() => import('../../theme/PassList.tsx'))
+    addScanned(sky, weatherOf(12))
+    sky.scope.value = 'sky'
+    const scrolls   = vi.fn()
+    const sizes     = {
+      clientHeight : { get: () => 192 },
+      offsetHeight : { get: () => 48 },
+      offsetTop    : {
+        get(this: HTMLElement) { return [...this.parentElement!.children].indexOf(this) * 48 }
+      },
+      scrollTo     : { value: scrolls }
+    }
+    Object.defineProperties(HTMLElement.prototype, Object.fromEntries(Object.entries(sizes)
+      .map(([name, size]) => [name, { ...size, configurable: true }])))
+    onTestFinished(() => {
+      Object.keys(sizes).forEach(name => Reflect.deleteProperty(HTMLElement.prototype, name))
+    })
+    const wrapper = mount(PassList, { props: { boxed: true } })
+    sky.pin(sky.rows.value.list[2])
+    await wrapper.vm.$nextTick()
+    addScanned(sky, [1, 2, 3, 4, 5, 6].map(id => passOf(100 + id, { kind: 'weather', peakAt: id })))
+    await flushPromises()
+    expect(scrolls.mock.calls.map(([options]) => options)).toEqual([{ behavior: 'smooth', top: 5 * 48 }])
   })
 })

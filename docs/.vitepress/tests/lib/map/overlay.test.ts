@@ -1,15 +1,15 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vitest'
 
-import type { Box }             from '../../../lib/map/mercator.ts'
+import type { Box }               from '../../../lib/map/mercator.ts'
 import { BEADS, type Label, Overlay, fadeOf, nearnessOf, openOf } from '../../../lib/map/overlay.ts'
-import { DAY }                  from '../../../lib/orbit/catalog.ts'
-import { kindOrder, type Kind } from '../../../lib/orbit/kinds.ts'
-import { iconOf }               from '../../../lib/site/icons.ts'
-import { SCHEMES }              from '../../../lib/site/palette.ts'
-import { TRACK_WIDTH }          from '../../../lib/orbit/scan.ts'
-import { Tracks }               from '../../../lib/state/tracks.ts'
-import { passOf }               from '../../common/passes.ts'
-import { canvasWith }           from '../../common/stubs.ts'
+import { DAY }                    from '../../../lib/orbit/catalog.ts'
+import { kindOrder, type Kind }   from '../../../lib/orbit/kinds.ts'
+import { iconOf }                 from '../../../lib/site/icons.ts'
+import { SCHEMES }                from '../../../lib/site/palette.ts'
+import { TRACK_WIDTH, type Pass } from '../../../lib/orbit/scan.ts'
+import { Tracks }                 from '../../../lib/state/tracks.ts'
+import { passOf }                 from '../../common/passes.ts'
+import { canvasWith }             from '../../common/stubs.ts'
 
 /**
  * A text a canvas filled: its alpha, style, font, letter spacing, and halo's
@@ -469,52 +469,67 @@ it.each([
 
 /**
  * Builds a canvas whose 2D context ignores every call but `arc`, `beginPath`,
- * `fill`, `lineTo`, and `stroke`, recording the width and alpha of each
- * ribbon filled and the alpha, radius, and fill style of each disc and ring
- * drawn.
+ * `fill`, `lineTo`, `setTransform`, and `stroke`, recording the width and
+ * alpha of each ribbon filled, the alpha, radius, and fill style of each disc
+ * and ring drawn, and the place, turn, and fill style of each shape filled
+ * from a path or under a moved transform.
  */
 const sketchOf = () => {
   const marks: { alpha: number, filled: boolean, radius: number, style: unknown }[] = []
   const ribbons: { alpha: number, width: number }[] = []
+  const shapes: { at: number[], style: unknown, turn: number[] }[] = []
   let points: number[][] = []
   let radius             = 0
   let round              = false
+  let transform          = [1, 0, 0, 1, 0, 0]
   const calls            = {
-    arc       : (_x: number, _y: number, size: number) => {
+    arc          : (_x: number, _y: number, size: number) => {
       radius = size
       round  = true
     },
-    beginPath : () => {
+    beginPath    : () => {
       points = []
       round  = false
     },
-    fill      : () => {
+    fill         : (path?: unknown) => {
       const alpha = context.globalAlpha as number
+      if (path || transform[4] || transform[5]) {
+        return shapes.push({ at: transform.slice(4), style: context.fillStyle, turn: transform.slice(0, 2) })
+      }
       if (round) return marks.push({ alpha, filled: true, radius, style: context.fillStyle })
       const [[x, y], [u, v]] = [points[0], points.at(-1)!]
       ribbons.push({ alpha, width: Math.hypot(u - x, v - y) })
     },
-    lineTo    : (x: number, y: number) => points.push([x, y]),
-    stroke    : () => {
+    lineTo       : (x: number, y: number) => points.push([x, y]),
+    setTransform : (...values: number[]) => { transform = values },
+    stroke       : () => {
       if (round) marks.push({ alpha: context.globalAlpha as number, filled: false, radius, style: null })
     }
   }
   const { canvas, context } = canvasWith(calls)
-  return { canvas, marks, ribbons }
+  return { canvas, marks, ribbons, shapes }
 }
 
 /**
  * Draws one satellite crossing the view eastward at `elevation` degrees,
  * through a pass `changes` sets, chosen or held as `as` names, at `seconds`
- * into the window, its kind shown or left out by the filters as `traced` sets.
+ * into the window, its kind shown or left out by the filters as `traced` sets,
+ * under the panels `covered` names, on a view centered `north` degrees north
+ * of the spot.
  */
 const drawnAt = (
   seconds   : number,
   elevation : number,
   as        : 'held' | 'none' | 'selected',
-  changes   = {},
-  traced    = true
+  { changes = {}, covered = [], north = 0, traced = true }: {
+    changes? : Partial<Pass>,
+    covered? : Box[],
+    north?   : number,
+    traced?  : boolean
+  } = {}
 ) => {
+  vi.stubGlobal('Path2D', class { constructor(readonly d: string) {} })
+  onTestFinished(() => { vi.unstubAllGlobals() })
   const tracks = new Tracks()
   const track  = new Float32Array(121 * TRACK_WIDTH)
   for (let sample = 0; sample < 121; sample++) {
@@ -535,8 +550,9 @@ const drawnAt = (
     traced   : () => traced,
     tracks   : tracks
   })
+  overlay.covered = () => covered
   overlay.resize(400, 400, 1)
-  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
+  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude + north)
   overlay.draw(seconds)
   return sketch
 }
@@ -555,8 +571,35 @@ it.each([
 
 it('draws the stretch flown at a third, at once under reduced motion, and marks the peak', () => {
   const { marks, ribbons } = drawnAt(900, 45, 'selected')
-  expect([ribbons.map(({ alpha }) => alpha), marks.length])
-    .toEqual([[0.7 / 3, 1 / 3, 0.7, 1].map(alpha => expect.closeTo(alpha)), 2])
+  const peak               = marks.filter(({ alpha }) => alpha !== 0.9)
+  expect([ribbons.map(({ alpha }) => alpha), peak.map(({ radius }) => radius)])
+    .toEqual([[0.7 / 3, 1 / 3, 0.7, 1].map(alpha => expect.closeTo(alpha)), [4.5, 2.5]])
+})
+
+it.each([
+  ['points west along the map’s edge toward a chosen satellite past it', 900, 'selected',
+    [[{ at: [22, 200], style: SCHEMES.day.kinds.crewed, turn: [-1, 0] }], 2]],
+  ['points toward no chosen satellite inside the map', 1800, 'selected', [[], 0]],
+  ['points toward no held satellite past the map’s edge', 900, 'held', [[], 0]]
+] as const)('%s', (_, seconds, as, shown) => {
+  const { shapes } = drawnAt(seconds, 45, as)
+  const whole      = (values: number[]) => values.map(value => Math.round(value) + 0)
+  expect([shapes.slice(0, 1).map(({ at, style, turn }) => ({ at: whole(at), style, turn: whole(turn) })),
+    shapes.length]).toEqual(shown)
+})
+
+it.each([
+  ['stops the pointer clear of a panel at one side over a chosen satellite', 1620, 0,
+    { bottom: 400, left: 0, right: 150, top: 0 }, { at: [194, 200], turn: [-1, 0] }],
+  ['stops the pointer short of a panel running across the map’s foot', 1800, 0.3,
+    { bottom: 400, left: 0, right: 400, top: 300 }, { at: [200, 278], turn: [0, 1] }],
+  ['leaves the pointer at the map’s edge past a panel off its path', 900, 0,
+    { bottom: 400, left: 250, right: 400, top: 0 }, { at: [22, 200], turn: [-1, 0] }],
+  ['stops the pointer short of a panel running across the map’s head', 1800, -0.3,
+    { bottom: 100, left: 0, right: 400, top: 0 }, { at: [200, 122], turn: [0, -1] }]
+] as const)('%s', (_, seconds, north, panel, shown) => {
+  const [{ at, turn }] = drawnAt(seconds, 45, 'selected', { covered: [panel], north }).shapes
+  expect({ at: at.map(Math.round), turn: turn.map(value => Math.round(value) + 0) }).toEqual(shown)
 })
 
 it.each([
@@ -564,13 +607,13 @@ it.each([
   ['draws the chosen track and its peak for a pass whose kind the filters leave out', 'selected']
 ] as const)('%s', (_, as) => {
   const shown = drawnAt(900, 45, as)
-  const left  = drawnAt(900, 45, as, {}, false)
+  const left  = drawnAt(900, 45, as, { traced: false })
   expect([left.ribbons, left.marks.length]).toEqual([shown.ribbons, shown.marks.length])
   expect(left.ribbons.length).toBeGreaterThan(0)
 })
 
 it('leaves filled beads behind a satellite drawing nearer and open ones behind one going', () => {
-  const { marks } = drawnAt(1800, 45, 'none', { peakAt: 1760, riseAt: 1700, setAt: 1900 })
+  const { marks } = drawnAt(1800, 45, 'none', { changes: { peakAt: 1760, riseAt: 1700, setAt: 1900 } })
   expect(marks.slice(0, 3).map(({ filled }) => filled)).toEqual([false, true, true])
 })
 

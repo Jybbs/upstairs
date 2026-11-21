@@ -412,12 +412,31 @@ export default defineComponent(
     watch(sky.covered, () => overlay?.invalidate())
     watch([frame, phone], ([map]) => { panels.value = map ? places.panelsOver(map) : [] }, { flush: 'post' })
     useResizeObserver(panels, () => overlay?.invalidate())
+    /**
+     * Whether `bounds` stand wholly inside the map short of `padding`.
+     */
+    const shows = (bounds: maplibregl.LngLatBounds, padding: Required<maplibregl.PaddingOptions>) => {
+      const { clientHeight: height, clientWidth: width } = map.getContainer()
+      return [bounds.getNorthWest(), bounds.getSouthEast()]
+        .map(corner => map.project(corner))
+        .every(({ x, y }) => x >= padding.left && x <= width - padding.right
+          && y >= padding.top && y <= height - padding.bottom)
+    }
+
+    /**
+     * Frames a pinned pass's whole crossing, above a phone's sheet, and wider
+     * than a phone clear of the panels over the map wherever any of it lies
+     * outside them, and eases back to the spot once the pass is let go.
+     */
     watch([sky.pinned, sky.covered], ([pass, covered], [was]) => {
-      if (!map || !covered) return
+      if (!map || phone.value && !covered) return
       const edge    = clamp((map.getContainer().clientHeight - covered) / 4, 0, PADDING)
-      const padding = { bottom: covered + edge, left: PADDING, right: PADDING, top: edge }
-      if (pass) return map.fitBounds(boundsOf(pass).whole, { maxZoom: map.getZoom(), padding })
-      if (was) home()
+      const padding = covered
+        ? { bottom: covered + edge, left: PADDING, right: PADDING, top: edge }
+        : places.paddingOver(frame.value!, PADDING)
+      const whole   = pass && boundsOf(pass).whole
+      if (!whole) return was && home()
+      if (covered || !shows(whole, padding)) map.fitBounds(whole, { maxZoom: map.getZoom(), padding })
     })
 
     onBeforeUnmount(() => {

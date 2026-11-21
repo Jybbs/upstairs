@@ -39,8 +39,9 @@ export const footholdsOf = (index: number, span: number, spot: Spot, start: numb
 /**
  * Returns the paths of a climb drawn as a ridge, meaning its outline closed
  * along the ground and its crest split into the stretches where the satellite
- * can be seen at both ends and the rest, beside the point where `pass` peaks,
- * with `x` placing a moment and `y` an elevation.
+ * can be seen at both ends and the rest, beside the point where `pass` peaks
+ * and where its rise and its set meet the ground across, with `x` placing a
+ * moment and `y` an elevation.
  */
 export const ridgeOf = (
   climb : readonly Foothold[],
@@ -59,6 +60,7 @@ export const ridgeOf = (
   }
   return {
     ...crest,
+    ends    : [x(climb[0].at), x(climb.at(-1)!.at)] as const,
     outline : `M${point(climb[0].at, 0)}L${points.join('L')}L${point(climb.at(-1)!.at, 0)}Z`,
     peak    : [x(pass.peakAt), y(pass.peak)] as const
   }

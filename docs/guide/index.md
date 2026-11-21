@@ -4,7 +4,7 @@ description: How to read the map, the pass list, and the time strip.
 
 # Guide
 
-The home page opens on the map around a spot, the place on the ground the sky is read from, and counts the active satellites the map draws above its horizon at the time the strip shows. A pass runs from the moment a satellite rises above that horizon to the moment it sets, and a satellite rising twice in the hour makes two passes. The figures below open on each control in the order a reader meets it, from the map and the readout over it to the strip at its foot and the pass list once the page scrolls, and the sections after them take the same order before closing on the filters. On a phone, the page holds the map alone, with the readout and the strip in a sheet along its foot that rises to show a pressed pass and then the hour's list.
+The home page opens on the map around a spot, the place on the ground the sky is read from, and counts the active satellites the map draws above its horizon at the time the strip shows. A pass runs from the moment a satellite rises above that horizon to the moment it sets, and a satellite rising twice in the hour makes two passes. The figures below open on each control in the order a reader meets it, from the map and the readout over it to the strip at its foot and the pass list, which stands in a column beside the map on a wide page and below it on a narrower one, and the sections after them take the same order before closing on the filters. On a phone, the page holds the map alone, with the readout and the strip in a sheet along its foot that rises to show a pressed pass and then the hour's list.
 
 <GuideFigures>
 <template #map>
@@ -60,7 +60,7 @@ While the passes are still being traced, a line in the tally's place shows how f
 
 ### A Chosen Pass
 
-Pointing at a pin in the strip, or pressing a satellite, a pin, or a row, turns the readout into that pass. It gives the pass's kind and the way it crosses, how far away the satellite is now and at its nearest, how high it peaks and stands now, the hours it is up, and its own sky with the compass point it stands at. Escape or a press on the empty map lets it go.
+Pointing at a pin in the strip, or pressing a satellite, a pin, or a row, turns the readout into that pass. It gives the pass's kind and the way it crosses, how far away the satellite is now and at its nearest, how high it peaks and stands now, the hours it is up, and its own sky with the compass point it stands at. A chosen pass also shows on the card above the list, with its row marked by a bar in its kind's color and its ridge in the strip filled in that color, and where the satellite stands past the edge of the map or under a panel, an arrow at the edge points toward it. Escape, the close control at the corner of the readout, or a press on the empty map lets it go.
 
 ## Choosing the Spot
 
@@ -74,10 +74,10 @@ Each pin stands above the line for a northbound pass and below it for a southbou
 
 ## The Pass List
 
-List passes, among the filters, switches the list between the passes crossing the map as it is framed and those anywhere in the sky over the spot.
+List, among the filters, switches the list between the passes crossing the map as it is framed and those anywhere in the sky over the spot. Beside the map, the list opens on the next pass to reach its highest point, a line at its foot says when more rows wait below, and the rail between the map and the column folds the column away and opens it again.
 
 ## The Filters
 
-Each kind of satellite takes its own color in the filters, the tally, and the pass list, and on the map for the pass the readout holds or the list chooses, every other satellite drawing in one tone. Choosing a kind under Show passes of draws its satellites on the map and keeps them in the readout's counts and in the list, while a kind left out draws no dot and no track, and the page's address keeps the kinds chosen, so a reload or a shared link opens on them. The map draws at half strength every satellite whose pass stays below the height Reaching at least sets.
+Each kind of satellite takes its own color in the filters, the tally, and the pass list, and on the map for the pass the readout holds or the list chooses, every other satellite drawing in one tone. Each kind's mark under Show me names its kind on a tip while a pointer rests on it or the keyboard reaches it, and the heading folds the filters away and opens them again. Choosing a kind draws its satellites on the map and keeps them in the readout's counts and in the list, while a kind left out draws no dot and no track, and the page's address keeps the kinds chosen, so a reload or a shared link opens on them. The map draws at half strength every satellite whose pass stays below the height At least sets.
 
-Only the pass the readout holds or the list chooses draws a track, and Reaching at least keeps only the passes climbing to the height chosen or above.
+Only the pass the readout holds or the list chooses draws a track, and At least keeps only the passes climbing to the height chosen or above.
