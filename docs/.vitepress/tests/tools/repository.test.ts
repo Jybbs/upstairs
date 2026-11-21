@@ -39,6 +39,9 @@ const checked = (jobs: Record<string, Job>, types?: string[]) =>
 
 const job = (change: Job) => added({ added: change })
 
+const refit = (file: string, fields: Partial<repository.Workflow>) =>
+  rework(file, workflow => ({ ...workflow, ...fields }))
+
 const rejob = (change: Job, file: string, id: string) => rework(file, workflow =>
   ({ ...workflow, jobs: { ...workflow.jobs, [id]: { ...workflow.jobs[id], ...change } } }))
 
@@ -88,8 +91,10 @@ describe('Repository', () => {
       .toEqual([`docs/package.json sets vue to ${version} rather than one exact version`])
   )
 
-  it.each(['3.5.45', '2.0.0-alpha.21', '1.0.0-rc.1', '1.0.0-alpha-1'])('reports nothing for a package at %s', version =>
-    expect(variant(() => ({ packages: [['vue', version]] })).problems).toEqual([]))
+  it.each(['3.5.45', '2.0.0-alpha.21', '1.0.0-rc.1', '1.0.0-alpha-1'])(
+    'reports nothing for a package at %s',
+    version => expect(variant(() => ({ packages: [['vue', version]] })).problems).toEqual([])
+  )
 
   it('reads each task by its name and its alias, from a task file and from a TOML table', () =>
     expect(base.tasks).toEqual(expect.arrayContaining(['audit', 'catalog:bundle', 'ci', 'repo:ci'])))
@@ -137,13 +142,13 @@ describe('Repository', () => {
   )
 
   it.each<[string, repository.Workflow['concurrency']]>([
-    ['a group string', `ci-\${{ github.ref }}-${DRAFT_GROUP}`],
-    ['a group under its key', { group: `\${{ github.workflow }}-${DRAFT_GROUP}` }],
-    ['no key at all', undefined]
+    ['a group string ending on the draft flag', `ci-\${{ github.ref }}-${DRAFT_GROUP}`],
+    ['a group under its key ending on the draft flag', { group: `\${{ github.workflow }}-${DRAFT_GROUP}` }],
+    ['absent', undefined]
   ])(
-    'reports nothing for a pull_request workflow whose concurrency, as %s, holds no draft run beside a ready one',
+    'reports nothing for a pull_request workflow whose concurrency is %s',
     (_, concurrency) =>
-      expect(variant(rework(CI, workflow => ({ ...workflow, concurrency }))).problems).toEqual(base.problems)
+      expect(variant(refit(CI, { concurrency })).problems).toEqual(base.problems)
   )
 
   it('names a gate two pull-request workflows share once', () => {
@@ -356,7 +361,7 @@ describe('Repository', () => {
     ],
     [
       'a publishing job moved to another workflow',
-      rework(DRAFT, workflow => ({ ...workflow, path: 'moved.yml' })),
+      refit(DRAFT, { path: 'moved.yml' }),
       `${DRAFT} holds no 🏷️ Cut job`
     ],
     [
@@ -371,7 +376,7 @@ describe('Repository', () => {
     ],
     [
       'a bare pull_request trigger, which runs the default activity types',
-      rework(CI, workflow => ({ ...workflow, on: { pull_request: null } })),
+      refit(CI, { on: { pull_request: null } }),
       `${join(ROOT, CI)} runs on pull_request without the activity type ready_for_review`
     ],
     [
@@ -411,17 +416,17 @@ describe('Repository', () => {
     ],
     [
       'a pull_request workflow whose concurrency group leaves out the draft flag',
-      rework(CI, workflow => ({ ...workflow, concurrency: { group: '${{ github.ref }}' } })),
+      refit(CI, { concurrency: { group: '${{ github.ref }}' } }),
       `${join(ROOT, CI)} ${CANCELS}`
     ],
     [
       'a pull_request workflow whose concurrency group string leaves out the draft flag',
-      rework(DEPLOY, workflow => ({ ...workflow, concurrency: 'deploy' })),
+      refit(DEPLOY, { concurrency: 'deploy' }),
       `${join(ROOT, DEPLOY)} ${CANCELS}`
     ],
     [
       'a pull_request workflow whose concurrency group carries the draft flag before its ref',
-      rework(CI, workflow => ({ ...workflow, concurrency: { group: `${DRAFT_GROUP}-\${{ github.ref }}` } })),
+      refit(CI, { concurrency: { group: `${DRAFT_GROUP}-\${{ github.ref }}` } }),
       `${join(ROOT, CI)} ${CANCELS}`
     ],
     [
