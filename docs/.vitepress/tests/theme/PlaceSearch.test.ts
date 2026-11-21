@@ -2,13 +2,25 @@
 import { type VueWrapper, enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi }                                from 'vitest'
 
-import type { sky as Sky } from '../../lib/state/sky.ts'
-import { passOf }          from '../common/passes.ts'
-import { freshSky }        from '../common/sky.ts'
-import { stubMatchMedia }  from '../common/stubs.ts'
-import photon              from '../fixtures/photon.json' with { type: 'json' }
+import * as catalog            from '../../lib/orbit/catalog.ts'
+import type { sky as Sky }      from '../../lib/state/sky.ts'
+import { passOf }               from '../common/passes.ts'
+import { addScanned, freshSky } from '../common/sky.ts'
+import { stubMatchMedia }       from '../common/stubs.ts'
+import photon                   from '../fixtures/photon.json' with { type: 'json' }
 
 enableAutoUnmount(afterEach)
+
+/**
+ * Mounts the search as `mounted` does and types `iss` into it, returning the
+ * search.
+ */
+const listed = async (set: (sky: typeof Sky) => void) => {
+  const search = await mounted(set)
+  await search.wrapper.get('input').trigger('focusin')
+  await search.wrapper.get('input').setValue('iss')
+  return search
+}
 
 /**
  * Mounts the search in the page over a fresh copy of the shared state, after
@@ -58,20 +70,98 @@ it('leaves a spot found through Near me out of the address', async () => {
   expect(location.hash).toBe('')
 })
 
-it('lists the highest pass of each satellite the words typed name, and holds the one chosen', async () => {
+it('lists each satellite the words typed name by its next rise, and holds the pass chosen', async () => {
   const passes           = [
+    passOf(25544, { key: '25544/2000', name: 'ISS (ZARYA)', peak: 70, riseAt: 2000, setAt: 2600 }),
     passOf(25544, { name: 'ISS (ZARYA)', peak: 30 }),
-    passOf(25544, { key: '25544/2000', name: 'ISS (ZARYA)', peak: 70 }),
     passOf(48274, { name: 'CSS (TIANHE)' })
   ]
-  const { sky, wrapper } = await mounted(state =>
-    state.tracks.add(passes, new Float32Array(9), Uint32Array.of(0, 3, 6), 1))
-  await wrapper.get('input').trigger('focusin')
-  await wrapper.get('input').setValue('iss')
+  const { sky, wrapper } = await listed(state => {
+    addScanned(state, passes)
+    state.now.value = 0
+  })
   const results = wrapper.findAll('li button')
-  expect(results.map(result => result.text())).toEqual(['ISS (ZARYA)'])
+  expect(results.map(result => result.text())).toEqual([`ISS (ZARYA) Rises ${sky.clockOf(300)}`])
   await results[0].trigger('click')
-  expect([sky.pinned.value, wrapper.find('li').exists()]).toEqual([passes[1], false])
+  expect([sky.pinned.value, sky.at.value, wrapper.find('li').exists()]).toEqual([passes[1], 600, false])
+})
+
+it.each([
+  ['says a satellite whose pass is under way is up', 600, () => 'Up now'],
+  ['says a satellite whose pass rises this minute is up', 300, () => 'Up now'],
+  ['says a satellite whose pass sets this minute is up', 900, () => 'Up now'],
+  ['says when a satellite’s last pass set, where none is still ahead', 1000,
+    (sky: typeof Sky) => `Set ${sky.clockOf(900)}`]
+])('%s', async (_, now, note) => {
+  const { sky, wrapper } = await listed(state => {
+    addScanned(state, [passOf(25544, { name: 'ISS (ZARYA)' })])
+    state.now.value = now
+  })
+  expect(wrapper.get('li button').text()).toBe(`ISS (ZARYA) ${note(sky)}`)
+})
+
+it.each([
+  ['says a satellite matched over the whole catalog has no pass once the scan finishes', true,
+    'ISS (ZARYA) No pass this hour'],
+  ['says the scan is still tracing where it has not finished', false, 'ISS (ZARYA) Still tracing']
+])('%s', async (_, done, line) => {
+  const { sky, wrapper } = await listed(state => {
+    state.satellites.value = [{ epoch: 0, id: 25544, kind: 'crewed', name: 'ISS (ZARYA)' }]
+    state.done.value       = done
+  })
+  const result = wrapper.get('li button')
+  await result.trigger('click')
+  expect([result.text(), result.attributes('aria-disabled'), sky.pinned.value]).toEqual([line, 'true', null])
+})
+
+it.each([
+  ['the catalog has expired', (sky: typeof Sky) => {
+    sky.loaded.value = { count: 1, fetched: sky.start.value - 15 * catalog.DAY }
+  }],
+  ['the trace stopped', (sky: typeof Sky) => {
+    sky.loaded.value   = { count: 1, fetched: sky.start.value }
+    sky.untraced.value = true
+  }]
+])('says a satellite with no pass was not traced where %s', async (_, set) => {
+  const { wrapper } = await listed(state => {
+    state.satellites.value = [{ epoch: 0, id: 25544, kind: 'crewed', name: 'ISS (ZARYA)' }]
+    set(state)
+  })
+  expect(wrapper.get('li button').text()).toBe('ISS (ZARYA) Not traced')
+})
+
+it('says when a satellite’s last pass set, of two that have set', async () => {
+  const { sky, wrapper } = await listed(state => {
+    addScanned(state, [
+      passOf(25544, { key: '25544/0', name: 'ISS (ZARYA)', riseAt: 0, setAt: 200 }),
+      passOf(25544, { name: 'ISS (ZARYA)', riseAt: 300, setAt: 600 })
+    ])
+    state.now.value = 1000
+  })
+  expect(wrapper.get('li button').text()).toBe(`ISS (ZARYA) Set ${sky.clockOf(600)}`)
+})
+
+it('moves to the first place on submit, past a satellite listed with no pass', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(photon)))
+  const { sky, wrapper } = await mounted(state => {
+    state.satellites.value = [{ epoch: 0, id: 99999, kind: 'other', name: 'LONDON SAT' }]
+  })
+  await wrapper.get('input').trigger('focusin')
+  await typed(wrapper, 'london')
+  await wrapper.get('form').trigger('submit')
+  expect([sky.pinned.value, sky.spot.value]).toEqual([null, { latitude: 51.5074456, longitude: -0.1277653 }])
+})
+
+it('chooses nothing on submit where every result is a satellite with no pass', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed') }))
+  const { sky, wrapper } = await mounted(state => {
+    state.satellites.value = [{ epoch: 0, id: 25544, kind: 'crewed', name: 'ISS (ZARYA)' }]
+  })
+  const spot = sky.spot.value
+  await wrapper.get('input').trigger('focusin')
+  await typed(wrapper, 'iss')
+  await wrapper.get('form').trigger('submit')
+  expect([sky.pinned.value, sky.spot.value, wrapper.find('li').exists()]).toEqual([null, spot, true])
 })
 
 it('shows the kind of a satellite chosen while its kind is switched off, and holds its pass', async () => {
@@ -86,11 +176,24 @@ it('shows the kind of a satellite chosen while its kind is switched off, and hol
     .toEqual([false, true, pass, pass])
 })
 
+it('leaves a switched-off kind off where its satellite, having no pass, is pressed in the list', async () => {
+  const { sky, wrapper } = await mounted(state => {
+    state.satellites.value = [{ epoch: 0, id: 44713, kind: 'starlink', name: 'STARLINK-1007' }]
+    state.done.value       = true
+  })
+  await wrapper.get('input').trigger('focusin')
+  await wrapper.get('input').setValue('starlink')
+  const result = wrapper.get('li button')
+  await result.trigger('click')
+  expect([result.attributes('aria-disabled'), sky.traced.starlink, sky.pinned.value])
+    .toEqual(['true', false, null])
+})
+
 it.each([
   ['lists each place found, naming its city, state, and country once each',
     async () => Response.json({ ...photon, features: photon.features.map(feature =>
       ({ ...feature, properties: { ...feature.properties, city: feature.properties.name } })) }),
-    ['London, England, United Kingdom', 'London, Ontario, Canada']],
+    ['London, England, United Kingdom city', 'London, Ontario, Canada city']],
   ['says no place has that name where the search finds none',
     async () => Response.json({ ...photon, features: [] }), ['No place by that name.']],
   ['says the search is not answering where its host cannot be reached',
@@ -106,7 +209,7 @@ it.each([
   ['keeps the message for the words now typed where an earlier search fails later',
     'london', { ...photon, features: [] }, ['No place by that name.']],
   ['keeps the places for the words now typed where an earlier search fails later',
-    'london', photon, ['London, England, United Kingdom', 'London, Ontario, Canada']],
+    'london', photon, ['London, England, United Kingdom city', 'London, Ontario, Canada city']],
   ['shows nothing where a search fails once the words fall below three letters',
     'lo', { ...photon, features: [] }, []]
 ])('%s', async (_, words, answer, lines) => {
@@ -145,10 +248,10 @@ it('drops the places an earlier search listed where the search for the words now
 it('lists only the satellites the words name where the place search fails beside them', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed') }))
   const { wrapper } = await mounted(state =>
-    state.tracks.add([passOf(25544, { name: 'ISS (ZARYA)' })], new Float32Array(3), Uint32Array.of(0), 1))
+    addScanned(state, [passOf(25544, { name: 'ISS (ZARYA)', riseAt: 3000 })]))
   await wrapper.get('input').trigger('focusin')
   await typed(wrapper, 'iss')
-  expect(wrapper.findAll('li').map(line => line.text())).toEqual(['ISS (ZARYA)'])
+  expect(wrapper.findAll('li').map(line => line.text().split(' Rises')[0])).toEqual(['ISS (ZARYA)'])
 })
 
 it('sends no search where the words fall below three letters before the wait ends', async () => {
@@ -167,6 +270,15 @@ it('searches for the words typed and moves to the place chosen, named by its fir
   expect(fetch).toHaveBeenCalledWith('https://photon.komoot.io/api/?limit=5&lang=en&q=new%20london')
   expect([sky.place.value, sky.spot.value, wrapper.find('li').exists()])
     .toEqual(['London', { latitude: 42.9836747, longitude: -81.2496068 }, false])
+})
+
+it.each([0, 1])('moves to the place chosen of two sharing a name and region, as result %i', async at => {
+  const twins            = photon.features.map((feature, index) =>
+    ({ ...feature, properties: { ...photon.features[0].properties, osm_id: index } }))
+  const { sky, wrapper } = await searched('london', async () => Response.json({ ...photon, features: twins }))
+  await wrapper.findAll('li button')[at].trigger('click')
+  const [longitude, latitude] = twins[at].geometry.coordinates
+  expect(sky.spot.value).toEqual({ latitude, longitude })
 })
 
 it.each([

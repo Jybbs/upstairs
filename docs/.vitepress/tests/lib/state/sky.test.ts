@@ -71,7 +71,7 @@ const opened = async (fragment = '', reduced = false) => {
  */
 const loaded = async (fragment = '', reduced = false) => {
   const sky = await opened(fragment, reduced)
-  hear({ count: 1, fetched: NOW, type: 'loaded' })
+  hear({ count: 1, fetched: NOW, satellites: [], type: 'loaded' })
   return sky
 }
 
@@ -377,7 +377,7 @@ describe('the catalog age', () => {
     ['places nothing from a catalog fetched more than 14 days before', 14.01, true]
   ])('%s', async (_, days, expired) => {
     const sky = await loaded()
-    hear({ count: 1, fetched: sky.start.value - days * catalog.DAY, type: 'loaded' })
+    hear({ count: 1, fetched: sky.start.value - days * catalog.DAY, satellites: [], type: 'loaded' })
     expect(sky.expired.value).toBe(expired)
   })
 })
@@ -499,7 +499,7 @@ describe('the reading', () => {
 })
 
 describe('the stage', () => {
-  const arrived = () => hear({ count: 1, fetched: NOW, type: 'loaded' })
+  const arrived = () => hear({ count: 1, fetched: NOW, satellites: [], type: 'loaded' })
   const failed  = () => hear({ reason: 'Error: The catalog answered 503', type: 'failed' })
 
   it.each([
@@ -520,10 +520,10 @@ describe('the stage', () => {
       traced([])
     }, 'traced'],
     ['places nothing from a catalog more than 14 days old', () => {
-      hear({ count: 1, fetched: NOW - 15 * catalog.DAY, type: 'loaded' })
+      hear({ count: 1, fetched: NOW - 15 * catalog.DAY, satellites: [], type: 'loaded' })
     }, 'expired'],
     ['reads a catalog more than 14 days old failing partway as expired', () => {
-      hear({ count: 1, fetched: NOW - 15 * catalog.DAY, type: 'loaded' })
+      hear({ count: 1, fetched: NOW - 15 * catalog.DAY, satellites: [], type: 'loaded' })
       failed()
     }, 'expired']
   ] as const)('%s', async (_, answer, stage) => {
@@ -569,6 +569,15 @@ describe('the stage', () => {
       type    : 'passes'
     })
     expect([before, sky.placed.value]).toEqual([false, true])
+  })
+
+  it('holds every satellite of the segments loaded, dropping them on a fresh load', async () => {
+    const sky = await opened()
+    hear({ count: 1, fetched: NOW, satellites: [SATELLITE], type: 'loaded' })
+    hear({ count: 2, fetched: NOW, satellites: [OTHER], type: 'loaded' })
+    const held = sky.satellites.value
+    sky.load()
+    expect([held, sky.satellites.value]).toEqual([[SATELLITE, OTHER], []])
   })
 
   it('loads the site’s catalog file again from the start, dropping the passes drawn', async () => {

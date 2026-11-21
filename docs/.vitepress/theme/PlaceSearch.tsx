@@ -3,22 +3,15 @@ import * as combobox                                    from '@zag-js/combobox'
 import { normalizeProps, useMachine }                   from '@zag-js/vue'
 import { computed, defineComponent, ref, useId, watch } from 'vue'
 
-import type { Pass, Spot } from '../lib/orbit/scan.ts'
-import { sky }             from '../lib/state/sky.ts'
-import Icon                from './Icon.tsx'
-import SatelliteName       from './SatelliteName.tsx'
-
-interface Feature {
-  geometry   : { coordinates: [number, number] }
-  properties : Record<string, string | undefined>
-}
-
-type Found = Spot & { label: string }
+import * as search   from '../lib/state/search.ts'
+import { sky }       from '../lib/state/sky.ts'
+import Icon          from './Icon.tsx'
+import SatelliteName from './SatelliteName.tsx'
 
 /**
- * A result of the search: a satellite's highest pass, or a place found.
+ * A result of the search: a satellite beside its next pass, or a place found.
  */
-type Result = { craft: Pass } | { place: Found }
+type Result = { craft: search.Match } | { place: search.Place }
 
 /**
  * The fewest letters a search reads.
@@ -29,54 +22,62 @@ const SHOWN  = 5
 const WAIT   = 350
 
 /**
- * Reads the places Photon finds for `query`, each labeled by its name, city,
- * state, and country with repeats dropped, rejecting where Photon cannot be
+ * Reads the places Photon finds for `query`, rejecting where Photon cannot be
  * reached, answers with an error status, or answers with a body that is no
  * feature collection.
  */
-const placesFor = async (query: string): Promise<Found[]> => {
+const placesFor = async (query: string): Promise<search.Place[]> => {
   const response = await fetch(`${SEARCH}?limit=${SHOWN}&lang=en&q=${encodeURIComponent(query)}`)
   if (!response.ok) throw new Error()
-  const { features } = await response.json() as { features: Feature[] }
-  return features.map(({ geometry, properties }) => ({
-    latitude  : geometry.coordinates[1],
-    longitude : geometry.coordinates[0],
-    label     : [properties.name, properties.city, properties.state, properties.country]
-      .filter((part, index, all) => part && all.indexOf(part) === index)
-      .join(', ')
-  }))
+  const { features } = await response.json() as { features: search.Feature[] }
+  return features.map(search.placeOf)
 }
 
 const valueOf = (result: Result) =>
-  'craft' in result ? `craft:${result.craft.key}` : `place:${result.place.label}`
+  'craft' in result ? `craft:${result.craft.satellite.id}` : `place:${result.place.key}`
 
 /**
- * Searches the satellites in the window by name and the places Photon finds
- * by name through a combobox, moving to the result chosen.
+ * Searches the whole catalog by name and the places Photon finds by name
+ * through a combobox, moving to the result chosen.
  */
 export default defineComponent(
   () => {
-    const found   = ref<Found[]>([])
+    const found   = ref<search.Place[]>([])
     const trouble = ref<string | null>(null)
     const words   = ref('')
     const typed   = computed(() => words.value.trim())
     let latest    = 0
 
     /**
-     * The highest pass in the window of each satellite whose name holds the
-     * words typed, at most `SHOWN` of them.
+     * Seconds into the window of the present's whole minute.
+     */
+    const minute = computed(() => Math.floor(sky.now.value / 60) * 60)
+
+    /**
+     * The satellites whose names hold the words typed, at most `SHOWN` of
+     * them.
      */
     const crafts = computed(() => {
       const name = typed.value.toUpperCase()
       if (name.length < LEAST) return []
       void sky.version.value
-      const highest = new Map<number, Pass>()
-      for (const pass of sky.tracks.passes) {
-        if (!pass.name.includes(name) || (highest.get(pass.id)?.peak ?? -1) >= pass.peak) continue
-        highest.set(pass.id, pass)
-      }
-      return [...highest.values()].slice(0, SHOWN)
+      return search.matchesOf(SHOWN, name, sky.tracks.passes, minute.value, sky.satellites.value)
     })
+
+    /**
+     * Writes when a satellite's next pass rises, that it is up, or when its
+     * last pass set, and for a satellite with no pass, that it has none once
+     * the scan has finished, that it was not traced where the catalog expired
+     * or the trace stopped, and that the scan is still tracing otherwise.
+     */
+    const noteOf = ({ pass }: search.Match) => {
+      if (!pass) {
+        if (sky.done.value) return 'No pass this hour'
+        return sky.expired.value || sky.untraced.value ? 'Not traced' : 'Still tracing'
+      }
+      if (pass.riseAt > minute.value) return `Rises ${sky.clockOf(pass.riseAt)}`
+      return pass.setAt >= minute.value ? 'Up now' : `Set ${sky.clockOf(pass.setAt)}`
+    }
 
     const nearMe = () => navigator.geolocation.getCurrentPosition(
       ({ coords }) => sky.locate({ latitude: coords.latitude, longitude: coords.longitude }),
@@ -107,25 +108,33 @@ export default defineComponent(
       ...found.value.map(place => ({ place }))
     ])
     /**
-     * Moves to the satellite's pass, showing its kind again where it is off,
-     * or to the place a result names.
+     * Moves to the satellite's next pass, showing its kind again where it is
+     * off, or to the place a result names. A satellite with no pass in the
+     * window moves nothing and leaves its kind as it stands.
      */
     const pick = (result: Result) => {
       if ('craft' in result) {
-        const { kind } = result.craft
-        if (!sky.traced[kind]) sky.trace([...sky.showing.value, kind])
-        sky.focusOn(result.craft)
+        const { pass } = result.craft
+        if (pass) {
+          if (!sky.traced[pass.kind]) sky.trace([...sky.showing.value, pass.kind])
+          sky.focusOn(pass)
+        }
       } else {
         const { label, latitude, longitude } = result.place
         sky.pick({ latitude, longitude }, label.split(',')[0])
       }
       words.value = ''
     }
+    const collection = computed(() => combobox.collection<Result>({
+      isItemDisabled : result => 'craft' in result && !result.craft.pass,
+      itemToValue    : valueOf,
+      items          : results.value
+    }))
     const shown   = computed(() => results.value.length > 0 || trouble.value !== null)
     const id      = useId()
     const service = useMachine(combobox.machine, computed(() => ({
       allowCustomValue  : true,
-      collection        : combobox.collection<Result>({ itemToValue: valueOf, items: results.value }),
+      collection        : collection.value,
       id                : id,
       inputValue        : words.value,
       open              : shown.value,
@@ -144,7 +153,7 @@ export default defineComponent(
         if (items[0]) pick(items[0])
       }
     })))
-    const search = computed(() => combobox.connect(service, normalizeProps))
+    const box = computed(() => combobox.connect(service, normalizeProps))
 
     return () => (
       <form
@@ -152,13 +161,14 @@ export default defineComponent(
         role="search"
         onSubmit={(event: SubmitEvent) => {
           event.preventDefault()
-          if (results.value[0]) pick(results.value[0])
+          const first = collection.value.find(collection.value.firstValue)
+          if (first) pick(first)
         }}
         onKeydown={(event: KeyboardEvent) => { if (event.key === 'Escape') words.value = '' }}
       >
-        <label {...search.value.getLabelProps()} class="sr-only">Search for a place or a satellite</label>
+        <label {...box.value.getLabelProps()} class="sr-only">Search for a place or a satellite</label>
         <input
-          {...search.value.getInputProps()}
+          {...box.value.getInputProps()}
           type="search"
           placeholder="Search for a place or a satellite"
           class="h-9 min-w-0 flex-1 rounded-sm border border-rule bg-lift px-2.5 text-sm outline-none
@@ -174,20 +184,21 @@ export default defineComponent(
         </button>
         {shown.value && (
           <ul
-            {...search.value.getContentProps()}
+            {...box.value.getContentProps()}
             class="absolute inset-x-0 top-full z-20 mt-1 rounded-sm border border-rule bg-lift py-1 text-sm
                    shadow-md"
           >
             {crafts.value.map(craft => (
-              <li key={craft.id} role="presentation">
+              <li key={craft.satellite.id} role="presentation">
                 <button
                   type="button"
-                  {...search.value.getItemProps({ item: { craft } })}
+                  {...box.value.getItemProps({ item: { craft } })}
                   class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left text-base
                          hover:bg-panel data-highlighted:bg-panel max-sm:min-h-11"
                 >
-                  <Icon name={craft.kind} />
-                  <SatelliteName name={craft.name} class="truncate" />
+                  <Icon name={craft.satellite.kind} />
+                  <SatelliteName name={craft.satellite.name} class="truncate" />{' '}
+                  <span class="ml-auto shrink-0 text-soft">{noteOf(craft)}</span>
                 </button>
               </li>
             ))}
@@ -195,14 +206,15 @@ export default defineComponent(
               <li role="presentation" class="px-2.5 py-1.5 text-soft">{trouble.value}</li>
             )}
             {found.value.map(place => (
-              <li key={place.label} role="presentation">
+              <li key={place.key} role="presentation">
                 <button
                   type="button"
-                  {...search.value.getItemProps({ item: { place } })}
+                  {...box.value.getItemProps({ item: { place } })}
                   class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left hover:bg-panel
                          data-highlighted:bg-panel max-sm:min-h-11"
                 >
-                  <Icon name="place" class="text-soft" /><span class="truncate">{place.label}</span>
+                  <Icon name="place" class="text-soft" /><span class="truncate">{place.label}</span>{' '}
+                  {place.kind && <span class="ml-auto shrink-0 text-soft">{place.kind}</span>}
                 </button>
               </li>
             ))}
