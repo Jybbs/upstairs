@@ -99,7 +99,7 @@ vi.mock('../../lib/map/overlay.ts', async () => {
       draw       = draw
       gather     = gather
       invalidate = invalidate
-      labels     = [{ latitude: 0, longitude: TOWN, name: 'Town', tier: 'city' }]
+      labels     = [] as unknown[]
       onMap      = new Uint16Array()
       view       = new View()
       constructor(_lower: unknown, _upper: unknown, state: typeof drawn.state) {
@@ -228,7 +228,7 @@ it.each([
   ['once the map rests 200 ms after a run of moves', ['moveend', 'movestart', 'moveend'], [0, 1]],
   ['never while a move starts within 200 ms of the last', ['moveend', 'movestart'], [0, 0]],
   ['once after the tiles in view load', ['idle'], [0, 1]]
-])('reads the names in view %s', async (_, events, reads) => {
+])('reads and draws the names in view %s', async (_, events, reads) => {
   await mounted()
   vi.useFakeTimers()
   queried.mockClear()
@@ -237,10 +237,11 @@ it.each([
     vi.advanceTimersByTime(199)
   }
   const before = placeReads()
+  invalidate.mockClear()
   vi.advanceTimersByTime(1)
   const after  = placeReads()
   vi.useRealTimers()
-  expect([before, after]).toEqual(reads)
+  expect([before, after, invalidate.mock.calls.length]).toEqual([...reads, reads[1] - reads[0]])
 })
 
 it('links the map sheet itself where the page holds only its preload, '

@@ -22,14 +22,17 @@ const batches = encode(FETCHED, Array.from(
   (_, copy) => full.map(record => ({ ...record, NORAD_CAT_ID: record.NORAD_CAT_ID + copy * 100_000 }))
 ).flat() as unknown as Record[])
 
-const built = vi.hoisted(() => ({ grids: 0, throws: false }))
+const built = vi.hoisted(() => ({ grids: 0, ready: Promise.resolve() as Promise<unknown>, throws: false }))
 
 vi.mock('../../../../../rust/pkg/orbit.js', async importOriginal => {
   const crate = await importOriginal<typeof import('../../../../../rust/pkg/orbit.js')>()
   const wasm  = new URL('../../../../../rust/pkg/orbit_bg.wasm', import.meta.url)
   return {
     ...crate,
-    default : async () => crate.default({ module_or_path: await readFile(wasm) }),
+    default : async () => {
+      await built.ready
+      return crate.default({ module_or_path: await readFile(wasm) })
+    },
     Grid    : class extends crate.Grid {
       constructor(...made: ConstructorParameters<typeof crate.Grid>) {
         super(...made)
@@ -74,6 +77,7 @@ const loaded = async (answer = () => new Response(file), helpers: MessagePort[] 
   heard        = []
   heed         = () => {}
   built.grids  = 0
+  built.ready  = Promise.resolve()
   built.throws = false
   scope        = {
     onmessage   : null,
@@ -299,5 +303,22 @@ describe('a catalog shared with a helper', () => {
     await first({ data: shares[1] })
     expect([heard, port.close.mock.calls.length])
       .toEqual([[{ count: shares[0].count, fetched: FETCHED, satellites: [], type: 'loaded' }], 1])
+  })
+
+  it('holds a share that arrives before its module is ready until the module is ready', async () => {
+    const { shares } = await shared()
+    let open         = () => {}
+    built.ready      = new Promise<void>(resolve => { open = resolve })
+    const port       = portOf()
+    const helper     = await started()
+    heard            = []
+    await helper({ from: port as unknown as MessagePort, type: 'follow' })
+    const held       = port.onmessage!({ data: shares[0] })
+    await new Promise(resolve => task(() => resolve(null)))
+    const early      = heard.length
+    open()
+    await held
+    expect([early, heard])
+      .toEqual([0, [{ count: shares[0].count, fetched: FETCHED, satellites: [], type: 'loaded' }]])
   })
 })
