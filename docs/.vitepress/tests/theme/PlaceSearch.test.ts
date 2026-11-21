@@ -298,7 +298,6 @@ it.each([
   vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(667)
   vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(390)
   vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(448)
-  vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(358)
   vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
     return this.matches('form') ? DOMRect.fromRect({ height: 44, width: 358, x: 16, y: top }) : new DOMRect()
   })
