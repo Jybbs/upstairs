@@ -31,7 +31,7 @@
 <a href="https://upstairs.fyi/data/"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/start/data-night.svg"><img src="../docs/public/start/data-day.svg" alt="Data" width="260" height="132"></picture></a>
 </p>
 
-The [map](https://upstairs.fyi/) itself is the site’s home page, and [CONTRIBUTING.md](CONTRIBUTING.md) lists the tasks, the checks a pull request passes, how a push to `main` deploys, and the labels an issue carries.
+The [map](https://upstairs.fyi/) itself is the site's home page, and [CONTRIBUTING.md](CONTRIBUTING.md) lists the tasks, the checks a pull request passes, how a push to `main` deploys, and the labels an issue carries.
 
 ---
 

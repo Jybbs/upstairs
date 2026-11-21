@@ -1,4 +1,7 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs'
+import { join }         from 'node:path'
+
 import { mount }                               from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -6,7 +9,14 @@ import * as guide         from '../../lib/site/guide.ts'
 import GuideFigures       from '../../theme/GuideFigures.tsx'
 import { stubMatchMedia } from '../common/stubs.ts'
 
+const SHEET = new CSSStyleSheet()
+SHEET.replaceSync(readFileSync(join(import.meta.dirname, '../../theme/guide.css'), 'utf8'))
 const SLOTS = Object.fromEntries(guide.PARTS.map(part => [part, () => `Opening on ${part}`]))
+const STACK = '.vp-doc :is(.guide-caption > span, .guide-opening)'
+
+const ruleOf = (selector: string, rules = SHEET.cssRules) =>
+  Array.from(rules)
+    .find(rule => rule instanceof CSSStyleRule && rule.selectorText === selector) as CSSStyleRule
 
 /**
  * Mounts the figures in the page, under reduced motion where `reduced` is set,
@@ -49,6 +59,32 @@ describe('the Guide’s figures', () => {
         `${at + 1}${guide.CONTROLS[part].title}Opening on ${part}`,
         part === 'strip' ? undefined : ''
       ]))
+  })
+
+  it('stacks every caption, leaving all but the chosen one inert', async () => {
+    const { wrapper } = await mounted('spot')
+    expect(wrapper.findAll('.guide-caption > span').map(caption => [caption.text(), caption.attributes('inert')]))
+      .toEqual(guide.PARTS.map((part, at) => [
+        `Fig. ${at + 1} · ${guide.CONTROLS[part].caption}`,
+        part === 'spot' ? undefined : ''
+      ]))
+  })
+
+  it.each([
+    { property: 'display',    selector: '.vp-doc .guide-caption', shows: 'lays the captions in a grid',
+      value: 'grid' },
+    { property: 'grid-area',  selector: STACK,                    shows: 'stands each caption and opening in one cell',
+      value: '1 / 1' },
+    { property: 'visibility', selector: `${STACK}[inert]`,        shows: 'hides each caption and opening not chosen',
+      value: 'hidden' }
+  ])('$shows', ({ property, selector, value }) =>
+    expect(ruleOf(selector).style.getPropertyValue(property)).toBe(value))
+
+  it('stops the rail’s transitions under reduced motion', () => {
+    const media = Array.from(SHEET.cssRules).find(rule =>
+      rule instanceof CSSMediaRule && rule.conditionText === '(prefers-reduced-motion: reduce)') as CSSMediaRule
+    expect(ruleOf('.vp-doc :is(.guide-row, .guide-slide-move, .guide-slide-enter-active)', media.cssRules)
+      .style.getPropertyValue('transition')).toBe('none')
   })
 
   it('focuses the stage once a row is chosen', async () => {

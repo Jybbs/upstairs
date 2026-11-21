@@ -18,8 +18,9 @@ const GROWTH = {
  * Opens the Guide on a figure of each control it describes, one section's
  * figure and opening words large beside a rail of the other sections, each a
  * miniature beside its heading. Choosing a row grows its figure out of the
- * raised control into the whole screen, and every section's words stand in
- * one cell, so the block keeps one size whichever section it shows. Each slot
+ * raised control into the whole screen, and every section's caption and words
+ * stand in one cell each, so the block keeps one size whichever section it
+ * shows. Each slot
  * named for a control holds its section's opening words.
  */
 export default defineComponent(
@@ -67,7 +68,9 @@ export default defineComponent(
                 <div ref={frame} class="guide-zoom"><Locator part={chosen.value} /></div>
               </div>
               <figcaption class="caps guide-caption">
-                Fig. {numberOf(chosen.value)} · {guide.CONTROLS[chosen.value].caption}
+                {guide.PARTS.map(part => (
+                  <span inert={chosen.value !== part}>Fig. {numberOf(part)} · {guide.CONTROLS[part].caption}</span>
+                ))}
               </figcaption>
             </figure>
             <div class="guide-words">

@@ -34,12 +34,13 @@ beforeEach(() => {
 
 it('takes each step in turn once the drawing comes into view, then stops', async () => {
   const { taken } = await played()
+  const idle      = vi.getTimerCount()
   await vi.advanceTimersByTimeAsync(500)
   view(false)
   await vi.advanceTimersByTimeAsync(500)
   view()
   await vi.advanceTimersByTimeAsync(1_000)
-  expect(taken).toEqual([2, 0, 1])
+  expect([taken, vi.getTimerCount()]).toEqual([[2, 0, 1], idle])
 })
 
 it.each(['pointerdown', 'pointermove', 'keydown'])('stops at a %s on the drawing', async type => {

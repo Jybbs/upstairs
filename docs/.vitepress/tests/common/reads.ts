@@ -26,6 +26,7 @@ export const READS: Record<string, string[]> = {
   'docs/.vitepress/tests/lib/site/sections.test.ts'   : ['docs/*/index.md'],
   'docs/.vitepress/tests/lib/site/start.test.ts'      : ['docs/public/start/*.svg'],
   'docs/.vitepress/tests/theme/Credits.test.ts'       : ['docs/data/index.md'],
+  'docs/.vitepress/tests/theme/GuideFigures.test.ts'  : ['docs/.vitepress/theme/guide.css'],
   'docs/.vitepress/tests/theme/NotFound.test.ts'      : ['docs/.vitepress/theme/credit.css'],
   'docs/.vitepress/tests/theme/style.test.ts'         : ['docs/.vitepress/theme/style.css'],
   'docs/.vitepress/tests/tools/audit.test.ts'         : ['.mise/tasks/lock/audit'],
