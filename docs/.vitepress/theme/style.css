@@ -19,6 +19,7 @@
 
   --shadow-lift : 0 1px 2px rgb(0 0 0 / 0.12), 0 4px 14px rgb(0 0 0 / 0.12);
 
+  --spacing-inset   : 1rem;
   --spacing-readout : 360px;
 
   --animate-land   : land 360ms linear 1;
@@ -84,6 +85,11 @@ html.dark { --chosen-tint: 26%; }
 }
 
 .VPNavBar.home .divider-line { background-color: var(--vp-nav-divider-color); }
+
+/* The map pages run the bar's contents to the window's edges at the inset the map's controls keep */
+:is(.VPNavBar.home, .Layout:has([data-not-found]) .VPNavBar) .wrapper { padding-inline: var(--spacing-inset); }
+
+:is(.VPNavBar.home, .Layout:has([data-not-found]) .VPNavBar) .container { max-width: none; }
 
 .VPNavBar .content-body .VPNavBarMenu { display: flex; }
 

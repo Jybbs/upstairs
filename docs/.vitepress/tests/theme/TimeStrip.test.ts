@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { mount, type VueWrapper }         from '@vue/test-utils'
 import { expect, it, onTestFinished, vi } from 'vitest'
-import { ref }                            from 'vue'
+import { nextTick, ref }                  from 'vue'
 
 import { TRACK_WIDTH, type Pass } from '../../lib/orbit/scan.ts'
 import type { sky as Sky }        from '../../lib/state/sky.ts'
@@ -414,15 +414,19 @@ it('grays the strip while the credit stands open and closes it on a press of the
   const { sky, wrapper } = await mounted(false)
   const strip            = wrapper.get('[aria-label="Time within the window"]')
   const grayed           = () => [sky.credit.open.value, strip.classes().includes('grayscale')]
-  expect(grayed()).toEqual([true, true])
+  const loaded           = grayed()
+  sky.credit.toggle(true)
+  await nextTick()
+  const opened           = grayed()
   await wrapper.get('button').trigger('pointerdown')
-  expect(grayed()).toEqual([false, false])
+  expect([loaded, opened, grayed()]).toEqual([[false, false], [true, true], [false, false]])
 })
 
 it.each(['credit-panel', 'credit-ring'])('keeps the credit open on a press of its %s', async name => {
   const { sky, wrapper } = await mounted(false)
   const part             = document.createElement('div')
   part.className         = name
+  sky.credit.toggle(true)
   wrapper.get('section').element.append(part)
   part.dispatchEvent(new Event('pointerdown', { bubbles: true }))
   expect(sky.credit.open.value).toBe(true)

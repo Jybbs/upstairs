@@ -275,14 +275,15 @@ export default defineComponent(
 
     return () => (
       <main
+        data-not-found
         class="relative flex min-h-[calc(100dvh-var(--vp-nav-height))] flex-col overflow-hidden bg-page
                lg:grid lg:grid-cols-[440px_minmax(0,1fr)]"
       >
         <div
           ref={panel}
           class="relative z-10 -mt-4 flex flex-1 flex-col gap-6 rounded-t-xl border-t border-rule bg-panel
-                 px-5 pt-3 pb-6 md:contents lg:col-start-1 lg:row-start-1 lg:mt-0 lg:flex lg:rounded-none
-                 lg:border-t-0 lg:border-r lg:px-8 lg:py-10"
+                 px-inset pt-3 pb-6 md:contents lg:col-start-1 lg:row-start-1 lg:mt-0 lg:flex lg:rounded-none
+                 lg:border-t-0 lg:border-r lg:py-10"
         >
           <span class="mx-auto h-1 w-9 rounded-full bg-dim md:hidden" aria-hidden="true" />
           {mounted.value && phone.value && (
@@ -296,7 +297,7 @@ export default defineComponent(
           <div
             ref={words}
             class="grid justify-items-start gap-2.5 md:order-first md:grid-cols-[auto_minmax(0,1fr)]
-                   md:items-center md:gap-x-10 md:border-b md:border-rule md:bg-panel md:px-6 md:py-6
+                   md:items-center md:gap-x-10 md:border-b md:border-rule md:bg-panel md:px-inset md:py-6
                    lg:grid-cols-1 lg:items-stretch lg:gap-y-6 lg:border-0 lg:bg-transparent lg:p-0"
           >
             <p
@@ -331,7 +332,7 @@ export default defineComponent(
             ref={strip}
             inert={covered.value}
             class="credit-covered md:absolute md:inset-x-0 md:bottom-0 md:z-10 md:border-t md:border-rule
-                   md:bg-panel/95 md:px-6 md:py-4 lg:static lg:mt-auto lg:border-0 lg:bg-transparent lg:p-0"
+                   md:bg-panel/95 md:px-inset md:py-4 lg:static lg:mt-auto lg:border-0 lg:bg-transparent lg:p-0"
           >
             <Strip crossed={crossed.value} />
           </div>
@@ -360,9 +361,9 @@ export default defineComponent(
           {mounted.value && !phone.value && (
             <div
               ref={foot}
-              class="credit-unveiled absolute right-6 z-20 flex h-24 w-[min(calc(100%-48px),1040px)]
-                     items-center justify-end"
-              style={{ bottom: `${lift.value + 24}px` }}
+              class="credit-unveiled absolute right-inset z-20 flex h-24
+                     w-[min(calc(100%-2*var(--spacing-inset)),1040px)] items-center justify-end"
+              style={{ bottom: `calc(${lift.value}px + var(--spacing-inset))` }}
             >
               <Credit />
             </div>

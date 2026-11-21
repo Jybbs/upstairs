@@ -48,9 +48,9 @@ export default defineComponent(
         {phone.value
           ? <Sheet data-label-clear />
           : [
-            <Readout class="absolute top-4 left-4 z-10 w-readout" data-label-clear />,
+            <Readout class="absolute top-inset left-inset z-10 w-readout" data-label-clear />,
             <TimeStrip
-              class="absolute inset-x-4 bottom-4 z-10 rounded-sm border shadow-lift"
+              class="absolute inset-x-inset bottom-inset z-10 rounded-sm border shadow-lift"
               data-label-clear
             />
           ]}
@@ -62,7 +62,7 @@ export default defineComponent(
         leaveToClass="translate-y-[calc(100%+8px)]"
       >
         {sky.choosing.value === 'open' && (
-          <SpotChooser class="absolute bottom-0 z-20 max-sm:inset-x-0 sm:left-4 sm:w-readout" />
+          <SpotChooser class="absolute bottom-0 z-20 max-sm:inset-x-0 sm:left-inset sm:w-readout" />
         )}
       </Transition>
     ]

@@ -71,6 +71,21 @@ it('leaves a spot found through Near me out of the address', async () => {
   expect(location.hash).toBe('')
 })
 
+it('sets the notice of a declined location in the flow under the search, until Near me is pressed again', async () => {
+  let answer: 'decline' | 'share' = 'decline'
+  const coords                    = { latitude: 51.50073, longitude: -0.12463 }
+  const asked                     = (found: PositionCallback, failed: PositionErrorCallback) =>
+    answer === 'share' ? found({ coords } as GeolocationPosition) : failed({} as GeolocationPositionError)
+  vi.stubGlobal('navigator', { geolocation: { getCurrentPosition: asked } })
+  const { wrapper } = await mounted()
+  const notice      = () => wrapper.find('form + p[role="status"]')
+  await wrapper.get('button').trigger('click')
+  const shown       = [notice().text(), wrapper.find('[role="listbox"]').exists()]
+  answer            = 'share'
+  await wrapper.get('button').trigger('click')
+  expect([...shown, notice().exists()]).toEqual(['The browser did not share a location.', false, false])
+})
+
 it('lists each satellite the words typed name by its next rise, and holds the pass chosen', async () => {
   const passes           = [
     passOf(25544, { key: '25544/2000', name: 'ISS (ZARYA)', peak: 70, riseAt: 2000, setAt: 2600 }),

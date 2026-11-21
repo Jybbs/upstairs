@@ -112,16 +112,6 @@ const GROUPS: readonly Group[] = [
 ]
 
 /**
- * How long the credit stays open once the line `line` selects arrives, and
- * the events on the map that close it sooner.
- */
-export const HOLD = {
-  events : ['keydown', 'pointerdown', 'wheel'],
-  line   : '[href*="openstreetmap.org"]',
-  wait   : 5000
-}
-
-/**
  * The links among the credits' lines, each line read as the HTML a source
  * writes it in.
  */
@@ -199,53 +189,31 @@ export const pitchOf = (panel: HTMLElement, mode: 'phone' | 'tablet' | 'wide') =
 
 /**
  * The map's credit: the lines it reads, the groups they sort into, and
- * whether it stands open over the strip. Held open as the map loads, it
- * closes once the reader presses, scrolls, or types on the map, or `wait`
- * milliseconds after the line `line` selects arrives, whichever comes first.
- * Once the reader presses the credit itself, it stays as the reader sets it
- * until a drag of the map closes it.
+ * whether it stands open. It stays closed until the reader presses it, then
+ * stays as the reader sets it until a drag of the map closes it.
  */
 export class Credit {
   readonly lines  = shallowRef<readonly string[]>(CREDITS)
-  readonly open   = ref(true)
+  readonly open   = ref(false)
   readonly groups = computed(() => groupsOf(this.lines.value))
-  private held    = new AbortController()
 
-  readonly close = () => {
-    this.held.abort()
-    this.open.value = false
-  }
+  readonly close = () => { this.open.value = false }
 
   /**
-   * Opens the credit on a map and holds it open, following the lines the
-   * map's sources carry.
+   * Follows the lines the sources of `map` carry, closing the credit as the
+   * map is dragged.
    */
-  hold(map: Map, hold = HOLD) {
-    this.held.abort()
-    const held = this.held = new AbortController()
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const read = () => {
-      this.lines.value = linesOf(map)
-      if (timer !== undefined || held.signal.aborted) return
-      const arrived = linksOf(this.lines.value).some(link => link.matches(hold.line))
-      if (arrived) timer = setTimeout(this.close, hold.wait)
-    }
-    this.open.value = true
-    held.signal.addEventListener('abort', () => clearTimeout(timer))
-    for (const type of hold.events) {
-      map.getCanvasContainer().addEventListener(type, this.close, { signal: held.signal })
-    }
+  hold(map: Map) {
+    const read = () => { this.lines.value = linesOf(map) }
     map.on('sourcedata', read)
     map.on('dragstart', this.close)
-    map.once('remove', () => held.abort())
     read()
   }
 
   /**
-   * Opens or closes the credit as the reader sets it, ending the hold.
+   * Opens or closes the credit as the reader sets it.
    */
   toggle(open = !this.open.value) {
-    this.held.abort()
     this.open.value = open
   }
 }

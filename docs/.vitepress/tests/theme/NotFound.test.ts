@@ -233,12 +233,12 @@ it.each([
 })
 
 it.each([
-  ['over the sheet’s lip from 640 px', 40, 40],
-  ['over the strip from 768 px', 48, 120],
-  ['at the map’s foot from 1024 px', 64, 24]
-])('sets the credit’s box 24 px %s', async (_, width, bottom) => {
+  ['over the sheet’s lip from 640 px', 40, 16],
+  ['over the strip from 768 px', 48, 96],
+  ['at the map’s foot from 1024 px', 64, 0]
+])('sets the credit’s box one inset %s', async (_, width, lift) => {
   const { wrapper } = await mounted(false, OVER, false, width)
-  expect(wrapper.get(BOX).attributes('style')).toBe(`bottom: ${bottom}px;`)
+  expect(wrapper.get(BOX).attributes('style')).toBe(`bottom: calc(${lift}px + var(--spacing-inset));`)
 })
 
 it.each([
@@ -266,6 +266,8 @@ it.each([
 ])('%s', async (_, phone, inert) => {
   const { sky, wrapper } = await mounted(false, BELOW, phone)
   const strip            = () => wrapper.get('.credit-covered').element.hasAttribute('inert')
+  sky.credit.toggle(true)
+  await flushPromises()
   const open             = strip()
   sky.credit.toggle(false)
   await flushPromises()

@@ -36,22 +36,26 @@ Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
 
 beforeEach(() => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }))
 
-it('opens and closes the band on a press of the ring, emitting open as it opens', async () => {
-  const { sky, wrapper } = await mounted()
-  const ring             = wrapper.get('.credit-ring')
-  const panel            = wrapper.get('.credit-panel')
-  await ring.trigger('click')
-  expect([sky.credit.open.value, ring.attributes('aria-expanded'), panel.attributes('inert')])
-    .toEqual([false, 'false', ''])
-  await ring.trigger('click')
-  expect([wrapper.get('.credit').attributes('data-credit'), wrapper.emitted('open')]).toEqual(['open', [[]]])
-})
+it('stands closed on load, then opens and closes the band on a press of the ring, emitting open as it opens',
+  async () => {
+    const { sky, wrapper } = await mounted()
+    const ring             = wrapper.get('.credit-ring')
+    const panel            = wrapper.get('.credit-panel')
+    const read             = () => [sky.credit.open.value, ring.attributes('aria-expanded'), panel.attributes('inert')]
+    const loaded           = read()
+    await ring.trigger('click')
+    const opened           = [wrapper.get('.credit').attributes('data-credit'), wrapper.emitted('open')]
+    await ring.trigger('click')
+    expect([loaded, opened, read()]).toEqual([[false, 'false', ''], ['open', [[]]], [false, 'false', '']])
+  })
 
 it.each([
   ['inside the band', '.credit-track'],
   ['on the strip it lies over', '.beside']
 ])('closes on Escape %s and returns the focus to the ring', async (_, selector) => {
   const { sky, strip, wrapper } = await mounted()
+  sky.credit.toggle(true)
+  await flushPromises()
   strip.querySelector(selector)!.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }))
   await flushPromises()
   expect([sky.credit.open.value, document.activeElement])

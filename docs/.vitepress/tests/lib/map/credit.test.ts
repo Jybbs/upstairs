@@ -16,21 +16,18 @@ const DATA = readFileSync(resolve(import.meta.dirname, '../../../../data/index.m
  * beside a source carrying none, recording each listener it takes.
  */
 const mapOf = (carrying = ['base']) => {
-  const canvas = document.createElement('div')
-  const fired  = new globalThis.Map<string, () => void>()
-  const base   = { attribution: '' }
-  const map    = {
-    getCanvasContainer : () => canvas,
-    getSource          : (id: string) => carrying.includes(id) ? base : undefined,
-    getStyle           : () => ({ sources: Object.fromEntries([...carrying, 'dem'].map(id => [id, {}])) }),
-    on                 : (type: string, listener: () => void) => fired.set(type, listener),
-    once               : (type: string, listener: () => void) => fired.set(type, listener)
+  const fired = new globalThis.Map<string, () => void>()
+  const base  = { attribution: '' }
+  const map   = {
+    getSource : (id: string) => carrying.includes(id) ? base : undefined,
+    getStyle  : () => ({ sources: Object.fromEntries([...carrying, 'dem'].map(id => [id, {}])) }),
+    on        : (type: string, listener: () => void) => fired.set(type, listener)
   }
   const arrive = () => {
     base.attribution = TILES
     fired.get('sourcedata')!()
   }
-  return { arrive, canvas, fired, map: map as unknown as Map }
+  return { arrive, fired, map: map as unknown as Map }
 }
 
 it.each(credit.CREDITS)('links %s to a section or a seal the Data page carries', line => {
@@ -63,23 +60,20 @@ describe('the groups of the credit', () => {
   })
 })
 
-describe('the credit held open as the map loads', () => {
+describe('the credit as the map loads', () => {
   let held: ReturnType<typeof mapOf>
   let shown: credit.Credit
 
   beforeEach(() => {
-    vi.useFakeTimers()
     held  = mapOf()
     shown = new credit.Credit()
-    shown.open.value = false
     shown.hold(held.map)
   })
-  afterEach(() => vi.useRealTimers())
 
-  it('opens and reads the lines the map credits', () => {
-    expect([shown.open.value, shown.lines.value]).toEqual([true, credit.CREDITS])
+  it('stays closed and reads the lines the map credits', () => {
+    expect([shown.open.value, shown.lines.value]).toEqual([false, credit.CREDITS])
     held.arrive()
-    expect(shown.lines.value).toEqual([...credit.CREDITS, TILES])
+    expect([shown.open.value, shown.lines.value]).toEqual([false, [...credit.CREDITS, TILES]])
   })
 
   it('reads a credit two sources carry once', () => {
@@ -89,37 +83,8 @@ describe('the credit held open as the map loads', () => {
     expect(shown.lines.value).toEqual([...credit.CREDITS, TILES])
   })
 
-  it('stays open until the OpenStreetMap line arrives', () => {
-    vi.advanceTimersByTime(credit.HOLD.wait * 4)
-    expect(shown.open.value).toBe(true)
-  })
-
-  it('closes five seconds after the OpenStreetMap line arrives', () => {
-    held.arrive()
-    vi.advanceTimersByTime(4999)
-    expect(shown.open.value).toBe(true)
-    vi.advanceTimersByTime(1)
-    expect(shown.open.value).toBe(false)
-  })
-
-  it('keeps one timer as the map sends more source data, so a press of the credit still holds it', () => {
-    held.arrive()
-    held.fired.get('sourcedata')!()
-    shown.toggle(true)
-    vi.advanceTimersByTime(credit.HOLD.wait)
-    expect(shown.open.value).toBe(true)
-  })
-
-  it.each(credit.HOLD.events)('closes as soon as the reader sends a %s to the map', type => {
-    held.canvas.dispatchEvent(new Event(type))
-    expect(shown.open.value).toBe(false)
-  })
-
-  it('stays as the reader sets it once the reader presses it', () => {
-    shown.toggle(true)
-    held.arrive()
-    held.canvas.dispatchEvent(new Event('pointerdown'))
-    vi.advanceTimersByTime(credit.HOLD.wait)
+  it('opens and closes as the reader presses it', () => {
+    shown.toggle()
     expect(shown.open.value).toBe(true)
     shown.toggle()
     expect(shown.open.value).toBe(false)
@@ -129,20 +94,6 @@ describe('the credit held open as the map loads', () => {
     shown.toggle(true)
     held.fired.get('dragstart')!()
     expect(shown.open.value).toBe(false)
-  })
-
-  it('ends the first hold once a second map takes the credit', () => {
-    held.arrive()
-    shown.hold(mapOf().map)
-    vi.advanceTimersByTime(credit.HOLD.wait)
-    expect(shown.open.value).toBe(true)
-  })
-
-  it('ends the hold once the map is removed', () => {
-    held.fired.get('remove')!()
-    held.arrive()
-    vi.advanceTimersByTime(credit.HOLD.wait)
-    expect(shown.open.value).toBe(true)
   })
 })
 
