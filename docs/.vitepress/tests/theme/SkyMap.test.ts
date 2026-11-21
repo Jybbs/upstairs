@@ -113,7 +113,7 @@ const mounted = async (error: Error | null = null, props = {}) => {
   thrown.value = error
   caught.mockClear()
   handlers.clear()
-  stubMatchMedia(() => false)
+  const turn = stubMatchMedia(() => false)
   vi.stubGlobal('requestAnimationFrame', frame)
   Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } })
   document.head.append(Object.assign(document.createElement('link'), { href: SHEETS.map.href }))
@@ -124,7 +124,7 @@ const mounted = async (error: Error | null = null, props = {}) => {
   sky.tracks.add([pass], new Float32Array(2 * TRACK_WIDTH), Uint32Array.of(0), 2)
   cameraForBounds.mockClear()
   easeTo.mockClear()
-  return { SkyMap, pass, sky, wrapper }
+  return { SkyMap, pass, sky, turn, wrapper }
 }
 
 it('holds the credit open over the map it makes', async () => {
@@ -364,4 +364,17 @@ it('places the names again once a marked panel changes size', async () => {
   resized.run()
   expect([resized.targets.at(-1), invalidate.mock.calls.length])
     .toEqual([wrapper.get('[aria-label="Zoom"]').element, 1])
+})
+
+it('reads the marked panels again once the page turns to a phone’s width', async () => {
+  const observed: Element[] = []
+  vi.stubGlobal('ResizeObserver', class {
+    disconnect() {}
+    observe(target: Element) { observed.push(target) }
+  })
+  const { turn } = await mounted()
+  const before   = observed.length
+  turn(true)
+  await flushPromises()
+  expect(observed.length).toBeGreaterThan(before)
 })

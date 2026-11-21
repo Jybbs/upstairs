@@ -31,12 +31,18 @@ export const stubCanvas = () => {
 
 /**
  * Stands in for `matchMedia`, answering each query with what `matching` returns
- * for it and taking listeners it never calls.
+ * for it, and returns a function that calls every listener it took with the
+ * `matches` it is given.
  */
-export const stubMatchMedia = (matching: (query: string) => boolean) =>
+export const stubMatchMedia = (matching: (query: string) => boolean) => {
+  const heard: ((event: { matches: boolean }) => void)[] = []
   vi.stubGlobal('matchMedia', (query: string) => ({
-    addEventListener() {}, matches: matching(query), removeEventListener() {}
+    addEventListener    : (_type: string, hear: (event: { matches: boolean }) => void) => heard.push(hear),
+    matches             : matching(query),
+    removeEventListener : () => {}
   }))
+  return (matches: boolean) => heard.forEach(hear => hear({ matches }))
+}
 
 /**
  * Stands in for the module of the theme component `name`, exporting a

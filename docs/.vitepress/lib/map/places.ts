@@ -256,9 +256,9 @@ export class Layout {
 
   /**
    * Keeps each word in order, up to `most`, at the first of `room.nudges` that
-   * holds it inside the view, clear of `blocked` and the track, and `room.gap`
-   * pixels clear of each word kept before it, passing over a word no nudge
-   * makes room for.
+   * holds it inside the view, clear of `blocked`, the track, and the ring's
+   * line, and `room.gap` pixels clear of each word kept before it, passing over
+   * a word no nudge makes room for.
    */
   place(blocked: readonly Box[], most: number): Placed[] {
     const { room }       = this

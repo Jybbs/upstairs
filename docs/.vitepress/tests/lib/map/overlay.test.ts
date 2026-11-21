@@ -12,14 +12,16 @@ import { passOf }               from '../../common/passes.ts'
 import { canvasWith }           from '../../common/stubs.ts'
 
 /**
- * A text a canvas filled: its alpha, style, font, and letter spacing, the
- * `row` it was set at, and the column and row its transform last moved to.
+ * A text a canvas filled: its alpha, style, font, letter spacing, and halo's
+ * width, the `row` it was set at, and the column and row its transform last
+ * moved to.
  */
 interface Filled {
   alpha   : number
   at      : number
   down    : number
   font    : unknown
+  halo    : unknown
   row     : number
   spacing : unknown
   style   : unknown
@@ -697,6 +699,7 @@ it.each([
  * order of its path calls.
  */
 const pageOf = () => {
+  const circles: number[][]                         = []
   const cleared: number[]                           = []
   const filled: { alpha: number, height: number }[] = []
   const paths: string[]                             = []
@@ -709,9 +712,10 @@ const pageOf = () => {
     arc       : () => { paths.push('arc') },
     clearRect : () => { cleared.push(1) },
     clip      : () => { paths.push('clip') },
-    createRadialGradient : () => ({
-      addColorStop: (offset: number, color: string) => stops.push([offset, color])
-    }),
+    createRadialGradient : (...circle: number[]) => {
+      circles.push(circle)
+      return { addColorStop: (offset: number, color: string) => stops.push([offset, color]) }
+    },
     fillRect  : (_x: number, _y: number, _width: number, height: number) =>
       filled.push({ alpha: context.globalAlpha as number, height }),
     fillText  : (text: string, _x: number, y: number) =>
@@ -720,6 +724,7 @@ const pageOf = () => {
         at      : at,
         down    : down,
         font    : context.font,
+        halo    : context.lineWidth,
         row     : y,
         spacing : context.letterSpacing,
         style   : context.fillStyle,
@@ -732,7 +737,7 @@ const pageOf = () => {
     setTransform : (...matrix: number[]) => { [at, down] = [matrix[4], matrix[5]] }
   }
   const { canvas, context } = canvasWith(calls)
-  return { canvas, cleared, filled, paths, rects, stops, texts }
+  return { canvas, circles, cleared, filled, paths, rects, stops, texts }
 }
 
 /**
@@ -787,7 +792,8 @@ it.each([
 it.each([
   ['sets the larger faces from 1280 px', ALBANY, 1280, '500 15.5px', '0px'],
   ['sets the smaller faces below 1280 px', ALBANY, 1279, '13px', '0px'],
-  ['spaces a region’s capitals closer below 1280 px', MAINE, 1279, '500 10.5px', '1.6px']
+  ['spaces a region’s capitals closer below 1280 px', MAINE, 1279, '500 10.5px', '1.6px'],
+  ['sets a water in smaller unspaced italics below 1280 px', GULF, 1279, 'italic 13px', '0px']
 ])('%s', (_, label, width, size, spacing) => {
   const [set] = namedAt([label], { width }).still.texts
   expect([String(set.font).startsWith(size), set.spacing]).toEqual([true, spacing])
@@ -795,6 +801,13 @@ it.each([
 
 it('eases the veil in from clear at the ring to the page’s tone', () =>
   expect(namedAt([]).moving.stops).toEqual([[0, `${SCHEMES.day.page}00`], [1, SCHEMES.day.page]]))
+
+it('eases the veil in from 1.5 px past the ring across 0.9 of its radius', () => {
+  const { moving, overlay } = namedAt([])
+  const radius              = 290 * overlay.view.scale(BOSTON.latitude)
+  const [, , from, , , to]  = moving.circles[0]
+  expect([from - radius, (to - from) / radius]).toEqual([expect.closeTo(1.5), expect.closeTo(0.9)])
+})
 
 it.each([
   ['sets no caption on a ring 56 px across or less', 3, 0],
@@ -822,6 +835,20 @@ it('sets the ring’s caption letter by letter over the veil, and leaves both of
   expect(ringed.moving.texts.map(({ text }) => text).join('')).toBe('60° UP AT 550 KM')
   expect(ringed.moving.filled).toEqual([{ alpha: 0.4, height: 800 }])
   expect([bare.moving.texts, bare.moving.filled, ringed.still.texts]).toEqual([[], [], []])
+})
+
+it('sets the caption in the 10 px mono, 1.4 px between letters', () => {
+  const caption = namedAt([]).moving.texts
+  const gaps    = caption.slice(1).map(({ at, down }, index) =>
+    Math.hypot(at - caption[index].at, down - caption[index].down))
+  expect([caption.every(({ font }) => String(font).startsWith('500 10px')), gaps])
+    .toEqual([true, gaps.map(() => expect.closeTo(8.4, 1))])
+})
+
+it('strokes each name and each of the caption’s letters with a 3.5 px halo', () => {
+  const { moving, still } = namedAt([ALBANY])
+  expect([...still.texts, ...moving.texts].map(({ halo }) => halo))
+    .toEqual(Array(still.texts.length + moving.texts.length).fill(3.5))
 })
 
 it('leaves clear of the veil each name whose place stands inside the ring alone', () => {

@@ -193,6 +193,7 @@ describe('the names placed on the map', () => {
     ['keeps a word 6 px outside the ring’s line', 626, 300, [['Ring', 300]]],
     ['moves a word 5 px outside the ring’s line up off it', 625, 300, [['Ring', 292]]],
     ['keeps a word inside the ring', 500, 300, [['Ring', 300]]],
+    ['passes over a word 3 px inside the ring’s line', 577, 300, []],
     ['moves a word down off the ring’s line into the ring', 500, 205, [['Ring', 213]]]
   ])('%s', (_, x, y, kept) => {
     const ring = new places.Layout(lineOf(), view, [wordAt('Ring', x, y)], { radius: 100, x: 500, y: 300 })
