@@ -16,6 +16,7 @@ const CHECKED = [
   'run', 'site:lint', ':::', 'site:typecheck', ':::', 'site:affected', ':::', 'crate:affected'
 ]
 const CONFIG  = '.mise/config.toml'
+const DENY    = 'rust/.cargo/deny.toml'
 const LOCK    = '.mise/mise.lock'
 const PHOTON  = 'docs/.vitepress/tests/fixtures/photon.json'
 const RECORDS = 'docs/.vitepress/tests/fixtures/records.json'
@@ -35,6 +36,7 @@ const SEEDED  = {
   [ANSWERS]         : '{}\n',
   [PHOTON]          : '{}\n',
   [RECORDS]         : '[]\n',
+  [DENY]            : '\n',
   'rust/src/lib.rs' : '\n'
 }
 
@@ -247,10 +249,14 @@ describe.concurrent('crate:affected', () => {
     ['an untracked file under rust/', edit('rust/src/added.rs'), true],
     ['an edit to the records', edit(RECORDS), true],
     ['an edit to the known answers', edit(ANSWERS), true],
+    ['an edit under rust/ beside one under rust/.cargo/', edit(DENY, 'rust/src/lib.rs'), true],
     ['no change', edit(), false],
     ['an edit and an untracked file outside rust/ and the fixtures', edit('README.md', 'docs/new.md'), false],
     ['an edit to another fixture', edit(PHOTON), false],
     ['a build of the crate under the ignored rust/pkg/', edit('rust/pkg/orbit.js'), false],
+    ['a commit under rust/.cargo/', committed(edit(DENY)), false],
+    ['an uncommitted edit under rust/.cargo/', edit(DENY), false],
+    ['an untracked file under rust/.cargo/', edit('rust/.cargo/about.toml'), false],
     ['a commit under rust/ that only origin/main holds', advanced(edit('rust/src/lib.rs')), false],
     ['a moved rust pin in the config', pinned(rewritten(CONFIG, '1.91.0', '1.92.0')), true],
     ['a moved [[tools.rust]] table', pinned(rewritten(LOCK, '1.91.0', '1.92.0')), true],
