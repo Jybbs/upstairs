@@ -18,6 +18,7 @@ export const READS: Record<string, string[]> = {
   'docs/.vitepress/tests/lib/map/credit.test.ts'      : ['docs/data/index.md'],
   'docs/.vitepress/tests/lib/orbit/worker.test.ts'    : ['rust/pkg/orbit_bg.wasm'],
   'docs/.vitepress/tests/lib/site/cards.test.ts'      : ['docs/index.md', 'docs/*/index.md'],
+  'docs/.vitepress/tests/lib/site/guide.test.ts'      : ['docs/guide/index.md'],
   'docs/.vitepress/tests/lib/site/mark.test.ts'       : ['docs/public/{favicon,wordmark-*}.svg'],
   'docs/.vitepress/tests/lib/site/markdown.test.ts'   : ['docs/*.md', 'docs/*/*.md'],
   'docs/.vitepress/tests/lib/site/provenance.test.ts' : ['rust/Cargo.lock'],

@@ -26,12 +26,12 @@
 ## 📍 Start Here
 
 <p align="center">
-<a href="https://upstairs.fyi/"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/start/map-night.svg"><img src="../docs/public/start/map-day.svg" alt="Map" width="260" height="132"></picture></a>
 <a href="https://upstairs.fyi/guide/"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/start/guide-night.svg"><img src="../docs/public/start/guide-day.svg" alt="Guide" width="260" height="132"></picture></a>
 <a href="https://upstairs.fyi/method/"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/start/method-night.svg"><img src="../docs/public/start/method-day.svg" alt="Method" width="260" height="132"></picture></a>
+<a href="https://upstairs.fyi/data/"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/start/data-night.svg"><img src="../docs/public/start/data-day.svg" alt="Data" width="260" height="132"></picture></a>
 </p>
 
-[Data](https://upstairs.fyi/data/) names where the orbits, the map, and the place search come from and what each request sends, and [CONTRIBUTING.md](CONTRIBUTING.md) lists the tasks, the checks a pull request passes, how a push to `main` deploys, and the labels an issue carries.
+The [map](https://upstairs.fyi/) itself is the site’s home page, and [CONTRIBUTING.md](CONTRIBUTING.md) lists the tasks, the checks a pull request passes, how a push to `main` deploys, and the labels an issue carries.
 
 ---
 

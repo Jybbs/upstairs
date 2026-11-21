@@ -1,0 +1,205 @@
+.vp-doc .guide-figures {
+  --guide-fade    : 400ms;
+  --guide-glide   : cubic-bezier(0.65, 0, 0.35, 1);
+  --guide-slide   : 650ms;
+  --guide-stagger : 90ms;
+
+  margin         : 24px 0 8px;
+  container-type : inline-size;
+}
+
+.vp-doc .guide-block {
+  display : grid;
+  gap     : 12px;
+}
+
+.vp-doc .guide-stage {
+  display        : flex;
+  flex-direction : column;
+  gap            : 14px;
+  padding        : 14px;
+  border         : 1px solid var(--u);
+  border-radius  : 6px;
+  background     : var(--panel);
+  outline        : none;
+}
+
+.vp-doc .guide-figure { margin : 0; }
+
+.vp-doc .guide-frame {
+  overflow      : hidden;
+  border        : 1px solid var(--rule);
+  border-radius : 4px;
+}
+
+.vp-doc .guide-zoom svg {
+  display : block;
+  width   : 100%;
+  height  : auto;
+}
+
+.vp-doc .guide-caption {
+  display    : block;
+  margin-top : 8px;
+  color      : var(--soft);
+}
+
+.vp-doc .guide-words { display : grid; }
+
+.vp-doc .guide-opening {
+  grid-area   : 1 / 1;
+  font-size   : 17px;
+  line-height : 1.6;
+
+  p { margin : 0 0 12px; }
+
+  p:last-child { margin-bottom : 0; }
+}
+
+.vp-doc .guide-opening[inert] { visibility : hidden; }
+
+.vp-doc .guide-figures a.guide-title {
+  display        : flex;
+  align-items    : center;
+  gap            : 12px;
+  width          : fit-content;
+  margin-bottom  : 10px;
+  color          : var(--ink);
+  font-family    : var(--font-display);
+  font-size      : 24px;
+  font-weight    : 700;
+  line-height    : 32px;
+  letter-spacing : -0.02em;
+}
+
+.vp-doc .guide-number {
+  display        : inline-grid;
+  flex           : none;
+  place-items    : center;
+  width          : 22px;
+  height         : 22px;
+  border         : 1.5px solid var(--u);
+  border-radius  : 50%;
+  background     : var(--panel);
+  color          : var(--ink);
+  font-weight    : 700;
+  letter-spacing : 0;
+  line-height    : 1;
+}
+
+.vp-doc .guide-stage .guide-number {
+  background : var(--u);
+  color      : var(--panel);
+}
+
+.vp-doc .guide-rail {
+  display : grid;
+  gap     : 10px;
+  margin  : 0;
+  padding : 0;
+
+  li {
+    margin     : 0;
+    list-style : none;
+  }
+}
+
+.vp-doc .guide-row {
+  display               : grid;
+  grid-template-columns : minmax(0, 2fr) minmax(0, 3fr);
+  column-gap            : 12px;
+  align-items           : center;
+  width                 : 100%;
+  height                : 100%;
+  padding               : 8px;
+  border                : 1px solid var(--rule);
+  border-radius         : 6px;
+  background            : var(--panel);
+  color                 : var(--soft);
+  text-align            : left;
+  cursor                : pointer;
+  transition            : background-color var(--guide-fade) var(--guide-glide),
+                          border-color var(--guide-fade) var(--guide-glide);
+}
+
+.vp-doc .guide-row:is(:hover, :focus-visible) {
+  border-color : var(--u);
+  background   : var(--lift);
+  color        : var(--ink);
+}
+
+.vp-doc .guide-row:focus-visible {
+  outline        : 2px solid var(--u);
+  outline-offset : 2px;
+}
+
+.vp-doc .guide-thumb {
+  display       : block;
+  overflow      : hidden;
+  border        : 1px solid var(--rule);
+  border-radius : 3px;
+
+  svg {
+    display : block;
+    width   : 100%;
+    height  : auto;
+  }
+
+  .locator-raised { stroke-width : 4; }
+}
+
+.vp-doc .guide-label {
+  display        : flex;
+  align-items    : center;
+  gap            : 10px;
+  font-family    : var(--font-display);
+  font-size      : 18px;
+  font-weight    : 700;
+  line-height    : 24px;
+  letter-spacing : -0.02em;
+}
+
+.vp-doc .locator-raised {
+  fill         : color-mix(in srgb, var(--u) 16%, transparent);
+  stroke       : var(--u);
+  stroke-width : 2;
+}
+
+.vp-doc .locator-solid { fill : color-mix(in srgb, var(--u) 50%, transparent); }
+
+.vp-doc .guide-slide-move,
+.vp-doc .guide-slide-enter-active {
+  transition       : transform var(--guide-slide) var(--guide-glide), opacity var(--guide-slide) var(--guide-glide);
+  transition-delay : calc(var(--at) * var(--guide-stagger));
+}
+
+.vp-doc .guide-slide-leave-active { display : none; }
+
+.vp-doc .guide-slide-enter-from { opacity : 0; }
+
+@container (width >= 480px) {
+  .vp-doc .guide-rail { grid-template-columns : repeat(2, minmax(0, 1fr)); }
+}
+
+@container (width >= 600px) {
+  .vp-doc .guide-block { grid-template-columns : minmax(0, 3fr) minmax(0, 2fr); }
+
+  .vp-doc .guide-rail {
+    grid-template-columns : minmax(0, 1fr);
+    grid-template-rows    : repeat(4, minmax(0, 1fr));
+  }
+
+  .vp-doc .guide-row {
+    grid-template-columns : minmax(0, 1fr) minmax(0, 1fr);
+    column-gap            : 14px;
+  }
+
+  .vp-doc .guide-label {
+    font-size   : 16px;
+    line-height : 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vp-doc :is(.guide-row, .guide-slide-move, .guide-slide-enter-active) { transition : none; }
+}
