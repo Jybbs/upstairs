@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { enableAutoUnmount, mount }  from '@vue/test-utils'
-import { afterEach, expect, it, vi } from 'vitest'
+import { type VueWrapper, enableAutoUnmount, mount } from '@vue/test-utils'
+import { afterEach, expect, it, vi }                 from 'vitest'
 
 import { kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
 import { fakeClock, framesOf }  from '../common/frames.ts'
@@ -21,10 +21,37 @@ const mounted = async () => {
   return { sky, wrapper: mount(Tally, { attachTo: document.body }) }
 }
 
-it('draws a group for each kind on the map and none for a kind with nothing up', async () => {
+/**
+ * Reads the width of each row's bar, in the order the rows stand.
+ */
+const barsOf = (wrapper: VueWrapper) =>
+  wrapper.findAll<HTMLElement>('button > span:nth-of-type(2)').map(bar => bar.element.style.width)
+
+it('draws a row for each kind on the map and none for a kind with nothing up', async () => {
   const { wrapper } = await mounted()
   expect(wrapper.findAll('button').map(button => button.attributes('aria-label')))
     .toEqual(['Crewed, 2 on this map', 'Earth, 5 on this map'])
+})
+
+it('sets each row as its mark, its name, its bar, and its count', async () => {
+  const { wrapper } = await mounted()
+  expect(wrapper.findAll('button').map(row => [row.get('[data-icon]').attributes('data-icon'), row.text()]))
+    .toEqual([['crewed', 'Crewed2'], ['earth', 'Earth5']])
+})
+
+it('draws every bar on one scale, the longest across its whole column', async () => {
+  const { wrapper } = await mounted()
+  expect(barsOf(wrapper)).toEqual(['40%', '100%'])
+})
+
+it('draws an empty bar for the one row the keyboard keeps once no kind is on the map', async () => {
+  const { sky, wrapper } = await mounted()
+  const earth            = wrapper.findAll('button')[1]
+  vi.spyOn(earth.element, 'matches').mockReturnValue(true)
+  await earth.trigger('focus')
+  sky.reading.value = { ...sky.reading.value, kinds: kindOrder.map(() => 0) }
+  await wrapper.vm.$nextTick()
+  expect(barsOf(wrapper)).toEqual(['0%'])
 })
 
 it('switches a kind off at a press, naming none, and writes the kinds shown into the address', async () => {
@@ -36,7 +63,7 @@ it('switches a kind off at a press, naming none, and writes the kinds shown into
     .toEqual([false, 'false', null, '#?kinds=crewed,science,weather,navigation'])
 })
 
-it('keeps a group the keyboard switched off, switching it back on at a second press', async () => {
+it('keeps a row the keyboard switched off, switching it back on at a second press', async () => {
   const { sky, wrapper } = await mounted()
   const earth            = wrapper.findAll('button')[1]
   vi.spyOn(earth.element, 'matches').mockReturnValue(true)
@@ -45,8 +72,8 @@ it('keeps a group the keyboard switched off, switching it back on at a second pr
   sky.reading.value = { ...sky.reading.value, kinds: kindOrder.map(kind => kind === 'crewed' ? 2 : 0) }
   await wrapper.vm.$nextTick()
   const kept = wrapper.findAll('button')[1]
-  expect([kept.attributes('aria-label'), kept.attributes('aria-pressed')])
-    .toEqual(['Earth, 0 on this map', 'false'])
+  expect([kept.attributes('aria-label'), kept.attributes('aria-pressed'), barsOf(wrapper)])
+    .toEqual(['Earth, 0 on this map', 'false', ['100%', '0%']])
   await kept.trigger('click')
   expect([sky.traced.earth, location.hash]).toEqual([true, ''])
 })
@@ -69,7 +96,7 @@ it('takes the tally out of the tab order once no kind is on the map', async () =
     .toEqual([0, '-1'])
 })
 
-it('dims every group but the one named', async () => {
+it('dims every row but the one named', async () => {
   const { wrapper }     = await mounted()
   const [crewed, earth] = wrapper.findAll('button')
   await earth.trigger('pointerenter', { pointerType: 'mouse' })
@@ -77,10 +104,10 @@ it('dims every group but the one named', async () => {
 })
 
 it.each([
-  ['keeps the group keyboard focus stands on, named, once none of its kind is on the map', true, 'earth', 2],
-  ['lets a group a pointer focused leave the tally, unnamed, once none of its kind is on the map', false,
+  ['keeps the row keyboard focus stands on, named, once none of its kind is on the map', true, 'earth', 2],
+  ['lets a row a pointer focused leave the tally, unnamed, once none of its kind is on the map', false,
     null, 1]
-])('%s', async (_, keyboard, named, groups) => {
+])('%s', async (_, keyboard, named, rows) => {
   const { sky, wrapper } = await mounted()
   const earth            = wrapper.findAll('button')[1]
   vi.spyOn(earth.element, 'matches').mockReturnValue(keyboard)
@@ -88,7 +115,7 @@ it.each([
   expect(sky.named.value).toBe(named)
   sky.reading.value = { ...sky.reading.value, kinds: kindOrder.map(kind => kind === 'crewed' ? 2 : 0) }
   await wrapper.vm.$nextTick()
-  expect([sky.named.value, wrapper.findAll('button').length]).toEqual([named, groups])
+  expect([sky.named.value, wrapper.findAll('button').length]).toEqual([named, rows])
 })
 
 it.each([
@@ -104,17 +131,17 @@ it.each([
 })
 
 it.each([
-  ['moves to the next kind on the right arrow and names it', 0, 'ArrowRight', 1, 'earth'],
-  ['moves to the kind before on the left arrow and names it', 1, 'ArrowLeft', 0, 'crewed'],
+  ['moves to the next kind on the down arrow and names it', 0, 'ArrowDown', 1, 'earth'],
+  ['moves to the kind before on the up arrow and names it', 1, 'ArrowUp', 0, 'crewed'],
   ['moves to the last kind on End and names it', 0, 'End', 1, 'earth'],
   ['moves to the first kind on Home and names it', 1, 'Home', 0, 'crewed']
 ] as const)('%s', async (_, from, key, to, named) => {
   const { sky, wrapper } = await mounted()
-  const groups           = wrapper.findAll<HTMLButtonElement>('button')
+  const rows             = wrapper.findAll<HTMLButtonElement>('button')
   fakeClock()
-  vi.spyOn(groups[to].element, 'matches').mockReturnValue(true)
-  groups[from].element.focus()
-  await groups[from].trigger('keydown', { key })
+  vi.spyOn(rows[to].element, 'matches').mockReturnValue(true)
+  rows[from].element.focus()
+  await rows[from].trigger('keydown', { key })
   await framesOf(1)
-  expect([document.activeElement, sky.named.value]).toEqual([groups[to].element, named])
+  expect([document.activeElement, sky.named.value]).toEqual([rows[to].element, named])
 })
