@@ -1,9 +1,8 @@
-import { mkdtempDisposable } from 'node:fs/promises'
-import { tmpdir }            from 'node:os'
-import { join }              from 'node:path'
+import { join } from 'node:path'
 
-import { describe, test } from 'vitest'
+import { describe } from 'vitest'
 
+import { it as scratched }       from '../common/scratch.ts'
 import { type TaskRun, runTask } from '../common/tasks.ts'
 
 const ANOTHER   = 'GHSA-0000-0000-0000'
@@ -33,12 +32,13 @@ const CARGO = [
   [...DENY, '--target', 'wasm32-unknown-unknown', 'check', 'licenses']
 ]
 
-const it = test.extend('scratch', async ({ onTestFinished }) => {
-  const scratch = await mkdtempDisposable(join(tmpdir(), 'upstairs-audit-'))
-  onTestFinished(() => scratch.remove())
+/**
+ * Writes each advisory `ANSWERS` holds into `advisories/<id>` under the case's
+ * `scratch` folder, which `gh api` reads as `STAND_IN_REMOTE`.
+ */
+const it = scratched.extend('advisories', { auto: true }, async ({ scratch }) => {
   await Promise.all(Object.entries(ANSWERS)
-    .map(([id, answer]) => Bun.write(join(scratch.path, 'advisories', id), answer)))
-  return scratch.path
+    .map(([id, answer]) => Bun.write(join(scratch, 'advisories', id), answer)))
 })
 
 /**

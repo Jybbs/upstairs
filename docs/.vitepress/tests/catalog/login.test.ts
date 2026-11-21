@@ -7,7 +7,7 @@ import { describe, expect, test, vi } from 'vitest'
 
 import * as login      from '../../catalog/login.ts'
 import * as spacetrack from '../../catalog/spacetrack.ts'
-import { it, tilded }  from '../common/home.ts'
+import { it, tilded }  from '../common/scratch.ts'
 import * as answers    from '../common/spacetrack.ts'
 
 const CATALOG  = join(import.meta.dirname, '../../catalog')
@@ -133,34 +133,34 @@ describe('a run of the task', () => {
       argv: ['--worker'], netrc: '', replies: [], status: 1,
       line: 'No Space-Track login is saved in ~/.netrc, so save one through mise run catalog:login.'
     }]
-  ])('%s, printing one line that carries no password', async ([, poses], { home }) => {
-    const ran = await runIn(home, poses)
+  ])('%s, printing one line that carries no password', async ([, poses], { scratch }) => {
+    const ran = await runIn(scratch, poses)
     expect(ran.status).toBe(poses.status)
     expect(ran.lines.map(tilded)).toEqual([poses.line])
     expect(ran.written).toBe(poses.written ?? poses.netrc)
     expect(ran.fetcher).toHaveBeenCalledTimes(poses.replies.length)
   })
 
-  it('creates the saved file readable by its owner alone', async ({ home }) => {
-    await runIn(home, { argv: [], netrc: '', prompt: true, replies: [answers.ACCEPTED, answers.LOGGED] })
-    expect((await stat(join(home, '.netrc'))).mode & 0o777).toBe(0o600)
+  it('creates the saved file readable by its owner alone', async ({ scratch }) => {
+    await runIn(scratch, { argv: [], netrc: '', prompt: true, replies: [answers.ACCEPTED, answers.LOGGED] })
+    expect((await stat(join(scratch, '.netrc'))).mode & 0o777).toBe(0o600)
   })
 
-  it('offers the username already saved', async ({ home }) => {
-    const ran = await runIn(home, { argv: [], netrc: SAVED, prompt: true, replies: [answers.REJECTED] })
+  it('offers the username already saved', async ({ scratch }) => {
+    const ran = await runIn(scratch, { argv: [], netrc: SAVED, prompt: true, replies: [answers.REJECTED] })
     expect(ran.io.prompt?.ask).toHaveBeenCalledWith('Space-Track username: ', 'saved')
   })
 
-  it('checks the saved login before setting it as the secrets', async ({ home }) => {
+  it('checks the saved login before setting it as the secrets', async ({ scratch }) => {
     const pose = { argv: ['--check', '--worker'], netrc: SAVED, replies: [answers.REJECTED] }
-    const ran  = await runIn(home, pose)
+    const ran  = await runIn(scratch, pose)
     expect(ran.status).toBe(1)
     expect(ran.io.set).not.toHaveBeenCalled()
   })
 
-  it('passes wrangler the saved login under the names the catalog service reads', async ({ home }) => {
+  it('passes wrangler the saved login under the names the catalog service reads', async ({ scratch }) => {
     const pose = { argv: ['--check', '--worker'], netrc: SAVED, replies: [answers.ACCEPTED, answers.LOGGED] }
-    const ran  = await runIn(home, pose)
+    const ran  = await runIn(scratch, pose)
     expect(ran.io.set).toHaveBeenCalledWith({
       [spacetrack.SECRETS.identity] : 'saved',
       [spacetrack.SECRETS.password] : PASSWORD
@@ -168,18 +168,18 @@ describe('a run of the task', () => {
     expect(ran.lines).toHaveLength(2)
   })
 
-  it('fails on a saved file it cannot read', async ({ home }) => {
-    await mkdir(join(home, '.netrc'))
-    const ran = runIn(home, { argv: ['--check'], netrc: '', replies: [] })
+  it('fails on a saved file it cannot read', async ({ scratch }) => {
+    await mkdir(join(scratch, '.netrc'))
+    const ran = runIn(scratch, { argv: ['--check'], netrc: '', replies: [] })
     await expect(ran).rejects.toMatchObject({ code: 'EISDIR' })
   })
 
-  it('exits on the no-terminal line where its input is piped', async ({ home }) => {
-    const offline = join(home, 'offline.ts')
+  it('exits on the no-terminal line where its input is piped', async ({ scratch }) => {
+    const offline = join(scratch, 'offline.ts')
     await writeFile(offline, 'globalThis.fetch = () => process.exit(2)\n')
     const ran = spawnSync(process.execPath, ['--preload', offline, join(CATALOG, 'login.ts')], {
       encoding : 'utf8',
-      env      : { ...process.env, HOME: home },
+      env      : { ...process.env, HOME: scratch },
       input    : '',
       timeout  : 10_000
     })

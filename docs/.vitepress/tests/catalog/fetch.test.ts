@@ -9,7 +9,7 @@ import * as spacetrack         from '../../catalog/spacetrack.ts'
 import * as catalog            from '../../lib/orbit/catalog.ts'
 import { QUERIED, contentsOf } from '../common/catalog.ts'
 import * as answers            from '../common/celestrak.ts'
-import { it }                  from '../common/home.ts'
+import { it }                  from '../common/scratch.ts'
 import * as logins             from '../common/spacetrack.ts'
 
 /**
@@ -58,9 +58,9 @@ const served = (url: string) => {
 
 describe('the catalog task', () => {
   it('builds the file from the elements Space-Track serves for the payloads SATCAT marks active, '
-   + 'downloading no GP data from CelesTrak', async ({ home }) => {
-    await writeFile(join(home, '.netrc'), NETRC)
-    const { lines, read, status, urls } = await runIn(home, [], served)
+   + 'downloading no GP data from CelesTrak', async ({ scratch }) => {
+    await writeFile(join(scratch, '.netrc'), NETRC)
+    const { lines, read, status, urls } = await runIn(scratch, [], served)
     expect(status).toBe(0)
     expect(read.map(record => record.NORAD_CAT_ID).toSorted((a, b) => a - b))
       .toEqual(ELEMENTS.filter((_, row) => row % 2 === 0).map(record => record.NORAD_CAT_ID))
@@ -68,40 +68,40 @@ describe('the catalog task', () => {
       `${spacetrack.ORIGIN}/ajaxauth/login`, `${spacetrack.ORIGIN}/${spacetrack.QUERY}`,
       `${spacetrack.ORIGIN}/ajaxauth/logout`, celestrak.SATCAT
     ])
-    expect(lines).toEqual([`5000 satellites written to ${join(home, catalog.FILE)}`])
+    expect(lines).toEqual([`5000 satellites written to ${join(scratch, catalog.FILE)}`])
   })
 
   it('reads saved files under --elements and --satcat, requesting nothing and dating the file by the '
-   + 'elements file', async ({ home }) => {
-    const elements = join(home, 'elements.json')
-    const satcat   = join(home, 'satcat.csv')
+   + 'elements file', async ({ scratch }) => {
+    const elements = join(scratch, 'elements.json')
+    const satcat   = join(scratch, 'satcat.csv')
     await writeFile(elements, JSON.stringify(ELEMENTS))
     await writeFile(satcat, SATCAT)
     await utimes(elements, SAVED / 1000, SAVED / 1000)
-    const { fetched, read, status, urls } = await runIn(home, ['--elements', elements, '--satcat', satcat],
+    const { fetched, read, status, urls } = await runIn(scratch, ['--elements', elements, '--satcat', satcat],
       served)
     expect([status, read.length, fetched, urls]).toEqual([0, 5000, SAVED, []])
   })
 
   it('fails with the reason, requesting nothing, where the --elements file holds no JSON',
-    async ({ home }) => {
-      const elements = join(home, 'elements.json')
+    async ({ scratch }) => {
+      const elements = join(scratch, 'elements.json')
       await writeFile(elements, '<html>')
-      const { lines, status, urls } = await runIn(home, ['--elements', elements], served)
+      const { lines, status, urls } = await runIn(scratch, ['--elements', elements], served)
       expect([status, urls]).toEqual([1, []])
       expect(lines).toEqual([expect.stringContaining('JSON')])
     })
 
-  it('rejects with the error of a --satcat path holding no file', async ({ home }) => {
-    await writeFile(join(home, '.netrc'), NETRC)
-    await expect(runIn(home, ['--satcat', join(home, 'satcat.csv')], served))
+  it('rejects with the error of a --satcat path holding no file', async ({ scratch }) => {
+    await writeFile(join(scratch, '.netrc'), NETRC)
+    await expect(runIn(scratch, ['--satcat', join(scratch, 'satcat.csv')], served))
       .rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('fails before any request where no Space-Track login is saved', async ({ home }) => {
-    const { lines, status, urls } = await runIn(home, [], served)
+  it('fails before any request where no Space-Track login is saved', async ({ scratch }) => {
+    const { lines, status, urls } = await runIn(scratch, [], served)
     expect([status, urls]).toEqual([1, []])
-    expect(lines).toEqual([`No Space-Track login is saved in ${join(home, '.netrc')}, so save one through `
+    expect(lines).toEqual([`No Space-Track login is saved in ${join(scratch, '.netrc')}, so save one through `
                          + 'mise run catalog:login.'])
   })
 
@@ -117,9 +117,9 @@ describe('the catalog task', () => {
     ['too few of the payloads Space-Track serves are active',
       (url: string) => url.endsWith('format/json') ? Response.json(QUERIED) : served(url),
       'Expected 5000 or more active payloads, got 2500.']
-  ] as const)('fails with the reason, writing no file, where %s', async ([, answer, reason], { home }) => {
-    await writeFile(join(home, '.netrc'), NETRC)
-    const { lines, read, status } = await runIn(home, [], answer)
+  ] as const)('fails with the reason, writing no file, where %s', async ([, answer, reason], { scratch }) => {
+    await writeFile(join(scratch, '.netrc'), NETRC)
+    const { lines, read, status } = await runIn(scratch, [], answer)
     expect([status, read]).toEqual([1, []])
     expect(lines).toEqual([expect.stringContaining(reason)])
   })

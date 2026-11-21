@@ -77,8 +77,8 @@ it.each([
     `${NOTES[25544]} Flying with 2 docked craft and modules.`]
 ])('%s', async (_, passes, about) => expect((await mounted(passes)).findAll('p').at(-1)!.text()).toBe(about))
 
-it('reads the chosen pass’s heading, the sky it crosses, and its altitude', async () => {
+it('reads the chosen pass under its title, its heading, the sky it crosses, and its altitude', async () => {
   const wrapper = await mounted([passOf(25544, { height: 1234.6 })])
-  expect([wrapper.findAll('p')[1].text(), ...wrapper.findAll('dd').slice(1).map(reading => reading.text())])
-    .toEqual(['Southbound', 'N → S', '1,235 km'])
+  expect([wrapper.get('h2').text(), ...wrapper.findAll('dd').slice(1).map(reading => reading.text())])
+    .toEqual(['Watching No. 25544', 'Southbound, N → S', '1,235 km up'])
 })

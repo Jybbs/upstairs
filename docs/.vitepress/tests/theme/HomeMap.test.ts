@@ -16,25 +16,32 @@ vi.mock('../../theme/SpotChooser.tsx', async () => (await import('../common/stub
 vi.mock('../../theme/Stamp.tsx', async () => (await import('../common/stubs.ts')).stubOf('Stamp'))
 vi.mock('../../theme/TimeStrip.tsx', async () => (await import('../common/stubs.ts')).stubOf('TimeStrip'))
 
+type Page = 'desktop' | 'phone' | 'tablet'
+
 /**
  * Mounts the home page over a fresh copy of the shared state, every component
- * it places stubbed, on a page as narrow as a phone's where `phone` is set,
- * with the spot chooser open where `choosing` is set.
+ * it places stubbed but the sidebar, on a page as wide as `page`, with the
+ * spot chooser open where `choosing` is set.
  */
-const mounted = async (choosing: boolean, phone: boolean) => {
-  stubMatchMedia(() => phone)
+const mounted = async (choosing: boolean, page: Page) => {
+  stubMatchMedia(query =>
+    page === 'phone' && query.includes('40rem') || page === 'desktop' && query.includes('64rem'))
   const { component: HomeMap, sky } = await freshSky(() => import('../../theme/HomeMap.tsx'))
   if (choosing) sky.choose()
-  return shallowMount(HomeMap)
+  return shallowMount(HomeMap, { global: { stubs: { Sidebar: false } } })
 }
 
 it.each([
-  ['places the readout, the strip, and the panels below the map on a wide page', false,
+  ['places the card, the list, and the filters in a sidebar beside the map on a desktop', 'desktop',
+    ['sky-map-stub', 'readout-stub', 'time-strip-stub', 'transition-stub', 'focus-stub', 'pass-list-stub',
+      'filters-stub', 'entries-stub', 'stamp-stub']],
+  ['places the readout, the strip, and the panels below the map on a tablet', 'tablet',
     ['sky-map-stub', 'readout-stub', 'time-strip-stub', 'transition-stub', 'focus-stub', 'filters-stub',
       'pass-list-stub', 'entries-stub', 'stamp-stub']],
-  ['places the sheet alone over the map on a phone', true, ['sky-map-stub', 'sheet-stub', 'transition-stub']]
-])('%s', async (_, phone, names) => {
-  const wrapper = await mounted(false, phone)
+  ['places the sheet alone over the map on a phone', 'phone',
+    ['sky-map-stub', 'sheet-stub', 'transition-stub']]
+] as const)('%s', async (_, page, names) => {
+  const wrapper = await mounted(false, page)
   const stubs   = [...wrapper.element.querySelectorAll('*')]
     .map(found => found.localName)
     .filter(name => name.endsWith('-stub'))
@@ -45,9 +52,21 @@ it.each([
   ['holds the readout and the strip inert under the open spot chooser', true, ['', true]],
   ['leaves the readout and the strip live while the spot chooser is shut', false, [undefined, false]]
 ])('%s', async (_, choosing, shown) => {
-  const wrapper = await mounted(choosing, false)
-  const panels  = wrapper.get('main > div > div')
+  const wrapper = await mounted(choosing, 'tablet')
+  const panels  = wrapper.get('main > div > div > div')
   expect([panels.attributes('inert'), wrapper.findComponent({ name: 'SpotChooser' }).exists()]).toEqual(shown)
+})
+
+it('keeps one map as the page narrows past the desktop breakpoint', async () => {
+  const narrow                 = stubMatchMedia(query => query.includes('64rem'))
+  const { component: HomeMap } = await freshSky(() => import('../../theme/HomeMap.tsx'))
+  const wrapper                = shallowMount(HomeMap, { global: { stubs: { Sidebar: false } } })
+  const before                 = wrapper.findComponent({ name: 'SkyMap' }).vm
+  const aside                  = wrapper.find('aside').exists()
+  narrow(false)
+  await wrapper.vm.$nextTick()
+  expect([aside, wrapper.find('aside').exists(), wrapper.findComponent({ name: 'SkyMap' }).vm === before])
+    .toEqual([true, false, true])
 })
 
 it('asks for the catalog once the home page mounts', async () => {
@@ -59,9 +78,10 @@ it('asks for the catalog once the home page mounts', async () => {
 })
 
 it.each([
-  ['keeps names out of the readout and the strip on a wide page', false, ['readout-stub', 'time-strip-stub']],
-  ['keeps names out of the sheet on a phone', true, ['sheet-stub']]
-])('%s', async (_, phone, names) => {
-  const wrapper = await mounted(false, phone)
+  ['keeps names out of the readout and the strip on a wide page', 'tablet',
+    ['readout-stub', 'time-strip-stub']],
+  ['keeps names out of the sheet on a phone', 'phone', ['sheet-stub']]
+] as const)('%s', async (_, page, names) => {
+  const wrapper = await mounted(false, page)
   expect(wrapper.findAll('[data-label-clear]').map(found => found.element.localName)).toEqual(names)
 })

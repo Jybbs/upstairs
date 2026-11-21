@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
-import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
-import { afterEach, expect, it, vi }               from 'vitest'
-import { ref }                                     from 'vue'
+import { enableAutoUnmount, flushPromises, mount }     from '@vue/test-utils'
+import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { ref }                                       from 'vue'
 
 import { STEEP, TRACK_WIDTH } from '../../lib/orbit/scan.ts'
 import { SHEETS }             from '../../lib/site/sheets.ts'
@@ -10,13 +10,14 @@ import { freshSky }           from '../common/sky.ts'
 import { stubMatchMedia }     from '../common/stubs.ts'
 
 const {
-  GPU, TOWN, VERSION, cameraForBounds, caught, draw, drawn, easeTo, fitBounds, frame, gather, handlers,
-  invalidate, made, queried, thrown
+  GPU, TOWN, VERSION, cameraForBounds, caught, corner, draw, drawn, easeTo, fitBounds, frame, gather,
+  handlers, invalidate, made, queried, thrown
 } = vi.hoisted(() => ({
   GPU             : class extends Error {},
   TOWN            : 10 * 360 / (512 * 2 ** 5),
   VERSION         : '6.19.0',
   caught          : vi.fn(),
+  corner          : { x: 400, y: 300 },
   draw            : vi.fn(),
   drawn           : {
     overlay : { covered: () => [] as unknown[], labels: [] as unknown[] },
@@ -49,7 +50,9 @@ vi.mock('maplibre-gl', () => ({
       this.points.push(point)
       return this
     }
-    isEmpty() { return !this.points.length }
+    getNorthWest() { return this.points[0] }
+    getSouthEast() { return this.points.at(-1) }
+    isEmpty()      { return !this.points.length }
   },
   Map                    : class {
     keyboard        = { disableRotation() {} }
@@ -64,6 +67,7 @@ vi.mock('maplibre-gl', () => ({
     getCenter()    { return { lat: 0, lng: 0 } }
     getContainer() { return { clientHeight: 600, clientWidth: 800 } }
     getZoom()      { return 5 }
+    project()      { return corner }
     on(type: string, run: (event: unknown) => void) { handlers.set(type, [...handlers.get(type) ?? [], run]) }
     querySourceFeatures(_: string, { sourceLayer }: { sourceLayer: string }) {
       queried(sourceLayer)
@@ -183,6 +187,20 @@ it.each([
   await flushPromises()
   const [, { padding }] = fitBounds.mock.lastCall!
   expect(padding).toEqual({ bottom: covered + edge, left: 48, right: 48, top: edge })
+})
+
+it.each([
+  ['leaves a pinned pass in place on a wider page while its whole crossing shows', { x: 400, y: 300 }, []],
+  ['fits a pinned pass on a wider page once its crossing runs past the margin', { x: 30, y: 300 },
+    [{ maxZoom: 5, padding: { bottom: 48, left: 48, right: 48, top: 48 } }]]
+])('%s', async (_, at, fits) => {
+  const { pass, sky } = await mounted()
+  Object.assign(corner, at)
+  onTestFinished(() => { Object.assign(corner, { x: 400, y: 300 }) })
+  fitBounds.mockClear()
+  sky.pin(pass)
+  await flushPromises()
+  expect(fitBounds.mock.calls.map(([, options]) => options)).toEqual(fits)
 })
 
 it.each([

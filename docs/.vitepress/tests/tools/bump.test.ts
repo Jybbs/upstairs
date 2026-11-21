@@ -1,16 +1,9 @@
-import { mkdtempDisposable } from 'node:fs/promises'
-import { tmpdir }            from 'node:os'
-import { join }              from 'node:path'
+import { join } from 'node:path'
 
-import { describe, test } from 'vitest'
+import { describe } from 'vitest'
 
+import { it }      from '../common/scratch.ts'
 import { runTask } from '../common/tasks.ts'
-
-const it = test.extend('scratch', async ({ onTestFinished }) => {
-  const scratch = await mkdtempDisposable(join(tmpdir(), 'upstairs-bump-'))
-  onTestFinished(() => scratch.remove())
-  return scratch.path
-})
 
 /**
  * Runs `repo:bump` from `dir` with each flag in `flags` set as mise's usage

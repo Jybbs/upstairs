@@ -8,6 +8,7 @@ import type { Pass }                from '../lib/orbit/scan.ts'
 import { columnsOf, pickAt }        from '../lib/site/columns.ts'
 import { turnOf }                   from '../lib/site/drag.ts'
 import type { IconName }            from '../lib/site/icons.ts'
+import { kindColor }                from '../lib/site/palette.ts'
 import { usePhone }                 from '../lib/site/phone.ts'
 import { ridgeOf }                  from '../lib/site/ridges.ts'
 import { CLOCK }                    from '../lib/state/clock.ts'
@@ -15,6 +16,7 @@ import { minuteFormat, sky }        from '../lib/state/sky.ts'
 import Credit                       from './Credit.tsx'
 import Icon                         from './Icon.tsx'
 import Ridge                        from './Ridge.tsx'
+import RidgeTip                     from './RidgeTip.tsx'
 
 /**
  * A label's width per character in ems, JetBrains Mono's advance of 0.6 beside
@@ -25,11 +27,16 @@ import Ridge                        from './Ridge.tsx'
 const LABEL = { advance: 0.7, gap: 8, phone: 0.75, wide: 0.6875 } as const
 /**
  * The strip's height, the row its ground runs along, the height a pass
- * standing straight overhead climbs to above it, and its inset either side, in
- * pixels.
+ * standing straight overhead climbs to above it, and its least inset either
+ * side, in pixels.
  */
 const STRIP = { ground: 74, height: 110, inset: 16, overhead: 60 } as const
 const TICKS = 6
+/**
+ * How many ticks a label may stand apart, each dividing `TICKS` so the last
+ * tick is labeled with the first.
+ */
+const EVERY = [1, 2, 3, 6] as const
 /**
  * The seconds each key moves the time by, a minute to an arrow and ten to a
  * Page key.
@@ -59,7 +66,24 @@ export default defineComponent(
         ? { label: `Run the rest of the hour at ${CLOCK.lapse} times real speed`, mark: 'lapse' }
         : { label: 'Back to now', mark: 'now' }
     })
-    const inner = computed(() => width.value - STRIP.inset * 2)
+    /**
+     * The page's root font size in pixels, which scales the rems `caps` sets a
+     * label in.
+     */
+    const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+    const clocks = computed(() =>
+      Array.from({ length: TICKS + 1 }, (_, index) => sky.clockOf(index * sky.span / TICKS)))
+    /**
+     * The width in pixels of the widest tick label.
+     */
+    const label = computed(() => Math.max(...clocks.value.map(clock => clock.length)) * LABEL.advance
+      * (phone.value ? LABEL.phone : LABEL.wide) * rem)
+    /**
+     * The inset either side, wide enough that the labels at either end center
+     * on their ticks inside the strip.
+     */
+    const inset = computed(() => Math.max(STRIP.inset, Math.ceil(label.value / 2)))
+    const inner = computed(() => width.value - inset.value * 2)
     /**
      * The climb of each pass that rises or sets in the window, in the order the
      * passes peak.
@@ -78,37 +102,31 @@ export default defineComponent(
     /**
      * The ridges from the highest to the lowest, so a lower ridge stands in
      * front of a higher one, with the ridge a pointer, a finger, or a key holds
-     * raised above them all and the ridge the readout shows drawn heavier.
+     * raised above them all and the ridges the readout and the map show drawn
+     * heavier.
      */
     const stacked = computed(() => ridges.value
-      .map(ridge => ({ ...ridge, heavy: ridge.pass === sky.shown.value }))
+      .map(ridge => ({ ...ridge, heavy: ridge.pass === sky.shown.value || ridge.pass === sky.focus.value }))
       .toSorted((a, b) =>
         Number(a.pass === sky.held.value) - Number(b.pass === sky.held.value) || b.pass.peak - a.pass.peak))
+    const ridgeFor = (wanted: Pass | null) => ridges.value.find(({ pass }) => pass === wanted) ?? null
     /**
-     * The page's root font size in pixels, which scales the rems `caps` sets a
-     * label in.
+     * The ridge the map follows, whether its row or its ridge chose it.
      */
-    const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+    const chosen = computed(() => ridgeFor(sky.focus.value))
     /**
-     * The strip's ticks, labeled every so many ticks that each label clears the
-     * one before it by `LABEL.gap`, the spacing taking the whole width of the
-     * widest label beside half of another, since the first and the last labels
-     * stand wholly inside the strip where every other label centers on its
-     * tick.
+     * The ridge a pointer, a finger, or a key raises, which the tip names.
+     */
+    const raised = computed(() => ridgeFor(sky.held.value))
+    /**
+     * The strip's ticks, each label centered on its own, labeled every so many
+     * ticks that each label clears the next by `LABEL.gap`.
      */
     const ticks = computed(() => {
-      const clocks = Array.from({ length: TICKS + 1 }, (_, index) => sky.clockOf(index * sky.span / TICKS))
-      const size   = (phone.value ? LABEL.phone : LABEL.wide) * rem
-      const label  = Math.max(...clocks.map(clock => clock.length)) * LABEL.advance * size
-      const every  = Math.ceil((label * 1.5 + LABEL.gap) / (inner.value / TICKS))
-      return clocks.map((clock, index) => {
+      const every = EVERY.find(each => each * inner.value / TICKS >= label.value + LABEL.gap) ?? TICKS
+      return clocks.value.map((clock, index) => {
         const seconds = index * sky.span / TICKS
-        return {
-          anchor  : index === 0 ? 'start' : index === TICKS ? 'end' : 'middle',
-          clock   : index % every === 0 ? clock : '',
-          seconds : seconds,
-          x       : xOf(seconds)
-        }
+        return { clock: index % every === 0 ? clock : '', seconds: seconds, x: xOf(seconds) }
       })
     })
     /**
@@ -216,7 +234,7 @@ export default defineComponent(
 
     useEventListener(root, 'pointerdown', shade, { capture: true })
 
-    const secondsAt = (clientX: number) => (xAt(clientX) - STRIP.inset) / inner.value * sky.span
+    const secondsAt = (clientX: number) => (xAt(clientX) - inset.value) / inner.value * sky.span
 
     /**
      * Measures how far in pixels a pointer at `clientX` stands from the strip's
@@ -224,7 +242,7 @@ export default defineComponent(
      */
     const xAt = (clientX: number) => clientX - strip.value!.getBoundingClientRect().left
 
-    const xOf = (seconds: number) => STRIP.inset + seconds / sky.span * inner.value
+    const xOf = (seconds: number) => inset.value + seconds / sky.span * inner.value
 
     const yOf = (elevation: number) => STRIP.ground - elevation / 90 * STRIP.overhead
 
@@ -255,7 +273,7 @@ export default defineComponent(
 
       return (
         <section ref={root} class="shrink-0 border-t border-rule bg-panel" aria-label="Time">
-          <div class="flex items-center gap-2 pl-4 sm:pr-4">
+          <div class="flex items-center gap-2 px-4">
             <button
               type="button"
               class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full border border-rule
@@ -271,72 +289,113 @@ export default defineComponent(
                 )
                 : <Icon name={mark} />}
             </button>
-            <svg
-              {...mergeProps(thumb, { onKeydown: nudge })}
-              ref={strip}
-              class={[
-                `block min-w-0 flex-1 cursor-ew-resize touch-none select-none transition-[filter]
-                 duration-1050 ease-[cubic-bezier(.55,0,.25,1)] motion-reduce:transition-none`,
-                sky.credit.open.value && 'grayscale'
-              ]}
-              height={STRIP.height}
-              aria-label="Time within the window"
-              aria-keyshortcuts="ArrowUp ArrowDown Enter"
-              aria-valuenow={Math.round(sky.at.value)}
-              aria-valuetext={`${sky.clockOf(sky.at.value)}, ${sky.dayOf(sky.at.value)}`}
-              onBlur={leave}
-              onPointercancel={leave}
-              onPointerdown={press}
-              onPointermove={drag}
-              onPointerup={lift}
-            >
-              {stacked.value.map(({ heavy, pass, ridge }) => (
-                <g
-                  key={pass.key}
-                  class="cursor-pointer"
-                  onPointerdown={(event: PointerEvent) => pressRidge(event, pass)}
-                  onPointerenter={() => phone.value || (sky.held.value = pass)}
-                  onPointerleave={() => phone.value || (sky.held.value = null)}
-                >
-                  <Ridge
-                    dash="1 3"
-                    kind={pass.kind}
-                    ridge={ridge}
-                    shade={heavy ? 30 : 14}
-                    weight={heavy ? 2.5 : 1.5}
-                  />
+            <div class="relative min-w-0 flex-1">
+              <svg
+                {...mergeProps(thumb, { onKeydown: nudge })}
+                ref={strip}
+                class={[
+                  `block w-full cursor-ew-resize touch-none select-none transition-[filter]
+                   duration-1050 ease-[cubic-bezier(.55,0,.25,1)] motion-reduce:transition-none`,
+                  sky.credit.open.value && 'grayscale'
+                ]}
+                height={STRIP.height}
+                aria-label="Time within the window"
+                aria-keyshortcuts="ArrowUp ArrowDown Enter"
+                aria-valuenow={Math.round(sky.at.value)}
+                aria-valuetext={`${sky.clockOf(sky.at.value)}, ${sky.dayOf(sky.at.value)}`}
+                onBlur={leave}
+                onPointercancel={leave}
+                onPointerdown={press}
+                onPointermove={drag}
+                onPointerup={lift}
+              >
+                {stacked.value.map(({ heavy, pass, ridge }) => (
+                  <g
+                    key={pass.key}
+                    class="cursor-pointer"
+                    onPointerdown={(event: PointerEvent) => pressRidge(event, pass)}
+                    onPointerenter={() => phone.value || (sky.held.value = pass)}
+                    onPointerleave={() => phone.value || (sky.held.value = null)}
+                  >
+                    <Ridge
+                      dash="1 3"
+                      kind={pass.kind}
+                      ridge={ridge}
+                      shade={heavy ? 30 : 14}
+                      weight={heavy ? 2.5 : 1.5}
+                    />
+                  </g>
+                ))}
+                {chosen.value && (
+                  <g class="pointer-events-none" data-chosen>
+                    <path
+                      d={chosen.value.ridge.outline}
+                      fill={kindColor(chosen.value.pass.kind)}
+                      fill-opacity="0.35"
+                    />
+                    <line
+                      x1={chosen.value.ridge.ends[0]}
+                      x2={chosen.value.ridge.ends[1]}
+                      y1={STRIP.ground}
+                      y2={STRIP.ground}
+                      stroke={kindColor(chosen.value.pass.kind)}
+                      stroke-width="5"
+                    />
+                    <g
+                      fill="none"
+                      stroke={kindColor(chosen.value.pass.kind)}
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="3"
+                    >
+                      <path d={chosen.value.ridge.seen} />
+                      <path d={chosen.value.ridge.unseen} stroke-dasharray="1 4" />
+                    </g>
+                    <circle
+                      cx={chosen.value.ridge.peak[0]}
+                      cy={chosen.value.ridge.peak[1]}
+                      r="4"
+                      stroke-width="2"
+                      class="fill-ink stroke-panel"
+                    />
+                  </g>
+                )}
+                <line
+                  x1={inset.value}
+                  x2={width.value - inset.value}
+                  y1={STRIP.ground}
+                  y2={STRIP.ground}
+                  class="pointer-events-none stroke-dim"
+                />
+                {ticks.value.map(tick => (
+                  <g key={tick.seconds} class="pointer-events-none">
+                    <line
+                      x1={tick.x}
+                      x2={tick.x}
+                      y1={STRIP.ground - 3}
+                      y2={STRIP.ground + 3}
+                      class="stroke-dim"
+                    />
+                    <text x={tick.x} y={STRIP.height - 5} text-anchor="middle" class="caps fill-soft">
+                      {tick.clock}
+                    </text>
+                  </g>
+                ))}
+                <g class="pointer-events-none" transform={`translate(${xOf(sky.now.value)} 0)`}>
+                  <line y1={STRIP.ground + 3} y2={STRIP.ground + 12} class="stroke-ink" stroke-width="1.5" />
+                  <text y={STRIP.height - 20} text-anchor="middle" class="caps fill-ink">Now</text>
                 </g>
-              ))}
-              <line
-                x1={STRIP.inset}
-                x2={width.value - STRIP.inset}
-                y1={STRIP.ground}
-                y2={STRIP.ground}
-                class="pointer-events-none stroke-dim"
+                <g ref={cursor} class="pointer-events-none">
+                  <line y1={4} y2={STRIP.ground + 3} class="stroke-u" stroke-width="1.5" />
+                  <path d="M-5 2 L5 2 L0 9 Z" class="fill-u" />
+                </g>
+              </svg>
+              <RidgeTip
+                pass={raised.value?.pass ?? null}
+                width={width.value}
+                x={raised.value?.ridge.peak[0] ?? 0}
               />
-              {ticks.value.map(tick => (
-                <g key={tick.seconds} class="pointer-events-none">
-                  <line
-                    x1={tick.x}
-                    x2={tick.x}
-                    y1={STRIP.ground - 3}
-                    y2={STRIP.ground + 3}
-                    class="stroke-dim"
-                  />
-                  <text x={tick.x} y={STRIP.height - 5} text-anchor={tick.anchor} class="caps fill-soft">
-                    {tick.clock}
-                  </text>
-                </g>
-              ))}
-              <g class="pointer-events-none" transform={`translate(${xOf(sky.now.value)} 0)`}>
-                <line y1={STRIP.ground + 3} y2={STRIP.ground + 12} class="stroke-ink" stroke-width="1.5" />
-                <text y={STRIP.height - 20} text-anchor="middle" class="caps fill-ink">Now</text>
-              </g>
-              <g ref={cursor} class="pointer-events-none">
-                <line y1={4} y2={STRIP.height - 20} class="stroke-u" stroke-width="1.5" />
-                <path d="M-5 2 L5 2 L0 9 Z" class="fill-u" />
-              </g>
-            </svg>
+            </div>
             {!phone.value && <Credit />}
           </div>
         </section>

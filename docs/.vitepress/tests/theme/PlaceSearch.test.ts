@@ -56,6 +56,7 @@ const typed = async (wrapper: VueWrapper, words: string) => {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.useRealTimers()
   vi.unstubAllGlobals()
 })
@@ -313,4 +314,28 @@ it('clears words too short to search on Escape', async () => {
   const { wrapper } = await searched('ne', async () => Response.json(photon))
   await wrapper.get('input').trigger('keydown', { key: 'Escape' })
   expect((wrapper.get('input').element as HTMLInputElement).value).toBe('')
+})
+
+it.each([
+  ['opens the list above the search where the space below cannot hold it', 600, 'top', '588px'],
+  ['opens the list below the search where the space on either side holds it', 80, 'bottom', '531px']
+])('%s, as wide as the search and no taller than the space it opens into', async (_, top, side, height) => {
+  vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(667)
+  vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(390)
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(54)
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    return this.matches('form') ? DOMRect.fromRect({ height: 44, width: 358, x: 16, y: top }) : new DOMRect()
+  })
+  const { wrapper } = await listed(state => addScanned(state, [passOf(25544, { name: 'ISS (ZARYA)' })]))
+  await vi.advanceTimersByTimeAsync(100)
+  const list      = wrapper.get('ul')
+  const { style } = wrapper.get('[data-part=positioner]').element as HTMLElement
+  expect([
+    list.attributes('data-placement'),
+    style.getPropertyValue('--available-height'),
+    list.classes('max-h-(--available-height)'),
+    list.classes('overflow-y-auto'),
+    style.width,
+    style.getPropertyValue('--reference-width')
+  ]).toEqual([side, height, true, true, 'var(--reference-width)', '358px'])
 })
