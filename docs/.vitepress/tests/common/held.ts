@@ -77,6 +77,10 @@ Object.assign(
 )
 afterAll(() => Object.assign(Bun, { $, Glob, file, spawn, spawnSync }))
 
+const { fetch } = globalThis
+Object.assign(globalThis, { fetch: holding(fetch, 'reads', fetchedOf) })
+afterAll(() => Object.assign(globalThis, { fetch }))
+
 const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
 
 /**
@@ -116,6 +120,32 @@ function entryOf(entry: Found): string {
 }
 
 /**
+ * Lists the file a call to `fetch` reads from a `file:` URL, given as a string,
+ * a `URL`, or a `Request`, and no file for any other scheme.
+ */
+function fetchedOf([input]: unknown[]): string[] {
+  const url = URL.parse(input instanceof Request ? input.url : String(input))
+  return url?.protocol === 'file:' ? pathsOf(url) : []
+}
+
+/**
+ * Reads the command and the options of a call to `spawn`, `execFile`, or
+ * `fork`, each taking a file, then its arguments where it has any, then its
+ * options.
+ */
+function filedOf([file, args, options]: unknown[]): [unknown[], unknown] {
+  return Array.isArray(args) ? [[file, ...args], options] : [[file], args]
+}
+
+/**
+ * Lists the files of the worktree that the words of a command name, each
+ * resolved against `cwd`.
+ */
+function filesNamed(words: unknown[], cwd: string): string[] {
+  return words.flatMap(word => pathsOf(word, cwd)).filter(isFile)
+}
+
+/**
  * Lists every file under `path` where it is a folder, which a recursive copy
  * reads whole, or only the files directly in it where `recursive` is false,
  * or else `path` itself.
@@ -126,15 +156,6 @@ function filesUnder(path: string, recursive = true): string[] {
       .filter(entry => entry.isFile())
       .map(entryOf)
     : [path]
-}
-
-/**
- * Reads the command and the options of a call to `spawn`, `execFile`, or
- * `fork`, each taking a file, then its arguments where it has any, then its
- * options.
- */
-function filedOf([file, args, options]: unknown[]): [unknown[], unknown] {
-  return Array.isArray(args) ? [[file, ...args], options] : [[file], args]
 }
 
 /**
@@ -266,8 +287,7 @@ function resolvedOf(path: unknown, cwd = process.cwd()): string | undefined {
 function running<T extends Call>(call: T, runOf: Run): T {
   return holding(call, 'runs', args => {
     const [words, options] = runOf(args)
-    const cwd              = cwdOf(options)
-    return words.flatMap(word => pathsOf(word, cwd)).filter(isFile)
+    return filesNamed(words, cwdOf(options))
   })
 }
 
@@ -281,35 +301,58 @@ function runningAll<T extends object>(
 
 /**
  * Reads the words of a command Bun's shell runs, each word of its template
- * and each value it interpolates, which runs from the folder the suite runs
- * in until the shell's own `cwd` moves it.
+ * and each value it interpolates.
  */
-function shelledOf([strings, ...values]: unknown[]): [unknown[], unknown] {
-  return [[...(strings as string[]).join(' ').split(/\s+/), ...values.flat()], undefined]
+function shelledOf([strings, ...values]: unknown[]): unknown[] {
+  return [...(strings as string[]).join(' ').split(/\s+/), ...values.flat()]
 }
 
 /**
- * Wraps Bun's shell so each command is held to `READS` as `running` holds it,
- * and again against the folder a later `cwd` call moves it to.
+ * Wraps Bun's shell, or a shell `new $.Shell()` makes, so each command is held
+ * to `READS` as `running` holds it, from the folder the shell's own `cwd` last
+ * set or else the folder the suite runs in, and again against the folder the
+ * command's `cwd` moves it to. The proxy stands over a function calling
+ * `shell` and passes every other read, write, `in` check, and prototype lookup
+ * to `shell`, because `$` holds `Shell` as a non-configurable property, which a
+ * proxy of `$` itself must return unchanged.
  */
 function shelling(shell: typeof Bun.$): typeof Bun.$ {
-  return new Proxy(shell, {
-    apply(target, self, args) {
+  let folder: string | undefined
+  const Shell = 'Shell' in shell
+    ? new Proxy(shell.Shell, { construct: (base, args) => shelling(Reflect.construct(base, args)) })
+    : undefined
+  const wrapped = new Proxy(((...args: Parameters<typeof shell>) => shell(...args)) as typeof shell, {
+    getPrototypeOf : () => Reflect.getPrototypeOf(shell),
+    has            : (_, key) => Reflect.has(shell, key),
+    set            : (_, key, value) => Reflect.set(shell, key, value),
+
+    apply(_, self, args) {
       const readers = callers()
-      const [words] = shelledOf(args)
-      const held    = (cwd: string) =>
-        hold(readers, words.flatMap(word => pathsOf(word, cwd)).filter(isFile), 'runs')
-      held(process.cwd())
-      const command = Reflect.apply(target, self, args)
+      const words   = shelledOf(args)
+      const held    = (cwd: string) => hold(readers, filesNamed(words, cwd), 'runs')
+      held(cwdOf(folder))
+      const command = Reflect.apply(shell, self, args)
       const { cwd } = command
       return Object.assign(command, {
-        cwd: (folder: string) => {
-          held(resolve(folder))
-          return cwd.call(command, folder)
+        cwd: (path: string) => {
+          held(cwdOf(path))
+          return cwd.call(command, path)
         }
       })
+    },
+
+    get(_, key) {
+      if (key === 'cwd') {
+        return (path?: string) => {
+          folder = path
+          shell.cwd(path)
+          return wrapped
+        }
+      }
+      return key === 'Shell' ? Shell : Reflect.get(shell, key)
     }
   })
+  return wrapped
 }
 
 /**

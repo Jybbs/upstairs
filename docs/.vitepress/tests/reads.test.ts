@@ -295,8 +295,22 @@ describe('the read check', () => {
       fs.glob('LICENSE', { cwd: ROOT }, (error, found) => error ? fail(error) : done(found)))],
     ['reads', 'Glob.scanSync', () => [...new Glob('LICENSE').scanSync(ROOT)]],
     ['reads', 'Glob.scan', () => Array.fromAsync(new Glob('LICENSE').scan(ROOT))],
+    ['reads', 'fetch of a file URL string', () => fetch(pathToFileURL(ORPHAN).href)],
+    ['reads', 'fetch of a file URL', () => fetch(pathToFileURL(ORPHAN))],
+    ['reads', 'fetch of a Request for a file URL', () => fetch(new Request(pathToFileURL(ORPHAN)))],
     ['runs', "Bun's shell", () => $`cat ${ORPHAN}`.quiet()],
     ['runs', "Bun's shell from the folder its cwd gives", () => $`cat LICENSE`.cwd(ROOT).quiet()],
+    ['runs', "Bun's shell from the folder $.cwd gives", async () => {
+      $.cwd(ROOT)
+      try {
+        await $`cat LICENSE`.quiet()
+      } finally {
+        $.cwd()
+      }
+    }],
+    ['runs', 'a shell new $.Shell() makes', () => new $.Shell()`cat ${ORPHAN}`.quiet()],
+    ['runs', 'a shell new $.Shell() makes, from the folder its cwd gives', () =>
+      new $.Shell().cwd(ROOT)`cat LICENSE`.quiet()],
     ['runs', 'Bun.spawn', () => Bun.spawn(['cat', ORPHAN]).exited],
     ['runs', 'Bun.spawn on one options object', () => Bun.spawn({ cmd: ['cat', ORPHAN] }).exited],
     ['runs', 'Bun.spawnSync', () => Bun.spawnSync(['cat', ORPHAN])],
@@ -323,7 +337,8 @@ describe('the read check', () => {
   })
 
   it.each([
-    'access', 'accessSync', 'lstat', 'lstatSync', 'open', 'openSync', 'readlink', 'readlinkSync', 'stat', 'statSync'
+    'access', 'accessSync', 'lstat', 'lstatSync', 'open', 'openSync', 'readlink', 'readlinkSync',
+    'stat', 'statSync'
   ] as const)('fails a test that reads an undeclared file through %s of the default export', name => {
     const read = fs[name] as (path: string, done: () => void) => void
     expect(() => read(ORPHAN, () => {})).toThrow(refused('reads'))
@@ -365,6 +380,31 @@ describe('the read check', () => {
     vi.stubEnv('TMPDIR', FIXTURES)
     expect(() => readFileSync(join(FIXTURES, 'photon.json'))).not.toThrow()
   })
+
+  it('keeps the setting a shell from new $.Shell() takes through nothrow', () =>
+    expect(new $.Shell().nothrow()`false`.quiet()).resolves.toMatchObject({ exitCode: 1 }))
+
+  it("moves the commands of Bun's shell to the folder $.cwd gives", async () => {
+    $.cwd(FIXTURES)
+    try {
+      expect((await $`pwd`.text()).trim()).toBe(FIXTURES)
+    } finally {
+      $.cwd()
+    }
+  })
+
+  it('keeps a shell new $.Shell() makes an instance of $.Shell', () =>
+    expect(new $.Shell()).toBeInstanceOf($.Shell))
+
+  it("finds cwd and Shell on Bun's shell through an in check", () =>
+    expect(['cwd', 'Shell'].filter(key => key in $)).toEqual(['cwd', 'Shell']))
+
+  it('reads the same $.Shell on every access', () => expect($.Shell).toBe($.Shell))
+
+  it('reads no Shell off a shell new $.Shell() makes', () => expect(new $.Shell().Shell).toBeUndefined())
+
+  it('passes a fetch of a URL of another scheme', () =>
+    expect(fetch('data:,')).resolves.toBeInstanceOf(Response))
 
   it('passes a read of a file outside the worktree', () =>
     expect(() => existsSync(join(ROOT, '../LICENSE'))).not.toThrow())
