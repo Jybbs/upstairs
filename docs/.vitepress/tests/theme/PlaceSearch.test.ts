@@ -328,11 +328,14 @@ it.each([
   })
   const { wrapper } = await listed(state => addScanned(state, [passOf(25544, { name: 'ISS (ZARYA)' })]))
   await vi.advanceTimersByTimeAsync(100)
+  const list      = wrapper.get('ul')
   const { style } = wrapper.get('[data-part=positioner]').element as HTMLElement
   expect([
-    wrapper.get('ul').attributes('data-placement'),
+    list.attributes('data-placement'),
     style.getPropertyValue('--available-height'),
+    list.classes('max-h-(--available-height)'),
+    list.classes('overflow-y-auto'),
     style.width,
     style.getPropertyValue('--reference-width')
-  ]).toEqual([side, height, 'var(--reference-width)', '358px'])
+  ]).toEqual([side, height, true, true, 'var(--reference-width)', '358px'])
 })
