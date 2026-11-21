@@ -138,6 +138,7 @@ export default defineComponent(
       id                : id,
       inputValue        : words.value,
       open              : shown.value,
+      positioning       : { gutter: 4 },
       selectionBehavior : 'clear' as const,
       value             : [],
 
@@ -157,6 +158,7 @@ export default defineComponent(
 
     return () => (
       <form
+        {...box.value.getControlProps()}
         class="relative flex gap-1.5"
         role="search"
         onSubmit={(event: SubmitEvent) => {
@@ -183,42 +185,44 @@ export default defineComponent(
           Near me
         </button>
         {shown.value && (
-          <ul
-            {...box.value.getContentProps()}
-            class="absolute inset-x-0 top-full z-20 mt-1 rounded-sm border border-rule bg-lift py-1 text-sm
-                   shadow-md"
-          >
-            {crafts.value.map(craft => (
-              <li key={craft.satellite.id} role="presentation">
-                <button
-                  type="button"
-                  {...box.value.getItemProps({ item: { craft } })}
-                  class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left text-base
-                         hover:bg-panel data-highlighted:bg-panel max-sm:min-h-11"
-                >
-                  <Icon name={craft.satellite.kind} />
-                  <SatelliteName name={craft.satellite.name} class="truncate" />{' '}
-                  <span class="ml-auto shrink-0 text-soft">{noteOf(craft)}</span>
-                </button>
-              </li>
-            ))}
-            {trouble.value && !results.value.length && (
-              <li role="presentation" class="px-2.5 py-1.5 text-soft">{trouble.value}</li>
-            )}
-            {found.value.map(place => (
-              <li key={place.key} role="presentation">
-                <button
-                  type="button"
-                  {...box.value.getItemProps({ item: { place } })}
-                  class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left hover:bg-panel
-                         data-highlighted:bg-panel max-sm:min-h-11"
-                >
-                  <Icon name="place" class="text-soft" /><span class="truncate">{place.label}</span>{' '}
-                  {place.kind && <span class="ml-auto shrink-0 text-soft">{place.kind}</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div {...box.value.getPositionerProps()} class="z-20">
+            <ul
+              {...box.value.getContentProps()}
+              class="max-h-(--available-height) overflow-y-auto rounded-sm border border-rule bg-lift py-1
+                     text-sm shadow-md"
+            >
+              {crafts.value.map(craft => (
+                <li key={craft.satellite.id} role="presentation">
+                  <button
+                    type="button"
+                    {...box.value.getItemProps({ item: { craft } })}
+                    class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left text-base
+                           hover:bg-panel data-highlighted:bg-panel max-sm:min-h-11"
+                  >
+                    <Icon name={craft.satellite.kind} />
+                    <SatelliteName name={craft.satellite.name} class="truncate" />{' '}
+                    <span class="ml-auto shrink-0 text-soft">{noteOf(craft)}</span>
+                  </button>
+                </li>
+              ))}
+              {trouble.value && !results.value.length && (
+                <li role="presentation" class="px-2.5 py-1.5 text-soft">{trouble.value}</li>
+              )}
+              {found.value.map(place => (
+                <li key={place.key} role="presentation">
+                  <button
+                    type="button"
+                    {...box.value.getItemProps({ item: { place } })}
+                    class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left
+                           hover:bg-panel data-highlighted:bg-panel max-sm:min-h-11"
+                  >
+                    <Icon name="place" class="text-soft" /><span class="truncate">{place.label}</span>{' '}
+                    {place.kind && <span class="ml-auto shrink-0 text-soft">{place.kind}</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </form>
     )
