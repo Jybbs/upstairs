@@ -1,14 +1,32 @@
 import { expect, it, vi } from 'vitest'
 
-import { BEADS, fadeOf, nearnessOf, openOf, Overlay } from '../../../lib/map/overlay.ts'
-import { DAY }                                        from '../../../lib/orbit/catalog.ts'
-import { kindOrder, type Kind }                       from '../../../lib/orbit/kinds.ts'
-import { iconOf }                                     from '../../../lib/site/icons.ts'
-import { SCHEMES }                                    from '../../../lib/site/palette.ts'
-import { TRACK_WIDTH }                                from '../../../lib/orbit/scan.ts'
-import { Tracks }                                     from '../../../lib/state/tracks.ts'
-import { passOf }                                     from '../../common/passes.ts'
-import { canvasWith }                                 from '../../common/stubs.ts'
+import type { Box }             from '../../../lib/map/mercator.ts'
+import { BEADS, type Label, Overlay, fadeOf, nearnessOf, openOf } from '../../../lib/map/overlay.ts'
+import { DAY }                  from '../../../lib/orbit/catalog.ts'
+import { kindOrder, type Kind } from '../../../lib/orbit/kinds.ts'
+import { iconOf }               from '../../../lib/site/icons.ts'
+import { SCHEMES }              from '../../../lib/site/palette.ts'
+import { TRACK_WIDTH }          from '../../../lib/orbit/scan.ts'
+import { Tracks }               from '../../../lib/state/tracks.ts'
+import { passOf }               from '../../common/passes.ts'
+import { canvasWith }           from '../../common/stubs.ts'
+
+/**
+ * A text a canvas filled: its alpha, style, font, letter spacing, and halo's
+ * width, the `row` it was set at, and the column and row its transform last
+ * moved to.
+ */
+interface Filled {
+  alpha   : number
+  at      : number
+  down    : number
+  font    : unknown
+  halo    : unknown
+  row     : number
+  spacing : unknown
+  style   : unknown
+  text    : string
+}
 
 const BOSTON = { latitude: 42.36, longitude: -71.06 }
 const CRAFT  = { latitude: 41.86, longitude: -70.56 }
@@ -713,4 +731,270 @@ it.each([
   overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
   overlay.draw(0)
   expect(still.dashed).toHaveLength(rings)
+})
+
+/**
+ * Builds a canvas whose 2D context records each text it fills as `Filled`
+ * holds it, each stop of each gradient it makes, each rectangle it adds to a
+ * path, each rectangle it fills with its alpha, each time it clears, and the
+ * order of its path calls.
+ */
+const pageOf = () => {
+  const circles: number[][]                         = []
+  const cleared: number[]                           = []
+  const filled: { alpha: number, height: number }[] = []
+  const paths: string[]                             = []
+  const rects: number[][]                           = []
+  const stops: [number, string][]                   = []
+  const texts: Filled[]                             = []
+  let at                                            = 0
+  let down                                          = 0
+  const calls                                       = {
+    arc       : () => { paths.push('arc') },
+    clearRect : () => { cleared.push(1) },
+    clip      : () => { paths.push('clip') },
+    createRadialGradient : (...circle: number[]) => {
+      circles.push(circle)
+      return { addColorStop: (offset: number, color: string) => stops.push([offset, color]) }
+    },
+    fillRect  : (_x: number, _y: number, _width: number, height: number) =>
+      filled.push({ alpha: context.globalAlpha as number, height }),
+    fillText  : (text: string, _x: number, y: number) =>
+      texts.push({
+        alpha   : context.globalAlpha as number,
+        at      : at,
+        down    : down,
+        font    : context.font,
+        halo    : context.lineWidth,
+        row     : y,
+        spacing : context.letterSpacing,
+        style   : context.fillStyle,
+        text    : text
+      }),
+    rect         : (...box: number[]) => {
+      paths.push('rect')
+      rects.push(box)
+    },
+    setTransform : (...matrix: number[]) => { [at, down] = [matrix[4], matrix[5]] }
+  }
+  const { canvas, context } = canvasWith(calls)
+  return { canvas, circles, cleared, filled, paths, rects, stops, texts }
+}
+
+/**
+ * Draws the names `labels` round a spot over Boston on a view `width` pixels
+ * wide at `zoom`.
+ */
+const namedAt = (
+  labels  : Label[],
+  {
+    covered = [] as Box[],
+    spot    = BOSTON as typeof BOSTON | null,
+    width   = 1440,
+    zoom    = 6
+  } = {}
+) => {
+  const still   = pageOf()
+  const moving  = pageOf()
+  const state   = {
+    gathered : false,
+    held     : null,
+    kinds    : SHOWN,
+    named    : null,
+    reduced  : true,
+    selected : null,
+    spot     : spot,
+    start    : 0,
+    traced   : () => true,
+    tracks   : new Tracks()
+  }
+  const overlay = new Overlay(still.canvas, moving.canvas, state)
+  overlay.covered = () => covered
+  overlay.labels  = labels
+  overlay.resize(width, 800, 1)
+  overlay.view.set(width, 800, zoom, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(0)
+  return { moving, overlay, state, still }
+}
+
+const ALBANY = { latitude: 42.65, longitude: -73.75, name: 'Albany', tier: 'city' as const }
+const GULF   = { latitude: 43, longitude: -68.5, name: 'Gulf of Maine', tier: 'water' as const }
+const MAINE  = { latitude: 45.2, longitude: -69.2, name: 'Maine', tier: 'region' as const }
+
+it.each([
+  ['sets a city in its own case in the label tone', ALBANY, 'Albany', SCHEMES.day.label, '500 15.5px', '0px'],
+  ['sets a region in spaced quiet capitals', MAINE, 'MAINE', SCHEMES.day.quiet, '500 12px', '3.8px'],
+  ['sets a water in quiet italics', GULF, 'Gulf of Maine', SCHEMES.day.quiet, 'italic 15.5px', '0.2px']
+])('%s', (_, label, text, style, size, spacing) => {
+  const [set] = namedAt([label]).still.texts
+  expect([set.text, set.style, String(set.font).startsWith(size), set.spacing])
+    .toEqual([text, style, true, spacing])
+})
+
+it.each([
+  ['sets the larger faces from 1280 px', ALBANY, 1280, '500 15.5px', '0px'],
+  ['sets the smaller faces below 1280 px', ALBANY, 1279, '13px', '0px'],
+  ['spaces a region’s capitals closer below 1280 px', MAINE, 1279, '500 10.5px', '1.6px'],
+  ['sets a water in smaller unspaced italics below 1280 px', GULF, 1279, 'italic 13px', '0px']
+])('%s', (_, label, width, size, spacing) => {
+  const [set] = namedAt([label], { width }).still.texts
+  expect([String(set.font).startsWith(size), set.spacing]).toEqual([true, spacing])
+})
+
+it('eases the veil in from clear at the ring to the page’s tone', () =>
+  expect(namedAt([]).moving.stops).toEqual([[0, `${SCHEMES.day.page}00`], [1, SCHEMES.day.page]]))
+
+it('eases the veil in from 1.5 px past the ring across 0.9 of its radius', () => {
+  const { moving, overlay } = namedAt([])
+  const radius              = 290 * overlay.view.scale(BOSTON.latitude)
+  const [, , from, , , to]  = moving.circles[0]
+  expect([from - radius, (to - from) / radius]).toEqual([expect.closeTo(1.5), expect.closeTo(0.9)])
+})
+
+it.each([
+  ['sets no caption on a ring 56 px across or less', 3, 0],
+  ['sets the caption on a ring wider than 56 px', 3.6, 16]
+])('%s', (_, zoom, letters) => expect(namedAt([], { zoom }).moving.texts).toHaveLength(letters))
+
+it('keeps at most 20 names below 1280 px', () => {
+  const labels = Array.from({ length: 30 }, (_, index) => ({
+    latitude  : 40 + Math.floor(index / 6) * 0.8,
+    longitude : -78 + (index % 6) * 1.6,
+    name      : `P${index}`,
+    tier      : 'city' as const
+  }))
+  const narrow = namedAt(labels, { spot: null, width: 1279 }).still.texts
+  const wide   = namedAt(labels, { spot: null }).still.texts
+  expect([narrow.length, wide.length]).toEqual([20, 30])
+})
+
+it('passes over a name on the spot’s marker', () =>
+  expect(namedAt([{ ...BOSTON, name: 'Boston', tier: 'city' }]).still.texts).toEqual([]))
+
+it('sets the ring’s caption letter by letter over the veil, and leaves both off with no spot', () => {
+  const ringed = namedAt([])
+  const bare   = namedAt([], { spot: null })
+  expect(ringed.moving.texts.map(({ text }) => text).join('')).toBe('60° UP AT 550 KM')
+  expect(ringed.moving.filled).toEqual([{ alpha: 0.4, height: 800 }])
+  expect([bare.moving.texts, bare.moving.filled, ringed.still.texts]).toEqual([[], [], []])
+})
+
+it('sets the caption in the 10 px mono, 1.4 px between letters', () => {
+  const caption = namedAt([]).moving.texts
+  const gaps    = caption.slice(1).map(({ at, down }, index) =>
+    Math.hypot(at - caption[index].at, down - caption[index].down))
+  expect([caption.every(({ font }) => String(font).startsWith('500 10px')), gaps])
+    .toEqual([true, gaps.map(() => expect.closeTo(8.4, 1))])
+})
+
+it('strokes each name and each of the caption’s letters with a 3.5 px halo', () => {
+  const { moving, still } = namedAt([ALBANY])
+  expect([...still.texts, ...moving.texts].map(({ halo }) => halo))
+    .toEqual(Array(still.texts.length + moving.texts.length).fill(3.5))
+})
+
+it('leaves clear of the veil each name whose place stands inside the ring alone', () => {
+  const { moving, overlay } = namedAt([ALBANY, MAINE])
+  expect(moving.rects).toHaveLength(2)
+  expect(moving.rects[1][0]).toBeLessThan(overlay.view.column(ALBANY.longitude))
+})
+
+it('places the names again once another pass is chosen, and not before', () => {
+  const { overlay, state, still } = namedAt([ALBANY])
+  overlay.draw(1)
+  const once = still.cleared.length
+  Object.assign(state, { selected: passOf(25544) })
+  overlay.draw(2)
+  expect([once, still.cleared.length]).toEqual([1, 2])
+})
+
+it.each([
+  ['above the ring where nothing covers it', []],
+  ['below the ring where a panel covers the map above the spot',
+    [{ bottom: 400, left: 0, right: 1440, top: 0 }]]
+])('sets the caption left to right %s', (_, covered) => {
+  const columns = namedAt([], { covered }).moving.texts.map(({ at }) => at)
+  expect(columns.slice(1).every((column, index) => column > columns[index])).toBe(true)
+})
+
+it.each([
+  ['leaves a circle clear round the chosen satellite while it flies', 1800, 'arc'],
+  ['leaves no circle once the chosen pass has set', 3700, 'rect']
+])('the veil %s', (_, seconds, last) => {
+  const tracks = new Tracks()
+  const track  = new Float32Array(121 * TRACK_WIDTH)
+  for (let sample = 0; sample < 121; sample++) {
+    track.set([BOSTON.latitude, BOSTON.longitude - 1 + sample / 60, 45], sample * TRACK_WIDTH)
+  }
+  const pass   = passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600 })
+  tracks.add([pass], track, Uint32Array.of(0), 121)
+  const moving  = pageOf()
+  const overlay = new Overlay(pageOf().canvas, moving.canvas, {
+    gathered : false,
+    held     : null,
+    kinds    : SHOWN,
+    named    : null,
+    reduced  : true,
+    selected : pass,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => true,
+    tracks   : tracks
+  })
+  overlay.resize(1440, 800, 1)
+  overlay.view.set(1440, 800, 6, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(seconds)
+  expect(moving.paths[moving.paths.lastIndexOf('clip') - 1]).toBe(last)
+})
+
+it('passes over a name under a panel', () => {
+  const covered = [{ bottom: 800, left: 0, right: 720, top: 0 }]
+  expect(namedAt([ALBANY], { covered }).still.texts).toEqual([])
+})
+
+it('passes over a name the chosen track crosses', () => {
+  const tracks = new Tracks()
+  const track  = new Float32Array(121 * TRACK_WIDTH)
+  for (let sample = 0; sample < 121; sample++) {
+    track.set([ALBANY.latitude, -75 + sample / 40, 45], sample * TRACK_WIDTH)
+  }
+  const pass   = passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600 })
+  tracks.add([pass], track, Uint32Array.of(0), 121)
+  const still   = pageOf()
+  const overlay = new Overlay(still.canvas, pageOf().canvas, {
+    gathered : false,
+    held     : null,
+    kinds    : SHOWN,
+    named    : null,
+    reduced  : true,
+    selected : pass,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => true,
+    tracks   : tracks
+  })
+  overlay.labels = [ALBANY]
+  overlay.resize(1440, 800, 1)
+  overlay.view.set(1440, 800, 6, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(0)
+  expect(still.texts).toEqual([])
+})
+
+it('moves a name off the ring’s caption by the caption’s clearance', () => {
+  const view = namedAt([]).overlay.view
+  const top  = view.row(BOSTON.latitude) - 290 * view.scale(BOSTON.latitude) - 17
+  let [south, north] = [-85, 85]
+  for (let step = 0; step < 60; step++) {
+    const middle = (south + north) / 2
+    if (view.row(middle) > top - 7) south = middle
+    else north = middle
+  }
+  const name  = { latitude: south, longitude: BOSTON.longitude, name: 'Ab', tier: 'city' as const }
+  const [set] = namedAt([name]).still.texts
+  expect(set.row).toBeLessThan(top - 8)
+})
+
+it('sets the caption below the ring where a panel covers the map above the spot', () => {
+  const covered = [{ bottom: 400, left: 0, right: 1440, top: 0 }]
+  expect(namedAt([], { covered }).moving.texts.every(({ down }) => down > 400)).toBe(true)
 })
