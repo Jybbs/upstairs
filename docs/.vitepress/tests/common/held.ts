@@ -77,6 +77,10 @@ Object.assign(
 )
 afterAll(() => Object.assign(Bun, { $, Glob, file, spawn, spawnSync }))
 
+const { fetch } = globalThis
+Object.assign(globalThis, { fetch: holding(fetch, 'reads', fetchedOf) })
+afterAll(() => Object.assign(globalThis, { fetch }))
+
 const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
 
 /**
@@ -113,6 +117,15 @@ function entryOf(entry: Found): string {
   return typeof entry === 'object' && 'parentPath' in entry
     ? resolve(entry.parentPath, entry.name)
     : String(entry)
+}
+
+/**
+ * Reads the file a call to `fetch` reads from a `file:` URL, given as a string,
+ * a `URL`, or a `Request`, and no file for any other scheme.
+ */
+function fetchedOf([input]: unknown[]): string[] {
+  const url = URL.parse(input instanceof Request ? input.url : String(input))
+  return url?.protocol === 'file:' ? pathsOf(url) : []
 }
 
 /**
@@ -281,35 +294,53 @@ function runningAll<T extends object>(
 
 /**
  * Reads the words of a command Bun's shell runs, each word of its template
- * and each value it interpolates, which runs from the folder the suite runs
- * in until the shell's own `cwd` moves it.
+ * and each value it interpolates.
  */
 function shelledOf([strings, ...values]: unknown[]): [unknown[], unknown] {
   return [[...(strings as string[]).join(' ').split(/\s+/), ...values.flat()], undefined]
 }
 
 /**
- * Wraps Bun's shell so each command is held to `READS` as `running` holds it,
- * and again against the folder a later `cwd` call moves it to.
+ * Wraps Bun's shell, or a shell `new $.Shell()` makes, so each command is held
+ * to `READS` as `running` holds it, from the folder the shell's own `cwd` last
+ * set or else the folder the suite runs in, and again against the folder the
+ * command's `cwd` moves it to. The proxy stands over a function calling
+ * `shell`, because `$` holds `Shell` as a non-configurable property a proxy of
+ * `$` must return unchanged, and passes every other read and write to `shell`.
  */
 function shelling(shell: typeof Bun.$): typeof Bun.$ {
-  return new Proxy(shell, {
-    apply(target, self, args) {
+  let folder: string | undefined
+  const wrapped = new Proxy(((...args: Parameters<typeof shell>) => shell(...args)) as typeof shell, {
+    apply(_, self, args) {
       const readers = callers()
       const [words] = shelledOf(args)
       const held    = (cwd: string) =>
         hold(readers, words.flatMap(word => pathsOf(word, cwd)).filter(isFile), 'runs')
-      held(process.cwd())
-      const command = Reflect.apply(target, self, args)
+      held(cwdOf(folder))
+      const command = Reflect.apply(shell, self, args)
       const { cwd } = command
       return Object.assign(command, {
-        cwd: (folder: string) => {
-          held(resolve(folder))
-          return cwd.call(command, folder)
+        cwd: (path: string) => {
+          held(cwdOf(path))
+          return cwd.call(command, path)
         }
       })
-    }
+    },
+    get(_, key) {
+      if (key === 'cwd') {
+        return (path?: string) => {
+          folder = path
+          shell.cwd(path)
+          return wrapped
+        }
+      }
+      return key === 'Shell' && key in shell
+        ? new Proxy(shell.Shell, { construct: (Shell, args) => shelling(Reflect.construct(Shell, args)) })
+        : Reflect.get(shell, key)
+    },
+    set: (_, key, value) => Reflect.set(shell, key, value)
   })
+  return wrapped
 }
 
 /**

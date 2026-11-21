@@ -295,8 +295,22 @@ describe('the read check', () => {
       fs.glob('LICENSE', { cwd: ROOT }, (error, found) => error ? fail(error) : done(found)))],
     ['reads', 'Glob.scanSync', () => [...new Glob('LICENSE').scanSync(ROOT)]],
     ['reads', 'Glob.scan', () => Array.fromAsync(new Glob('LICENSE').scan(ROOT))],
+    ['reads', 'fetch of a file URL string', () => fetch(pathToFileURL(ORPHAN).href)],
+    ['reads', 'fetch of a file URL', () => fetch(pathToFileURL(ORPHAN))],
+    ['reads', 'fetch of a Request for a file URL', () => fetch(new Request(pathToFileURL(ORPHAN)))],
     ['runs', "Bun's shell", () => $`cat ${ORPHAN}`.quiet()],
     ['runs', "Bun's shell from the folder its cwd gives", () => $`cat LICENSE`.cwd(ROOT).quiet()],
+    ['runs', "Bun's shell from the folder $.cwd gives", async () => {
+      $.cwd(ROOT)
+      try {
+        await $`cat LICENSE`.quiet()
+      } finally {
+        $.cwd()
+      }
+    }],
+    ['runs', 'a shell new $.Shell() makes', () => new $.Shell()`cat ${ORPHAN}`.quiet()],
+    ['runs', 'a shell new $.Shell() makes, from the folder its cwd gives', () =>
+      new $.Shell().cwd(ROOT)`cat LICENSE`.quiet()],
     ['runs', 'Bun.spawn', () => Bun.spawn(['cat', ORPHAN]).exited],
     ['runs', 'Bun.spawn on one options object', () => Bun.spawn({ cmd: ['cat', ORPHAN] }).exited],
     ['runs', 'Bun.spawnSync', () => Bun.spawnSync(['cat', ORPHAN])],
