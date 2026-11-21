@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-import { navOf, sectionOf, sectionsOf } from '../../../lib/site/sections.ts'
+import { navOf, neighborsOf, sectionOf, sectionsOf } from '../../../lib/site/sections.ts'
 
 const PATHS  = ['/', ...navOf().map(({ link }) => link)]
 const pageOf = (link: string) => readFileSync(new URL(`../../../..${link}index.md`, import.meta.url), 'utf8')
@@ -18,4 +18,11 @@ describe('the sections', () => {
     expect(sectionOf(`${section.toLowerCase()}/index.md`)).toBe(section))
   it.each(['index.md', '404.md', 'guidebook.md'])('places %s in no section', page =>
     expect(sectionOf(page)).toBeUndefined())
+  it('links each section to the next in the bar’s order, the last to the map', () =>
+    expect(sectionsOf().map(section => neighborsOf(`${section.toLowerCase()}/index.md`))).toEqual([
+      { next: { link: '/method/', text: 'Method' }, prev: false },
+      { next: { link: '/data/', text: 'Data' }, prev: { link: '/guide/', text: 'Guide' } },
+      { next: { link: '/', text: 'The map' }, prev: { link: '/method/', text: 'Method' } }
+    ]))
+  it('gives a page outside every section no neighbors', () => expect(neighborsOf('index.md')).toEqual({}))
 })

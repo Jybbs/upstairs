@@ -50,6 +50,25 @@ describe('the view', () => {
   })
 })
 
+describe('a box', () => {
+  const box = { bottom: 40, left: 10, right: 30, top: 20 }
+
+  it.each([
+    ['a line through its middle', 0, 30, 40, 30, true],
+    ['a line passing above it', 0, 10, 40, 10, false],
+    ['a line stopping short of it', 0, 30, 9, 30, false]
+  ])('reads %s as crossing it: %s', (_, fromX, fromY, toX, toY, crosses) =>
+    expect(mercator.crossesBox(box, fromX, fromY, toX, toY)).toBe(crosses))
+  it.each([
+    ['a box overlapping it', { bottom: 50, left: 25, right: 35, top: 35 }, true],
+    ['a box touching its edge', { bottom: 40, left: 30, right: 50, top: 20 }, false]
+  ])('reads %s as meeting it: %s', (_, other, meets) => expect(mercator.meets(box, other)).toBe(meets))
+  it('stands round its middle by half its width and half its height', () =>
+    expect(mercator.boxAround(20, 30, 10, 10)).toEqual(box))
+  it('grows by the same pixels on every side', () =>
+    expect(mercator.grown(box, 2)).toEqual({ bottom: 42, left: 8, right: 32, top: 18 }))
+})
+
 describe('the relief ramp', () => {
   it('rises strictly, as an interpolation requires', () => {
     const ramp  = reliefRamp(SCHEMES.day.bands) as unknown[]

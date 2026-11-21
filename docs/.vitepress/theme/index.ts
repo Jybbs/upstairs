@@ -8,6 +8,7 @@ import { h, onMounted }                     from 'vue'
 
 import { followFootnotes } from '../lib/site/landing.ts'
 import Credits             from './Credits.tsx'
+import GuideFigures        from './GuideFigures.tsx'
 import NotFound            from './NotFound.tsx'
 import Shield              from './Shield.tsx'
 import SiteMark            from './SiteMark.tsx'
@@ -27,6 +28,7 @@ export default {
 
   enhanceApp: ({ app }) => {
     app.component('Credits', Credits)
+    app.component('GuideFigures', GuideFigures)
     app.component('HomeMap', defineClientComponent(() => import('./HomeMap.tsx')))
     app.component('LookAngles', defineClientComponent(() => import('./LookAngles.tsx')))
     app.component('OrbitAges', defineClientComponent(() => import('./OrbitAges.tsx')))

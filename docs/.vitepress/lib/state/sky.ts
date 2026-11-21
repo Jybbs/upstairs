@@ -1,4 +1,4 @@
-import { computed, reactive, ref, shallowRef }            from 'vue'
+import { computed, reactive, ref, shallowRef, toRaw }     from 'vue'
 
 import { Credit }                                         from '../map/credit.ts'
 import type { Room }                                      from '../map/numeral.ts'
@@ -58,6 +58,10 @@ export const secondFormat = new Intl.DateTimeFormat([], {
   second : '2-digit'
 })
 const zeros               = kinds.kindOrder.map(() => 0)
+/**
+ * The kinds shown on a first visit, which the address leaves unwritten.
+ */
+const declared            = kinds.kindOrder.filter(kind => kinds.KINDS[kind].traced)
 
 const highestOf = (list: Pass[]) =>
   list.reduce<Pass | null>((best, pass) => !best || pass.peak > best.peak ? pass : best, null)
@@ -68,9 +72,14 @@ const highestOf = (list: Pass[]) =>
  */
 const openingOf = (now: number) => minuteOf(now) - CLOCK.lead * 1000
 
+/**
+ * Returns whether each kind is shown, as the address lists them or else as
+ * `declared` holds them.
+ */
 const tracedOf = () => {
-  const entries = Object.entries(kinds.KINDS).map(([kind, { traced }]) => [kind, traced])
-  return Object.fromEntries(entries) as Record<kinds.Kind, boolean>
+  const shown = address.kindsIn(location.hash) ?? declared
+  return Object.fromEntries(kinds.kindOrder.map(kind => [kind, shown.includes(kind)])) as
+    Record<kinds.Kind, boolean>
 }
 
 /**
@@ -92,7 +101,15 @@ class Sky {
    */
   readonly reduced  = reduced
   readonly clock    = ref(resting)
+  /**
+   * Whether each kind is shown, the one choice the map, the readout, the strip,
+   * and the list all read.
+   */
   readonly traced   = reactive(tracedOf())
+  /**
+   * The kinds shown, in the order of `KINDS`.
+   */
+  readonly showing  = computed(() => kinds.kindOrder.filter(kind => this.traced[kind]))
   readonly lowest   = ref<number>(0)
   readonly scope    = ref<'map' | 'sky'>('map')
   readonly selected = shallowRef<Pass | null>(null)
@@ -361,15 +378,16 @@ class Sky {
    * pass of the chosen satellite. Otherwise it focuses on a known mission
    * crossing the sky, or else the highest satellite that crosses, or else the
    * highest pass of all, and each of these last three leaves out every craft
-   * docked to another pass.
+   * docked to another pass. Every choice leaves out the kinds not shown.
    */
   private chooseFocus() {
-    const passes        = this.tracks.passes
-    const chosen        = this.selected.value
-    const undocked      = passes.filter((_, index) => !this.tracks.docked.has(index))
-    const crossing      = undocked.filter(pass => this.traced[pass.kind] && !pass.earlier && !pass.later)
-    const noted         = crossing.filter(pass => pass.id in kinds.NOTES && pass.peak >= WORTH)
-    this.selected.value = passes.find(pass => pass.key === chosen?.key)
+    const { docked, passes: all } = this.tracks
+    const passes                  = all.filter(pass => this.traced[pass.kind])
+    const chosen                  = this.selected.value
+    const undocked                = all.filter((pass, index) => this.traced[pass.kind] && !docked.has(index))
+    const crossing                = undocked.filter(pass => !pass.earlier && !pass.later)
+    const noted                   = crossing.filter(pass => pass.id in kinds.NOTES && pass.peak >= WORTH)
+    this.selected.value           = passes.find(pass => pass.key === chosen?.key)
       ?? highestOf(passes.filter(pass => pass.id === chosen?.id))
       ?? highestOf(noted)
       ?? highestOf(crossing)
@@ -381,7 +399,7 @@ class Sky {
    */
   pick(spot: Spot, place: string | null) {
     this.moveTo(spot, place)
-    history.replaceState(null, '', address.fragmentOf(spot))
+    this.record(spot)
   }
 
   /**
@@ -390,7 +408,30 @@ class Sky {
    */
   locate(spot: Spot) {
     this.moveTo(spot, 'your location')
-    history.replaceState(null, '', location.pathname + location.search)
+    this.record(null)
+  }
+
+  /**
+   * Shows the kinds `shown` alone on the map, in the readout, and in the list,
+   * writing the choice into the page's address beside the spot it holds,
+   * choosing the focus again among them, and making the next `latch` take a
+   * reading.
+   */
+  trace(shown: readonly kinds.Kind[]) {
+    for (const kind of kinds.kindOrder) this.traced[kind] = shown.includes(kind)
+    this.record(address.spotIn(location.hash))
+    if (this.done.value) this.chooseFocus()
+    this.unlatch()
+  }
+
+  /**
+   * Writes `spot` into the page's address beside the kinds shown, leaving out
+   * the kinds where they are the ones `declared` holds.
+   */
+  private record(spot: Spot | null) {
+    const shown = this.showing.value
+    const kept  = shown.join() === declared.join() ? null : shown
+    history.replaceState(null, '', location.pathname + location.search + address.fragmentOf(spot, kept))
   }
 
   private moveTo(spot: Spot, place: string | null) {
@@ -504,11 +545,12 @@ class Sky {
   }
 
   /**
-   * Returns `pass` while the scan still holds it, and null otherwise.
+   * Returns `pass` while the scan still holds it and its kind is shown, and
+   * null otherwise.
    */
   private kept(pass: Pass | null) {
     void this.version.value
-    return pass && this.tracks.passes.includes(pass) ? pass : null
+    return pass && this.traced[pass.kind] && this.tracks.passes.includes(pass) ? pass : null
   }
 
   private moveClock(seconds: number) {
@@ -544,8 +586,9 @@ class Sky {
   }
 
   /**
-   * Counts what is up at the clock's time, reading the rough grid until the
-   * traces finish, and returns false while the grid has not arrived.
+   * Counts what is up at the clock's time, of the kinds shown once the traces
+   * finish and reading the rough grid of every kind until then, and returns
+   * false while the grid has not arrived.
    */
   private count(): boolean {
     if (!this.done.value) {
@@ -558,11 +601,13 @@ class Sky {
     }
     let up                                = 0
     const { aboveKinds, seconds, tracks } = this
+    const traced                          = toRaw(this.traced)
     aboveKinds.fill(0)
     for (let pass = 0; pass < tracks.passes.length; pass++) {
-      if (!tracks.up(pass, seconds)) continue
+      const { kind } = tracks.passes[pass]
+      if (!traced[kind] || !tracks.up(pass, seconds)) continue
       up++
-      aboveKinds[kinds.kindSlots[tracks.passes[pass].kind]]++
+      aboveKinds[kinds.kindSlots[kind]]++
     }
     this.up.value = up
     return true

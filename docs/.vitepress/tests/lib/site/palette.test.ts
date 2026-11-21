@@ -7,7 +7,7 @@ import { SCHEMES, cssOf, kindColor, type Scheme } from '../../../lib/site/palett
 
 const SELECTORS: Readonly<Record<string, string>> = { day: ':root', night: 'html.dark' }
 const SURFACES                                    = ['page', 'panel', 'lift'] as const
-const TEXTS                                       = ['ink', 'soft', 'u'] as const
+const TEXTS                                       = ['ink', 'label', 'quiet', 'soft', 'u'] as const
 const blocks   = Object.fromEntries(cssOf().split('}').filter(Boolean).map(block => block.split('{')))
 const kinds    = Object.keys(KINDS) as Kind[]
 const schemes  = Object.entries(SCHEMES) as [string, Scheme][]

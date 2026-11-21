@@ -14,9 +14,9 @@ describe('the start cards', () => {
     expect(publicOf(start.startFileOf(page, scheme))).toBe(start.startCardOf(faces, page, scheme)))
 
   it.each([
-    { address: 'UPSTAIRS.FYI', page: 'Map' },
     { address: 'UPSTAIRS.FYI/GUIDE', page: 'Guide' },
-    { address: 'UPSTAIRS.FYI/METHOD', page: 'Method' }
+    { address: 'UPSTAIRS.FYI/METHOD', page: 'Method' },
+    { address: 'UPSTAIRS.FYI/DATA', page: 'Data' }
   ] as const)('sets the $page card’s address as $address', ({ address, page }) =>
     expect(start.startAddressOf(page)).toBe(address))
 
@@ -46,8 +46,10 @@ describe('the start cards', () => {
       .toContain(`${start.startFileOf(page, 'day')}" alt="${page}" width="${width}" height="${height}">`)
   })
 
-  it('centers the row of cards in the README', () =>
-    expect(README).toContain(`<p align="center">\n<a href="${start.startLinkOf('Map').href}">`))
+  it('centers the row of cards in the README', () => {
+    const [first] = start.startPagesOf()
+    expect(README).toContain(`<p align="center">\n<a href="${start.startLinkOf(first).href}">`)
+  })
 
   it('sets the cards in the README in the order the pages are listed', () => {
     const at = start.startPagesOf().map(page => README.indexOf(start.startFileOf(page, 'day')))

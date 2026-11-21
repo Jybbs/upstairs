@@ -4,30 +4,80 @@ description: How to read the map, the pass list, and the time strip.
 
 # Guide
 
-The home page opens on the map around a spot, counting the active satellites the map draws above its horizon at the time the strip shows. Search a place by name or press the place the readout names to move the spot, and the count, the pass list, and the strip all follow it. The same search finds a satellite by name, listing beside each one when its next pass in the hour rises, or that it has none, and choosing one moves the time to the highest point of that next pass and turns the readout into it. Each place it finds carries the kind of place it is, such as a city or a district, so places of one name read apart. Below the map, the pass list and the filters follow once the page scrolls. On a phone, the page holds the map alone, with the readout and the strip in a sheet along its foot that rises to show a pressed pass and then the hour's list.
+The home page opens on the map around a spot, the place on the ground the sky is read from, and counts the active satellites the map draws above its horizon at the time the strip shows. A pass runs from the moment a satellite rises above that horizon to the moment it sets, and a satellite rising twice in the hour makes two passes. The figures below open on each control in the order a reader meets it, from the map and the readout over it to the strip at its foot and the pass list once the page scrolls, and the sections after them take the same order before closing on the filters. On a phone, the page holds the map alone, with the readout and the strip in a sheet along its foot that rises to show a pressed pass and then the hour's list.
 
-## The Readout
+<GuideFigures>
+<template #map>
 
-The readout names the spot and the time above its count of the satellites the map draws, with a tag beside the count saying whether the time follows the present, runs at {{ lapse }} times real speed, or is paused. Beneath the count, a tally sets one tick per satellite on the map in its kind's color, grouped by kind, and its last line gives how many stand above the horizon in all. Pointing at a group, focusing it from the keyboard, or tapping it names its kind on that line with how many of the kind the map draws and how many stand above the horizon, and dims every other kind on the map and in the tally until the pointer leaves, the focus moves, or a second tap or Escape lets it go. The count and the tally hold each reading for {{ latchSeconds }} seconds, so the figures stay still while they are read, and take a new one whenever the time is dragged, stepped, or returned to the present, the spot changes, or the map is moved. While the hour runs at {{ lapse }} times real speed, they follow the satellites on the map instead. Once the time moves past midnight into the next day, the weekday stands before it and a screen reader hears the full date. While the passes are still being traced, its last line shows how far the scan has reached, and a catalog fetched more than {{ ageLimit }} days earlier draws no satellite at all and takes that line to give its age. A screen reader announces how many satellites stand above the horizon at most once every {{ spokenSeconds }} seconds.
+Every satellite above the horizon is a dot that lays beads behind it, filled while it draws nearer the spot and open once it is past its nearest point. The map pans by drag and zooms by wheel, pinch, or its zoom buttons, and only the pass the readout holds or the list chooses draws its track across it.
 
-Pointing at a pin in the strip, or pressing a satellite, a pin, or a row, turns the readout into that pass, giving its kind and the way it crosses, how far away it is now and at its nearest, how high it peaks and stands now, the hours it is up, and its own sky with the compass point it stands at. Escape or a press on the empty map lets it go.
+</template>
+<template #readout>
 
-## Choosing the Spot
+The readout names the spot and the time above its count of the satellites the map draws, with a tag beside the count saying whether the time follows the present, runs at {{ lapse }} times real speed, or is paused. A tally of each kind sits beneath the count, and pressing a pass anywhere turns the readout into that pass.
 
-Pressing the place the readout names opens the spot chooser, where the map slides under a still pin, which settles onto a town within 14 pixels of it once the map stops. The Set the spot here button moves the spot to the pin and traces its passes again, and Escape, Cancel, or a press outside the chooser and the map leaves the spot as it was.
+</template>
+<template #spot>
 
-## The Filters
+The search at the foot of the readout finds a place or a satellite by name, and choosing a place moves the spot there while the count, the pass list, and the strip all follow it. Near me, beside the search, moves the spot to where the browser locates the reader, once the browser shares that location.
 
-Each kind of satellite takes its own color in the filters, the tally, and the pass list, and on the map for the pass the readout holds or the list chooses, every other satellite drawing in one tone. Choosing a kind under Show passes of keeps its passes in the list, and the map draws at half strength every other satellite whose kind is left out or whose pass stays below the height Reaching at least sets. Only the pass the readout holds or the list chooses draws a track, whichever kinds the filters show, and Reaching at least keeps only the passes climbing to the height chosen or above. List passes switches the list between the passes crossing the map as it is framed and those anywhere in the sky over the spot.
+</template>
+<template #strip>
 
-## A Pass
+The strip covers the hour from five minutes before the present, with a pin at the highest point of each pass that rises or sets inside the window. Drag along it, or use the arrow and page keys on it, to move through the window and pause the time there, and its round button runs the hour at {{ lapse }} times real speed.
 
-A pass runs from the moment a satellite rises above the horizon to the moment it sets, and the list holds every pass each satellite makes in the window, so one rising twice takes two rows. Each row of the list gives the time of its highest point, its name, which way it crosses, and how high it climbs, and choosing a row moves the time to that highest point and describes the satellite above the list.
+</template>
+<template #list>
 
-## The Time Strip
+The list holds every pass each satellite makes in the window, so one rising twice takes two rows. Each row gives the time of its highest point, its name, which way it crosses, and how high it climbs, and choosing a row moves the time to that highest point and describes the satellite above the list.
 
-The strip covers the hour from five minutes before the present, with a pin at the highest point of each listed pass that rises or sets inside the window, standing above the line for a northbound pass and below it for a southbound one, longer the higher it climbs. Drag along the strip, or use the arrow and page keys on it, to move through the window and pause the time there. The round button beside the strip runs the rest of the hour at {{ lapse }} times real speed and, pressed again, returns the time to the present. Where the device asks for reduced motion, the time holds still instead, the round button moves it five minutes on, and the tag beside the count says how far the time stands from the present and returns it to the present when pressed. Once the present passes the end of the window while the time follows it, the window opens again five minutes before the present.
+</template>
+</GuideFigures>
 
 ## The Map
 
-Every satellite above the horizon is a dot that lays beads behind it, filled while it draws nearer the spot and open once it is past its nearest point, and a craft docked to a station shares the station's dot unless the readout holds it or a search by name chooses it, when it draws a dot of its own in its kind's color and counts among the satellites the map draws. The zoom buttons and the Minus and Plus keys step the map in or out, stopping where the chosen pass's whole crossing fits and, for a pass climbing past {{ steep }}°, where its stretch above {{ steep }}° lies beside the spot, and the wheel holds the map at each of those stops before zooming on past it. The map draws on tiles from the hosts [Data](/data/) names. Where a host cannot be reached before any of its tiles load, the map dims under a caption naming that host, leaving the paths, the satellites, and the spot as they stand. Once the map is zoomed in far enough for 5 kilometers to span 10 pixels, a dotted ring 5 kilometers out circles the chosen satellite, since its position can be kilometers off, as [Accuracy](/method/#accuracy) on the Method page sets out. The ring's dots stand twice as far apart once the satellite's orbit is more than a day old, and three times as far once it is more than {{ ageWarn }} days old.
+A craft docked to a station shares the station's dot unless the readout holds it or a search by name chooses it, when it draws a dot of its own in its kind's color and counts among the satellites the map draws.
+
+The zoom buttons and the Minus and Plus keys step the map in or out, stopping where the chosen pass's whole crossing fits and, for a pass climbing past {{ steep }}°, where its stretch above {{ steep }}° lies beside the spot. The wheel holds the map at each of those stops before zooming on past it.
+
+Once the map is zoomed in far enough for 5 kilometers to span 10 pixels, a dotted ring 5 kilometers out circles the chosen satellite, since its position can be kilometers off, as [Accuracy](/method/#accuracy) on the Method page sets out. The ring's dots stand twice as far apart once the satellite's orbit is more than a day old, and three times as far once it is more than {{ ageWarn }} days old.
+
+The map draws on tiles from the hosts [Data](/data/#the-map) names. Where a host cannot be reached before any of its tiles load, the map dims under a caption naming that host, leaving the tracks, the satellites, and the spot as they stand.
+
+## The Readout
+
+Once the time moves past midnight into the next day, the weekday stands before the time in the readout's top line and a screen reader hears the full date.
+
+### The Count and the Tally
+
+Beneath the count, a tally sets one row for each kind on the map, holding the kind's mark, its name, a bar in its color whose length gives its count on one scale shared by every row, and the count itself. Beneath the tally, a line gives how many stand above the horizon in all. Pointing at a row or focusing it from the keyboard names its kind on that line with how many of the kind the map draws and how many stand above the horizon, and dims every other kind on the map and in the tally, until the pointer leaves, the focus moves, or Escape lets it go.
+
+Pressing anywhere on a row switches its kind off, leaving it out of the map, the counts, and the pass list, and a row the keyboard has reached stays in the tally, so a second press shows the kind again. While a kind is switched off, a line at the foot of the readout names each kind left out, and pressing a name there shows that kind again.
+
+The count and the tally hold each reading for {{ latchSeconds }} seconds, so the figures stay still while they are read, and take a new one whenever the time is dragged, stepped, or returned to the present, the spot changes, or the map is moved. While the hour runs at {{ lapse }} times real speed, they follow the satellites on the map instead. A screen reader announces how many satellites stand above the horizon at most once every {{ spokenSeconds }} seconds.
+
+While the passes are still being traced, a line in the tally's place shows how far the scan has reached. Where the catalog was fetched longer ago than [Accuracy](/method/#accuracy) allows, the map draws no satellite at all, and the line beneath the tally gives the catalog's age instead.
+
+### A Chosen Pass
+
+Pointing at a pin in the strip, or pressing a satellite, a pin, or a row, turns the readout into that pass. It gives the pass's kind and the way it crosses, how far away the satellite is now and at its nearest, how high it peaks and stands now, the hours it is up, and its own sky with the compass point it stands at. Escape or a press on the empty map lets it go.
+
+## Choosing the Spot
+
+Each place the search finds carries the kind of place it is, such as a city or a district, so places of one name read apart. The same search finds a satellite by name, noting beside each one when its next pass in the hour rises, that it is up now, or, where no pass is still ahead, when its last pass set. Choosing one moves the time to the highest point of the pass its note names and turns the readout into it, whereas a satellite with no pass in the hour stays listed with a note saying why but cannot be chosen.
+
+Pressing the place the readout names opens the spot chooser, where the map slides under a still pin, which settles onto a town within 14 pixels of it once the map stops. The Set the spot here button moves the spot to the pin and traces its passes again, and Escape, Cancel, or a press outside the chooser and the map leaves the spot as it was.
+
+## The Time Strip
+
+Each pin stands above the line for a northbound pass and below it for a southbound one, longer the higher it climbs. The round button, pressed again while the hour runs, returns the time to the present. Where the device asks for reduced motion, the time holds still instead, the round button moves it five minutes on, and the tag beside the count says how far the time stands from the present and returns it to the present when pressed. Once the present passes the end of the window while the time follows it, the window opens again five minutes before the present.
+
+## The Pass List
+
+List passes, among the filters, switches the list between the passes crossing the map as it is framed and those anywhere in the sky over the spot.
+
+## The Filters
+
+Each kind of satellite takes its own color in the filters, the tally, and the pass list, and on the map for the pass the readout holds or the list chooses, every other satellite drawing in one tone. Choosing a kind under Show passes of draws its satellites on the map and keeps them in the readout's counts and in the list, while a kind left out draws no dot and no track, and the page's address keeps the kinds chosen, so a reload or a shared link opens on them. The map draws at half strength every satellite whose pass stays below the height Reaching at least sets.
+
+Only the pass the readout holds or the list chooses draws a track, and Reaching at least keeps only the passes climbing to the height chosen or above.

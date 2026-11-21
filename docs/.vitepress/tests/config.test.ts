@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 
-import type { Plugin, SiteConfig, TransformContext } from 'vitepress'
-import { expect, it, vi }                             from 'vitest'
+import type { PageData, Plugin, SiteConfig, TransformContext, TransformPageContext } from 'vitepress'
+import { expect, it, vi } from 'vitest'
 
 import config         from '../config.ts'
 import { writeCards } from '../lib/site/cards.ts'
@@ -54,6 +54,16 @@ it('points the canonical link of a section page at its folder', () => {
   expect(config.transformHead!(context))
     .toContainEqual(['link', { href: 'https://upstairs.fyi/guide/', rel: 'canonical' }])
 })
+
+it.each([
+  ['links a section page to its neighbors', {}, { link: '/guide/', text: 'Guide' }],
+  ['keeps the links a page sets for itself', { prev: false }, false]
+])('%s', (_, frontmatter, prev) =>
+  expect(config.transformPageData!(
+    { frontmatter, relativePath: 'method/index.md' } as PageData,
+    {} as TransformPageContext
+  ))
+    .toEqual({ frontmatter: { next: { link: '/data/', text: 'Data' }, prev } }))
 
 it('lets a reader switch between the two schemes', () => expect(config.appearance).toBeUndefined())
 

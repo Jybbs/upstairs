@@ -12,12 +12,13 @@ export const READS: Record<string, string[]> = {
   'docs/.vitepress/tests/catalog/login.test.ts'       : ['docs/.vitepress/catalog/login.ts'],
   'docs/.vitepress/tests/catalog/request.test.ts'     : ['docs/.vitepress/catalog/request.ts'],
   'docs/.vitepress/tests/common/drawings.ts'          : ['rust/pkg/orbit_bg.wasm'],
-  'docs/.vitepress/tests/common/shipped.ts'           : ['.github/README.md', 'docs/public/**'],
+  'docs/.vitepress/tests/common/shipped.ts'           : ['.github/README.md'],
   'docs/.vitepress/tests/common/tasks.ts'             : ['docs/.vitepress/tests/common/check/*'],
   'docs/.vitepress/tests/config.test.ts'              : ['docs/data/index.md', 'docs/public/_headers'],
   'docs/.vitepress/tests/lib/map/credit.test.ts'      : ['docs/data/index.md'],
   'docs/.vitepress/tests/lib/orbit/worker.test.ts'    : ['rust/pkg/orbit_bg.wasm'],
   'docs/.vitepress/tests/lib/site/cards.test.ts'      : ['docs/index.md', 'docs/*/index.md'],
+  'docs/.vitepress/tests/lib/site/guide.test.ts'      : ['docs/guide/index.md'],
   'docs/.vitepress/tests/lib/site/mark.test.ts'       : ['docs/public/{favicon,wordmark-*}.svg'],
   'docs/.vitepress/tests/lib/site/markdown.test.ts'   : ['docs/*.md', 'docs/*/*.md'],
   'docs/.vitepress/tests/lib/site/provenance.test.ts' : ['rust/Cargo.lock'],
@@ -25,6 +26,7 @@ export const READS: Record<string, string[]> = {
   'docs/.vitepress/tests/lib/site/sections.test.ts'   : ['docs/*/index.md'],
   'docs/.vitepress/tests/lib/site/start.test.ts'      : ['docs/public/start/*.svg'],
   'docs/.vitepress/tests/theme/Credits.test.ts'       : ['docs/data/index.md'],
+  'docs/.vitepress/tests/theme/GuideFigures.test.ts'  : ['docs/.vitepress/theme/guide.css'],
   'docs/.vitepress/tests/theme/NotFound.test.ts'      : ['docs/.vitepress/theme/credit.css'],
   'docs/.vitepress/tests/theme/style.test.ts'         : ['docs/.vitepress/theme/style.css'],
   'docs/.vitepress/tests/tools/audit.test.ts'         : ['.mise/tasks/lock/audit'],
@@ -70,10 +72,21 @@ export const READS: Record<string, string[]> = {
     'docs/package.json'
   ]
 }
+
 /**
  * The root of the worktree the suite runs in.
  */
 export const ROOT = join(import.meta.dirname, '../../../..')
+
+/**
+ * The test checking `READS` against the tree, by its absolute path.
+ */
+export const CHECKS = join(ROOT, 'docs/.vitepress/tests/reads.test.ts')
+
+/**
+ * This module, by its absolute path.
+ */
+export const TABLE = import.meta.filename
 
 /**
  * Lists the absolute path of each module declaring in `reads` a glob matching
@@ -91,7 +104,7 @@ export const readersOf = (file: string, reads = READS): string[] =>
 export const readersOfGone = (gone: string[], reads = READS): string[] => {
   const readers = gone.flatMap(file => readersOf(file, reads))
   const stale   = readers.length > 0 || gone.some(file => relative(ROOT, file) in reads)
-  return stale ? [...readers, join(ROOT, 'docs/.vitepress/tests/reads.test.ts')] : readers
+  return stale ? [...readers, CHECKS] : readers
 }
 
 /**
@@ -108,3 +121,43 @@ export const declares = (file: string, module: string, reads = READS): boolean =
 export const watchedOf = (reads = READS): Map<string, string[]> =>
   new Map(Object.entries(reads).map(([module, globs]) =>
     [join(ROOT, module), globSync(globs, { cwd: ROOT }).map(file => join(ROOT, file))]))
+
+type Table = { entries: Map<string, string>, rest: string }
+
+/**
+ * Splits `text`, a version of this module, into the text of each entry of
+ * `READS`, keyed by the module's path from `ROOT`, and the text outside the
+ * table, or returns nothing where `text` is missing or no `READS` table of
+ * string keys parses from it.
+ */
+const tableOf = async (text?: string): Promise<Table | undefined> => {
+  if (text === undefined) return undefined
+  const { parseSync } = await import('vite')
+  const table         = parseSync(TABLE, text).program.body
+    .flatMap(node => node.type === 'ExportNamedDeclaration' ? node.declaration ?? [] : [])
+    .flatMap(declaration => declaration.type === 'VariableDeclaration' ? declaration.declarations : [])
+    .find(({ id }) => id.type === 'Identifier' && id.name === 'READS')?.init
+  if (table?.type !== 'ObjectExpression') return undefined
+  const entries = table.properties.map(property =>
+    property.type === 'Property' && property.key.type === 'Literal' && typeof property.key.value === 'string'
+      ? [property.key.value, text.slice(property.value.start, property.value.end)] as const
+      : undefined)
+  return entries.every(entry => entry !== undefined)
+    ? { entries: new Map(entries), rest: text.slice(0, table.start) + text.slice(table.end) }
+    : undefined
+}
+
+/**
+ * Lists what an edit to this module from `before` to `after` reaches, as
+ * absolute paths: each module whose `READS` entry the edit adds, removes, or
+ * changes, and `CHECKS`, where the rest of the module stays as it was, or
+ * else `TABLE`, which every test loads through the setup file.
+ */
+export const rereadOf = async (before?: string, after?: string): Promise<string[]> => {
+  const [was, now] = await Promise.all([before, after].map(text => tableOf(text)))
+  if (was === undefined || now === undefined || was.rest !== now.rest) return [TABLE]
+  return [...new Set([...was.entries.keys(), ...now.entries.keys()])]
+    .filter(module => was.entries.get(module) !== now.entries.get(module))
+    .map(module => join(ROOT, module))
+    .concat(CHECKS)
+}

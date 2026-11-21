@@ -53,9 +53,10 @@ interface Template {
 }
 
 export interface Workflow {
-  jobs : Record<string, Job>
-  on   : Record<string, (Record<string, unknown> & { types?: string[] }) | null>
-  path : string
+  jobs         : Record<string, Job>
+  on           : Record<string, (Record<string, unknown> & { types?: string[] }) | null>
+  path         : string
+  concurrency? : string | { group: string }
 }
 
 /**
@@ -74,6 +75,7 @@ export const FILES = {
   sweep    : '.mise/tasks/repo/ci.toml',
   warm     : '.github/workflows/warm.yml'
 }
+const DRAFT_GROUP   = '${{ github.event.pull_request.draft }}'
 const EXACT         = /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/
 const EXPRESSION    = /^\$\{\{ (.*) \}\}$/s
 const FRONTMATTER   = /^---\n([\s\S]*?)\n---\n/
@@ -270,8 +272,8 @@ export class Repository {
    * - A matrix row holding a key other than `name`, `task`, and `tools`
    * - A workflow ending on no job that needs every other job
    * - A workflow a `pull_request` triggers leaving `ready_for_review` out of its
-   *   activity types, or holding a job whose condition does not end on the
-   *   draft check
+   *   activity types, holding a job whose condition does not end on the draft
+   *   check, or sharing a concurrency group between a draft run and a ready one
    * - A `GUARDS` job missing or running under another condition
    * - A settings file leaving `immutable-releases` off or undeclared
    */
@@ -316,14 +318,19 @@ export class Repository {
 
   /**
    * Each workflow a `pull_request` triggers that leaves `ready_for_review` out
-   * of its activity types, and each job of such a workflow whose condition
-   * `endsReady` does not pass.
+   * of its activity types, or whose concurrency group does not end on
+   * `DRAFT_GROUP` and so holds a draft run beside a ready one, and each job of
+   * such a workflow whose condition `endsReady` does not pass.
    */
   private get draftProblems(): string[] {
-    return this.pulls.flatMap(({ jobs, on, path }) => [
+    return this.pulls.flatMap(({ concurrency, jobs, on, path }) => [
       ...on.pull_request?.types?.includes(READY_TYPE)
         ? []
         : [`${path} runs on pull_request without the activity type ${READY_TYPE}`],
+      ...(typeof concurrency === 'object' ? concurrency.group : concurrency)?.endsWith(DRAFT_GROUP) ?? true
+        ? []
+        : [  `${path} lets a draft run cancel a ready one, `
+           + `its concurrency group not ending on ${DRAFT_GROUP}`],
       ...Object.entries(jobs)
         .filter(([, job]) => !endsReady(job.if))
         .map(([id]) =>

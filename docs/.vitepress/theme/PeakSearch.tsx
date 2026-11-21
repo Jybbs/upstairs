@@ -1,11 +1,12 @@
-import { useElementSize, useIntersectionObserver, usePreferredReducedMotion } from '@vueuse/core'
-import { computed, defineComponent, onBeforeUnmount, ref, useId, watch }      from 'vue'
+import { useElementSize, usePreferredReducedMotion }                  from '@vueuse/core'
+import { computed, defineComponent, onBeforeUnmount, ref, useId, watch } from 'vue'
 
 import { GRID_STEP, TRACK_STEP } from '../lib/orbit/scan.ts'
 import { clamp, Spring }         from '../lib/site/motion.ts'
 import { pathOf }                from '../lib/site/paths.ts'
+import { usePlay }               from '../lib/site/play.ts'
 import { useSlider }             from '../lib/site/slider.ts'
-import { useDrawings }           from '../lib/state/drawings.ts'
+import { titleOf, useDrawings }  from '../lib/state/drawings.ts'
 import Readings                  from './Readings.tsx'
 
 const CARRY  = 0.12
@@ -13,6 +14,11 @@ const FLING  = 6
 const FOLLOW = 28
 const INSET  = 16
 const LAND   = 22
+/**
+ * Milliseconds between two stops as the scale plays, the length of the site's
+ * main motion.
+ */
+const PACE   = 650
 const RADIUS = 3.5
 const STOPS  = [10, 15, 20, TRACK_STEP, 45, 60, 90, GRID_STEP, 180, 240]
 const LAST   = STOPS.length - 1
@@ -24,6 +30,7 @@ const NAMES  = STOPS.map(step => step < 60 ? `${step} S` : `${step / 60} MIN`)
  * opening as the samples spread. A drag keeps the knob under the pointer while
  * the samples trail it, and a release lets the knob coast onto the nearest
  * stop, each frame writing into the nodes the drawing made when it last fit.
+ * Once in view, the knob plays along every stop and returns to the track step.
  */
 export default defineComponent(
   () => {
@@ -35,7 +42,6 @@ export default defineComponent(
     const handle  = ref<SVGGElement>()
     const level   = ref<SVGLineElement>()
     const missed  = ref('')
-    const nudging = ref(false)
     const samples = ref<SVGGElement>()
     const summit  = ref<SVGCircleElement>()
     const motion  = usePreferredReducedMotion()
@@ -292,11 +298,12 @@ export default defineComponent(
       else settle(shown.value)
     }, { flush: 'post' })
 
-    const nudge = useIntersectionObserver(computed(() => layout.value && frame.value), ([entry]) => {
-      if (!entry.isIntersecting) return
-      nudge.stop()
-      nudging.value = !still()
-    }, { threshold: 0.6 })
+    usePlay(
+      computed(() => layout.value && frame.value),
+      PACE,
+      slider.go,
+      () => [...STOPS.keys(), STOPS.indexOf(TRACK_STEP)]
+    )
 
     onBeforeUnmount(() => cancelAnimationFrame(raf))
 
@@ -310,13 +317,14 @@ export default defineComponent(
             ? <p class="caps m-0 text-base text-soft">{failure.value}</p>
             : [
               <div class="caps mb-3 text-base leading-snug text-soft">
+                {drawings.value && titleOf(drawings.value, 'scanned')}
+                <br />
                 Drag the knob to change the spacing
               </div>,
               <svg
                 class={[
                   'drawing group',
-                  slider.grip.gripped.value ? 'cursor-grabbing held' : 'cursor-grab',
-                  { nudging: nudging.value }
+                  slider.grip.gripped.value ? 'cursor-grabbing held' : 'cursor-grab'
                 ]}
                 width={view?.full ?? 0}
                 height={view?.tall ?? 0}
@@ -329,7 +337,6 @@ export default defineComponent(
                   onPointerup     : release
                 }}
                 aria-valuetext={data ? spoken(shown.value) : undefined}
-                onAnimationend={() => { nudging.value = false }}
               >
                 {view && data && (
                   <g>
@@ -397,23 +404,21 @@ export default defineComponent(
                       </g>
                     ))}
                     <g ref={handle} transform="translate(0 0)">
-                      <g class="group-[.nudging]:animate-nudge">
-                        <circle
-                          r="19"
-                          class="fill-none stroke-u stroke-2 opacity-0 group-focus-visible:opacity-100"
-                        />
-                        <circle
-                          r="14"
-                          class="fill-panel stroke-ink stroke-2 transition-[stroke,stroke-width] duration-200
-                                 group-hover:stroke-u group-hover:stroke-3 group-focus-visible:stroke-u
-                                 group-focus-visible:stroke-3 group-[.held]:stroke-u group-[.held]:stroke-3
-                                 motion-reduce:transition-none"
-                        />
-                        <path
-                          d="M-4 -5V5M0 -5V5M4 -5V5"
-                          class="fill-none stroke-ink stroke-[1.75] [stroke-linecap:round]"
-                        />
-                      </g>
+                      <circle
+                        r="19"
+                        class="fill-none stroke-u stroke-2 opacity-0 group-focus-visible:opacity-100"
+                      />
+                      <circle
+                        r="14"
+                        class="fill-panel stroke-ink stroke-2 transition-[stroke,stroke-width] duration-200
+                               group-hover:stroke-u group-hover:stroke-3 group-focus-visible:stroke-u
+                               group-focus-visible:stroke-3 group-[.held]:stroke-u group-[.held]:stroke-3
+                               motion-reduce:transition-none"
+                      />
+                      <path
+                        d="M-4 -5V5M0 -5V5M4 -5V5"
+                        class="fill-none stroke-ink stroke-[1.75] [stroke-linecap:round]"
+                      />
                     </g>
                   </g>
                 )}
