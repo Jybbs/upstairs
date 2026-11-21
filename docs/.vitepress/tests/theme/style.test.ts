@@ -55,3 +55,8 @@ describe('a link in a page', () => {
     expect(ruleOf(LINK, media.cssRules).style.getPropertyValue('transition')).toBe('none')
   })
 })
+
+describe('the nav bar', () => {
+  it('keeps the section links in the bar at every width', () =>
+    expect(styleOf('.VPNavBar .content-body .VPNavBarMenu', 'display')).toBe('flex'))
+})

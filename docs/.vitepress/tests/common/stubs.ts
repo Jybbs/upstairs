@@ -50,3 +50,17 @@ export const stubMatchMedia = (matching: (query: string) => boolean) => {
  * component wherever it mounts it.
  */
 export const stubOf = (name: string) => ({ default: defineComponent({ name, render: () => null }) })
+
+/**
+ * Stands in for `IntersectionObserver`, returning a call that stands the
+ * drawing observed last in view, or out of it where `isIntersecting` is false.
+ */
+export const stubIntersection = () => {
+  const seen: ((entries: { isIntersecting: boolean }[]) => void)[] = []
+  vi.stubGlobal('IntersectionObserver', class {
+    constructor(back: (entries: { isIntersecting: boolean }[]) => void) { seen.push(back) }
+    disconnect() {}
+    observe() {}
+  })
+  return (isIntersecting = true) => seen.at(-1)!([{ isIntersecting }])
+}

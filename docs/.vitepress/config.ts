@@ -1,18 +1,18 @@
-import tailwindcss        from '@tailwindcss/vite'
-import vueJsx             from '@vitejs/plugin-vue-jsx'
-import { viteStaticCopy } from 'vite-plugin-static-copy'
-import { defineConfig }   from 'vitepress'
+import tailwindcss            from '@tailwindcss/vite'
+import vueJsx                 from '@vitejs/plugin-vue-jsx'
+import { viteStaticCopy }     from 'vite-plugin-static-copy'
+import { defineConfig }       from 'vitepress'
 
-import manifest           from '../package.json' with { type: 'json' }
-import { writeCards }     from './lib/site/cards.ts'
-import { headOf }         from './lib/site/head.ts'
-import { licensesOf }     from './lib/site/licenses.ts'
-import { TOUCH }          from './lib/site/mark.ts'
-import { markdownOf }     from './lib/site/markdown.ts'
-import { SCHEMES, cssOf } from './lib/site/palette.ts'
-import { preloadOf }      from './lib/site/preload.ts'
-import { SHEETS }         from './lib/site/sheets.ts'
-import { navOf }          from './lib/site/sections.ts'
+import manifest               from '../package.json' with { type: 'json' }
+import { writeCards }         from './lib/site/cards.ts'
+import { headOf }             from './lib/site/head.ts'
+import { licensesOf }         from './lib/site/licenses.ts'
+import { TOUCH }              from './lib/site/mark.ts'
+import { markdownOf }         from './lib/site/markdown.ts'
+import { SCHEMES, cssOf }     from './lib/site/palette.ts'
+import { preloadOf }          from './lib/site/preload.ts'
+import { SHEETS }             from './lib/site/sheets.ts'
+import { navOf, neighborsOf } from './lib/site/sections.ts'
 
 const LICENSES = 'licenses.txt'
 const home     = preloadOf('/theme/HomeMap.tsx', 'index.md')
@@ -24,14 +24,15 @@ const notices  = licensesOf(
 )
 
 export default defineConfig({
-  buildEnd      : ({ outDir }) => writeCards(outDir),
-  cacheDir      : '../.cache/vite',
-  description   : manifest.description,
-  lang          : 'en-US',
-  markdown      : { config: markdownOf() },
-  themeConfig   : { nav: navOf(), siteTitle: false },
-  title         : 'Upstairs',
-  transformHead : context => [...home.head(context), ...headOf(context, manifest.homepage)],
+  buildEnd          : ({ outDir }) => writeCards(outDir),
+  cacheDir          : '../.cache/vite',
+  description       : manifest.description,
+  lang              : 'en-US',
+  markdown          : { config: markdownOf() },
+  themeConfig       : { nav: navOf(), siteTitle: false },
+  title             : 'Upstairs',
+  transformHead     : context => [...home.head(context), ...headOf(context, manifest.homepage)],
+  transformPageData : page => ({ frontmatter: { ...neighborsOf(page.relativePath), ...page.frontmatter } }),
 
   head: [
     ['link', { href: '/favicon.svg', rel: 'icon', type: 'image/svg+xml' }],

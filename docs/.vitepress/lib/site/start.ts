@@ -60,11 +60,9 @@ export const startFileOf = (page: StartPage, scheme: SchemeName) =>
   `start/${page.toLowerCase()}-${scheme}.svg`
 
 /**
- * Returns the page's link on the site, the home page for the map and the
- * section's overview for every other page.
+ * Returns the page's link on the site, the overview of its section.
  */
-export const startLinkOf = (page: StartPage) =>
-  new URL(page === 'Map' ? '/' : linkOf(page), manifest.homepage)
+export const startLinkOf = (page: StartPage) => new URL(linkOf(page), manifest.homepage)
 
 /**
  * Lists the pages the start cards link, in the order the README sets them.

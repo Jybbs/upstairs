@@ -22,7 +22,7 @@ $$
 \rho = \sqrt{e^2 + n^2 + u^2}, \qquad \varepsilon = \arcsin \frac{u}{\rho}, \qquad A = \operatorname{atan2}(e, n)
 $$
 
-The drawing follows the space station through its highest pass over {{ home }} in the day after the catalog was fetched, the sky disc sweeping its azimuth from north and the upright plane beside it raising its elevation from the horizon. Pointing at either plane moves the station along the pass.
+The drawing follows the space station through its highest pass over {{ home }} in the day after the catalog was fetched, the sky disc sweeping its azimuth from north and the upright plane beside it raising its elevation from the horizon, under a line naming the station, the place, and the time the pass rises. Once in view, it plays the pass from rise to set at {{ lapse }} times real speed, and pointing at either plane moves the station along the pass.
 
 <LookAngles />
 
@@ -38,13 +38,13 @@ $$
 
 The search stops once the bracket is at most 10 milliseconds wide, which puts the peak's elevation within a hundredth of a degree of the highest elevation the orbit model gives for a satellite 225 kilometers up or higher.
 
-The drawing samples the space station's pass over {{ home }} that climbs past {{ steep }}° and whose highest sample falls farthest below its peak. Dragging the knob along the scale spreads the samples, and the band between the highest sample and the peak widens with them, which is the gap the search closes.
+The drawing samples the space station's pass over {{ home }} that climbs past {{ steep }}° and whose highest sample falls farthest below its peak, under a line naming the station, the place, and the time the pass rises. Once in view, the knob runs along the scale and returns to the {{ trackSeconds }}-second spacing the scan samples at. Dragging the knob spreads the samples, and the band between the highest sample and the peak widens with them, which is the gap the search closes.
 
 <PeakSearch />
 
 ## Accuracy
 
-Each position comes from an orbit fitted hours or days earlier and shifts once a satellite maneuvers. Kelso (2007)[^kelso2007] compared SGP4 against the precise orbits of the GPS satellites and found each one kilometers from where it was, mostly along its track. The error differed from one satellite to the next, was not smallest at the time the orbit was fitted, and grew as the prediction ran on from that time. The map marks that error with a dotted ring around the chosen satellite, as [The Map](/guide/#the-map) in the Guide sets out, and draws no satellite once the catalog was fetched more than {{ ageLimit }} days before the time the strip shows.
+Each position comes from an orbit fitted hours or days earlier and shifts once a satellite maneuvers. Kelso (2007)[^kelso2007] compared SGP4 against the precise orbits of the GPS satellites and found each one kilometers from where it was, mostly along its track. The error differed from one satellite to the next, was not smallest at the time the orbit was fitted, and grew as the prediction ran on from that time. The map marks that error with a dotted ring around the chosen satellite, as [The Map](/guide/#the-map) in the Guide sets out. The catalog keeps only the orbits fitted in the {{ ageLimit }} days before it was fetched, and the map draws no satellite once the catalog is older than that at the time the strip shows.
 
 The drawing counts the element sets in the catalog at each age on an axis that stretches out the first day, shading each band of ages and topping it with the ring the map draws around a satellite of that age. Pointing at a column reads its ages and its share of the catalog.
 

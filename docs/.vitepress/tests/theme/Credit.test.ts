@@ -73,13 +73,18 @@ it.each([
 
 it('seals a track with no source in a dotted ring, its own glyph scaled to the band', async () => {
   const { wrapper } = await mounted()
-  const seal        = wrapper.get('.credit-track .seal')
+  const seal        = wrapper.findAll('.credit-track .seal')[3]!
   expect([
     seal.findAll('.seal-plain').length,
     seal.find('.seal-rim').exists(),
-    seal.find('.seal-glyph path[transform="rotate(-22)"]').exists(),
+    seal.get('.seal-glyph > g').attributes('transform'),
     seal.get('.seal-glyph').attributes('transform')
-  ]).toEqual([1, false, true, 'translate(48 48) scale(0.9)'])
+  ]).toEqual([1, false, 'translate(-24 -24) scale(3)', 'translate(48 48) scale(0.9)'])
+})
+
+it('credits the orbits to USSPACECOM through Space-Track', async () => {
+  const { wrapper } = await mounted()
+  expect(wrapper.get('.credit-track .credit-said').text()).toBe('USSPACECOM via Space-Track')
 })
 
 it('sets a track for each source under its group, every group kept in the band', async () => {
@@ -87,7 +92,7 @@ it('sets a track for each source under its group, every group kept in the band',
   expect(wrapper.findAll('.credit-tracks').map(group =>
     [group.attributes('hidden'), group.findAll('.credit-name').map(name => name.text())]))
     .toEqual([
-      [undefined, ['CelesTrak', 'Terrain Tiles', 'OpenStreetMap']],
+      [undefined, ['Space-Track', 'Terrain Tiles', 'OpenStreetMap']],
       [undefined, ['OpenFreeMap', 'OpenMapTiles']]
     ])
 })

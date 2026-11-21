@@ -2,9 +2,14 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi }     from 'vitest'
 
+import { LOOK_STEP }                                   from '../../lib/orbit/looks.ts'
+import { CLOCK }                                       from '../../lib/state/clock.ts'
+import { titleOf }                                     from '../../lib/state/drawings.ts'
 import LookAngles                                      from '../../theme/LookAngles.tsx'
 import { drawingsOf }                                  from '../common/drawings.ts'
 import { observeWidth, readingsOf, statesEachFailure } from '../common/drawn.ts'
+import { fakeClock }                                   from '../common/frames.ts'
+import { stubIntersection, stubMatchMedia }            from '../common/stubs.ts'
 
 vi.mock('../../lib/state/drawings.ts', async original =>
   (await import('../common/drawings.ts')).drawingsModuleOf(await original()))
@@ -26,6 +31,24 @@ describe('the look angles', () => {
     const heights = looks.slice(from, to).map(look => Math.abs(look.elevation))
     return from + heights.indexOf(Math.min(...heights))
   }
+
+  it('names the station, the home spot, and the time its pass rises above the drawing', async () => {
+    const wrapper = mount(LookAngles)
+    await flushPromises()
+    expect(wrapper.get('figure > div').text()).toBe(titleOf(drawings, 'highest'))
+  })
+
+  it('plays the pass from rise to set once the drawing comes into view', async () => {
+    fakeClock({ toFake: ['setInterval', 'clearInterval'] })
+    stubMatchMedia(() => false)
+    const view    = stubIntersection()
+    const wrapper = mount(LookAngles)
+    await flushPromises()
+    view()
+    vi.advanceTimersByTime((looks.length + 1) * LOOK_STEP * 1000 / CLOCK.lapse)
+    await flushPromises()
+    expect(wrapper.get('svg').attributes('aria-valuenow')).toBe(String(looks.length - 1))
+  })
 
   it('opens on the highest look of the pass', async () =>
     expect((await readingsOf(LookAngles))[1]).toBe(`${looks[peak].elevation.toFixed(1)}°`))
