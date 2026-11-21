@@ -11,6 +11,11 @@ import { View }                             from './mercator.ts'
 interface Drawn {
   gathered : boolean
   held     : Pass | null
+  /**
+   * Whether each kind is shown, every pass of a kind not shown drawing neither
+   * a dot nor a track.
+   */
+  kinds    : Readonly<Record<Kind, boolean>>
   named    : Kind | null
   reduced  : boolean
   selected : Pass | null
@@ -169,7 +174,7 @@ export class Overlay {
   readonly view            = new View()
   /**
    * How many satellites the last frame drew inside the view, by kind in the
-   * order of `KINDS`.
+   * order of `KINDS`, at zero for each kind not shown.
    */
   readonly onMap           = new Uint16Array(kindOrder.length)
   labels: readonly Label[] = []
@@ -370,7 +375,8 @@ export class Overlay {
       const held   = this.heldStrength[pass]
       const chosen = this.chosenStrength[pass]
       if (held + chosen < FAINT) continue
-      const { riseAt, setAt } = tracks.passes[pass]
+      const { kind, riseAt, setAt } = tracks.passes[pass]
+      if (!state.kinds[kind]) continue
       this.drawTrack(context, tracks, pass, riseAt, setAt, TRACK.heldLow, TRACK.heldHigh, 0.55 * held)
       if (chosen < FAINT) continue
       this.drawTrack(context, tracks, pass, riseAt, seconds, TRACK.low, TRACK.high, TRACK.flown * chosen)
@@ -382,6 +388,7 @@ export class Overlay {
     const { held, selected } = state
     for (let pass = 0; pass < tracks.passes.length; pass++) {
       const record = tracks.passes[pass]
+      if (!state.kinds[record.kind]) continue
       if (tracks.docked.has(pass) && record !== selected && record !== held) continue
       if (!tracks.up(pass, seconds)) continue
       const x = view.column(tracks.longitude)
@@ -551,9 +558,10 @@ export class Overlay {
    * Draws a satellite as a dot in the one tone, 2 pixels plus 2.5 for its
    * nearness and strengthened by it, laying `BEADS` behind it and emptying to
    * an open ring past its nearest point. The held and the chosen dots take
-   * their kind's color and a ring, and a dot the filters leave out draws at
-   * half strength, its beads included. Draws at `x`, `y`, the place `tracks.up`
-   * wrote, since laying the beads reads other moments into `tracks`.
+   * their kind's color and a ring, and a dot whose pass the filters leave out
+   * of the list draws at half strength, its beads included. Draws at `x`, `y`,
+   * the place `tracks.up` wrote, since laying the beads reads other moments
+   * into `tracks`.
    */
   private drawDot(
     context : CanvasRenderingContext2D,

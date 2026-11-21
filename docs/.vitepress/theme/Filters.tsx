@@ -1,20 +1,18 @@
 import { defineComponent } from 'vue'
 
-import { KINDS, kindOrder }      from '../lib/orbit/kinds.ts'
-import { pressedOf, useToggles } from '../lib/site/toggles.ts'
-import { HEIGHTS, sky }          from '../lib/state/sky.ts'
-import Chip                      from './Chip.tsx'
+import { KINDS, kindOrder }                from '../lib/orbit/kinds.ts'
+import { pressedOf, useKinds, useToggles } from '../lib/site/toggles.ts'
+import { HEIGHTS, sky }                    from '../lib/state/sky.ts'
+import Chip                                from './Chip.tsx'
 
 /**
- * Sets which passes the map and the list show, through a group taking several
- * kinds at once and two groups each holding one height and one scope.
+ * Sets which kinds the page shows and which passes the list holds, through a
+ * group taking several kinds at once and two groups each holding one height
+ * and one scope.
  */
 export default defineComponent(
   () => {
-    const traced = useToggles(() => kindOrder.filter(kind => sky.traced[kind]), value => {
-      for (const kind of kindOrder) sky.traced[kind] = value.includes(kind)
-      sky.version.value++
-    })
+    const traced = useKinds()
     const heights = useToggles(() => [`${sky.lowest.value}`], value => {
       const height = pressedOf(value, `${sky.lowest.value}`)
       if (height) sky.lowest.value = Number(height)

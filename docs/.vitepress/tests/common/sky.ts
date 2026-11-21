@@ -13,10 +13,11 @@ export const addScanned = (sky: typeof Sky, passes: Pass[]) => {
 }
 
 /**
- * Loads a fresh copy of the shared state over a stand-in worker, then the
- * component `load` imports beside it.
+ * Loads a fresh copy of the shared state over a stand-in worker on a page whose
+ * address holds no fragment, then the component `load` imports beside it.
  */
 export const freshSky = async <T>(load: () => Promise<{ default: T }>) => {
+  history.replaceState(null, '', location.pathname + location.search)
   vi.stubGlobal('Worker', class { postMessage() {} })
   vi.resetModules()
   const { sky }                = await import('../../lib/state/sky.ts')
