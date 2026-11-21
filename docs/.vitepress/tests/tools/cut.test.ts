@@ -1,70 +1,100 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { contextOf, draftOf, NOTES, outcomeOf } from '../../tools/cut.ts'
+import { CODES, Draft, NOTES, outcomeOf } from '../../tools/cut.ts'
 
-const BEFORE = 'ec695b92119cf872109c4faf09cf93e7bf4af861'
-const SHA    = '761cc15aaf0c1e2a3b4c5d6e7f8091a2b3c4d5e6'
+const SHA = '761cc15aaf0c1e2a3b4c5d6e7f8091a2b3c4d5e6'
 
-const release = (tag_name: string, draft = false) => ({ draft, tag_name })
+const release = (tag_name: string, draft = false, id = 7) => ({ draft, id, tag_name })
 
 describe('outcomeOf', () => {
   it.each([
-    ['no release carries the version', [release('0.1.0')], 'create'],
-    ['the repository holds no release', [], 'create'],
-    ['the one release tags the version behind a v prefix', [release('v0.2.0')], 'create'],
-    ['a draft carries the version', [release('0.1.0'), release('0.2.0', true)], 'drafted'],
-    ['a published release carries the version', [release('0.2.0')], 'published']
-  ])('reads the releases of a moved version, returns its outcome, and creates only a missing draft where %s',
-    async (_, releases, outcome) => {
-      const create = vi.fn(async () => {})
-      expect(await outcomeOf(async () => releases, create, '0.2.0', '0.1.0')).toBe(outcome)
-      expect(create).toHaveBeenCalledTimes(outcome === 'create' ? 1 : 0)
+    ['no release carries the version', [release('0.1.0')], 'create', [], 1],
+    ['the repository holds no release', [], 'create', [], 1],
+    ['the one release tags the version behind a v prefix', [release('v0.2.0')], 'create', [], 1],
+    [
+      'only a draft carries the version',
+      [release('0.1.0', false, 3), release('0.2.0', true, 9)], 'refresh', [9], 0
+    ],
+    [
+      'two drafts carry the version',
+      [release('0.2.0', true, 4), release('0.2.0', true, 9)], 'refresh', [4], 0
+    ],
+    ['a published release carries the version', [release('0.2.0')], 'published', [], 0],
+    [
+      'a draft and a published release carry the version',
+      [release('0.2.0', true), release('0.2.0')], 'published', [], 0
+    ]
+  ])('returns the outcome, creating or refreshing only the draft it names, where %s',
+    async (_, releases, outcome, refreshed, created) => {
+      const create  = vi.fn(async () => {})
+      const refresh = vi.fn(async (_id: number) => {})
+      expect(await outcomeOf(async () => releases, create, refresh, '0.2.0')).toBe(outcome)
+      expect([create.mock.calls.length, refresh.mock.calls.map(([id]) => id)]).toEqual([created, refreshed])
     })
 
-  it('returns the outcome of the releases on a run with no previous version', async () =>
-    expect(await outcomeOf(async () => [release('0.2.0', true)], async () => {}, '0.2.0')).toBe('drafted'))
+  it.each([
+    ['the releases cannot be read', () => Promise.reject(new Error('HTTP 502')), async () => [], 'HTTP 502'],
+    ['the draft cannot be created', async () => [], () => Promise.reject(new Error('HTTP 422')), 'HTTP 422'],
+    [
+      'the draft cannot be refreshed',
+      async () => [release('0.2.0', true)], () => Promise.reject(new Error('HTTP 404')), 'HTTP 404'
+    ]
+  ])('fails where %s', (_, read, fail, message) =>
+    expect(outcomeOf(read, fail, fail, '0.2.0')).rejects.toThrow(message))
+})
 
-  it('stops on an unmoved version without reading the releases', async () => {
-    const read = vi.fn(async () => [])
-    expect(await outcomeOf(read, async () => {}, '0.2.0', '0.2.0')).toBe('unmoved')
-    expect(read).not.toHaveBeenCalled()
+describe('Draft', () => {
+  const draft = Draft.from('0.2.0', { GITHUB_REPOSITORY: 'Jybbs/upstairs', GITHUB_SHA: SHA })
+
+  it.each([
+    [
+      'reads the repository and the commit the draft targets',
+      { ...draft }, { repository: 'Jybbs/upstairs', target: SHA, version: '0.2.0' }
+    ],
+    [
+      'creates the version as a draft with generated notes, titled for it and targeting the commit',
+      draft.createArgs, [
+        'release', 'create', '0.2.0', '--draft', '--generate-notes',
+        '--repo', 'Jybbs/upstairs', '--target', SHA, '--title', '0.2.0'
+      ]
+    ],
+    [
+      'generates the notes of the version up to the commit',
+      draft.notesArgs, [
+        'api', '--method', 'POST', 'repos/Jybbs/upstairs/releases/generate-notes',
+        '--raw-field', 'tag_name=0.2.0', '--raw-field', `target_commitish=${SHA}`
+      ]
+    ],
+    [
+      'sets the draft’s notes as written and moves its target to the commit',
+      draft.refreshArgs(9, '@notes'), [
+        'api', '--method', 'PATCH', 'repos/Jybbs/upstairs/releases/9',
+        '--raw-field', 'body=@notes', '--raw-field', `target_commitish=${SHA}`, '--silent'
+      ]
+    ]
+  ])('%s', (_, actual, expected) => expect(actual).toEqual(expected))
+
+  it('sends the notes GitHub generates for the version to the draft', async () => {
+    const notes = vi.fn(async (_args: string[]) => ({ body: '@notes' }))
+    const send  = vi.fn(async (_args: string[]) => {})
+    await draft.refresh(9, notes, send)
+    expect([notes.mock.calls, send.mock.calls]).toEqual([[[draft.notesArgs]], [[draft.refreshArgs(9, '@notes')]]])
   })
-
-  it.each([
-    ['the releases cannot be read', () => Promise.reject(new Error('HTTP 502')), async () => {}, 'HTTP 502'],
-    ['the draft cannot be created', async () => [], () => Promise.reject(new Error('HTTP 422')), 'HTTP 422']
-  ])('fails where %s', (_, read, create, message) =>
-    expect(outcomeOf(read, create, '0.2.0', '0.1.0')).rejects.toThrow(message))
 })
 
-describe('draftOf', () => {
-  it('creates the version as a draft with generated notes, titled for it and targeting the commit', () =>
-    expect(draftOf('0.2.0', 'Jybbs/upstairs', SHA)).toEqual([
-      'release', 'create', '0.2.0',
-      '--draft', '--generate-notes', '--repo', 'Jybbs/upstairs', '--target', SHA, '--title', '0.2.0'
-    ]))
-})
-
-describe('contextOf', () => {
-  it.each([
-    ['push', BEFORE],
-    ['workflow_dispatch', undefined]
-  ])('reads the commit a %s run compares with, the repository, and the commit the draft targets',
-    (event, before) =>
-      expect(contextOf({
-        BEFORE,
-        GITHUB_EVENT_NAME : event,
-        GITHUB_REPOSITORY : 'Jybbs/upstairs',
-        GITHUB_SHA        : SHA
-      })).toEqual({ before, repository: 'Jybbs/upstairs', target: SHA }))
+describe('CODES', () => {
+  it.each([['create', 0], ['published', 1], ['refresh', 0]] as const)('ends the %s outcome on status %i',
+    (outcome, code) => expect(CODES[outcome]).toBe(code))
 })
 
 describe('NOTES', () => {
   it.each([
     ['create', '::notice::'],
-    ['drafted', '::notice::'],
-    ['published', '::warning::'],
-    ['unmoved', '::notice::']
+    ['published', '::error::'],
+    ['refresh', '::notice::']
   ] as const)('prints the %s outcome with the version, opening on %s', (outcome, opening) =>
     expect(NOTES[outcome]('0.2.0')).toMatch(new RegExp(`^${opening}.*0\\.2\\.0`)))
+
+  it.each(['mise bump', 'docs/package.json'])('names %s where a published release carries the version',
+    named => expect(NOTES.published('0.2.0')).toContain(named))
 })

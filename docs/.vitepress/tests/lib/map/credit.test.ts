@@ -44,7 +44,7 @@ describe('the groups of the credit', () => {
     expect(credit.groupsOf([...credit.CREDITS, TILES]).map(group =>
       [group.heading, group.tracks.map(track => track.name)]))
       .toEqual([
-        ['Sources', ['CelesTrak', 'Terrain Tiles', 'OpenStreetMap']],
+        ['Sources', ['Space-Track', 'Terrain Tiles', 'OpenStreetMap']],
         ['Tiles', ['OpenFreeMap', 'OpenMapTiles']]
       ]))
 
@@ -52,8 +52,10 @@ describe('the groups of the credit', () => {
     expect(credit.groupsOf(credit.CREDITS).map(group => group.heading)).toEqual(['Sources']))
 
   it('gives each track the address its link carries and the seal its terms require', () => {
-    const tracks = credit.groupsOf([TILES]).flatMap(group => group.tracks)
+    const tracks = credit.groupsOf([...credit.CREDITS, TILES]).flatMap(group => group.tracks)
     expect(tracks.map(track => [track.href, track.source?.id])).toEqual([
+      ['/data/#credits-st', 'st'],
+      ['/data/#credits-tt', 'tt'],
       ['https://www.openstreetmap.org/copyright', 'osm'],
       ['https://openfreemap.org', undefined],
       ['https://www.openmaptiles.org/', 'omt']

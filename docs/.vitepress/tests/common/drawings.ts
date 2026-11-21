@@ -43,6 +43,7 @@ export const drawingsOf = async (): Promise<Drawings> => {
     ages    : catalog.agesOf(records, START),
     color   : kindColor(kindOf(station[0].OBJECT_NAME)),
     highest : watch.highest!,
+    name    : station[0].OBJECT_NAME,
     scanned : watch.scanned!
   }
 }

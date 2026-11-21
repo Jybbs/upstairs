@@ -14,7 +14,7 @@
 
 ## 🛰️ About
 
-***Upstairs*** counts every active satellite above a spot chosen on a terrain map, lists the passes crossing its sky, and plays them through a window of time. The reader's browser calculates each position from the orbital elements [Space-Track](https://www.space-track.org/) publishes, running the SGP4 orbit model through the [`sgp4`](https://docs.rs/sgp4) crate compiled to [WebAssembly](https://webassembly.org/), and [MapLibre](https://maplibre.org/) draws the terrain map beneath the satellites. A catalog service on [Cloudflare Workers](https://developers.cloudflare.com/workers/) queries Space-Track for the elements once an hour, as Space-Track asks, keeping the payloads [CelesTrak](https://celestrak.org/)'s satellite catalog marks active, and every reader's browser reads that copy from `upstairs.fyi`.
+***Upstairs*** counts every active satellite above a spot chosen on a terrain map, lists the passes crossing its sky, and plays them through a window of time. The reader's browser calculates each position through the [`sgp4`](https://docs.rs/sgp4) crate compiled to [WebAssembly](https://webassembly.org/), and [MapLibre](https://maplibre.org/) draws the terrain map beneath the satellites. [Method](https://upstairs.fyi/method/) sets out the calculation, and [Data](https://upstairs.fyi/data/) the orbits it reads and where each comes from.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="reel-night.gif">
@@ -26,12 +26,12 @@
 ## 📍 Start Here
 
 <p align="center">
-<a href="https://upstairs.fyi/"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/start/map-night.svg"><img src="../docs/public/start/map-day.svg" alt="Map" width="260" height="132"></picture></a>
 <a href="https://upstairs.fyi/guide/"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/start/guide-night.svg"><img src="../docs/public/start/guide-day.svg" alt="Guide" width="260" height="132"></picture></a>
 <a href="https://upstairs.fyi/method/"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/start/method-night.svg"><img src="../docs/public/start/method-day.svg" alt="Method" width="260" height="132"></picture></a>
+<a href="https://upstairs.fyi/data/"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/public/start/data-night.svg"><img src="../docs/public/start/data-day.svg" alt="Data" width="260" height="132"></picture></a>
 </p>
 
-[Data](https://upstairs.fyi/data/) names where the orbits, the map, and the place search come from and what each request sends, and [CONTRIBUTING.md](CONTRIBUTING.md) lists the tasks, the checks a pull request passes, how a push to `main` deploys, and the labels an issue carries.
+The [map](https://upstairs.fyi/) itself is the site's home page, and [CONTRIBUTING.md](CONTRIBUTING.md) lists the tasks, the checks a pull request passes, how a push to `main` deploys, and the labels an issue carries.
 
 ---
 
@@ -48,7 +48,7 @@ mise run catalog
 mise serve
 ```
 
-`mise run catalog` writes the satellite catalog into `docs/public/catalog.bin` from Space-Track's elements and CelesTrak's satellite catalog, using the Space-Track login `mise run catalog:login` saves. Space-Track asks for its elements at most once an hour and CelesTrak for one download per update, so the task runs only when the catalog itself has to move.
+`mise run catalog` reads the Space-Track login that `mise run catalog:login` saves, as [The Catalog Service](CONTRIBUTING.md#the-catalog-service) in CONTRIBUTING.md sets out.
 
 ---
 

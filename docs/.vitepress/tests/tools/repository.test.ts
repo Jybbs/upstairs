@@ -14,11 +14,15 @@ const CHECKOUT_PIN  = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 const CI            = '.github/workflows/ci.yml'
 const DEPLOY        = '.github/workflows/deploy.yml'
 const DRAFT         = '.github/workflows/draft.yml'
+const DRAFT_GROUP   = '${{ github.event.pull_request.draft }}'
 const HEAD_NOT_MAIN = " && github.head_ref != 'main'"
 const MAIN          = "github.ref == 'refs/heads/main'"
 const PROVISION     = '$/.github/actions/provision'
 const READY         = '!github.event.pull_request.draft'
 const SPLIT_ROW     = { Rust: null, name: '🔥 Bun', tools: 'bun' }
+const TRIGGERS      = { push: { branches: ['main'] }, workflow_dispatch: null }
+const CANCELS       = 'lets a draft run cancel a ready one, '
+                    + `its concurrency group not ending on ${DRAFT_GROUP}`
 const CATALOG       = `${MAIN} && ${READY}`
 const SITE          = `(${MAIN} || (github.event_name == 'pull_request'${HEAD_NOT_MAIN} `
                     + `&& github.event.pull_request.head.repo.full_name == github.repository)) && ${READY}`
@@ -36,11 +40,17 @@ const checked = (jobs: Record<string, Job>, types?: string[]) =>
 
 const job = (change: Job) => added({ added: change })
 
+const refit = (file: string, fields: Partial<repository.Workflow>) =>
+  rework(file, workflow => ({ ...workflow, ...fields }))
+
 const rejob = (change: Job, file: string, id: string) => rework(file, workflow =>
   ({ ...workflow, jobs: { ...workflow.jobs, [id]: { ...workflow.jobs[id], ...change } } }))
 
 const relabel = (change: object, index: number): Change => ({ labels }) =>
   ({ labels: labels.with(index, { ...labels[index], ...change }) })
+
+const retrigger = (on: repository.Workflow['on']): [Change, string] =>
+  [refit(DRAFT, { on }), `${DRAFT} runs on ${JSON.stringify(on)} rather than ${JSON.stringify(TRIGGERS)}`]
 
 const rework = (file: string, change: (workflow: repository.Workflow) => repository.Workflow): Change =>
   ({ workflows }) =>
@@ -85,8 +95,10 @@ describe('Repository', () => {
       .toEqual([`docs/package.json sets vue to ${version} rather than one exact version`])
   )
 
-  it.each(['3.5.45', '2.0.0-alpha.21', '1.0.0-rc.1', '1.0.0-alpha-1'])('reports nothing for a package at %s', version =>
-    expect(variant(() => ({ packages: [['vue', version]] })).problems).toEqual([]))
+  it.each(['3.5.45', '2.0.0-alpha.21', '1.0.0-rc.1', '1.0.0-alpha-1'])(
+    'reports nothing for a package at %s',
+    version => expect(variant(() => ({ packages: [['vue', version]] })).problems).toEqual([])
+  )
 
   it('reads each task by its name and its alias, from a task file and from a TOML table', () =>
     expect(base.tasks).toEqual(expect.arrayContaining(['audit', 'catalog:bundle', 'ci', 'repo:ci'])))
@@ -131,6 +143,16 @@ describe('Repository', () => {
     'reports nothing for a pull_request job under %s',
     condition =>
       expect(variant(checked({ added: { if: condition } }, ACTIVITY)).problems).toEqual(base.problems)
+  )
+
+  it.each<[string, repository.Workflow['concurrency']]>([
+    ['a group string ending on the draft flag', `ci-\${{ github.ref }}-${DRAFT_GROUP}`],
+    ['a group under its key ending on the draft flag', { group: `\${{ github.workflow }}-${DRAFT_GROUP}` }],
+    ['absent', undefined]
+  ])(
+    'reports nothing for a pull_request workflow whose concurrency is %s',
+    (_, concurrency) =>
+      expect(variant(refit(CI, { concurrency })).problems).toEqual(base.problems)
   )
 
   it('names a gate two pull-request workflows share once', () => {
@@ -343,9 +365,12 @@ describe('Repository', () => {
     ],
     [
       'a publishing job moved to another workflow',
-      rework(DRAFT, workflow => ({ ...workflow, path: 'moved.yml' })),
+      refit(DRAFT, { path: 'moved.yml' }),
       `${DRAFT} holds no 🏷️ Cut job`
     ],
+    ['a Draft push filtered by path', ...retrigger({ ...TRIGGERS, push: { ...TRIGGERS.push, paths: ['docs/**'] } })],
+    ['a Draft workflow no longer run by hand', ...retrigger({ push: TRIGGERS.push })],
+    ['a Draft workflow run on a push to any branch', ...retrigger({ ...TRIGGERS, push: null })],
     [
       'a pull_request trigger running the default activity types alone',
       checked({ added: { if: READY } }),
@@ -358,7 +383,7 @@ describe('Repository', () => {
     ],
     [
       'a bare pull_request trigger, which runs the default activity types',
-      rework(CI, workflow => ({ ...workflow, on: { pull_request: null } })),
+      refit(CI, { on: { pull_request: null } }),
       `${join(ROOT, CI)} runs on pull_request without the activity type ready_for_review`
     ],
     [
@@ -397,6 +422,21 @@ describe('Repository', () => {
       `added.yml runs its added job on a draft pull request, its condition not ending on ${READY}`
     ],
     [
+      'a pull_request workflow whose concurrency group leaves out the draft flag',
+      refit(CI, { concurrency: { group: '${{ github.ref }}' } }),
+      `${join(ROOT, CI)} ${CANCELS}`
+    ],
+    [
+      'a pull_request workflow whose concurrency group string leaves out the draft flag',
+      refit(DEPLOY, { concurrency: 'deploy' }),
+      `${join(ROOT, DEPLOY)} ${CANCELS}`
+    ],
+    [
+      'a pull_request workflow whose concurrency group carries the draft flag before its ref',
+      refit(CI, { concurrency: { group: `${DRAFT_GROUP}-\${{ github.ref }}` } }),
+      `${join(ROOT, CI)} ${CANCELS}`
+    ],
+    [
       'a package at a range rather than one exact version',
       ({ packages }) => ({ packages: [...packages, ['vue', '^3.5.45']] }),
       'docs/package.json sets vue to ^3.5.45 rather than one exact version'
@@ -415,6 +455,18 @@ describe('Repository', () => {
       'an action pinned to two commits',
       () => action(CHECKOUT_PIN.replace('3d3c', '0000')),
       'actions/checkout is pinned to more than one commit'
+    ],
+    [
+      'settings turning immutable releases off',
+      ({ toggles }) => ({ toggles: { ...toggles, 'immutable-releases': false } }),
+      '.github/settings.toml leaves immutable-releases off'
+    ],
+    [
+      'settings leaving immutable releases out',
+      ({ toggles }) => ({
+        toggles: Object.fromEntries(Object.entries(toggles).filter(([name]) => name !== 'immutable-releases'))
+      }),
+      '.github/settings.toml leaves immutable-releases off'
     ]
   ])('reports %s', (_, change, problem) =>
     expect(variant(change).problems.filter(found => !base.problems.includes(found))).toEqual([problem]))

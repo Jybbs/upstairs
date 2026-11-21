@@ -8,9 +8,11 @@ export interface Scheme {
   halo   : string
   ink    : string
   kinds  : Readonly<Record<Kind, string>>
+  label  : string
   lift   : string
   page   : string
   panel  : string
+  quiet  : string
   rule   : string
   soft   : string
   spot   : string
@@ -31,9 +33,11 @@ export const SCHEMES = {
     ground : '#a8c1be',
     halo   : '#f8faf9',
     ink    : '#0a1213',
+    label  : '#0a1213',
     lift   : '#e2e9e6',
     page   : '#eef2f0',
     panel  : '#f8faf9',
+    quiet  : '#3b4a49',
     rule   : '#c3d0cc',
     soft   : '#3b4a49',
     spot   : '#0a4a47',
@@ -62,9 +66,11 @@ export const SCHEMES = {
     ground : '#040f1a',
     halo   : '#0a1213',
     ink    : '#eeeeee',
+    label  : '#dfe5e5',
     lift   : '#182627',
     page   : '#0a1213',
     panel  : '#0f1a1b',
+    quiet  : '#9fabab',
     rule   : '#2a3a3b',
     soft   : '#bac7c7',
     spot   : '#90d3c7',

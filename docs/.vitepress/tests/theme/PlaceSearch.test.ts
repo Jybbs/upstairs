@@ -65,8 +65,8 @@ it('leaves a spot found through Near me out of the address', async () => {
   const coords  = { latitude: 51.50073, longitude: -0.12463 }
   const located = (found: PositionCallback) => found({ coords } as GeolocationPosition)
   vi.stubGlobal('navigator', { geolocation: { getCurrentPosition: located } })
-  history.replaceState(null, '', '/#48.86,2.29')
   const { wrapper } = await mounted()
+  history.replaceState(null, '', '/#48.86,2.29')
   await wrapper.get('button').trigger('click')
   expect(location.hash).toBe('')
 })
@@ -163,6 +163,31 @@ it('chooses nothing on submit where every result is a satellite with no pass', a
   await typed(wrapper, 'iss')
   await wrapper.get('form').trigger('submit')
   expect([sky.pinned.value, sky.spot.value, wrapper.find('li').exists()]).toEqual([null, spot, true])
+})
+
+it('shows the kind of a satellite chosen while its kind is switched off, and holds its pass', async () => {
+  const pass             = passOf(44713, { kind: 'starlink', name: 'STARLINK-1007' })
+  const { sky, wrapper } = await mounted(state =>
+    state.tracks.add([pass], new Float32Array(3), Uint32Array.of(0), 1))
+  const before           = sky.traced.starlink
+  await wrapper.get('input').trigger('focusin')
+  await wrapper.get('input').setValue('starlink')
+  await wrapper.get('li button').trigger('click')
+  expect([before, sky.traced.starlink, sky.pinned.value, sky.shown.value])
+    .toEqual([false, true, pass, pass])
+})
+
+it('leaves a switched-off kind off where its satellite, having no pass, is pressed in the list', async () => {
+  const { sky, wrapper } = await mounted(state => {
+    state.satellites.value = [{ epoch: 0, id: 44713, kind: 'starlink', name: 'STARLINK-1007' }]
+    state.done.value       = true
+  })
+  await wrapper.get('input').trigger('focusin')
+  await wrapper.get('input').setValue('starlink')
+  const result = wrapper.get('li button')
+  await result.trigger('click')
+  expect([result.attributes('aria-disabled'), sky.traced.starlink, sky.pinned.value])
+    .toEqual(['true', false, null])
 })
 
 it.each([

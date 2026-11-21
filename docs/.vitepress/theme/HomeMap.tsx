@@ -44,10 +44,13 @@ export default defineComponent(
             inert={away.value}
           >
             {phone.value
-              ? <Sheet />
+              ? <Sheet data-label-clear />
               : [
-                <Readout class="absolute top-4 left-4 z-10 w-readout" />,
-                <TimeStrip class="absolute inset-x-4 bottom-4 z-10 rounded-sm border shadow-lift" />
+                <Readout class="absolute top-4 left-4 z-10 w-readout" data-label-clear />,
+                <TimeStrip
+                  class="absolute inset-x-4 bottom-4 z-10 rounded-sm border shadow-lift"
+                  data-label-clear
+                />
               ]}
           </div>
           <Transition

@@ -1,11 +1,13 @@
 import { $ } from 'bun'
 
-import manifest from '../../package.json' with { type: 'json' }
+import manifest  from '../../package.json' with { type: 'json' }
+import { FILES } from './repository.ts'
 
 type Outcome = keyof typeof NOTES
 
 interface Release {
   draft    : boolean
+  id       : number
   tag_name : string
 }
 
@@ -15,66 +17,119 @@ interface Release {
  */
 export const NOTES = {
   create    : (version: string) => `::notice::Drafted ${version} with generated notes`,
-  drafted   : (version: string) => `::notice::A draft carries ${version}, which stays as it is`,
-  published : (version: string) => `::warning::A published release carries ${version}, so no draft is cut`,
-  unmoved   : (version: string) => `::notice::The version stays at ${version}, so no draft is cut`
+  published : (version: string) =>
+      `::error::A published release carries ${version}, so run mise bump to move the version `
+    + `in ${FILES.manifest} to the next release`,
+  refresh   : (version: string) => `::notice::Refreshed the notes and the target of the ${version} draft`
 }
 
 /**
- * Decides what the cut does for `version` and runs `create` where no release
- * carries it, reading the releases only where the version moved from
- * `previous`, so a run with no `previous` reads them whatever the version. A
- * release carries the version where its `tag_name` equals it, a field a draft
- * sets before its tag exists.
+ * The exit status `gha:cut` ends on for each outcome, failing the run where a
+ * published release carries the version.
+ */
+export const CODES: Record<Outcome, number> = { create: 0, published: 1, refresh: 0 }
+
+/**
+ * Decides what the cut does for `version` from the releases carrying it,
+ * running `create` where none does and `refresh` on the draft where only a
+ * draft does. A release carries the version where its `tag_name` equals it, a
+ * field a draft sets before its tag exists.
  *
  * Args:
- *   read     : Reads every release of the repository, drafts included.
- *   create   : Creates the draft of `version`.
- *   version  : The version the manifest carries at `HEAD`.
- *   previous : The version the manifest carried before the push.
+ *   read    : Reads every release of the repository, drafts included.
+ *   create  : Creates the draft of `version`.
+ *   refresh : Rewrites the notes and the target of the draft with this id.
+ *   version : The version the manifest carries at `HEAD`.
  */
 export const outcomeOf = async (
-  read      : () => Promise<Release[]>,
-  create    : () => Promise<unknown>,
-  version   : string,
-  previous? : string
+  read    : () => Promise<Release[]>,
+  create  : () => Promise<unknown>,
+  refresh : (id: number) => Promise<unknown>,
+  version : string
 ): Promise<Outcome> => {
-  if (previous === version) return 'unmoved'
-  const release = (await read()).find(({ tag_name }) => tag_name === version)
-  if (release) return release.draft ? 'drafted' : 'published'
-  await create()
-  return 'create'
+  const releases = (await read()).filter(({ tag_name }) => tag_name === version)
+  if (releases.some(({ draft }) => !draft)) return 'published'
+  const [draft] = releases
+  if (!draft) {
+    await create()
+    return 'create'
+  }
+  await refresh(draft.id)
+  return 'refresh'
 }
 
 /**
- * The arguments `gh` takes to create `version` in `repository` as a draft
- * with the notes GitHub generates, whose tag lands on `target` once the draft
- * is published.
+ * The draft release of `version` in `repository`, whose tag lands on `target`
+ * once it is published, holding the arguments `gh` takes to create the draft
+ * and to refresh its notes and its target.
  */
-export const draftOf = (version: string, repository?: string, target?: string) => [
-  'release', 'create', version,
-  '--draft', '--generate-notes', '--repo', repository, '--target', target, '--title', version
-]
+export class Draft {
+  constructor(
+    readonly version     : string,
+    readonly repository? : string,
+    readonly target?     : string
+  ) {}
 
-/**
- * Reads the commit a push moved from, which a run by hand leaves unset, the
- * repository, and the commit the draft targets from the variables the
- * workflow sets for the step.
- */
-export const contextOf = (env: Record<string, string | undefined>) => ({
-  before     : env.GITHUB_EVENT_NAME === 'push' ? env.BEFORE : undefined,
-  repository : env.GITHUB_REPOSITORY,
-  target     : env.GITHUB_SHA
-})
+  /**
+   * Reads the repository and the commit the draft of `version` targets from
+   * the variables the workflow sets for the step.
+   */
+  static from(version: string, env: Record<string, string | undefined>): Draft {
+    return new Draft(version, env.GITHUB_REPOSITORY, env.GITHUB_SHA)
+  }
+
+  /**
+   * The arguments that create the draft with the notes GitHub generates.
+   */
+  get createArgs(): (string | undefined)[] {
+    return [
+      'release', 'create', this.version, '--draft', '--generate-notes',
+      '--repo', this.repository, '--target', this.target, '--title', this.version
+    ]
+  }
+
+  /**
+   * The arguments that generate the notes of the version, counted from the
+   * release before it up to `target`.
+   */
+  get notesArgs(): string[] {
+    return [
+      'api', '--method', 'POST', `repos/${this.repository}/releases/generate-notes`,
+      '--raw-field', `tag_name=${this.version}`, '--raw-field', `target_commitish=${this.target}`
+    ]
+  }
+
+  /**
+   * Replaces the notes of the draft `id` with the ones `notes` generates for
+   * the version through `notesArgs`, and moves its target, through `send`.
+   */
+  async refresh(
+    id    : number,
+    notes : (args: string[]) => Promise<{ body: string }>,
+    send  : (args: string[]) => Promise<unknown>
+  ): Promise<unknown> {
+    return send(this.refreshArgs(id, (await notes(this.notesArgs)).body))
+  }
+
+  /**
+   * The arguments that set the notes of the draft `id` to `body` and move its
+   * target to `target`.
+   */
+  refreshArgs(id: number, body: string): string[] {
+    return [
+      'api', '--method', 'PATCH', `repos/${this.repository}/releases/${id}`,
+      '--raw-field', `body=${body}`, '--raw-field', `target_commitish=${this.target}`, '--silent'
+    ]
+  }
+}
 
 if (import.meta.main) {
-  const { before, repository, target } = contextOf(process.env)
-  const version  = manifest.version
-  const previous = before
-    ? (await $`git show ${before}:docs/package.json`.json()).version as string
-    : undefined
-  const read = async (): Promise<Release[]> =>
-    (await $`gh api --paginate --slurp repos/${repository}/releases`.json()).flat()
-  const create = () => $`gh ${draftOf(version, repository, target)}`
-  console.log(NOTES[await outcomeOf(read, create, version, previous)](version))
+  const draft   = Draft.from(manifest.version, process.env)
+  const read    = async (): Promise<Release[]> =>
+    (await $`gh api --paginate --slurp repos/${draft.repository}/releases`.json()).flat()
+  const create  = () => $`gh ${draft.createArgs}`
+  const refresh = (id: number) => draft.refresh(id, args => $`gh ${args}`.json(), args => $`gh ${args}`)
+  const outcome = await outcomeOf(read, create, refresh, draft.version)
+  console.log(NOTES[outcome](draft.version))
+  process.exitCode = CODES[outcome]
 }
