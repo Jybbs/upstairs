@@ -1,6 +1,6 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "audit"
 #MISE depends     = ["site:install"]
-#MISE description = "Report each disagreement between the registries, the templates, the guide, the workflows, the tasks, and the rulesets, each label breaking the registry's form, each package in `docs/package.json` at a range rather than one exact version, each action not pinned to one full commit, each stray matrix row key, each workflow ending on no gate, each workflow a pull request triggers that leaves out `ready_for_review`, runs a job on a draft, or shares a concurrency group between a draft run and a ready one, and each publishing job missing or run under another condition"
+#MISE description = "Report each disagreement between the registries, the templates, the guide, the workflows, the tasks, and the rulesets, each label breaking the registry's form, each package in `docs/package.json` at a range rather than one exact version, each action not pinned to one full commit, each stray matrix row key, each workflow ending on no gate, each workflow a pull request triggers that leaves out `ready_for_review`, runs a job on a draft, or shares a concurrency group between a draft run and a ready one, each publishing job missing or run under another condition, and a settings file leaving immutable releases off"
 
 bun run docs/.vitepress/tools/repository.ts

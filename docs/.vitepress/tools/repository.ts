@@ -1,5 +1,6 @@
 import { $, Glob, TOML, YAML }              from 'bun'
 import { basename, dirname, extname, join } from 'node:path'
+import { isDeepStrictEqual }                from 'node:util'
 
 import { Lexer, Parser }       from '@actions/expressions'
 import { Logical }             from '@actions/expressions/ast'
@@ -61,9 +62,10 @@ export interface Workflow {
 
 /**
  * The path of each declaration the repository tools read from a single file,
- * where `Repository.read` reads `guide`, `labels`, `manifest`, `release`, and
- * `sweep`, `sync.ts` reads `settings`, and `toolProblems` matches `warm` as the
- * end of a workflow's path.
+ * where `Repository.read` reads `guide`, `labels`, `manifest`, `release`,
+ * `settings`, and `sweep`, `sync.ts` reads `settings` as well, `cut.ts` names
+ * `manifest` in its error, and `toolProblems` matches `warm` as the end of a
+ * workflow's path.
  */
 export const FILES = {
   guide    : '.github/CONTRIBUTING.md',
@@ -104,6 +106,13 @@ const GUARDS = {
                  + `&& github.event.pull_request.head.repo.full_name == github.repository)) && ${READY}`,
     '📡 Catalog' : `${MAIN} && ${READY}`
   }
+}
+/**
+ * The triggers each workflow runs on, by its path, `🛰️ Draft` running on every
+ * push to `main` and by hand.
+ */
+const TRIGGERS = {
+  '.github/workflows/draft.yml' : { push: { branches: ['main'] }, workflow_dispatch: null }
 }
 /**
  * The parser for each extension `parseFile` reads, a Markdown file yielding
@@ -191,11 +200,12 @@ export const wordOf = (name: string) => name.split(' ').at(-1) ?? ''
  * Holds the declarations under `.github/` and `.mise/` that name one another,
  * meaning the label registry, the release categories, the issue templates, the
  * contributor guide, the site's manifest, the workflows and the action
- * manifests, the rulesets, the tasks, and the task the local sweep runs. It
- * reports where two of them disagree, where a label, a package, an action, a
- * matrix row, or a workflow breaks a rule of its own, where a publishing job is
- * missing or runs under another condition, and where a draft pull request runs
- * a job.
+ * manifests, the rulesets, the tasks, the task the local sweep runs, and the
+ * toggles of the repository settings. It reports where two of them disagree,
+ * where a label, a package, an action, a matrix row, or a workflow breaks a
+ * rule of its own, where a publishing job is missing or runs under another
+ * condition, where a draft pull request runs a job, and where the settings
+ * leave immutable releases off.
  */
 export class Repository {
   constructor(
@@ -208,6 +218,7 @@ export class Repository {
     readonly sweep      : string[],
     readonly tasks      : string[],
     readonly templates  : Template[],
+    readonly toggles    : Record<string, boolean>,
     readonly workflows  : Workflow[]
   ) {}
 
@@ -230,6 +241,7 @@ export class Repository {
       await Promise.all((await pathsOf(root, '.github/ISSUE_TEMPLATE/*.{md,yml}'))
         .filter(path => !path.endsWith('config.yml'))
         .map(async path => ({ labels: (await parseFile(path)).labels ?? [], path }))),
+      (await parseFile(at(FILES.settings))).toggles,
       await Promise.all((await pathsOf(root, '.github/workflows/*.yml'))
         .map(async path => ({ ...await parseFile(path), path })))
     )
@@ -271,13 +283,15 @@ export class Repository {
    *   activity types, holding a job whose condition does not end on the draft
    *   check, or sharing a concurrency group between a draft run and a ready one
    * - A `GUARDS` job missing or running under another condition
+   * - A settings file leaving `immutable-releases` off or undeclared
+   * - A `TRIGGERS` workflow running on triggers other than the ones it gives
    */
   get problems(): string[] {
     return [
       ...this.categoryProblems, ...this.draftProblems, ...this.endingProblems, ...this.gateProblems,
       ...this.guardProblems, ...this.guideProblems, ...this.labelProblems, ...this.packageProblems,
       ...this.pinProblems, ...this.rowProblems, ...this.sweepProblems, ...this.taskProblems,
-      ...this.templateProblems, ...this.toolProblems
+      ...this.templateProblems, ...this.toggleProblems, ...this.toolProblems, ...this.triggerProblems
     ]
   }
 
@@ -482,6 +496,10 @@ export class Repository {
       .map(name => `${template.path} names ${name}, which ${FILES.labels} lacks`))
   }
 
+  private get toggleProblems(): string[] {
+    return this.toggles['immutable-releases'] ? [] : [`${FILES.settings} leaves immutable-releases off`]
+  }
+
   private get toolProblems(): string[] {
     const provisions = jobsOf(this.workflows)
       .flatMap(({ job, path }) => provisionsOf(job).map(provision => ({ ...provision, path })))
@@ -491,6 +509,16 @@ export class Repository {
     return [...new Set(provisions
       .filter(({ cache, tools }) => cache !== 'false' && !saved.has(tools))
       .map(({ path, tools }) => `${path} restores the tools ${tools}, which no ${FILES.warm} row saves`))]
+  }
+
+  /**
+   * Each workflow `TRIGGERS` names whose triggers differ from the ones
+   * `TRIGGERS` gives it.
+   */
+  private get triggerProblems(): string[] {
+    return Object.entries(TRIGGERS).flatMap(([file, triggers]) => this.workflows
+      .filter(({ on, path }) => path.endsWith(file) && !isDeepStrictEqual(on, triggers))
+      .map(({ on }) => `${file} runs on ${JSON.stringify(on)} rather than ${JSON.stringify(triggers)}`))
   }
 }
 

@@ -2,7 +2,7 @@
   "name": "upstairs",
   "private": true,
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shows the satellites passing over a chosen spot on a topographic map.",
   "homepage": "https://upstairs.fyi",
   "repository": {

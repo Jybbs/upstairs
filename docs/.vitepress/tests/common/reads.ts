@@ -30,6 +30,7 @@ export const READS: Record<string, string[]> = {
   'docs/.vitepress/tests/theme/NotFound.test.ts'      : ['docs/.vitepress/theme/credit.css'],
   'docs/.vitepress/tests/theme/style.test.ts'         : ['docs/.vitepress/theme/style.css'],
   'docs/.vitepress/tests/tools/audit.test.ts'         : ['.mise/tasks/lock/audit'],
+  'docs/.vitepress/tests/tools/bump.test.ts'          : ['.mise/tasks/repo/bump'],
   'docs/.vitepress/tests/tools/logbook.test.ts'       : ['.github/scripts/summaries/deploy.md'],
   'docs/.vitepress/tests/tools/reel.test.ts'          : ['.github/reel-*.gif'],
   'docs/.vitepress/tests/tools/served.test.ts'        : ['docs/.vitepress/tests/fixtures/catalog.bin'],
@@ -67,7 +68,7 @@ export const READS: Record<string, string[]> = {
   ],
 
   'docs/.vitepress/tools/repository.ts': [
-    '.github/{CONTRIBUTING.md,labels.toml,release.yml}',
+    '.github/{CONTRIBUTING.md,labels.toml,release.yml,settings.toml}',
     '.github/{ISSUE_TEMPLATE,actions,rulesets,workflows}/**', '.mise/tasks/**',
     'docs/package.json'
   ]
