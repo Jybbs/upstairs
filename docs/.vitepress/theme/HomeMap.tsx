@@ -70,9 +70,7 @@ export default defineComponent(
     return () => (
       <main>
         <h1 class="sr-only">Upstairs</h1>
-        {desktop.value
-          ? <Sidebar>{map()}</Sidebar>
-          : <div class="relative h-[calc(100dvh-var(--vp-nav-height))] overflow-hidden">{map()}</div>}
+        <Sidebar beside={desktop.value}>{map()}</Sidebar>
         {!phone.value && [
           !desktop.value && (
             <div class="border-t border-rule">

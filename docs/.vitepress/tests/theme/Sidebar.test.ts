@@ -23,7 +23,10 @@ const mounted = async (reduced: boolean) => {
   const { component: Sidebar, sky } = await freshSky(() => import('../../theme/Sidebar.tsx'))
   addScanned(sky, [1, 2, 3].map(id => passOf(id, { kind: 'weather', peakAt: 300 + id * 60 })))
   sky.scope.value = 'sky'
-  const wrapper   = mount(Sidebar, { slots: { default: () => h('div', { 'data-map': '' }) } })
+  const wrapper   = mount(Sidebar, {
+    props : { beside: true },
+    slots : { default: () => h('div', { 'data-map': '' }) }
+  })
   const rail      = wrapper.get('button')
   const read      = () => ({
     drawn    : wrapper.find('aside').exists(),
@@ -53,6 +56,13 @@ it.each([
     { drawn: true, expanded: 'false', label: 'Show the list of 3 passes', map: true },
     { drawn: false, expanded: 'false', label: 'Show the list of 3 passes', map: true }
   ])
+})
+
+it('keeps the sidebar drawn until its column has closed', async () => {
+  const { rail, read } = await mounted(false)
+  await rail.trigger('click')
+  await vi.advanceTimersByTimeAsync(719)
+  expect(read().drawn).toBe(true)
 })
 
 it('opens the sidebar again on a second press, drawn closed and opened a frame later', async () => {

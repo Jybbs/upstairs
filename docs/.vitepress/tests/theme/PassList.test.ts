@@ -216,6 +216,20 @@ describe('the list in its box', () => {
     expect([opened, box.scrollTop]).toEqual([5 * 48, 0])
   })
 
+  it('opens the box on the next pass again once a new spot’s scan finishes', async () => {
+    const { box, sky, wrapper } = await boxed()
+    sky.at.value   = 300 + 5 * 60
+    sky.done.value = true
+    await wrapper.vm.$nextTick()
+    const opened   = box.scrollTop
+    box.scrollTop  = 0
+    sky.done.value = false
+    await wrapper.vm.$nextTick()
+    sky.done.value = true
+    await wrapper.vm.$nextTick()
+    expect([opened, box.scrollTop]).toEqual([5 * 48, 5 * 48])
+  })
+
   it.each([
     ['scrolls a pinned row below the box up into it', 8, false, [{ behavior: 'smooth', top: 5 * 48 }]],
     ['scrolls at once under reduced motion', 8, true, [{ behavior: 'auto', top: 5 * 48 }]],

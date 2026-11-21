@@ -53,8 +53,19 @@ it.each([
   ['leaves the readout and the strip live while the spot chooser is shut', false, [undefined, false]]
 ])('%s', async (_, choosing, shown) => {
   const wrapper = await mounted(choosing, 'tablet')
-  const panels  = wrapper.get('main > div > div')
+  const panels  = wrapper.get('main > div > div > div')
   expect([panels.attributes('inert'), wrapper.findComponent({ name: 'SpotChooser' }).exists()]).toEqual(shown)
+})
+
+it('keeps one map as the page widens past the desktop breakpoint', async () => {
+  const widen                  = stubMatchMedia(() => false)
+  const { component: HomeMap } = await freshSky(() => import('../../theme/HomeMap.tsx'))
+  const wrapper                = shallowMount(HomeMap, { global: { stubs: { Sidebar: false } } })
+  const before                 = wrapper.findComponent({ name: 'SkyMap' }).vm
+  widen(true)
+  await wrapper.vm.$nextTick()
+  expect([wrapper.find('aside').exists(), wrapper.findComponent({ name: 'SkyMap' }).vm === before])
+    .toEqual([true, true])
 })
 
 it('asks for the catalog once the home page mounts', async () => {

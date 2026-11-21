@@ -74,7 +74,7 @@ export default defineComponent(
       pass && list.value?.querySelector<HTMLElement>(`[data-value="${CSS.escape(pass.key)}"]`)
 
     /**
-     * Opens the box on the next pass to peak once the scan has listed its
+     * Opens the box on the next pass to peak once each scan has listed its
      * passes, and marks its last row for the line beneath to watch.
      */
     let opened = false
@@ -82,7 +82,11 @@ export default defineComponent(
       const box = list.value
       if (!props.boxed || !box) return
       end.value = box.lastElementChild as HTMLElement | null
-      if (opened || !sky.done.value) return
+      if (!sky.done.value) {
+        opened = false
+        return
+      }
+      if (opened) return
       const row = rowOf(sky.rows.value.list.find(pass => pass.peakAt >= sky.at.value) ?? null)
       if (!row) return
       opened        = true

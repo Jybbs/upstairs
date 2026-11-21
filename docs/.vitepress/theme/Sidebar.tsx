@@ -25,9 +25,10 @@ const MOTION = {
 } as const
 
 /**
- * Draws the map beside a sidebar holding the chosen pass's card, the pass
- * list, and the filters, and the rail between them that folds the sidebar
- * away and opens it again.
+ * Draws the map, and under `beside` a sidebar beside it holding the chosen
+ * pass's card, the pass list, and the filters, and the rail between them that
+ * folds the sidebar away and opens it again, so the map stays one instance as
+ * the page crosses the width that sets `beside`.
  *
  * Opening, the column widens as the map gives way and its blocks slide in one
  * after another; folding, the blocks fade first and the column closes after
@@ -36,7 +37,7 @@ const MOTION = {
  * motion the sidebar opens and folds at once.
  */
 export default defineComponent(
-  (_, { slots }) => {
+  (props: { beside: boolean }, { slots }) => {
     const { ease, fade, label, main, settle, slide, step, width } = MOTION
     const open  = ref(true)
     const drawn = ref(true)
@@ -64,75 +65,77 @@ export default defineComponent(
       return (
         <div class="flex h-[calc(100dvh-var(--vp-nav-height))]">
           <div class="relative h-full min-w-0 flex-1 overflow-hidden">{slots.default()}</div>
-          <button
-            type="button"
-            class="flex w-9 shrink-0 cursor-pointer flex-col items-center gap-3 border-l border-rule bg-panel
-                   py-3 text-ink transition-colors hover:text-u focus-visible:outline-2
-                   focus-visible:-outline-offset-2 focus-visible:outline-u"
-            aria-expanded={open.value}
-            aria-label={open.value ? 'Fold the list away' : `Show the list of ${total} passes`}
-            onClick={toggle}
-          >
-            <svg
-              viewBox="0 0 16 16"
-              width="16"
-              height="16"
-              aria-hidden="true"
-              style={{
-                transform  : `rotate(${open.value ? 180 : 0}deg)`,
-                transition : sky.reduced ? 'none' : `transform ${main}ms ${ease}`
-              }}
+          {props.beside && [
+            <button
+              type="button"
+              class="flex w-9 shrink-0 cursor-pointer flex-col items-center gap-3 border-l border-rule bg-panel
+                     py-3 text-ink transition-colors hover:text-u focus-visible:outline-2
+                     focus-visible:-outline-offset-2 focus-visible:outline-u"
+              aria-expanded={open.value}
+              aria-label={open.value ? 'Fold the list away' : `Show the list of ${total} passes`}
+              onClick={toggle}
             >
-              <path d="M10 3L5 8L10 13" fill="none" stroke="currentColor" stroke-width="1.75" />
-            </svg>
-            <span
-              class="caps whitespace-nowrap text-soft [writing-mode:vertical-rl]"
-              style={{
-                opacity    : open.value ? 0 : 1,
-                transition : motion(`opacity ${label}ms ease`, `opacity ${main}ms ease ${2 * step}ms`)
-              }}
-              aria-hidden="true"
-            >
-              {total} passes
-            </span>
-          </button>
-          <div
-            class="h-full shrink-0 overflow-hidden"
-            style={{
-              width      : open.value ? width : '0px',
-              transition : motion(`width ${main}ms ${ease}`, `width ${main}ms ${ease} ${step}ms`)
-            }}
-          >
-            {drawn.value && (
-              <aside
-                class="flex h-full flex-col border-l border-rule bg-page"
-                style={{ width: width }}
-                aria-label="The chosen pass and the list"
+              <svg
+                viewBox="0 0 16 16"
+                width="16"
+                height="16"
+                aria-hidden="true"
+                style={{
+                  transform  : `rotate(${open.value ? 180 : 0}deg)`,
+                  transition : sky.reduced ? 'none' : `transform ${main}ms ${ease}`
+                }}
               >
-                {blocks.map((block, index) => (
-                  <div
-                    key={index}
-                    class={['flex flex-col', index === 1 ? 'min-h-0 flex-1' : 'shrink-0']}
-                    style={{
-                      opacity    : open.value ? 1 : 0,
-                      transform  : open.value ? 'none' : `translateX(${slide})`,
-                      transition : motion(
-                        `opacity ${main}ms ${ease} ${(index + 1) * step}ms, `
-                        + `transform ${main}ms ${ease} ${(index + 1) * step}ms`,
-                        `opacity ${fade}ms ease ${(blocks.length - 1 - index) * settle}ms, `
-                        + `transform ${fade}ms ease ${(blocks.length - 1 - index) * settle}ms`
-                      )
-                    }}
-                  >
-                    {block}
-                  </div>
-                ))}
-              </aside>
-            )}
-          </div>
+                <path d="M10 3L5 8L10 13" fill="none" stroke="currentColor" stroke-width="1.75" />
+              </svg>
+              <span
+                class="caps whitespace-nowrap text-soft [writing-mode:vertical-rl]"
+                style={{
+                  opacity    : open.value ? 0 : 1,
+                  transition : motion(`opacity ${label}ms ease`, `opacity ${main}ms ease ${2 * step}ms`)
+                }}
+                aria-hidden="true"
+              >
+                {total} passes
+              </span>
+            </button>,
+            <div
+              class="h-full shrink-0 overflow-hidden"
+              style={{
+                width      : open.value ? width : '0px',
+                transition : motion(`width ${main}ms ${ease}`, `width ${main}ms ${ease} ${step}ms`)
+              }}
+            >
+              {drawn.value && (
+                <aside
+                  class="flex h-full flex-col border-l border-rule bg-page"
+                  style={{ width: width }}
+                  aria-label="The chosen pass and the list"
+                >
+                  {blocks.map((block, index) => (
+                    <div
+                      key={index}
+                      class={['flex flex-col', index === 1 ? 'min-h-0 flex-1' : 'shrink-0']}
+                      style={{
+                        opacity    : open.value ? 1 : 0,
+                        transform  : open.value ? 'none' : `translateX(${slide})`,
+                        transition : motion(
+                          `opacity ${main}ms ${ease} ${(index + 1) * step}ms, `
+                          + `transform ${main}ms ${ease} ${(index + 1) * step}ms`,
+                          `opacity ${fade}ms ease ${(blocks.length - 1 - index) * settle}ms, `
+                          + `transform ${fade}ms ease ${(blocks.length - 1 - index) * settle}ms`
+                        )
+                      }}
+                    >
+                      {block}
+                    </div>
+                  ))}
+                </aside>
+              )}
+            </div>
+          ]}
         </div>
       )
     }
   },
-  { name: 'Sidebar', slots: Object as SlotsType<{ default: () => unknown }> }
+  { name: 'Sidebar', props: ['beside'], slots: Object as SlotsType<{ default: () => unknown }> }
 )

@@ -594,7 +594,9 @@ it.each([
   ['stops the pointer short of a panel running across the map’s foot', 1800, 0.3,
     { bottom: 400, left: 0, right: 400, top: 300 }, { at: [200, 278], turn: [0, 1] }],
   ['leaves the pointer at the map’s edge past a panel off its path', 900, 0,
-    { bottom: 400, left: 250, right: 400, top: 0 }, { at: [22, 200], turn: [-1, 0] }]
+    { bottom: 400, left: 250, right: 400, top: 0 }, { at: [22, 200], turn: [-1, 0] }],
+  ['stops the pointer short of a panel running across the map’s head', 1800, -0.3,
+    { bottom: 100, left: 0, right: 400, top: 0 }, { at: [200, 122], turn: [0, -1] }]
 ] as const)('%s', (_, seconds, north, panel, shown) => {
   const [{ at, turn }] = drawnAt(seconds, 45, 'selected', { covered: [panel], north }).shapes
   expect({ at: at.map(Math.round), turn: turn.map(value => Math.round(value) + 0) }).toEqual(shown)

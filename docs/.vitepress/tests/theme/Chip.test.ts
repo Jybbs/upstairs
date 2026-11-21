@@ -27,8 +27,9 @@ it.each([
     slots : { default: 'Crewed' }
   })
   const label   = wrapper.find('button > span')
-  expect([wrapper.get('button').text(), label.exists() && label.classes('group-hover:opacity-100')])
-    .toEqual(shown)
+  const shows   = label.exists() && ['group-hover:opacity-100', 'group-focus-visible:opacity-100']
+    .every(reveal => label.classes(reveal))
+  expect([wrapper.get('button').text(), shows]).toEqual(shown)
 })
 
 it('sends a press for each click', async () => {
