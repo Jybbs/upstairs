@@ -58,14 +58,23 @@ it.each([
 it('reports every locked tool version where the config declares none', () =>
   expect(driftsOf([], { bun: [ENTRY] })).toEqual([`bun@1.4.4 in .mise/mise.lock, ${UNDECLARED}`]))
 
+it('reports nothing for a version the check matches to no locked entry', () =>
+  expect(driftsOf([{ platform: null, tool: 'bun', version: '1.4.4' }], { bun: [ENTRY] })).toEqual([]))
+
 scratched('exits 1 naming each drift the lockfile holds', async ({ scratch }) => {
-  await Bun.write(join(scratch, '.mise/mise.lock'), '[[tools.zizmor]]\nversion = "1.32.0"\n')
-  const run = await $`bun run ${join(ROOT, 'docs/.vitepress/tools/lockfile.ts')} < ${new Response('[]')}`
+  await Bun.write(join(scratch, '.mise/mise.lock'), [
+    '[[tools.bun]]\nversion = "1.4.4"\n',
+    '[[tools.lychee]]\nversion = "0.24.2"\n',
+    '[[tools.zizmor]]\nversion = "1.32.0"\n'
+  ].join('\n'))
+  const stdin = new Response(JSON.stringify(CHECKED))
+  const run   = await $`bun run ${join(ROOT, 'docs/.vitepress/tools/lockfile.ts')} < ${stdin}`
     .cwd(scratch)
     .nothrow()
     .quiet()
   expect([run.exitCode, run.stderr.toString()]).toEqual([
     1,
-    `lock:check found zizmor@1.32.0 in .mise/mise.lock, ${UNDECLARED}, so run mise relock\n`
+      `lock:check found lychee@0.24.2 in .mise/mise.lock, ${UNDECLARED}, so run mise relock\n`
+    + `lock:check found zizmor@1.32.0 in .mise/mise.lock, ${UNDECLARED}, so run mise relock\n`
   ])
 })

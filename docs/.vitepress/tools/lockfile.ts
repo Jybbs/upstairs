@@ -2,8 +2,8 @@ import { TOML } from 'bun'
 
 /**
  * One platform entry `mise lock --check --json` prints for a tool version
- * `.mise/config.toml` declares, its `platform` null where the config requests
- * a version the lockfile lacks.
+ * `.mise/config.toml` declares, its `platform` null where the check matches
+ * the request to no locked entry, as after a version or an option changes.
  */
 interface Checked {
   platform : string | null
@@ -33,18 +33,24 @@ const UNDECLARED = 'which .mise/config.toml no longer declares'
  * `tools` locks that no entry of `checked` declares, each platform a declared
  * version locks that no entry of `checked` names, as after narrowing a tool's
  * `os`, and each platform entry holding no URL, which the check requires of
- * `core` tools but not of `aqua` or `github` ones.
+ * `core` tools but not of `aqua` or `github` ones. A version `checked` lists
+ * with a null `platform` takes no platform drift, since the check fails on it.
  */
 export const driftsOf = (checked: Checked[], tools: Tools): string[] => {
-  const declared = new Set(checked.flatMap(({ platform, tool, version }) =>
+  const declared  = new Set(checked.flatMap(({ platform, tool, version }) =>
     [`${tool}@${version}`, `${tool}@${version} on ${platform}`]))
+  const unmatched = new Set(checked.flatMap(({ platform, tool, version }) =>
+    platform === null ? [`${tool}@${version}`] : []))
   return Object.entries(tools).flatMap(([tool, entries]) => entries.flatMap(({ version, ...tables }) => {
     const locked = `${tool}@${version}`
     if (!declared.has(locked)) return [`${locked} in ${LOCKFILE}, ${UNDECLARED}`]
+    if (unmatched.has(locked)) return []
     return Object.keys(tables).flatMap(key => {
       const platform = PLATFORM.exec(key)?.groups?.platform
       return platform ? [
-        ...declared.has(`${locked} on ${platform}`) ? [] : [`${locked} on ${platform} in ${LOCKFILE}, ${UNDECLARED}`],
+        ...declared.has(`${locked} on ${platform}`)
+          ? []
+          : [`${locked} on ${platform} in ${LOCKFILE}, ${UNDECLARED}`],
         ...tables[`platforms.${platform}`].url ? [] : [`no URL for ${locked} on ${platform} in ${LOCKFILE}`]
       ] : []
     })
