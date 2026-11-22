@@ -273,3 +273,12 @@ it.each([
   await flushPromises()
   expect([open, strip()]).toEqual(inert)
 })
+
+it('marks the page for the nav bar’s rule and holds its panels one inset in', async () => {
+  const { wrapper } = await mounted(false, OVER)
+  const padded      = ['main > div', '.md\\:order-first', '.credit-covered']
+    .map(selector => wrapper.get(selector).classes().filter(each => /(^|:)px-/.test(each)))
+  const boxed       = wrapper.get(BOX).classes().filter(each => each.endsWith('-inset'))
+  expect([wrapper.element.matches('[data-not-found]'), ...padded, boxed])
+    .toEqual([true, ['px-inset'], ['md:px-inset'], ['md:px-inset'], ['inset-x-inset', 'bottom-inset']])
+})
