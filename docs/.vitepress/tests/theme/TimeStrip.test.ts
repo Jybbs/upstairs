@@ -22,9 +22,9 @@ vi.mock('../../theme/Credit.tsx', async () => (await import('../common/stubs.ts'
 
 /**
  * How far JetBrains Mono's O and digits reach above and below the baseline,
- * in ems, read from the font's glyph bounds of 740 and 10 units in 1,000.
+ * in ems, read from the font's glyph bounds of 741 and 10 units in 1,000.
  */
-const CAPS = { above: 0.74, below: 0.01 } as const
+const CAPS = { above: 0.741, below: 0.01 } as const
 
 /**
  * Each locale beside each page width a reader might open the strip at, and the
@@ -411,16 +411,17 @@ it('ends the playhead’s line above the Now beneath the ground', async () => {
 it.each([
   ['on a wider page', false, 11],
   ['on a phone', true, 12]
-] as const)('ends the Now tick 2 px above its label, the label clear of the hour labels, %s', async (_, phone, em) => {
-  const { wrapper } = await mounted(false, phone)
-  const tick        = Number(wrapper.get('line.stroke-ink').attributes('y2'))
-  const now         = Number(wrapper.get('text.fill-ink').attributes('y'))
-  const hours       = Number(wrapper.get('text.fill-soft').attributes('y'))
-  expect({
-    hours : now + CAPS.below * em < hours - CAPS.above * em,
-    tick  : tick + 2 <= now - CAPS.above * em
-  }).toEqual({ hours: true, tick: true })
-})
+] as const)('ends the Now tick 2 px above its label and the label 2 px above the hour labels, %s',
+  async (_, phone, em) => {
+    const { wrapper } = await mounted(false, phone)
+    const tick        = Number(wrapper.get('line.stroke-ink').attributes('y2'))
+    const now         = Number(wrapper.get('text.fill-ink').attributes('y'))
+    const hours       = Number(wrapper.get('text.fill-soft').attributes('y'))
+    expect({
+      hours : now + CAPS.below * em + 2 <= hours - CAPS.above * em,
+      tick  : tick + 2 <= now - CAPS.above * em
+    }).toEqual({ hours: true, tick: true })
+  })
 
 it.each([
   ['sets the credit at the strip’s end on a wider page', false, true],
