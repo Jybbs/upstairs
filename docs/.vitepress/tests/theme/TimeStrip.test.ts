@@ -21,8 +21,8 @@ vi.mock('@vueuse/core', async original => ({
 vi.mock('../../theme/Credit.tsx', async () => (await import('../common/stubs.ts')).stubOf('Credit'))
 
 /**
- * How far JetBrains Mono's O and digits reach above and below the baseline,
- * in ems, read from the font's glyph bounds of 741 and 10 units in 1,000.
+ * How far JetBrains Mono's O and digits reach above and below the baseline, in
+ * ems, read from the font's glyph bounds of 741 and 10 units in 1,000.
  */
 const CAPS = { above: 0.741, below: 0.01 } as const
 
@@ -416,9 +416,9 @@ it.each([
     const { wrapper } = await mounted(false, phone)
     const tick        = Number(wrapper.get('line.stroke-ink').attributes('y2'))
     const now         = Number(wrapper.get('text.fill-ink').attributes('y'))
-    const hours       = Number(wrapper.get('text.fill-soft').attributes('y'))
+    const hours       = wrapper.findAll('text.fill-soft').map(label => Number(label.attributes('y')))
     expect({
-      hours : now + CAPS.below * em + 2 <= hours - CAPS.above * em,
+      hours : now + CAPS.below * em + 2 <= Math.min(...hours) - CAPS.above * em,
       tick  : tick + 2 <= now - CAPS.above * em
     }).toEqual({ hours: true, tick: true })
   })
