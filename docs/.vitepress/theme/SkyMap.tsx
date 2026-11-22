@@ -1,8 +1,8 @@
-import { useEventListener, useRafFn, useResizeObserver } from '@vueuse/core'
-import mlcontour                         from 'maplibre-contour'
-import * as maplibregl                   from 'maplibre-gl'
-import mapWorker                         from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { useData }                       from 'vitepress'
+import { useEventListener, useRafFn, useResizeObserver, useTimeoutFn } from '@vueuse/core'
+import mlcontour       from 'maplibre-contour'
+import * as maplibregl from 'maplibre-gl'
+import mapWorker       from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
+import { useData }     from 'vitepress'
 import { computed, defineComponent, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, watch } from 'vue'
 
 import { DETENT, Detents, type Step }   from '../lib/map/detents.ts'
@@ -24,8 +24,13 @@ const DEM     = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}
 const FLY_MS  = 900
 const PADDING = 48
 const PULL_MS = 120
-const SYNC_MS = 250
-const ZOOM    = 5
+/**
+ * How long the map rests after a move before its names are read again, the
+ * 200 ms MapLibre's wheel zoom holds a move open after its last wheel event.
+ */
+const SETTLE_MS = 200
+const SYNC_MS   = 250
+const ZOOM      = 5
 
 /**
  * The sky a backdrop draws until it goes live, holding no pass.
@@ -216,6 +221,7 @@ export default defineComponent(
       lifted.value = false
       if (sky.choosing.value === 'landing') return void (sky.choosing.value = 'shut')
       if (sky.choosing.value !== 'open') return
+      named()
       const [x, y] = pinPoint()
       const near   = places.placeNear(overlay.labels, x, y, overlay.view)
       if (!near) return
@@ -241,19 +247,32 @@ export default defineComponent(
     }
 
     const refreshFrame = () => {
-      overlay.labels    = props.backdrop ? [] : places.namesOn(map, overlay.view)
       sky.inFrame.value = overlay.crossing(sky.tracks)
       sky.unlatch()
       overlay.invalidate()
     }
 
     /**
+     * Reads the names in view off the map's tiles.
+     */
+    const named = () => {
+      overlay.labels = props.backdrop ? [] : places.namesOn(map, overlay.view)
+      overlay.invalidate()
+    }
+
+    /**
+     * Reads the names once the map has rested `SETTLE_MS` after its last move,
+     * a move starting meanwhile holding the read back.
+     */
+    const settle = useTimeoutFn(named, SETTLE_MS, { immediate: false })
+
+    /**
      * Links the map's stylesheet from the page's head once, resolving once it
      * has loaded.
      */
     const styled = () => new Promise(resolve => {
-      const { href } = SHEETS.map
-      if (document.querySelector(`link[href="${href}"]`)) return resolve(null)
+      const href = SHEETS.map.hrefOf(maplibregl.getVersion())
+      if (document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) return resolve(null)
       const link = Object.assign(document.createElement('link'), { href, rel: 'stylesheet' })
       link.onload = resolve
       document.head.append(link)
@@ -335,9 +354,12 @@ export default defineComponent(
       map.on('move', placed)
       map.on('move', aimed)
       map.on('movestart', () => { lifted.value = sky.choosing.value === 'open' })
+      map.on('movestart', settle.stop)
       map.on('moveend', refreshFrame)
       map.on('moveend', rested)
+      map.on('moveend', settle.start)
       map.on('idle', refreshFrame)
+      map.on('idle', settle.start)
       map.on('resize', fit)
       if (!props.backdrop) followPointer()
 
@@ -497,7 +519,10 @@ export default defineComponent(
         <canvas ref={lower} class="pointer-events-none absolute inset-0 size-full" />
         <canvas ref={upper} class="pointer-events-none absolute inset-0 size-full" />
         {sky.stage.value === 'unloaded' && (
-          <div class="pointer-events-none absolute inset-0 bg-panel/70 backdrop-grayscale" aria-hidden="true" />
+          <div
+            aria-hidden="true"
+            class="pointer-events-none absolute inset-0 bg-panel/70 backdrop-grayscale"
+          />
         )}
         {hosts.message.value && (
           <div

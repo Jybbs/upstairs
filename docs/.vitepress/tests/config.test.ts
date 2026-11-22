@@ -1,11 +1,13 @@
 import { readFileSync } from 'node:fs'
 
+import maplibre           from 'maplibre-gl/package.json' with { type: 'json' }
 import type { PageData, Plugin, SiteConfig, TransformContext, TransformPageContext } from 'vitepress'
 import { expect, it, vi } from 'vitest'
 
 import config         from '../config.ts'
 import { writeCards } from '../lib/site/cards.ts'
 import { cssOf }      from '../lib/site/palette.ts'
+import { SHEETS }     from '../lib/site/sheets.ts'
 
 type Generate = (options: object, bundle: object) => void
 
@@ -15,14 +17,16 @@ vi.mock('../lib/site/licenses.ts', () =>
   ({ licensesOf: (...args: unknown[]) => ({ copied: args[3], name: 'upstairs:licenses' }) }))
 
 const BUNDLE = {
-  home: {
+  'assets/chunks/HomeMap.abc.js': {
     facadeModuleId : '/site/.vitepress/theme/HomeMap.tsx',
     fileName       : 'assets/chunks/HomeMap.abc.js',
+    imports        : [],
     type           : 'chunk'
   }
 }
 
-it('preloads the map chunk from the head of the home page', () => {
+it('preloads the map chunk and the map sheet of the installed release '
+ + 'from the head of the home page', () => {
   const plugin = (config.vite!.plugins as Plugin[]).find(({ name }) => name === 'upstairs:preload')!
   ;(plugin.generateBundle as Generate).call({}, {}, BUNDLE)
   const context = {
@@ -30,8 +34,10 @@ it('preloads the map chunk from the head of the home page', () => {
     pageData : { frontmatter: { isHome: true } },
     siteData : { base: '/', lang: 'en-US', title: 'Upstairs' }
   } as unknown as TransformContext
-  expect(config.transformHead!(context))
-    .toContainEqual(['link', { href: '/assets/chunks/HomeMap.abc.js', rel: 'modulepreload' }])
+  expect(config.transformHead!(context)).toEqual(expect.arrayContaining([
+    ['link', { href: '/assets/chunks/HomeMap.abc.js', rel: 'modulepreload' }],
+    ['link', { as: 'style', href: `/maplibre-gl/maplibre-gl.css?v=${maplibre.version}`, rel: 'preload' }]
+  ]))
 })
 
 it('appends the notice of each package whose sheet the site copies', () =>
@@ -77,7 +83,8 @@ it('writes the cards into the built site', async () => {
 
 it.each([
   ['/*', 'Permissions-Policy: geolocation=(self)'],
-  [`/${config.assetsDir ?? 'assets'}/*`, 'Cache-Control: public, max-age=31536000, immutable']
+  [`/${config.assetsDir ?? 'assets'}/*`, 'Cache-Control: public, max-age=31536000, immutable'],
+  [`/${SHEETS.map.name}/*`, 'Cache-Control: public, max-age=31536000, immutable']
 ])('serves the files under %s with their headers', (rule, headers) =>
   expect(readFileSync(new URL('../../public/_headers', import.meta.url), 'utf8'))
     .toContain(`${rule}\n  ${headers}\n`))
