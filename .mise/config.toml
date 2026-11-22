@@ -1,4 +1,4 @@
-min_version = "2026.11.4"
+min_version = "2026.11.10"
 
 [env]
 AUDIT_IGNORE              = """
