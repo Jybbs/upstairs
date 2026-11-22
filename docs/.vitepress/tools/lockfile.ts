@@ -2,11 +2,13 @@ import { TOML } from 'bun'
 
 /**
  * One platform entry `mise lock --check --json` prints for a tool version
- * `.mise/config.toml` declares.
+ * `.mise/config.toml` declares, its `platform` null where the config requests
+ * a version the lockfile lacks.
  */
 interface Checked {
-  tool    : string
-  version : string
+  platform : string | null
+  tool     : string
+  version  : string
 }
 
 /**
@@ -22,28 +24,31 @@ interface Locked {
 
 type Tools = Record<string, Locked[]>
 
-const LOCKFILE = '.mise/mise.lock'
-const PLATFORM = /^platforms\.(?<platform>.+)$/
+const LOCKFILE   = '.mise/mise.lock'
+const PLATFORM   = /^platforms\.(?<platform>.+)$/
+const UNDECLARED = 'which .mise/config.toml no longer declares'
 
 /**
  * Returns the drifts `mise lock --check` passes, meaning each tool version
- * `tools` locks that no entry of `checked` declares, and each platform entry
- * holding no URL, which the check requires of `core` tools but not of `aqua`
- * or `github` ones.
+ * `tools` locks that no entry of `checked` declares, each platform a declared
+ * version locks that no entry of `checked` names, as after narrowing a tool's
+ * `os`, and each platform entry holding no URL, which the check requires of
+ * `core` tools but not of `aqua` or `github` ones.
  */
 export const driftsOf = (checked: Checked[], tools: Tools): string[] => {
-  const declared = new Set(checked.map(({ tool, version }) => `${tool}@${version}`))
-  return Object.entries(tools).flatMap(([tool, entries]) => entries.flatMap(entry => [
-    ...declared.has(`${tool}@${entry.version}`)
-      ? []
-      : [`${tool}@${entry.version} in ${LOCKFILE}, which .mise/config.toml no longer declares`],
-    ...Object.keys(entry).flatMap(key => {
+  const declared = new Set(checked.flatMap(({ platform, tool, version }) =>
+    [`${tool}@${version}`, `${tool}@${version} on ${platform}`]))
+  return Object.entries(tools).flatMap(([tool, entries]) => entries.flatMap(({ version, ...tables }) => {
+    const locked = `${tool}@${version}`
+    if (!declared.has(locked)) return [`${locked} in ${LOCKFILE}, ${UNDECLARED}`]
+    return Object.keys(tables).flatMap(key => {
       const platform = PLATFORM.exec(key)?.groups?.platform
-      return platform && !entry[`platforms.${platform}`].url
-        ? [`no URL for ${tool}@${entry.version} on ${platform} in ${LOCKFILE}`]
-        : []
+      return platform ? [
+        ...declared.has(`${locked} on ${platform}`) ? [] : [`${locked} on ${platform} in ${LOCKFILE}, ${UNDECLARED}`],
+        ...tables[`platforms.${platform}`].url ? [] : [`no URL for ${locked} on ${platform} in ${LOCKFILE}`]
+      ] : []
     })
-  ]))
+  }))
 }
 
 if (import.meta.main) {
