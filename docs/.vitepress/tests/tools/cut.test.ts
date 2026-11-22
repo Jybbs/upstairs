@@ -126,20 +126,25 @@ describe('Draft', () => {
       .toEqual([[[draft.notesArgs]], [[draft.refreshArgs(9, '@notes')]]])
   })
 
-  it('leaves one draft of the version, tagged for it, once a second cut refreshes the first one’s draft',
+  it('leaves one draft of the version, tagged for it, once a second cut refreshes the first cut’s draft',
     async () => {
       const releases: ReturnType<typeof release>[] = []
-      const create = async () => releases.push(untagged(releases.length + 1))
+      const create = async () => releases.push(release('0.2.0', true, releases.length + 1))
       const send   = async (args: string[]) => {
         const stored = releases.find(({ id }) => args[3] === `repos/Jybbs/upstairs/releases/${id}`)
         if (!stored) throw new Error(`HTTP 404 for ${args[3]}`)
-        Object.assign(stored, Object.fromEntries(
+        Object.assign(stored, untagged(stored.id, stored.name), Object.fromEntries(
           args.flatMap((arg, i) => args[i - 1] === '--raw-field' ? [arg.split(/=(.*)/s, 2)] : [])))
       }
       const cut = () => outcomeOf(async () => structuredClone(releases), create,
         id => draft.refresh(id, async () => ({ body: '@notes' }), send), '0.2.0')
       expect([await cut(), await cut(), releases]).toEqual(['create', 'refresh', [{
-        body : '@notes', draft : true, id : 1, name : '0.2.0', tag_name : '0.2.0', target_commitish : SHA
+        body             : '@notes',
+        draft            : true,
+        id               : 1,
+        name             : '0.2.0',
+        tag_name         : '0.2.0',
+        target_commitish : SHA
       }]])
     })
 })
