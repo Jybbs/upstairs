@@ -21,6 +21,12 @@ vi.mock('@vueuse/core', async original => ({
 vi.mock('../../theme/Credit.tsx', async () => (await import('../common/stubs.ts')).stubOf('Credit'))
 
 /**
+ * How far JetBrains Mono's O and digits reach above and below the baseline,
+ * in ems, read from the font's glyph bounds of 740 and 10 units in 1,000.
+ */
+const CAPS = { above: 0.74, below: 0.01 } as const
+
+/**
  * Each locale beside each page width a reader might open the strip at, and the
  * width the strip measures there, a phone's strip standing 68 px narrower than
  * its page and a wider page's 102 px.
@@ -400,6 +406,20 @@ it('ends the playhead’s line above the Now beneath the ground', async () => {
   const playhead    = wrapper.get('line.stroke-u')
   const now         = wrapper.get('text.fill-ink')
   expect(Number(playhead.attributes('y2'))).toBeLessThan(Number(now.attributes('y')) - 11)
+})
+
+it.each([
+  ['on a wider page', false, 11],
+  ['on a phone', true, 12]
+] as const)('ends the Now tick 2 px above its label, the label clear of the hour labels, %s', async (_, phone, em) => {
+  const { wrapper } = await mounted(false, phone)
+  const tick        = Number(wrapper.get('line.stroke-ink').attributes('y2'))
+  const now         = Number(wrapper.get('text.fill-ink').attributes('y'))
+  const hours       = Number(wrapper.get('text.fill-soft').attributes('y'))
+  expect({
+    hours : now + CAPS.below * em < hours - CAPS.above * em,
+    tick  : tick + 2 <= now - CAPS.above * em
+  }).toEqual({ hours: true, tick: true })
 })
 
 it.each([
