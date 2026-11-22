@@ -17,14 +17,16 @@ inputs:
 runs:
   using: composite
   steps:
-    - name  : Read the mise floor and the cache label
+    - name  : Read the mise floor, the cache label, and the mise folder
       env   : { TOOLS: "${{ inputs.tools }}" }
       id    : floor
       shell : bash
       run: |
         echo "version=$(sed -n 's/^min_version = "\(.*\)"$/\1/p' .mise/config.toml)" >> "$GITHUB_OUTPUT"
         echo "label=${TOOLS// /+}" >> "$GITHUB_OUTPUT"
+        echo "data=${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}" >> "$GITHUB_OUTPUT"
 
     - name : Install the tools
+      env  : { MISE_CARGO_HOME: "${{ steps.floor.outputs.data }}/cargo", MISE_RUSTUP_HOME: "${{ steps.floor.outputs.data }}/rustup" }
       uses : jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d
-      with : { cache: "${{ inputs.cache }}", cache_key: "provision-${{ steps.floor.outputs.label }}-{{default}}", cache_max_age_days: '0', cache_save: "${{ inputs.save }}", install_args: "${{ inputs.tools }}", version: "${{ steps.floor.outputs.version }}" }
+      with : { cache: "${{ inputs.cache }}", cache_key: "provision-${{ steps.floor.outputs.label }}-{{default}}", cache_key_prefix: mise-v2, cache_max_age_days: '0', cache_save: "${{ inputs.save }}", install_args: "${{ inputs.tools }}", version: "${{ steps.floor.outputs.version }}" }
