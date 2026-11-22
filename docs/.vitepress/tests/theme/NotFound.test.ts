@@ -282,3 +282,13 @@ it('marks the page for the nav bar’s rule and holds its panels one inset in', 
   expect([wrapper.element.matches('[data-not-found]'), ...padded, boxed])
     .toEqual([true, ['px-inset'], ['md:px-inset'], ['md:px-inset'], ['inset-x-inset', 'bottom-inset']])
 })
+
+it('sets the credit’s ring one inset from the window’s edge on a phone', () => {
+  const sheet = new CSSStyleSheet()
+  sheet.replaceSync(readFileSync(join(import.meta.dirname, '../../theme/credit.css'), 'utf8'))
+  const phone = Array.from(sheet.cssRules)
+    .find(rule => rule instanceof CSSMediaRule && rule.conditionText === '(width < 40rem)') as CSSMediaRule
+  const ring  = Array.from(phone.cssRules)
+    .find(rule => rule instanceof CSSStyleRule && rule.selectorText === '.credit-ring') as CSSStyleRule
+  expect(ring.style.getPropertyValue('right')).toBe('var(--spacing-inset)')
+})
