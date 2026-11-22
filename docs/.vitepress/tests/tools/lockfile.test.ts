@@ -58,8 +58,10 @@ it.each([
 it('reports every locked tool version where the config declares none', () =>
   expect(driftsOf([], { bun: [ENTRY] })).toEqual([`bun@1.4.4 in .mise/mise.lock, ${UNDECLARED}`]))
 
-it('reports nothing for a version the check matches to no locked entry', () =>
-  expect(driftsOf([{ platform: null, tool: 'bun', version: '1.4.4' }], { bun: [ENTRY] })).toEqual([]))
+it('reports nothing for a version the check matches to no locked entry', () => {
+  const tools = { bun: [{ ...ENTRY, 'platforms.macos-arm64': { checksum: 'sha256:c240' } }] }
+  expect(driftsOf([{ platform: null, tool: 'bun', version: '1.4.4' }], tools)).toEqual([])
+})
 
 scratched('exits 1 naming each drift the lockfile holds', async ({ scratch }) => {
   await Bun.write(join(scratch, '.mise/mise.lock'), [
