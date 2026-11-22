@@ -34,7 +34,8 @@ const UNDECLARED = 'which .mise/config.toml no longer declares'
  * version locks that no entry of `checked` names, as after narrowing a tool's
  * `os`, and each platform entry holding no URL, which the check requires of
  * `core` tools but not of `aqua` or `github` ones. A version `checked` lists
- * with a null `platform` takes no platform drift, since the check fails on it.
+ * with a null `platform` takes neither of the two platform drifts, since the
+ * check fails on it.
  */
 export const driftsOf = (checked: Checked[], tools: Tools): string[] => {
   const declared  = new Set(checked.flatMap(({ platform, tool, version }) =>
