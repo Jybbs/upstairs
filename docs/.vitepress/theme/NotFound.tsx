@@ -332,7 +332,8 @@ export default defineComponent(
             ref={strip}
             inert={covered.value}
             class="credit-covered md:absolute md:inset-x-0 md:bottom-0 md:z-10 md:border-t md:border-rule
-                   md:bg-panel/95 md:px-inset md:py-4 lg:static lg:mt-auto lg:border-0 lg:bg-transparent lg:p-0"
+                   md:bg-panel/95 md:px-inset md:py-4 lg:static lg:mt-auto lg:border-0 lg:bg-transparent
+                   lg:p-0"
           >
             <Strip crossed={crossed.value} />
           </div>
@@ -361,9 +362,9 @@ export default defineComponent(
           {mounted.value && !phone.value && (
             <div
               ref={foot}
-              class="credit-unveiled absolute right-inset z-20 flex h-24
-                     w-[min(calc(100%-2*var(--spacing-inset)),1040px)] items-center justify-end"
-              style={{ bottom: `calc(${lift.value}px + var(--spacing-inset))` }}
+              class="credit-unveiled absolute inset-x-inset bottom-inset z-20 ml-auto flex h-24 max-w-260
+                     items-center justify-end"
+              style={{ marginBottom: `${lift.value}px` }}
             >
               <Credit />
             </div>

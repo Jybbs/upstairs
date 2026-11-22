@@ -87,7 +87,9 @@ html.dark { --chosen-tint: 26%; }
 .VPNavBar.home .divider-line { background-color: var(--vp-nav-divider-color); }
 
 /* The map pages run the bar's contents to the window's edges at the inset the map's controls keep */
-:is(.VPNavBar.home, .Layout:has([data-not-found]) .VPNavBar) .wrapper { padding-inline: var(--spacing-inset); }
+:is(.VPNavBar.home, .Layout:has([data-not-found]) .VPNavBar) .wrapper {
+  padding-inline: var(--spacing-inset);
+}
 
 :is(.VPNavBar.home, .Layout:has([data-not-found]) .VPNavBar) .container { max-width: none; }
 

@@ -85,3 +85,11 @@ it.each([
   const wrapper = await mounted(false, page)
   expect(wrapper.findAll('[data-label-clear]').map(found => found.element.localName)).toEqual(names)
 })
+
+it.each(['desktop', 'tablet'] as const)('holds the readout and the strip one inset in on a %s page',
+  async page => {
+    const wrapper = await mounted(false, page)
+    const insets  = ['readout-stub', 'time-strip-stub']
+      .map(name => wrapper.get(name).classes().filter(each => each.includes('inset')))
+    expect(insets).toEqual([['top-inset', 'left-inset'], ['inset-x-inset', 'bottom-inset']])
+  })

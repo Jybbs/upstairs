@@ -238,7 +238,7 @@ it.each([
   ['at the map’s foot from 1024 px', 64, 0]
 ])('sets the credit’s box one inset %s', async (_, width, lift) => {
   const { wrapper } = await mounted(false, OVER, false, width)
-  expect(wrapper.get(BOX).attributes('style')).toBe(`bottom: calc(${lift}px + var(--spacing-inset));`)
+  expect(wrapper.get(BOX).attributes('style')).toBe(`margin-bottom: ${lift}px;`)
 })
 
 it.each([

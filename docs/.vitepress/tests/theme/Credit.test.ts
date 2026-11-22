@@ -41,7 +41,8 @@ it('stands closed on load, then opens and closes the band on a press of the ring
     const { sky, wrapper } = await mounted()
     const ring             = wrapper.get('.credit-ring')
     const panel            = wrapper.get('.credit-panel')
-    const read             = () => [sky.credit.open.value, ring.attributes('aria-expanded'), panel.attributes('inert')]
+    const read             = () =>
+      [sky.credit.open.value, ring.attributes('aria-expanded'), panel.attributes('inert')]
     const loaded           = read()
     await ring.trigger('click')
     const opened           = [wrapper.get('.credit').attributes('data-credit'), wrapper.emitted('open')]

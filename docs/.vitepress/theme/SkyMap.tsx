@@ -328,7 +328,7 @@ export default defineComponent(
       }
       map.touchZoomRotate.disableRotation()
       map.keyboard.disableRotation()
-      sky.credit.hold(map)
+      sky.credit.follow(map)
 
       overlay = new Overlay(lower.value!, upper.value!, {
         get gathered() { return sky.gather.value !== null },
@@ -497,7 +497,7 @@ export default defineComponent(
         {!props.backdrop && (
           <div
             style={zoomAt.value}
-            class="absolute top-1/2 right-3 z-10 flex -translate-y-1/2 flex-col overflow-hidden rounded-sm
+            class="absolute top-1/2 right-inset z-10 flex -translate-y-1/2 flex-col overflow-hidden rounded-sm
                    border border-rule bg-panel/95 text-ink shadow-lift [&>button]:grid [&>button]:size-11
                    [&>button]:cursor-pointer [&>button]:place-items-center [&>button:hover]:bg-lift"
             role="group"

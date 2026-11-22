@@ -203,7 +203,7 @@ export class Credit {
    * Follows the lines the sources of `map` carry, closing the credit as the
    * map is dragged.
    */
-  hold(map: Map) {
+  follow(map: Map) {
     const read = () => { this.lines.value = linesOf(map) }
     map.on('sourcedata', read)
     map.on('dragstart', this.close)

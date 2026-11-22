@@ -61,24 +61,24 @@ describe('the groups of the credit', () => {
 })
 
 describe('the credit as the map loads', () => {
-  let held: ReturnType<typeof mapOf>
+  let drawn: ReturnType<typeof mapOf>
   let shown: credit.Credit
 
   beforeEach(() => {
-    held  = mapOf()
+    drawn = mapOf()
     shown = new credit.Credit()
-    shown.hold(held.map)
+    shown.follow(drawn.map)
   })
 
   it('stays closed and reads the lines the map credits', () => {
     expect([shown.open.value, shown.lines.value]).toEqual([false, credit.CREDITS])
-    held.arrive()
+    drawn.arrive()
     expect([shown.open.value, shown.lines.value]).toEqual([false, [...credit.CREDITS, TILES]])
   })
 
   it('reads a credit two sources carry once', () => {
     const shared = mapOf(['base', 'labels'])
-    shown.hold(shared.map)
+    shown.follow(shared.map)
     shared.arrive()
     expect(shown.lines.value).toEqual([...credit.CREDITS, TILES])
   })
@@ -92,7 +92,7 @@ describe('the credit as the map loads', () => {
 
   it('closes a credit the reader opened once the map is dragged', () => {
     shown.toggle(true)
-    held.fired.get('dragstart')!()
+    drawn.fired.get('dragstart')!()
     expect(shown.open.value).toBe(false)
   })
 })

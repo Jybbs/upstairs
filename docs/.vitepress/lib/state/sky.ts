@@ -198,7 +198,7 @@ class Sky {
    */
   readonly blank    = ref(false)
   /**
-   * The map's credit, held open over the strip as the map loads.
+   * The map's credit, closed until the reader opens it.
    */
   readonly credit   = new Credit()
 

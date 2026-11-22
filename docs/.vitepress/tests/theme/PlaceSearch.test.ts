@@ -71,7 +71,7 @@ it('leaves a spot found through Near me out of the address', async () => {
   expect(location.hash).toBe('')
 })
 
-it('sets the notice of a declined location in the flow under the search, until Near me is pressed again', async () => {
+it('sets a declined location’s notice in the flow under the search until Near me is pressed again', async () => {
   let answer: 'decline' | 'share' = 'decline'
   const coords                    = { latitude: 51.50073, longitude: -0.12463 }
   const asked                     = (found: PositionCallback, failed: PositionErrorCallback) =>
