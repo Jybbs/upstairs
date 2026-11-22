@@ -4,20 +4,63 @@ import { CODES, Draft, NOTES, outcomeOf } from '../../tools/cut.ts'
 
 const SHA = '761cc15aaf0c1e2a3b4c5d6e7f8091a2b3c4d5e6'
 
-const release = (tag_name: string, draft = false, id = 7) => ({ draft, id, tag_name })
+const release = (tag_name: string, draft = false, id = 7, name: string | null = tag_name) =>
+  ({ draft, id, name, tag_name })
+
+const untagged = (id: number, name: string | null = '0.2.0') =>
+  release('untagged-2062677af4ac4d95b4d0', true, id, name)
 
 describe('outcomeOf', () => {
   it.each([
     ['no release carries the version', [release('0.1.0')], 'create', [], 1],
     ['the repository holds no release', [], 'create', [], 1],
     ['the one release tags the version behind a v prefix', [release('v0.2.0')], 'create', [], 1],
+    ['the one release tags a prerelease of the version', [release('0.2.0-rc.1')], 'create', [], 1],
     [
       'only a draft carries the version',
       [release('0.1.0', false, 3), release('0.2.0', true, 9)], 'refresh', [9], 0
     ],
     [
       'two drafts carry the version',
-      [release('0.2.0', true, 4), release('0.2.0', true, 9)], 'refresh', [4], 0
+      [release('0.2.0', true, 4), release('0.2.0', true, 9)], 'refresh', [9], 0
+    ],
+    [
+      'only an untagged draft titled for the version carries it',
+      [release('0.1.0', false, 3), untagged(9)], 'refresh', [9], 0
+    ],
+    [
+      'three untagged drafts titled for the version carry it, the newest listed between the others',
+      [untagged(5), untagged(9), untagged(4)], 'refresh', [9], 0
+    ],
+    [
+      'a tagged draft and older untagged drafts titled for the version carry it',
+      [untagged(4), release('0.2.0', true, 9), untagged(5)], 'refresh', [9], 0
+    ],
+    [
+      'an untagged draft titled for the version is newer than the draft tagging it',
+      [release('0.2.0', true, 4), untagged(9)], 'refresh', [9], 0
+    ],
+    [
+      'the one draft tags the version under another title',
+      [release('0.2.0', true, 9, 'Next')], 'refresh', [9], 0
+    ],
+    [
+      'the one draft is titled for the version but tags another',
+      [release('0.1.9', true, 9, '0.2.0')], 'refresh', [9], 0
+    ],
+    ['the one untagged draft carries another title', [untagged(9, '0.1.9')], 'create', [], 1],
+    ['the one untagged draft carries no title', [untagged(9, null)], 'create', [], 1],
+    [
+      'the one untagged draft is titled for the version behind a v prefix',
+      [untagged(9, 'v0.2.0')], 'create', [], 1
+    ],
+    [
+      'the one untagged draft is titled for a prerelease of the version',
+      [untagged(9, '0.2.0-rc.1')], 'create', [], 1
+    ],
+    [
+      'a published release titled for the version tags another',
+      [release('0.1.0', false, 3, '0.2.0')], 'create', [], 1
     ],
     ['a published release carries the version', [release('0.2.0')], 'published', [], 0],
     [
@@ -66,10 +109,11 @@ describe('Draft', () => {
       ]
     ],
     [
-      'sets the draft’s notes as written and moves its target to the commit',
+      'sets the draft’s notes as written, keeps its tag on the version, and moves its target to the commit',
       draft.refreshArgs(9, '@notes'), [
         'api', '--method', 'PATCH', 'repos/Jybbs/upstairs/releases/9',
-        '--raw-field', 'body=@notes', '--raw-field', `target_commitish=${SHA}`, '--silent'
+        '--raw-field', 'body=@notes', '--raw-field', 'tag_name=0.2.0',
+        '--raw-field', `target_commitish=${SHA}`, '--silent'
       ]
     ]
   ])('%s', (_, actual, expected) => expect(actual).toEqual(expected))
@@ -78,8 +122,31 @@ describe('Draft', () => {
     const notes = vi.fn(async (_args: string[]) => ({ body: '@notes' }))
     const send  = vi.fn(async (_args: string[]) => {})
     await draft.refresh(9, notes, send)
-    expect([notes.mock.calls, send.mock.calls]).toEqual([[[draft.notesArgs]], [[draft.refreshArgs(9, '@notes')]]])
+    expect([notes.mock.calls, send.mock.calls])
+      .toEqual([[[draft.notesArgs]], [[draft.refreshArgs(9, '@notes')]]])
   })
+
+  it('leaves one draft of the version, tagged for it, once a second cut refreshes the first cut’s draft',
+    async () => {
+      const releases: ReturnType<typeof release>[] = []
+      const create = async () => releases.push(release('0.2.0', true, releases.length + 1))
+      const send   = async (args: string[]) => {
+        const stored = releases.find(({ id }) => args[3] === `repos/Jybbs/upstairs/releases/${id}`)
+        if (!stored) throw new Error(`HTTP 404 for ${args[3]}`)
+        Object.assign(stored, untagged(stored.id, stored.name), Object.fromEntries(
+          args.flatMap((arg, i) => args[i - 1] === '--raw-field' ? [arg.split(/=(.*)/s, 2)] : [])))
+      }
+      const cut = () => outcomeOf(async () => structuredClone(releases), create,
+        id => draft.refresh(id, async () => ({ body: '@notes' }), send), '0.2.0')
+      expect([await cut(), await cut(), releases]).toEqual(['create', 'refresh', [{
+        body             : '@notes',
+        draft            : true,
+        id               : 1,
+        name             : '0.2.0',
+        tag_name         : '0.2.0',
+        target_commitish : SHA
+      }]])
+    })
 })
 
 describe('CODES', () => {
@@ -97,4 +164,7 @@ describe('NOTES', () => {
 
   it.each(['mise bump', 'docs/package.json'])('names %s where a published release carries the version',
     named => expect(NOTES.published('0.2.0')).toContain(named))
+
+  it('names the tag among what a refresh rewrites', () =>
+    expect(NOTES.refresh('0.2.0')).toContain('the tag'))
 })
