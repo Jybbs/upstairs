@@ -1,8 +1,15 @@
 #!/usr/bin/env -S bash -euo pipefail
-#MISE description = "Delete every tool cache on `main` a newer one of the same tool subset has replaced"
+#MISE description = "Delete every tool cache on `main` a newer one of the same tool set and platform has replaced"
 
 gh cache list \
-  --jq 'group_by(.key | split("-")[1]) | map(sort_by(.createdAt) | reverse | .[1:][]) | .[].id' \
+  --jq '
+    group_by(.key
+      | (capture("^provision-(?<set>.+)-mise-v[0-9]+-(?<platform>.+?)-[0-9.]+-")
+        | [.set, .platform])
+      // [.])
+    | map(sort_by(.createdAt) | .[:-1][])
+    | .[].id
+  ' \
   --json createdAt,id,key \
   --key provision- \
   --limit 100 \
