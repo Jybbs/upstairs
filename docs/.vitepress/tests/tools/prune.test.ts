@@ -56,8 +56,8 @@ const CASES = [
     deleted : [],
     name    : 'keeps every entry whose key the grouping cannot read',
     caches  : [
-      { createdAt: '2026-11-02T00:00:00Z', id: 13, key: 'provision-rust' },
-      { createdAt: '2026-11-01T00:00:00Z', id: 12, key: 'provision-bun' }
+      { createdAt: '2026-11-02T00:00:00Z', id: 13, key: 'provision-cargo-deny' },
+      { createdAt: '2026-11-01T00:00:00Z', id: 12, key: 'provision-cargo-about' }
     ]
   }
 ]
