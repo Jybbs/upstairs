@@ -17,9 +17,8 @@ import { join, relative, resolve } from 'node:path'
 import { pathToFileURL }           from 'node:url'
 import { promisify }               from 'node:util'
 
-import { $, Glob }                                        from 'bun'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { type CliOptions, createVitest }                  from 'vitest/node'
+import { $, Glob }                             from 'bun'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import * as gh from './common/gh.ts'
 import {
@@ -33,69 +32,15 @@ import {
   rereadOf,
   watchedOf
 } from './common/reads.ts'
-import TABLE_TEXT from './common/reads.ts?raw'
-import { reads }  from './vitest.config.ts'
+import { PAGE, PAGES } from './common/selections.ts'
+import { reads }       from './vitest.config.ts'
 
 const AUDIT    = 'docs/.vitepress/tests/tools/audit.test.ts'
 const CHECK    = 'docs/.vitepress/tests/tools/check.test.ts'
-const DRAWN    = join(ROOT, 'docs/.vitepress/tests/lib/state/drawings.test.ts')
 const FIXTURES = join(ROOT, 'docs/.vitepress/tests/fixtures')
-const GH       = join(ROOT, 'docs/.vitepress/tests/common/bin/gh')
 const GONE     = 'docs/.vitepress/tests/gone.test.ts'
-const LOOKS    = join(ROOT, 'docs/.vitepress/tests/lib/orbit/looks.test.ts')
 const ORPHAN   = join(ROOT, 'LICENSE')
-const PAGE     = join(ROOT, 'docs/gone/index.md')
-const PAGES    = ['cards', 'markdown', 'sections']
-  .map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
 const SOURCES  = join(ROOT, 'rust/src')
-const SYNC     = join(ROOT, 'docs/.vitepress/tests/tools/sync.test.ts')
-
-/**
- * The tests loading the crate's build under `rust/pkg/`, by their paths from
- * the folder of the suite.
- */
-const BUILT = [
-  'lib/orbit/catalog.test.ts', 'lib/orbit/looks.test.ts', 'lib/orbit/worker.test.ts',
-  'lib/state/drawings.test.ts', 'theme/LookAngles.test.ts', 'theme/OrbitAges.test.ts',
-  'theme/PeakSearch.test.ts', 'theme/index.test.ts'
-]
-
-const gitConfig = () =>
-  Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('GIT_CONFIG_')))
-
-/**
- * The folder holding the module cache every selection in the file shares.
- */
-let cache: string
-
-beforeAll(async () => {
-  const scratch = await promises.mkdtempDisposable(join(tmpdir(), 'upstairs-reads-'))
-  cache         = scratch.path
-  return () => scratch.remove()
-})
-
-const selected = async (options: CliOptions) => {
-  const vitest = await createVitest({
-    config            : join(ROOT, 'docs/.vitepress/tests/vitest.config.ts'),
-    fsModuleCachePath : cache,
-    root              : join(ROOT, 'docs'),
-    watch             : false,
-    ...options
-  })
-  try {
-    return (await vitest.getRelevantTestSpecifications()).map(spec => spec.moduleId).sort()
-  } finally {
-    await vitest.close()
-  }
-}
-
-/**
- * Selects the tests a run under `--changed`, given `changed` as its ref or
- * `true` for the working tree, reaches where git lists the files
- * `findChangedFiles` returns.
- */
-const selectedAfter = (findChangedFiles: () => Promise<string[]>, changed: string | true = true) =>
-  selected({ changed, experimental: { vcsProvider: { findChangedFiles } } })
 
 describe('declares', () => {
   it.each([
@@ -162,8 +107,6 @@ describe('rereadOf', () => {
 })
 
 describe('the reads plugin', () => {
-  afterEach(() => vi.unstubAllEnvs())
-
   it('keys the cache of a declared module by the files its globs match', () => {
     const keys: (string | undefined)[] = []
     reads.configureVitest({
@@ -172,100 +115,6 @@ describe('the reads plugin', () => {
     })
     expect(keys).toEqual([watchedOf().get(join(ROOT, AUDIT))?.join('\n')])
   })
-
-  it('lists the changes with rename detection off, after any git config already set', async () => {
-    const seen: Record<string, string | undefined>[] = []
-    Object.entries({ GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.quotePath', GIT_CONFIG_VALUE_0: 'false' })
-      .forEach(([key, value]) => vi.stubEnv(key, value))
-    const before = gitConfig()
-    const findChangedFiles = async () => {
-      await Promise.resolve()
-      seen.push(gitConfig())
-      return []
-    }
-    await selectedAfter(findChangedFiles)
-    expect(seen).toEqual([{
-      ...before,
-      GIT_CONFIG_COUNT   : '2',
-      GIT_CONFIG_KEY_1   : 'diff.renames',
-      GIT_CONFIG_VALUE_1 : 'false'
-    }])
-    expect(gitConfig()).toEqual(before)
-  })
-
-  it('selects the tests reading a changed file they never import', { tags: ['slow'] }, async () =>
-    expect(await selected({ related: [GH] })).toEqual([CHECKS, SYNC]))
-
-  it(
-    'selects the tests reading a deleted file and the checks of READS, beside the changed files',
-    { tags: ['slow'] },
-    async () => {
-      expect(await selectedAfter(async () => [GH, PAGE])).toEqual([...PAGES, CHECKS, SYNC].sort())
-    }
-  )
-
-  it.each<[string, string, string[]]>([
-    ["the crate's sources", 'rust/src/lib.rs', BUILT],
-    ["the crate's manifest", 'rust/Cargo.toml', [...BUILT, 'lib/site/licenses.test.ts'].sort()],
-    ["the crate's lockfile", 'rust/Cargo.lock', [...BUILT, 'lib/site/provenance.test.ts'].sort()],
-    ["the crate's own tests, which its build leaves out", 'rust/tests/answers/main.rs', []],
-    ['the cargo-deny settings under rust/.cargo/', 'rust/.cargo/deny.toml', []],
-    ['a file under docs/public/ that one test reads', 'docs/public/_headers', ['config.test.ts']],
-    ['a badge no test reads', 'docs/public/badges/rust.svg', []]
-  ])('selects the tests an edit to %s reaches', { tags: ['slow'] }, async (_, file, tests) => {
-    expect(await selectedAfter(async () => [join(ROOT, file)]))
-      .toEqual(tests.map(test => join(ROOT, 'docs/.vitepress/tests', test)))
-  })
-
-  /**
-   * The text of this module with an empty `READS` entry for `test`, an
-   * absolute path, ahead of every other entry.
-   */
-  const adding = (test: string) => TABLE_TEXT.replace('= {\n', `= {\n  '${relative(ROOT, test)}': [],\n`)
-
-  /**
-   * Makes a scratch repository on `main`, which `GIT_DIR` names until the case
-   * ends, returning a function running git in it and one committing `text` as
-   * this module, and removing the repository once disposed.
-   */
-  const scratchRepo = async () => {
-    const scratch = await promises.mkdtempDisposable(join(tmpdir(), 'upstairs-reads-git-'))
-    const git     = (...args: string[]) =>
-      $`git -c user.email=reads@upstairs.fyi -c user.name=reads ${args}`.cwd(scratch.path).quiet()
-    const commit = async (text: string) => {
-      await Bun.write(join(scratch.path, relative(ROOT, TABLE)), text)
-      await git('add', '--all')
-      await git('commit', '--message=table', '--quiet')
-    }
-    await git('init', '--initial-branch=main', '--quiet')
-    vi.stubEnv('GIT_DIR', join(scratch.path, '.git'))
-    return { commit, git, [Symbol.asyncDispose]: () => scratch.remove() }
-  }
-
-  it(
-    'selects the tests loading a module whose READS entry an edit changes, beside the checks of READS',
-    { tags: ['slow'] },
-    async () => {
-      await using repo = await scratchRepo()
-      await repo.commit(adding(LOOKS))
-      expect(await selectedAfter(async () => [TABLE])).toEqual([CHECKS, LOOKS].sort())
-    }
-  )
-
-  it(
-    'compares READS against its merge base with the branch --changed names',
-    { tags: ['slow'] },
-    async () => {
-      await using repo = await scratchRepo()
-      await repo.commit(adding(LOOKS))
-      await repo.git('switch', '--create', 'topic', '--quiet')
-      await repo.commit(TABLE_TEXT)
-      await repo.git('switch', 'main', '--quiet')
-      await repo.commit(adding(DRAWN))
-      await repo.git('switch', 'topic', '--quiet')
-      expect(await selectedAfter(async () => [TABLE], 'main')).toEqual([CHECKS, LOOKS].sort())
-    }
-  )
 })
 
 describe('the read check', () => {
