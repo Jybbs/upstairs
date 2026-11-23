@@ -50,17 +50,17 @@ export const READS: Record<string, string[]> = {
   ],
 
   'tests/site/common/gh.ts': [
-    '.github/**', '.mise/tasks/repo/ci.toml', 'tests/site/common/bin/gh',
-    'tests/site/fixtures/settings.toml', 'docs/.vitepress/tools/sync.ts', 'package.json'
+    '.github/**', '.mise/tasks/repo/ci.toml', 'docs/.vitepress/tools/sync.ts', 'package.json',
+    'tests/site/common/bin/gh', 'tests/site/fixtures/settings.toml'
   ],
 
   'tests/site/lib/orbit/catalog.test.ts': [
-    'tests/site/fixtures/catalog.bin', 'rust/pkg/orbit_bg.wasm'
+    'rust/pkg/orbit_bg.wasm', 'tests/site/fixtures/catalog.bin'
   ],
 
   'tests/site/lib/site/licenses.test.ts': [
-    'tests/site/fixtures/notices*.txt', 'node_modules/katex/{LICENSE,package.json}',
-    'node_modules/maplibre-gl/LICENSE.txt'
+    'node_modules/katex/{LICENSE,package.json}', 'node_modules/maplibre-gl/LICENSE.txt',
+    'tests/site/fixtures/notices*.txt'
   ],
 
   'tests/site/lib/site/sheets.test.ts': [

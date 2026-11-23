@@ -249,7 +249,7 @@ describe.concurrent('crate:affected', () => {
     ['an edit to the known answers', edit(ANSWERS), true],
     ['an edit under rust/ beside one under rust/.cargo/', edit(DENY, 'rust/src/lib.rs'), true],
     ['no change', edit(), false],
-    ['an edit and an untracked file outside rust/, tests/rust/, and the fixtures', edit('README.md', 'docs/new.md'), false],
+    ['an edit and an untracked file outside rust/ and the fixtures', edit('README.md', 'docs/new.md'), false],
     ['an edit to another fixture', edit(PHOTON), false],
     ['a build of the crate under the ignored rust/pkg/', edit('rust/pkg/orbit.js'), false],
     ['a commit under rust/.cargo/', committed(edit(DENY)), false],

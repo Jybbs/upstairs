@@ -11,9 +11,8 @@ describe('Sheet', () => {
   it.each(Object.entries(SHEETS))('copies a file that exists for each source of the %s sheet', (_, sheet) =>
     expect(sheet.copy.src.filter(pattern => !new Glob(pattern).scanSync(ROOT).next().value)).toEqual([]))
 
-  it.each(Object.entries(SHEETS))('serves the %s sheet from the copy of its first file', (_, sheet) =>
-    expect(`/${sheet.copy.dest}/${sheet.copy.src[0].split('/').slice(1 + sheet.copy.rename.stripBase).join('/')}`)
-      .toBe(sheet.href))
+  it.each(Object.entries(SHEETS))('serves the %s sheet from the copy of its first file', (_, { copy, href }) =>
+    expect(`/${copy.dest}/${copy.src[0].split('/').slice(1 + copy.rename.stripBase).join('/')}`).toBe(href))
 
   it('serves each release of a sheet at an address of its own', () =>
     expect(SHEETS.map.hrefOf('6.19.0')).toBe('/maplibre-gl/maplibre-gl.css?v=6.19.0'))
