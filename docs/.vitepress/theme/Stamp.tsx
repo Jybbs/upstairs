@@ -4,7 +4,7 @@ import { ageOf } from '../lib/orbit/catalog.ts'
 import { sky }   from '../lib/state/sky.ts'
 import Shield    from './Shield.tsx'
 
-const ago   = new Intl.RelativeTimeFormat([], { numeric: 'always' })
+const ago   = new Intl.RelativeTimeFormat()
 const dated = new Intl.DateTimeFormat([], {
   day    : 'numeric',
   hour   : 'numeric',
@@ -14,10 +14,10 @@ const dated = new Intl.DateTimeFormat([], {
 
 /**
  * Writes how long ago `days` were as whole minutes under an hour, whole hours
- * under a day, and whole days past it.
+ * under a day, and whole days past it, a negative age reading as none.
  */
 const agoOf = (days: number) => {
-  const hours = days * 24
+  const hours = Math.max(days, 0) * 24
   if (hours < 1) return ago.format(-Math.floor(hours * 60), 'minute')
   return hours < 24 ? ago.format(-Math.floor(hours), 'hour') : ago.format(-Math.floor(days), 'day')
 }
@@ -31,8 +31,8 @@ export default defineComponent(
     const updated = computed(() => {
       const loaded = sky.loaded.value
       if (!loaded) return ''
-      const present = sky.start.value + sky.now.value * 1000
-      return `${dated.format(new Date(loaded.fetched))}, ${agoOf(ageOf(loaded.fetched, present))}`
+      const age = ageOf(loaded.fetched, +sky.dateOf(sky.now.value))
+      return `${dated.format(loaded.fetched)}, ${agoOf(age)}`
     })
 
     return () => (

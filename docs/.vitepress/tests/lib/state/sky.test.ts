@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as catalog           from '../../../lib/orbit/catalog.ts'
+import { kindOrder }          from '../../../lib/orbit/kinds.ts'
 import * as scan              from '../../../lib/orbit/scan.ts'
 import type { Answer, Asked } from '../../../lib/orbit/worker.ts'
 import { stubMatchMedia }     from '../../common/stubs.ts'
@@ -129,9 +130,9 @@ const traced = (passes: scan.Pass[]) => {
 }
 
 /**
- * A map drawing no satellite of any kind, for a reading.
+ * The counts `latch` reads from a map drawing no satellite.
  */
-const NONE = new Uint16Array(8)
+const NONE = new Uint16Array(kindOrder.length)
 
 beforeEach(() => vi.useFakeTimers({ now: NOW }))
 afterEach(() => {
@@ -165,7 +166,18 @@ describe('the count a screen reader hears', () => {
       expect(sky.spoken.value).toBe('7 satellites above the horizon')
     })
 
-  it('holds the count the readout shows while the count above moves on under a held reading', async () => {
+  it.each([
+    [0, '0 satellites above the horizon'],
+    [1, '1 satellite above the horizon'],
+    [2, '2 satellites above the horizon']
+  ])('announces a count of %i as "%s"', async (count, spoken) => {
+    const sky = await loaded()
+    hear({ counts: countsOf(count), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
+    sky.latch(NONE)
+    expect(sky.spoken.value).toBe(spoken)
+  })
+
+  it('keeps announcing the reading’s count once the count above has moved on', async () => {
     const sky = await loaded()
     traced([passAt(sky.seconds - 610, 30)])
     sky.tally()
@@ -175,7 +187,7 @@ describe('the count a screen reader hears', () => {
     sky.tally()
     sky.latch(NONE)
     expect([sky.up.value, sky.reading.value.above, sky.spoken.value])
-      .toEqual([0, 1, '1 satellites above the horizon'])
+      .toEqual([0, 1, '1 satellite above the horizon'])
   })
 })
 

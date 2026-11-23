@@ -158,7 +158,7 @@ class Sky {
   readonly pinned   = shallowRef<Pass | null>(null)
   /**
    * How many pixels of the map's foot a phone's sheet covers, which the map
-   * frames a pinned pass above.
+   * frames a pinned pass and centers its zoom buttons above.
    */
   readonly covered  = ref(0)
   /**
@@ -718,8 +718,9 @@ class Sky {
   private speak() {
     const now = Date.now()
     if (now - this.spokenAt < CLOCK.spoken) return
+    const { above }   = this.reading.value
     this.spokenAt     = now
-    this.spoken.value = `${this.reading.value.above.toLocaleString()} satellites above the horizon`
+    this.spoken.value = `${above.toLocaleString()} satellite${above === 1 ? '' : 's'} above the horizon`
   }
 
   /**
@@ -730,6 +731,11 @@ class Sky {
     const index = this.tracks.passes.indexOf(pass)
     return footholdsOf(index, this.span, this.spot.value, this.start.value, this.tracks)
   }
+
+  /**
+   * Returns the moment `seconds` into the window.
+   */
+  dateOf(seconds: number): Date { return new Date(this.start.value + seconds * 1000) }
 
   /**
    * Returns the clock time of a moment in the window in the viewer's own time
@@ -760,8 +766,6 @@ class Sky {
   laterDay(seconds: number): boolean {
     return this.dateOf(seconds).toDateString() !== this.dateOf(0).toDateString()
   }
-
-  private dateOf(seconds: number): Date { return new Date(this.start.value + seconds * 1000) }
 }
 
 export const sky = new Sky()

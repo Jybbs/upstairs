@@ -18,15 +18,16 @@ import Tally                                      from './Tally.tsx'
  */
 const UNDERLINED    = `caps cursor-pointer text-ink underline decoration-rule underline-offset-4
                        hover:decoration-soft max-sm:py-3.25`
+const ZONED         = { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' } as const
 const dateFormat    = new Intl.DateTimeFormat([], { day: 'numeric', month: 'long', weekday: 'long' })
 const weekdayFormat = new Intl.DateTimeFormat([], { weekday: 'short' })
 /**
  * The clock to the minute, and to the second while the fast-forward runs,
  * each closing on the short name of the reader's time zone.
  */
-const zonedFormats  = {
-  minute : new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }),
-  second : new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit', second: '2-digit', timeZoneName: 'short' })
+const zonedFormats = {
+  minute : new Intl.DateTimeFormat([], ZONED),
+  second : new Intl.DateTimeFormat([], { ...ZONED, second: '2-digit' })
 }
 
 /**
@@ -101,7 +102,8 @@ export default defineComponent(
      * falls on a later day.
      */
     const when = computed(() => {
-      const clock = sky.clockOf(sky.at.value, zonedFormats[sky.clock.value === 'running' ? 'second' : 'minute'])
+      const unit  = sky.clock.value === 'running' ? 'second' : 'minute'
+      const clock = sky.clockOf(sky.at.value, zonedFormats[unit])
       return later.value ? `${sky.dayOf(sky.at.value, weekdayFormat)} ${clock}` : clock
     })
 
@@ -187,11 +189,11 @@ export default defineComponent(
           props.folded ? 'px-4 pb-3' : 'rounded-sm border border-rule bg-panel/95 p-4 backdrop-blur-sm'
         ]}
       >
-        <p class="caps truncate text-soft">
-          {'Above '}
+        <p class="caps flex items-baseline text-soft">
+          <span class="shrink-0 whitespace-pre">{'Above '}</span>
           <button
             {...chooser.value.getTriggerProps()}
-            class={UNDERLINED}
+            class={[UNDERLINED, 'truncate']}
             aria-label={`Choose the spot, now ${over.value}`}
           >
             <Icon name="place" class="-mt-0.5 inline align-middle" />
@@ -208,7 +210,7 @@ export default defineComponent(
               ))}
             </span>
           </button>
-          {' · '}<span class="text-ink">{when.value}</span>
+          <span class="shrink-0 whitespace-pre">{' · '}<span class="text-ink">{when.value}</span></span>
         </p>
         {!props.folded && sky.shown.value && !sky.moment.value.failure
           ? (

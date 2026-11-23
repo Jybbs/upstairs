@@ -46,7 +46,7 @@ The map draws on tiles from the hosts [Data](/data/#the-map) names. Where a host
 
 ## The Readout
 
-Once the time moves past midnight into the next day, the weekday stands before the time in the readout's top line and a screen reader hears the full date.
+The readout's top line gives the time in the device's own time zone, whose short name follows it. Once the time moves past midnight into the next day, the weekday stands before the time and a screen reader hears the full date.
 
 ### The Count and the Tally
 
@@ -78,6 +78,6 @@ List, among the filters, switches the list between the passes crossing the map a
 
 ## The Filters
 
-Each kind of satellite takes its own color in the filters, the tally, and the pass list, and on the map for the pass the readout holds or the list chooses, every other satellite drawing in one tone. Each kind's mark under Show me names its kind on a tip while a pointer rests on it or the keyboard reaches it, and the heading folds the filters away and opens them again. Choosing a kind draws its satellites on the map and keeps them in the readout's counts and in the list, while a kind left out draws no dot and no track, and the page's address keeps the kinds chosen, so a reload or a shared link opens on them. The map draws at half strength every satellite whose pass stays below the height At least sets.
+Each kind of satellite takes its own color in the filters, the tally, the pass list, and the dots on the map. Each kind's mark under Show me names its kind on a tip while a pointer rests on it or the keyboard reaches it, and the heading folds the filters away and opens them again. Choosing a kind draws its satellites on the map and keeps them in the readout's counts and in the list, while a kind left out draws no dot and no track, and the page's address keeps the kinds chosen, so a reload or a shared link opens on them. The map draws at half strength every satellite whose pass stays below the height At least sets.
 
 Only the pass the readout holds or the list chooses draws a track, and At least keeps only the passes climbing to the height chosen or above.

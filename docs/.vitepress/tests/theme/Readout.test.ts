@@ -5,8 +5,8 @@ import { defineComponent, h }     from 'vue'
 
 import { DAY }                                       from '../../lib/orbit/catalog.ts'
 import { kindOrder }                                 from '../../lib/orbit/kinds.ts'
-import type { sky as Sky }                          from '../../lib/state/sky.ts'
-import { WORDS }                                    from '../../lib/state/words.ts'
+import type { sky as Sky }                           from '../../lib/state/sky.ts'
+import { WORDS }                                     from '../../lib/state/words.ts'
 import { dialogListens, fakeClock, unmountOnFinish } from '../common/frames.ts'
 import { passOf }                                    from '../common/passes.ts'
 import { addScanned, lateSky }                       from '../common/sky.ts'
@@ -17,17 +17,16 @@ const FAILED = 'Error: The catalog answered 503'
 /**
  * Returns the line naming the place and the time, its spacing collapsed.
  */
-const lineOf = (wrapper: VueWrapper) => wrapper.get('p.truncate')
+const lineOf = (wrapper: VueWrapper) => wrapper.get('p.caps')
   .text()
   .replace(/\s+/g, ' ')
 
 /**
  * Mounts the readout over a fresh copy of the shared state and a stand-in
  * worker, with a catalog loaded, the scan finished, a count announced, and the
- * window opening at
- * 11:47 PM on Tuesday, November 10, 2026 in New York's time zone, read at
- * `seconds` into it, the device asking for reduced motion where `reduced` is
- * set.
+ * window opening at 11:47 PM on Tuesday, November 10, 2026 in New York's time
+ * zone, read at `seconds` into it, the device asking for reduced motion where
+ * `reduced` is set.
  */
 const mounted = async (seconds: number, reduced = false) => {
   stubMatchMedia(query => reduced && query.includes('reduce'))

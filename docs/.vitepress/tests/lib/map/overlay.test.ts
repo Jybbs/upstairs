@@ -625,9 +625,9 @@ it('fades each bead with its age', () => {
 })
 
 it.each([
-  ['draws the chosen dot and its beads in its kind’s color', 'selected'],
-  ['draws every other dot and its beads in its kind’s color', 'none']
-] as const)('%s', (_, as) => {
+  ['a plain dot', 'none'],
+  ['the chosen dot', 'selected']
+] as const)('draws %s and its beads in its kind’s color', (_, as) => {
   const { marks } = drawnAt(1800, 45, as)
   const styles    = new Set(marks.map(({ style }) => style))
   expect([styles.has(SCHEMES.day.kinds.crewed), styles.has(SCHEMES.day.dim)]).toEqual([true, false])

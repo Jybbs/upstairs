@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { enableAutoUnmount, flushPromises, mount }     from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount }   from '@vue/test-utils'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import { ref }                                       from 'vue'
 
@@ -204,20 +204,13 @@ it.each([
 })
 
 it.each([
-  ['centers the zoom buttons in the map above the sheet once a pass is pinned', 480, 'pin',
-    'calc((100% - 480px) / 2)'],
-  ['centers the zoom buttons in the map above the sheet with no pass pinned', 330, null,
-    'calc((100% - 330px) / 2)'],
-  ['centers the zoom buttons in the map above the sheet while a finger only holds a pass', 330, 'hold',
-    'calc((100% - 330px) / 2)'],
-  ['leaves the zoom buttons at the map’s middle where no sheet covers it', 0, 'pin', '']
-] as const)('%s', async (_, covered, chosen, top) => {
-  const { pass, sky, wrapper } = await mounted()
-  sky.covered.value            = covered
-  if (chosen === 'pin') sky.pin(pass)
-  if (chosen === 'hold') sky.held.value = pass
+  ['centers the zoom buttons in the map above the sheet', 330, '330px'],
+  ['centers the zoom buttons in the whole map where no sheet covers it', 0, '0px']
+])('%s', async (_, covered, bottom) => {
+  const { sky, wrapper } = await mounted()
+  sky.covered.value      = covered
   await flushPromises()
-  expect((wrapper.get('[aria-label="Zoom"]').element as HTMLElement).style.top).toBe(top)
+  expect(wrapper.get('[aria-label="Zoom"]').element.parentElement!.style.bottom).toBe(bottom)
 })
 
 it.each([
@@ -302,7 +295,7 @@ it('eases the map under the opening chooser’s pin over MapLibre’s own durati
   sky.choose()
   await flushPromises()
   const { latitude, longitude } = sky.spot.value
-  expect(easeTo.mock.calls).toEqual([[{ center: [longitude, latitude], offset: [0, -0] }]])
+  expect(easeTo.mock.calls).toStrictEqual([[{ center: [longitude, latitude], offset: [0, -0] }]])
 })
 
 it('pulls the pin onto a town 10 px away once the map rests', async () => {
@@ -450,29 +443,20 @@ it('places the names again once the sheet covers more of the map', async () => {
   expect(invalidate).toHaveBeenCalledOnce()
 })
 
-it('places the names again once a marked panel changes size', async () => {
+it('observes a panel beside the map once the page turns to a phone’s width, but no zoom button', async () => {
   const resized = { run: () => {}, targets: [] as Element[] }
   vi.stubGlobal('ResizeObserver', class {
     constructor(run: () => void) { resized.run = run }
     disconnect() {}
     observe(target: Element) { resized.targets.push(target) }
   })
-  const { wrapper } = await mounted()
-  invalidate.mockClear()
-  resized.run()
-  expect([resized.targets.at(-1), invalidate.mock.calls.length])
-    .toEqual([wrapper.get('[aria-label="Zoom"]').element, 1])
-})
-
-it('reads the marked panels again once the page turns to a phone’s width', async () => {
-  const observed: Element[] = []
-  vi.stubGlobal('ResizeObserver', class {
-    disconnect() {}
-    observe(target: Element) { observed.push(target) }
-  })
-  const { turn } = await mounted()
-  const before   = observed.length
+  const { turn, wrapper } = await mounted()
+  const panel             = document.createElement('div')
+  panel.toggleAttribute('data-label-clear')
+  wrapper.element.parentElement!.append(panel)
   turn(true)
   await flushPromises()
-  expect(observed.length).toBeGreaterThan(before)
+  invalidate.mockClear()
+  resized.run()
+  expect([resized.targets, invalidate.mock.calls.length]).toEqual([[panel], 1])
 })

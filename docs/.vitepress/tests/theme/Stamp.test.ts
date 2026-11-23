@@ -1,13 +1,14 @@
 // @vitest-environment happy-dom
-import { mount }          from '@vue/test-utils'
+import { mount }                     from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 
+import { DAY }      from '../../lib/orbit/catalog.ts'
 import { freshSky } from '../common/sky.ts'
 
 vi.mock('../../lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
 
 const FETCHED = Date.parse('2026-11-06T18:53:57Z')
-const HOUR    = 3_600_000
+const HOUR    = DAY / 24
 
 afterEach(() => { vi.useRealTimers() })
 
@@ -41,9 +42,12 @@ it.each([
 })
 
 it.each([
-  ['in whole minutes under an hour', 59 * 60_000, '59 minutes ago'],
-  ['in whole hours under a day', 23.9 * HOUR, '23 hours ago'],
-  ['in whole days from a day on', 50 * HOUR, '2 days ago']
+  ['as no time at all where the reader’s clock runs behind the fetch', -60_000, '0 minutes ago'],
+  ['in whole minutes to the end of the first hour', HOUR - 1000, '59 minutes ago'],
+  ['in whole hours from an hour on', HOUR, '1 hour ago'],
+  ['in whole hours to the end of the first day', DAY - 1000, '23 hours ago'],
+  ['in whole days from a day on', DAY, '1 day ago'],
+  ['in whole days past it', 50 * HOUR, '2 days ago']
 ])('says how long ago the orbits were fetched %s', async (_, since, ago) => {
   const footer = await mounted(16_904, since)
   expect(footer.findAll('dd')[1].text()).toMatch(new RegExp(`, ${ago}$`))
