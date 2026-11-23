@@ -4,11 +4,9 @@
 gh cache list \
   --jq '
     group_by(.key
-      | (capture("^provision-(?<set>.+)-mise-v[0-9]+-(?<platform>.+?)-[0-9.]+-")
-        | [.set, .platform])
-      // [.])
-    | map(sort_by(.createdAt) | .[:-1][])
-    | .[].id
+      | capture("^provision-(?<set>.+)-mise-v[0-9]+-(?<platform>.+?)-[0-9.]+-") // .)
+    | .[]
+    | sort_by(.createdAt)[:-1][].id
   ' \
   --json createdAt,id,key \
   --key provision- \
