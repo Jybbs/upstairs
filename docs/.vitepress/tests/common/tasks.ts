@@ -31,9 +31,9 @@ export const linesOf = (text: string): string[] => text.split('\n').filter(Boole
 
 /**
  * Runs the task file at `.mise/tasks/<task>` of the worktree from `cwd` under
- * `env` laid over `STAND_IN_PATH`, the nth call to a stand-in other than `gh
- * api` exiting with the nth status in `exit`, every call counted, the last
- * repeating.
+ * `env` laid over `STAND_IN_PATH`, the nth call to a stand-in other than
+ * `gh api` and `gh cache list` exiting with the nth status in `exit`, every
+ * call counted, the last repeating.
  */
 export async function runTask(
   task : string,
