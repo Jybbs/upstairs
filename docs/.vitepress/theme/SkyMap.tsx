@@ -60,10 +60,10 @@ export default defineComponent(
     const { isDark } = useData()
     const scheme     = computed(() => SCHEMES[isDark.value ? 'night' : 'day'])
     /**
-     * Centers the zoom buttons in the map left above a phone's sheet while a
-     * pass is pinned, and in the whole map otherwise.
+     * Centers the zoom buttons in the map left above a phone's sheet, and in
+     * the whole map where no sheet covers it.
      */
-    const zoomAt = computed(() => sky.pinned.value && sky.covered.value
+    const zoomAt = computed(() => sky.covered.value
       ? { top: `calc((100% - ${sky.covered.value}px) / 2)` }
       : undefined)
 
@@ -184,10 +184,12 @@ export default defineComponent(
     }
 
     /**
-     * Eases the map to set a spot under the chooser's pin.
+     * Eases the map to set a spot under the chooser's pin, over MapLibre's
+     * default duration unless `options` names one, since `easeTo` copies an
+     * explicit `undefined` over that default and eases by `NaN`.
      */
-    const aimAt = (longitude: number, latitude: number, duration?: number) =>
-      map.easeTo({ center: [longitude, latitude], duration, offset: [0, -sky.raised.value / 2] })
+    const aimAt = (longitude: number, latitude: number, options?: maplibregl.EaseToOptions) =>
+      map.easeTo({ ...options, center: [longitude, latitude], offset: [0, -sky.raised.value / 2] })
 
     /**
      * Eases the map back to the spot.
@@ -226,7 +228,7 @@ export default defineComponent(
       const near   = places.placeNear(overlay.labels, x, y, overlay.view)
       if (!near) return
       const town   = near.label
-      if (near.distance > 0.5) return aimAt(town.longitude, town.latitude, PULL_MS)
+      if (near.distance > 0.5) return aimAt(town.longitude, town.latitude, { duration: PULL_MS })
       sky.aim.value = { place: town.name, spot: { latitude: town.latitude, longitude: town.longitude } }
     }
 

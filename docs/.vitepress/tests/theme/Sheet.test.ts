@@ -98,7 +98,7 @@ it('closes the hour’s list on the shield beside the active count and the orbit
   expect([...scroller.element.children].map(child => child.localName))
     .toEqual(['filters-stub', 'pass-list-stub', 'footer'])
   expect(footer.find('svg.shield').exists()).toBe(true)
-  expect(footer.findAll('dt').map(dt => dt.text())).toEqual(['Active', 'Orbits'])
+  expect(footer.findAll('dt').map(dt => dt.text())).toEqual(['Active', 'Orbits fetched'])
 })
 
 it('uncovers the map once it unmounts', async () => {

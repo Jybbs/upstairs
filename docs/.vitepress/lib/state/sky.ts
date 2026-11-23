@@ -49,14 +49,6 @@ const opening        = shared ? { place: null, spot: shared } : address.HOME
  * minutes`.
  */
 export const minuteFormat = new Intl.NumberFormat([], { style: 'unit', unit: 'minute', unitDisplay: 'long' })
-/**
- * The clock reading to the second while the fast-forward runs.
- */
-export const secondFormat = new Intl.DateTimeFormat([], {
-  hour   : 'numeric',
-  minute : '2-digit',
-  second : '2-digit'
-})
 const zeros               = kinds.kindOrder.map(() => 0)
 /**
  * The kinds shown on a first visit, which the address leaves unwritten.
@@ -659,28 +651,28 @@ class Sky {
 
   /**
    * Moves a live window to the present once the present passes its end, and
-   * otherwise counts what is up at the clock's time and announces the count.
+   * otherwise counts what is up at the clock's time.
    */
   tally() {
     if (this.clock.value === 'live' && this.present >= this.span) return this.toNow()
     this.at.value  = this.seconds
     this.now.value = this.present
-    if (this.count()) this.speak()
+    this.count()
   }
 
   /**
    * Counts what is up at the clock's time, of the kinds shown once the traces
-   * finish and reading the rough grid of every kind until then, and returns
-   * false while the grid has not arrived.
+   * finish and reading the rough grid of every kind until then, leaving the
+   * count where it stands while the grid has not arrived.
    */
-  private count(): boolean {
+  private count() {
     if (!this.done.value) {
       const counts = this.counts
-      if (!counts) return false
+      if (!counts) return
       const position = this.seconds / this.countStep
       const index    = Math.min(Math.floor(position), counts.length - 2)
       this.up.value  = Math.round(counts[index] + (counts[index + 1] - counts[index]) * (position - index))
-      return true
+      return
     }
     let up                                = 0
     const { aboveKinds, seconds, tracks } = this
@@ -693,7 +685,6 @@ class Sky {
       aboveKinds[kinds.kindSlots[kind]]++
     }
     this.up.value = up
-    return true
   }
 
   /**
@@ -705,7 +696,7 @@ class Sky {
    * Takes a reading from what the map draws by kind, `onMap` in the order of
    * `KINDS`, on every call while the passes are traced or the fast-forward
    * runs, and otherwise once the last reading is `CLOCK.latch` milliseconds
-   * old.
+   * old, announcing it once a count has arrived.
    */
   latch(onMap: Uint16Array) {
     const now = Date.now()
@@ -717,16 +708,18 @@ class Sky {
       kinds      : [...onMap],
       onMap      : onMap.reduce((sum, count) => sum + count, 0)
     }
+    if (this.counts || this.done.value) this.speak()
   }
 
   /**
-   * Writes the count to `spoken` at most once every `CLOCK.spoken` milliseconds.
+   * Writes the reading's count above the horizon to `spoken`, the count the
+   * readout shows, at most once every `CLOCK.spoken` milliseconds.
    */
   private speak() {
     const now = Date.now()
     if (now - this.spokenAt < CLOCK.spoken) return
     this.spokenAt     = now
-    this.spoken.value = `${this.up.value.toLocaleString()} satellites above the horizon`
+    this.spoken.value = `${this.reading.value.above.toLocaleString()} satellites above the horizon`
   }
 
   /**

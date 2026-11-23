@@ -5,7 +5,7 @@ import { coordinatesOf }                          from '../lib/orbit/compass.ts'
 import { KINDS, kindOrder, kindSlots }            from '../lib/orbit/kinds.ts'
 import { useChooser }                             from '../lib/site/chooser.ts'
 import { CLOCK }                                  from '../lib/state/clock.ts'
-import { minuteFormat, secondFormat, sky }        from '../lib/state/sky.ts'
+import { minuteFormat, sky }                      from '../lib/state/sky.ts'
 import { WORDS }                                  from '../lib/state/words.ts'
 import Icon                                       from './Icon.tsx'
 import Orbits                                     from './Orbits.tsx'
@@ -20,6 +20,14 @@ const UNDERLINED    = `caps cursor-pointer text-ink underline decoration-rule un
                        hover:decoration-soft max-sm:py-3.25`
 const dateFormat    = new Intl.DateTimeFormat([], { day: 'numeric', month: 'long', weekday: 'long' })
 const weekdayFormat = new Intl.DateTimeFormat([], { weekday: 'short' })
+/**
+ * The clock to the minute, and to the second while the fast-forward runs,
+ * each closing on the short name of the reader's time zone.
+ */
+const zonedFormats  = {
+  minute : new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }),
+  second : new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit', second: '2-digit', timeZoneName: 'short' })
+}
 
 /**
  * Reads the spot, the time, and the count of satellites on the map, or the
@@ -89,10 +97,11 @@ export default defineComponent(
       return `Draw the sky as it is now, the frame is ${minutes} ${away < 0 ? 'behind' : 'ahead'}`
     })
     /**
-     * The clock, after the weekday once the time read falls on a later day.
+     * The clock in the reader's time zone, after the weekday once the time read
+     * falls on a later day.
      */
     const when = computed(() => {
-      const clock = sky.clockOf(sky.at.value, sky.clock.value === 'running' ? secondFormat : undefined)
+      const clock = sky.clockOf(sky.at.value, zonedFormats[sky.clock.value === 'running' ? 'second' : 'minute'])
       return later.value ? `${sky.dayOf(sky.at.value, weekdayFormat)} ${clock}` : clock
     })
 

@@ -206,8 +206,10 @@ it.each([
 it.each([
   ['centers the zoom buttons in the map above the sheet once a pass is pinned', 480, 'pin',
     'calc((100% - 480px) / 2)'],
-  ['leaves the zoom buttons at the map’s middle with no pass pinned', 480, null, ''],
-  ['leaves the zoom buttons at the map’s middle while a finger only holds a pass', 330, 'hold', ''],
+  ['centers the zoom buttons in the map above the sheet with no pass pinned', 330, null,
+    'calc((100% - 330px) / 2)'],
+  ['centers the zoom buttons in the map above the sheet while a finger only holds a pass', 330, 'hold',
+    'calc((100% - 330px) / 2)'],
   ['leaves the zoom buttons at the map’s middle where no sheet covers it', 0, 'pin', '']
 ] as const)('%s', async (_, covered, chosen, top) => {
   const { pass, sky, wrapper } = await mounted()
@@ -292,6 +294,15 @@ it('takes the zoom-in button and the Plus key to the chosen pass’s next step',
   await wrapper.get('button[aria-label="Zoom in"]').trigger('click')
   await wrapper.get('[data-map] > div').trigger('keydown', { key: '+' })
   expect(easeTo.mock.calls).toEqual([[{ center: [-71, 42], zoom: 8 }], [{ center: [-71, 42], zoom: 8 }]])
+})
+
+it('eases the map under the opening chooser’s pin over MapLibre’s own duration', async () => {
+  const { sky } = await mounted()
+  easeTo.mockClear()
+  sky.choose()
+  await flushPromises()
+  const { latitude, longitude } = sky.spot.value
+  expect(easeTo.mock.calls).toEqual([[{ center: [longitude, latitude], offset: [0, -0] }]])
 })
 
 it('pulls the pin onto a town 10 px away once the map rests', async () => {

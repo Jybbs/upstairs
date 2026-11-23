@@ -882,13 +882,12 @@ export class Overlay {
   }
 
   /**
-   * Draws a satellite as a dot in the one tone, 2 pixels plus 2.5 for its
+   * Draws a satellite as a dot in its kind's color, 2 pixels plus 2.5 for its
    * nearness and strengthened by it, laying `BEADS` behind it and emptying to
-   * an open ring past its nearest point. The held and the chosen dots take
-   * their kind's color and a ring, and a dot whose pass the filters leave out
-   * of the list draws at half strength, its beads included. Draws at `x`, `y`,
-   * the place `tracks.up` wrote, since laying the beads reads other moments
-   * into `tracks`.
+   * an open ring past its nearest point. The held and the chosen dots take a
+   * ring, and a dot whose pass the filters leave out of the list draws at half
+   * strength, its beads included. Draws at `x`, `y`, the place `tracks.up`
+   * wrote, since laying the beads reads other moments into `tracks`.
    */
   private drawDot(
     context : CanvasRenderingContext2D,
@@ -905,7 +904,7 @@ export class Overlay {
     const radius      = radiusOf(nearness)
     const open        = openOf(record, seconds)
     const held        = record === state.selected || record === state.held
-    const color       = held ? this.scheme.kinds[record.kind] : this.scheme.dim
+    const color       = this.scheme.kinds[record.kind]
     let alpha         = (0.45 + 0.55 * nearness) * fadeOf(record, seconds) * (traced ? 1 : 0.5)
     if (held) alpha   = Math.max(alpha, 0.9)
     alpha            *= this.strength(record.kind)

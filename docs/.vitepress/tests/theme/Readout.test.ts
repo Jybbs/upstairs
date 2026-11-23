@@ -50,7 +50,7 @@ it.each([
   ['12:00 AM', 780, ['Wed'], 'The time read is on Wednesday, November 11.']
 ])('names the weekday before the time at %s only once the day turns', async (time, at, weekday, spoken) => {
   const { wrapper } = await mounted(at)
-  expect(lineOf(wrapper)).toBe(`Above Boston · ${[...weekday, time].join(' ')}`)
+  expect(lineOf(wrapper)).toBe(`Above Boston · ${[...weekday, time].join(' ')} EST`)
   expect(wrapper.findAll('[aria-live="polite"]')[1].text()).toBe(spoken)
 })
 
@@ -134,7 +134,7 @@ it.each([
   const { sky, wrapper } = await mounted(30)
   sky.clock.value        = clock
   await wrapper.vm.$nextTick()
-  expect(lineOf(wrapper)).toBe(`Above Boston · ${time}`)
+  expect(lineOf(wrapper)).toBe(`Above Boston · ${time} EST`)
 })
 
 it('opens the spot chooser from the place it reads', async () => {

@@ -128,6 +128,11 @@ const traced = (passes: scan.Pass[]) => {
   hear({ id, type: 'done' })
 }
 
+/**
+ * A map drawing no satellite of any kind, for a reading.
+ */
+const NONE = new Uint16Array(8)
+
 beforeEach(() => vi.useFakeTimers({ now: NOW }))
 afterEach(() => {
   vi.useRealTimers()
@@ -138,23 +143,39 @@ describe('the count a screen reader hears', () => {
   it('stays silent until the grid arrives', async () => {
     const sky = await loaded()
     sky.tally()
+    sky.latch(NONE)
     expect(sky.spoken.value).toBe('')
   })
 
-  it('announces the count once the grid arrives, and a changed count only after 20 seconds', async () => {
-    const sky      = await loaded()
-    const id       = scanned()
-    hear({ counts: countsOf(5), id, step: scan.GRID_STEP, type: 'counts' })
-    expect(sky.spoken.value).toBe('5 satellites above the horizon')
-    sky.scan()
-    hear({ counts: countsOf(7), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
-    expect(sky.spoken.value).toBe('5 satellites above the horizon')
-    vi.advanceTimersByTime(19_999)
+  it('announces the reading’s count once the grid arrives, and a changed count only after 20 seconds',
+    async () => {
+      const sky = await loaded()
+      hear({ counts: countsOf(5), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
+      sky.latch(NONE)
+      expect(sky.spoken.value).toBe('5 satellites above the horizon')
+      sky.scan()
+      hear({ counts: countsOf(7), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
+      sky.latch(NONE)
+      expect(sky.spoken.value).toBe('5 satellites above the horizon')
+      vi.advanceTimersByTime(19_999)
+      sky.latch(NONE)
+      expect(sky.spoken.value).toBe('5 satellites above the horizon')
+      vi.advanceTimersByTime(1)
+      sky.latch(NONE)
+      expect(sky.spoken.value).toBe('7 satellites above the horizon')
+    })
+
+  it('holds the count the readout shows while the count above moves on under a held reading', async () => {
+    const sky = await loaded()
+    traced([passAt(sky.seconds - 610, 30)])
     sky.tally()
-    expect(sky.spoken.value).toBe('5 satellites above the horizon')
-    vi.advanceTimersByTime(1)
+    sky.latch(NONE)
+    vi.advanceTimersByTime(26_000)
+    sky.advance(26)
     sky.tally()
-    expect(sky.spoken.value).toBe('7 satellites above the horizon')
+    sky.latch(NONE)
+    expect([sky.up.value, sky.reading.value.above, sky.spoken.value])
+      .toEqual([0, 1, '1 satellites above the horizon'])
   })
 })
 
@@ -698,6 +719,7 @@ describe('the scan workers', () => {
     const id      = scanned()
     const counted = workers.map(worker => {
       hearFrom(worker, { counts: countsOf(2), id, step: scan.GRID_STEP, type: 'counts' })
+      sky.latch(NONE)
       return sky.spoken.value
     })
     expect(counted).toEqual(['', '', '', '8 satellites above the horizon'])

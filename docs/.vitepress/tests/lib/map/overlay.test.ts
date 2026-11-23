@@ -625,19 +625,19 @@ it('fades each bead with its age', () => {
 })
 
 it.each([
-  ['draws the chosen dot and its beads in its kind’s color', 'selected', true],
-  ['draws every other dot and its beads in the one tone', 'none', false]
-] as const)('%s', (_, as, colored) => {
+  ['draws the chosen dot and its beads in its kind’s color', 'selected'],
+  ['draws every other dot and its beads in its kind’s color', 'none']
+] as const)('%s', (_, as) => {
   const { marks } = drawnAt(1800, 45, as)
-  expect(marks.some(({ style }) => style === SCHEMES.day.kinds.crewed)).toBe(colored)
+  const styles    = new Set(marks.map(({ style }) => style))
+  expect([styles.has(SCHEMES.day.kinds.crewed), styles.has(SCHEMES.day.dim)]).toEqual([true, false])
 })
 
 it.each([
-  ['draws no craft docked to the chosen one over it', 'station', 'selected', false, 1],
-  ['draws a docked craft a search by name chooses over the station it flies with',
-    'docked', 'selected', true, 2],
-  ['draws a docked craft the readout holds over the station it flies with', 'docked', 'held', true, 2]
-] as const)('%s', (_, which, as, dimmed, drawn) => {
+  ['draws no craft docked to the chosen one over it', 'station', 'selected', 1],
+  ['draws a docked craft a search by name chooses over the station it flies with', 'docked', 'selected', 2],
+  ['draws a docked craft the readout holds over the station it flies with', 'docked', 'held', 2]
+] as const)('%s', (_, which, as, drawn) => {
   vi.stubGlobal('Path2D', class { constructor(readonly d: string) {} })
   const tracks = new Tracks()
   const track  = new Float32Array(121 * TRACK_WIDTH)
@@ -664,11 +664,9 @@ it.each([
   overlay.resize(400, 400, 1)
   overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
   overlay.draw(1800)
-  const styles         = sketch.marks.map(({ style }) => style)
-  const crewed         = overlay.onMap[kindOrder.indexOf('crewed')]
-  const { dim, kinds } = SCHEMES.day
-  expect([[...tracks.docked], styles.includes(dim), styles.includes(kinds.crewed), crewed])
-    .toEqual([[1], dimmed, true, drawn])
+  const styles = sketch.marks.map(({ style }) => style)
+  const crewed = overlay.onMap[kindOrder.indexOf('crewed')]
+  expect([[...tracks.docked], styles.includes(SCHEMES.day.kinds.crewed), crewed]).toEqual([[1], true, drawn])
   vi.unstubAllGlobals()
 })
 
