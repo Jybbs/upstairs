@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { mount }                     from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
+import { nextTick }                  from 'vue'
 
 import { DAY }      from '../../lib/orbit/catalog.ts'
 import { freshSky } from '../common/sky.ts'
@@ -15,13 +16,13 @@ afterEach(() => { vi.useRealTimers() })
 /**
  * Mounts the stamp over a fresh copy of the shared state at `since`
  * milliseconds after the fetch, the catalog loaded with `count` satellites
- * where `count` is given, and returns its footer.
+ * where `count` is given, and returns its footer beside the state.
  */
 const mounted = async (count?: number, since = 2 * HOUR) => {
   vi.useFakeTimers({ now: FETCHED + since, toFake: ['Date'] })
   const { component: Stamp, sky } = await freshSky(() => import('../../theme/Stamp.tsx'))
   if (count) sky.loaded.value = { count, fetched: FETCHED }
-  return mount(Stamp).get('footer')
+  return { footer: mount(Stamp).get('footer'), sky }
 }
 
 it.each([
@@ -35,7 +36,7 @@ it.each([
   ],
   ['opens on the shield and holds no count and no time until the catalog loads', undefined, ['', '']]
 ])('%s', async (_, count, readings) => {
-  const footer = await mounted(count)
+  const { footer } = await mounted(count)
   expect(footer.element.firstElementChild?.matches('svg.shield')).toBe(true)
   expect(footer.findAll('dt').map(dt => dt.text())).toEqual(['Active', 'Orbits fetched'])
   expect(footer.findAll('dd').map(dd => dd.text())).toEqual(readings)
@@ -49,6 +50,13 @@ it.each([
   ['in whole days from a day on', DAY, '1 day ago'],
   ['in whole days past it', 50 * HOUR, '2 days ago']
 ])('says how long ago the orbits were fetched %s', async (_, since, ago) => {
-  const footer = await mounted(16_904, since)
+  const { footer } = await mounted(16_904, since)
   expect(footer.findAll('dd')[1].text()).toMatch(new RegExp(`, ${ago}$`))
+})
+
+it('moves the age on while the page stays open', async () => {
+  const { footer, sky } = await mounted(16_904, HOUR)
+  sky.now.value        += HOUR / 1000
+  await nextTick()
+  expect(footer.findAll('dd')[1].text()).toMatch(/, 2 hours ago$/)
 })

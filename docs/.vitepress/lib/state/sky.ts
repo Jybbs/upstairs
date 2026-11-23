@@ -651,13 +651,15 @@ class Sky {
 
   /**
    * Moves a live window to the present once the present passes its end, and
-   * otherwise counts what is up at the clock's time.
+   * otherwise counts what is up at the clock's time, taking the reading where
+   * the map cannot draw.
    */
   tally() {
     if (this.clock.value === 'live' && this.present >= this.span) return this.toNow()
     this.at.value  = this.seconds
     this.now.value = this.present
     this.count()
+    if (this.blank.value) this.latch(new Uint16Array(kinds.kindOrder.length))
   }
 
   /**
@@ -696,19 +698,21 @@ class Sky {
    * Takes a reading from what the map draws by kind, `onMap` in the order of
    * `KINDS`, on every call while the passes are traced or the fast-forward
    * runs, and otherwise once the last reading is `CLOCK.latch` milliseconds
-   * old, announcing it once a count has arrived.
+   * old, announcing the reading it holds once the traces finish.
    */
   latch(onMap: Uint16Array) {
-    const now = Date.now()
-    if (this.done.value && this.clock.value !== 'running' && now - this.latchedAt < CLOCK.latch) return
-    this.latchedAt     = now
-    this.reading.value = {
-      above      : this.up.value,
-      aboveKinds : [...this.aboveKinds],
-      kinds      : [...onMap],
-      onMap      : onMap.reduce((sum, count) => sum + count, 0)
+    const now  = Date.now()
+    const held = this.done.value && this.clock.value !== 'running' && now - this.latchedAt < CLOCK.latch
+    if (!held) {
+      this.latchedAt     = now
+      this.reading.value = {
+        above      : this.up.value,
+        aboveKinds : [...this.aboveKinds],
+        kinds      : [...onMap],
+        onMap      : onMap.reduce((sum, count) => sum + count, 0)
+      }
     }
-    if (this.counts || this.done.value) this.speak()
+    if (this.done.value) this.speak()
   }
 
   /**

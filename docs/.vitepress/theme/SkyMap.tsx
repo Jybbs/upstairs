@@ -430,9 +430,10 @@ export default defineComponent(
     watch(sky.gather, regather)
     watch(sky.covered, () => overlay?.invalidate())
     /**
-     * Observes each panel beside the map, passing over the zoom buttons, which
-     * change shape only as the sheet or the map resizes and either places the
-     * names again.
+     * Observes each panel beside the map. The zoom buttons are passed over,
+     * since the sheet's resize reshapes them inside its own delivery, which the
+     * browser reports as a `ResizeObserver` loop error, and the sheet and the
+     * map each place the names again as they resize.
      */
     watch([frame, phone], ([map]) => {
       panels.value = map ? places.panelsOver(map).filter(panel => !map.parentElement!.contains(panel)) : []

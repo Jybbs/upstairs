@@ -47,7 +47,7 @@ export default defineComponent(
           </div>
           <div class="flex flex-col-reverse gap-0.5">
             <dt class="caps tracking-[0.14em] text-dim">Orbits fetched</dt>
-            <dd class="m-0 font-book text-[19px] leading-6 whitespace-nowrap">{updated.value}</dd>
+            <dd class="m-0 font-book text-[19px] leading-6">{updated.value}</dd>
           </div>
         </dl>
       </footer>

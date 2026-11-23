@@ -624,13 +624,12 @@ it('fades each bead with its age', () => {
   expect(new Set(beads).size).toBe(beads.length)
 })
 
-it.each([
-  ['a plain dot', 'none'],
-  ['the chosen dot', 'selected']
-] as const)('draws %s and its beads in its kind’s color', (_, as) => {
-  const { marks } = drawnAt(1800, 45, as)
+it.each(
+  kindOrder.flatMap(kind => [['plain', kind, 'none'], ['chosen', kind, 'selected']] as const)
+)('draws a %s %s dot and its beads in its kind’s color', (_, kind, as) => {
+  const { marks } = drawnAt(1800, 45, as, { changes: { kind } })
   const styles    = new Set(marks.map(({ style }) => style))
-  expect([styles.has(SCHEMES.day.kinds.crewed), styles.has(SCHEMES.day.dim)]).toEqual([true, false])
+  expect([styles.has(SCHEMES.day.kinds[kind]), styles.has(SCHEMES.day.dim)]).toEqual([true, false])
 })
 
 it.each([

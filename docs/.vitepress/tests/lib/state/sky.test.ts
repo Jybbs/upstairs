@@ -141,30 +141,34 @@ afterEach(() => {
 })
 
 describe('the count a screen reader hears', () => {
-  it('stays silent until the grid arrives', async () => {
+  /**
+   * Finishes the latest scan with `count` passes standing above the horizon.
+   */
+  const standing = (sky: Awaited<ReturnType<typeof loaded>>, count: number) =>
+    traced(Array.from({ length: count }, () => passAt(sky.seconds - 300, 30, { ...OTHER, kind: 'weather' })))
+
+  it('stays silent while the passes are traced', async () => {
     const sky = await loaded()
-    sky.tally()
+    hear({ counts: countsOf(5), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
     sky.latch(NONE)
     expect(sky.spoken.value).toBe('')
   })
 
-  it('announces the reading’s count once the grid arrives, and a changed count only after 20 seconds',
-    async () => {
-      const sky = await loaded()
-      hear({ counts: countsOf(5), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
-      sky.latch(NONE)
-      expect(sky.spoken.value).toBe('5 satellites above the horizon')
-      sky.scan()
-      hear({ counts: countsOf(7), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
-      sky.latch(NONE)
-      expect(sky.spoken.value).toBe('5 satellites above the horizon')
-      vi.advanceTimersByTime(19_999)
-      sky.latch(NONE)
-      expect(sky.spoken.value).toBe('5 satellites above the horizon')
-      vi.advanceTimersByTime(1)
-      sky.latch(NONE)
-      expect(sky.spoken.value).toBe('7 satellites above the horizon')
-    })
+  it('announces the count the readout shows, and a changed one only after 20 seconds', async () => {
+    const sky = await loaded()
+    standing(sky, 5)
+    sky.latch(NONE)
+    expect(sky.spoken.value).toBe('5 satellites above the horizon')
+    sky.scan()
+    standing(sky, 7)
+    sky.latch(NONE)
+    vi.advanceTimersByTime(19_999)
+    sky.latch(NONE)
+    expect([sky.reading.value.above, sky.spoken.value]).toEqual([7, '5 satellites above the horizon'])
+    vi.advanceTimersByTime(1)
+    sky.latch(NONE)
+    expect(sky.spoken.value).toBe('7 satellites above the horizon')
+  })
 
   it.each([
     [0, '0 satellites above the horizon'],
@@ -172,9 +176,16 @@ describe('the count a screen reader hears', () => {
     [2, '2 satellites above the horizon']
   ])('announces a count of %i as "%s"', async (count, spoken) => {
     const sky = await loaded()
-    hear({ counts: countsOf(count), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
+    standing(sky, count)
     sky.latch(NONE)
     expect(sky.spoken.value).toBe(spoken)
+  })
+
+  it('announces the count where the map cannot draw, which takes no reading of its own', async () => {
+    const sky       = await loaded()
+    sky.blank.value = true
+    standing(sky, 2)
+    expect([sky.reading.value.above, sky.spoken.value]).toEqual([2, '2 satellites above the horizon'])
   })
 
   it('keeps announcing the reading’s count once the count above has moved on', async () => {
@@ -731,10 +742,9 @@ describe('the scan workers', () => {
     const id      = scanned()
     const counted = workers.map(worker => {
       hearFrom(worker, { counts: countsOf(2), id, step: scan.GRID_STEP, type: 'counts' })
-      sky.latch(NONE)
-      return sky.spoken.value
+      return sky.up.value
     })
-    expect(counted).toEqual(['', '', '', '8 satellites above the horizon'])
+    expect(counted).toEqual([0, 0, 0, 8])
   })
 
   it('reads the share traced across every worker, finishing once every worker has', async () => {
