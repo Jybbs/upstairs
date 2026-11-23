@@ -2,7 +2,7 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { describe, expect, it }   from 'vitest'
 
-import { TRACK_STEP, TRACK_WIDTH, type Pass } from '../../lib/orbit/scan.ts'
+import { TRACK_STEP, TRACK_WIDTH, type Pass } from '../../../docs/.vitepress/lib/orbit/scan.ts'
 import { passOf }                             from '../common/passes.ts'
 import { lateSky }                            from '../common/sky.ts'
 import { stubMatchMedia }                     from '../common/stubs.ts'
@@ -22,7 +22,8 @@ const END = /^M[^L]*L[^L]*(L[^L]*Z)?$/
  */
 const mounted = async (seconds: number, changes: Partial<Pass> = {}, drift = 0) => {
   stubMatchMedia(() => false)
-  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.tsx'))
+  const { component: Readout, sky } = await lateSky(() =>
+    import('../../../docs/.vitepress/theme/Readout.tsx'))
   const pass                        = passOf(1, changes)
   const samples                     = sky.span / TRACK_STEP + 1
   const track                       = new Float32Array(samples * TRACK_WIDTH)

@@ -15,13 +15,19 @@ import { stubMatchMedia }       from '../common/stubs.ts'
  */
 const HEIGHTS = vi.hoisted(() => ({ measured: [] as Ref<number>[], of: [100, 60, 420, 600, 104] }))
 
-vi.mock('../../lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
-vi.mock('../../theme/Credit.tsx', async () => (await import('../common/stubs.ts')).stubOf('Credit'))
-vi.mock('../../theme/Filters.tsx', async () => (await import('../common/stubs.ts')).stubOf('Filters'))
-vi.mock('../../theme/PassList.tsx', async () => (await import('../common/stubs.ts')).stubOf('PassList'))
-vi.mock('../../theme/PassReadout.tsx', async () => (await import('../common/stubs.ts')).stubOf('PassReadout'))
-vi.mock('../../theme/Readout.tsx', async () => (await import('../common/stubs.ts')).stubOf('Readout'))
-vi.mock('../../theme/TimeStrip.tsx', async () => (await import('../common/stubs.ts')).stubOf('TimeStrip'))
+vi.mock('../../../docs/.vitepress/lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
+vi.mock('../../../docs/.vitepress/theme/Credit.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Credit'))
+vi.mock('../../../docs/.vitepress/theme/Filters.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Filters'))
+vi.mock('../../../docs/.vitepress/theme/PassList.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('PassList'))
+vi.mock('../../../docs/.vitepress/theme/PassReadout.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('PassReadout'))
+vi.mock('../../../docs/.vitepress/theme/Readout.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Readout'))
+vi.mock('../../../docs/.vitepress/theme/TimeStrip.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('TimeStrip'))
 vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
   useElementSize: () => {
@@ -57,7 +63,7 @@ const dragged = async (wrapper: VueWrapper, path: number[][]) => {
 const mounted = async (pinned: boolean, pass = passOf(1)) => {
   stubMatchMedia(() => false)
   HEIGHTS.measured                = []
-  const { component: Sheet, sky } = await freshSky(() => import('../../theme/Sheet.tsx'))
+  const { component: Sheet, sky } = await freshSky(() => import('../../../docs/.vitepress/theme/Sheet.tsx'))
   const stubs                     = {
     Credit: true, Filters: true, PassList: true, PassReadout: true, Readout: true, TimeStrip: true
   }

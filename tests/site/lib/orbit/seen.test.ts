@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { SEEN, seenAt, sunAt } from '../../../lib/orbit/seen.ts'
+import { SEEN, seenAt, sunAt } from '../../../../docs/.vitepress/lib/orbit/seen.ts'
 
 const DEGREES = 180 / Math.PI
 const SPOT    = { latitude: 0, longitude: 0 }

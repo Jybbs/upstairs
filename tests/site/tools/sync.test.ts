@@ -2,8 +2,8 @@ import { STATUS_CODES } from 'node:http'
 
 import { describe, expect, it } from 'vitest'
 
-import * as repository from '../../tools/repository.ts'
-import * as sync       from '../../tools/sync.ts'
+import * as repository from '../../../docs/.vitepress/tools/repository.ts'
+import * as sync       from '../../../docs/.vitepress/tools/sync.ts'
 import * as gh         from '../common/gh.ts'
 import { ROOT }        from '../common/reads.ts'
 

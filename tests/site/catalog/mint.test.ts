@@ -3,7 +3,7 @@ import { join }                             from 'node:path'
 
 import { describe, expect, vi } from 'vitest'
 
-import { run }        from '../../catalog/mint.ts'
+import { run }        from '../../../docs/.vitepress/catalog/mint.ts'
 import { it, tilded } from '../common/scratch.ts'
 
 const OTHERS = 'machine www.space-track.org\n  login saved\n  password orbit-2026\n'

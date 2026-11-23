@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 
-import * as words from '../../../lib/state/words.ts'
+import * as words from '../../../../docs/.vitepress/lib/state/words.ts'
 
 /**
  * A scan a little over a third of the way through a whole catalog.

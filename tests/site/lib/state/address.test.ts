@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { DECIMALS, fragmentOf, kindsIn, spotIn } from '../../../lib/state/address.ts'
+import { DECIMALS, fragmentOf, kindsIn, spotIn } from '../../../../docs/.vitepress/lib/state/address.ts'
 
 describe('the address', () => {
   it.each([

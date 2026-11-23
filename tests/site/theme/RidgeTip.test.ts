@@ -3,7 +3,7 @@ import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 import { ref }            from 'vue'
 
-import RidgeTip   from '../../theme/RidgeTip.tsx'
+import RidgeTip   from '../../../docs/.vitepress/theme/RidgeTip.tsx'
 import { passOf } from '../common/passes.ts'
 
 vi.mock('@vueuse/core', async original => ({

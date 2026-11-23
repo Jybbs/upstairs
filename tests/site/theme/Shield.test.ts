@@ -2,9 +2,9 @@
 import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
-import Shield from '../../theme/Shield.tsx'
+import Shield from '../../../docs/.vitepress/theme/Shield.tsx'
 
-vi.mock('../../lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
+vi.mock('../../../docs/.vitepress/lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
 
 const readings = () => mount(Shield).findAll('text').map(text => ({
   href  : text.find('a').exists() ? text.get('a').attributes('href') : undefined,

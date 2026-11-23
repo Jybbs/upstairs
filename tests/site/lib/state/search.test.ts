@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import * as search from '../../../lib/state/search.ts'
+import * as search from '../../../../docs/.vitepress/lib/state/search.ts'
 import { passOf }  from '../../common/passes.ts'
 import photon      from '../../fixtures/photon.json' with { type: 'json' }
 

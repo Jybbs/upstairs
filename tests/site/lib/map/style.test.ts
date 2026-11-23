@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { FLOORS, styleOf } from '../../../lib/map/style.ts'
-import { SCHEMES }         from '../../../lib/site/palette.ts'
+import { FLOORS, styleOf } from '../../../../docs/.vitepress/lib/map/style.ts'
+import { SCHEMES }         from '../../../../docs/.vitepress/lib/site/palette.ts'
 
 describe.each(Object.entries(SCHEMES))('the %s map', (_, scheme) => {
   const { layers } = styleOf('contours', 'dem', scheme)

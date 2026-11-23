@@ -3,8 +3,8 @@ import { mount, type VueWrapper }         from '@vue/test-utils'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { ref }                            from 'vue'
 
-import { TRACK_WIDTH, type Pass } from '../../lib/orbit/scan.ts'
-import type { sky as Sky }        from '../../lib/state/sky.ts'
+import { TRACK_WIDTH, type Pass } from '../../../docs/.vitepress/lib/orbit/scan.ts'
+import type { sky as Sky }        from '../../../docs/.vitepress/lib/state/sky.ts'
 import { passOf }                 from '../common/passes.ts'
 import { addScanned, freshSky }   from '../common/sky.ts'
 import { stubMatchMedia }         from '../common/stubs.ts'
@@ -18,7 +18,8 @@ vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),
   useElementSize: () => ({ height: ref(0), width: ref(WIDTH.value) })
 }))
-vi.mock('../../theme/Credit.tsx', async () => (await import('../common/stubs.ts')).stubOf('Credit'))
+vi.mock('../../../docs/.vitepress/theme/Credit.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Credit'))
 
 /**
  * Each locale beside each page width a reader might open the strip at, and the
@@ -47,7 +48,8 @@ const THREE = [
 const mounted = async (reduced: boolean, phone = false, passes = [passOf(1)], width = 800) => {
   WIDTH.value = width
   stubMatchMedia(query => reduced && query.includes('reduce') || phone && query.includes('40rem'))
-  const { component: TimeStrip, sky } = await freshSky(() => import('../../theme/TimeStrip.tsx'))
+  const { component: TimeStrip, sky } = await freshSky(() =>
+    import('../../../docs/.vitepress/theme/TimeStrip.tsx'))
   const [pass]                        = passes
   addScanned(sky, passes)
   sky.scope.value = 'sky'
@@ -290,9 +292,10 @@ it('colors each ridge by its pass’s kind and dots the crest where it cannot be
 })
 
 it('draws the crest solid where the satellite can be seen by eye', async () => {
-  vi.doMock('../../lib/orbit/seen.ts', () => ({ seenAt: () => true }))
-  const { component: TimeStrip, sky } = await freshSky(() => import('../../theme/TimeStrip.tsx'))
-  vi.doUnmock('../../lib/orbit/seen.ts')
+  vi.doMock('../../../docs/.vitepress/lib/orbit/seen.ts', () => ({ seenAt: () => true }))
+  const { component: TimeStrip, sky } = await freshSky(() =>
+    import('../../../docs/.vitepress/theme/TimeStrip.tsx'))
+  vi.doUnmock('../../../docs/.vitepress/lib/orbit/seen.ts')
   sky.tracks.add([passOf(1)], new Float32Array(TRACK_WIDTH * 2), new Uint32Array(1), 2)
   sky.version.value++
   sky.scope.value = 'sky'

@@ -2,15 +2,15 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi }     from 'vitest'
 
-import { TRACK_STEP }     from '../../lib/orbit/scan.ts'
-import { titleOf }        from '../../lib/state/drawings.ts'
-import PeakSearch         from '../../theme/PeakSearch.tsx'
+import { TRACK_STEP }     from '../../../docs/.vitepress/lib/orbit/scan.ts'
+import { titleOf }        from '../../../docs/.vitepress/lib/state/drawings.ts'
+import PeakSearch         from '../../../docs/.vitepress/theme/PeakSearch.tsx'
 import { drawingsOf }     from '../common/drawings.ts'
 import { WIDTH, movesOnEachKey, observeWidth, readingsOf, statesEachFailure } from '../common/drawn.ts'
 import { fakeClock }      from '../common/frames.ts'
 import { stubIntersection, stubMatchMedia } from '../common/stubs.ts'
 
-vi.mock('../../lib/state/drawings.ts', async original =>
+vi.mock('../../../docs/.vitepress/lib/state/drawings.ts', async original =>
   (await import('../common/drawings.ts')).drawingsModuleOf(await original()))
 
 enableAutoUnmount(afterEach)

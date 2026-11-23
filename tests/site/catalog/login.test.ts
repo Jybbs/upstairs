@@ -5,12 +5,12 @@ import { PassThrough }                          from 'node:stream'
 
 import { describe, expect, test, vi } from 'vitest'
 
-import * as login      from '../../catalog/login.ts'
-import * as spacetrack from '../../catalog/spacetrack.ts'
+import * as login      from '../../../docs/.vitepress/catalog/login.ts'
+import * as spacetrack from '../../../docs/.vitepress/catalog/spacetrack.ts'
 import { it, tilded }  from '../common/scratch.ts'
 import * as answers    from '../common/spacetrack.ts'
 
-const CATALOG  = join(import.meta.dirname, '../../catalog')
+const CATALOG  = join(import.meta.dirname, '../../../docs/.vitepress/catalog')
 const DOWN     = () => new Response('', { status: 503 })
 const OTHERS   = 'machine urs.earthdata.nasa.gov\n  login reader\n  password other\n'
 const PASSWORD = 'orbit-2026'

@@ -5,12 +5,12 @@ import { join }         from 'node:path'
 import { mount }                               from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import * as guide         from '../../lib/site/guide.ts'
-import GuideFigures       from '../../theme/GuideFigures.tsx'
+import * as guide         from '../../../docs/.vitepress/lib/site/guide.ts'
+import GuideFigures       from '../../../docs/.vitepress/theme/GuideFigures.tsx'
 import { stubMatchMedia } from '../common/stubs.ts'
 
 const SHEET = new CSSStyleSheet()
-SHEET.replaceSync(readFileSync(join(import.meta.dirname, '../../theme/guide.css'), 'utf8'))
+SHEET.replaceSync(readFileSync(join(import.meta.dirname, '../../../docs/.vitepress/theme/guide.css'), 'utf8'))
 const SLOTS = Object.fromEntries(guide.PARTS.map(part => [part, () => `Opening on ${part}`]))
 const STACK = '.vp-doc :is(.guide-caption > span, .guide-opening)'
 

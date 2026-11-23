@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { openingOf, revealOf } from '../../../lib/site/reveal.ts'
+import { openingOf, revealOf } from '../../../../docs/.vitepress/lib/site/reveal.ts'
 
 describe('revealOf', () => {
   it.each([

@@ -13,7 +13,7 @@ import { ROOT, TABLE, readersOfGone, rereadOf, watchedOf } from './common/reads.
 
 const BUILT    = 'rust/pkg/*'
 const CRATE    = 'rust/{Cargo.lock,Cargo.toml,src/**}'
-const triggers = ['.mise/config.toml', '.mise/mise.lock', 'docs/bun.lock'].map(glob => join(ROOT, glob))
+const triggers = ['.mise/config.toml', '.mise/mise.lock', 'bun.lock'].map(glob => join(ROOT, glob))
 const watched  = watchedOf()
 
 const git = async (...args: string[]): Promise<string | undefined> =>
@@ -80,11 +80,12 @@ export default defineConfig({
   plugins  : [vueJsx(), reads],
 
   test: {
+    dir                : import.meta.dirname,
     env                : { TZ: 'UTC' },
     environmentOptions : { happyDOM: { settings: { handleDisabledFileLoadingAsSuccess: true } } },
     forceRerunTriggers : [...configDefaults.forceRerunTriggers, ...triggers],
-    include            : ['.vitepress/tests/**/*.test.ts'],
-    setupFiles         : ['.vitepress/tests/common/held.ts'],
+    include            : ['**/*.test.ts'],
+    setupFiles         : [join(import.meta.dirname, 'common/held.ts')],
     tags               : [{ description: 'A case taking more than a second when run alone', name: 'slow' }],
     testTimeout        : 30_000,
     coverage           : {

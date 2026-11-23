@@ -5,11 +5,18 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import { Resvg } from '@resvg/resvg-js'
 
-import { CARD, NET_LAYOUT, cardsOf, fileOf, sectionColorOf, sectionLineOf } from '../../../lib/site/cards.ts'
-import type { Card, Lines }         from '../../../lib/site/cards.ts'
-import { Face }                     from '../../../lib/site/faces.ts'
-import { SCHEMES, type SchemeName } from '../../../lib/site/palette.ts'
-import { folderOf, sectionsOf }     from '../../../lib/site/sections.ts'
+import {
+  CARD,
+  NET_LAYOUT,
+  cardsOf,
+  fileOf,
+  sectionColorOf,
+  sectionLineOf
+} from '../../../../docs/.vitepress/lib/site/cards.ts'
+import type { Card, Lines }         from '../../../../docs/.vitepress/lib/site/cards.ts'
+import { Face }                     from '../../../../docs/.vitepress/lib/site/faces.ts'
+import { SCHEMES, type SchemeName } from '../../../../docs/.vitepress/lib/site/palette.ts'
+import { folderOf, sectionsOf }     from '../../../../docs/.vitepress/lib/site/sections.ts'
 
 const LINES: Lines = {
   home     : 'Every active satellite above a spot you choose.',
@@ -20,7 +27,7 @@ const LINES: Lines = {
   }
 }
 const pageOf = (folder: string) =>
-  readFileSync(new URL(`../../../../${folder}index.md`, import.meta.url), 'utf8')
+  readFileSync(new URL(`../../../../docs/${folder}index.md`, import.meta.url), 'utf8')
 const lineOf = (folder: string) => pageOf(folder).match(/^description: (.+)$/m)![1]
 const PAGES: Lines = {
   home     : lineOf(''),

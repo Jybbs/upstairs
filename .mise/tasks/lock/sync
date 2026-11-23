@@ -3,5 +3,5 @@
 #MISE description = "Re-resolve each lockfile against its manifest"
 
 mise lock
-bun install --cwd docs
+bun install
 cargo update --manifest-path rust/Cargo.toml --workspace

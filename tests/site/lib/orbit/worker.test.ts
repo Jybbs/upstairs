@@ -2,10 +2,10 @@ import { readFile } from 'node:fs/promises'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { encode }                    from '../../../catalog/encode.ts'
-import type { Record }               from '../../../lib/orbit/catalog.ts'
-import { kindOf }                    from '../../../lib/orbit/kinds.ts'
-import type { Answer, Asked, Share } from '../../../lib/orbit/worker.ts'
+import { encode }                    from '../../../../docs/.vitepress/catalog/encode.ts'
+import type { Record }               from '../../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { kindOf }                    from '../../../../docs/.vitepress/lib/orbit/kinds.ts'
+import type { Answer, Asked, Share } from '../../../../docs/.vitepress/lib/orbit/worker.ts'
 import answers                       from '../../fixtures/answers.json' with { type: 'json' }
 import full                          from '../../fixtures/records.json' with { type: 'json' }
 
@@ -24,9 +24,9 @@ const batches = encode(FETCHED, Array.from(
 
 const built = vi.hoisted(() => ({ grids: 0, ready: Promise.resolve() as Promise<unknown>, throws: false }))
 
-vi.mock('../../../../../rust/pkg/orbit.js', async importOriginal => {
-  const crate = await importOriginal<typeof import('../../../../../rust/pkg/orbit.js')>()
-  const wasm  = new URL('../../../../../rust/pkg/orbit_bg.wasm', import.meta.url)
+vi.mock('../../../../rust/pkg/orbit.js', async importOriginal => {
+  const crate = await importOriginal<typeof import('../../../../rust/pkg/orbit.js')>()
+  const wasm  = new URL('../../../../rust/pkg/orbit_bg.wasm', import.meta.url)
   return {
     ...crate,
     default : async () => {
@@ -99,7 +99,7 @@ const loaded = async (answer = () => new Response(file), helpers: MessagePort[] 
  */
 const started = async () => {
   vi.resetModules()
-  await import('../../../lib/orbit/worker.ts')
+  await import('../../../../docs/.vitepress/lib/orbit/worker.ts')
   const handler = scope.onmessage as (event: { data: Asked }) => Promise<void>
   return (data: Asked) => handler({ data })
 }

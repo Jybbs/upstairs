@@ -2,13 +2,13 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi }     from 'vitest'
 
-import { SPREADS, ringGapOf, spreadOf } from '../../lib/map/overlay.ts'
-import { AGES }                         from '../../lib/orbit/catalog.ts'
-import OrbitAges                        from '../../theme/OrbitAges.tsx'
+import { SPREADS, ringGapOf, spreadOf } from '../../../docs/.vitepress/lib/map/overlay.ts'
+import { AGES }                         from '../../../docs/.vitepress/lib/orbit/catalog.ts'
+import OrbitAges                        from '../../../docs/.vitepress/theme/OrbitAges.tsx'
 import { ageWith }                      from '../common/drawings.ts'
 import { movesOnEachKey, observeWidth, statesEachFailure } from '../common/drawn.ts'
 
-vi.mock('../../lib/state/drawings.ts', async original =>
+vi.mock('../../../docs/.vitepress/lib/state/drawings.ts', async original =>
   (await import('../common/drawings.ts')).drawingsModuleOf(await original()))
 
 enableAutoUnmount(afterEach)

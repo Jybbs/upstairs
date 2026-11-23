@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as catalog           from '../../../lib/orbit/catalog.ts'
-import * as scan              from '../../../lib/orbit/scan.ts'
-import type { Answer, Asked } from '../../../lib/orbit/worker.ts'
+import * as catalog           from '../../../../docs/.vitepress/lib/orbit/catalog.ts'
+import * as scan              from '../../../../docs/.vitepress/lib/orbit/scan.ts'
+import type { Answer, Asked } from '../../../../docs/.vitepress/lib/orbit/worker.ts'
 import { stubMatchMedia }     from '../../common/stubs.ts'
 
 const NOW       = Date.parse('2026-11-06T18:37:00Z')
@@ -100,7 +100,7 @@ const opened = async (fragment = '', reduced = false) => {
     terminate() { this.terminated = true }
   })
   vi.resetModules()
-  const { sky } = await import('../../../lib/state/sky.ts')
+  const { sky } = await import('../../../../docs/.vitepress/lib/state/sky.ts')
   sky.loadOnce()
   return sky
 }
@@ -632,7 +632,7 @@ describe('the stage', () => {
   it('asks for the catalog only once the page loads it, and once however often it does', async () => {
     await opened()
     vi.resetModules()
-    const { sky } = await import('../../../lib/state/sky.ts')
+    const { sky } = await import('../../../../docs/.vitepress/lib/state/sky.ts')
     const before  = workers.length
     posted        = []
     sky.loadOnce()

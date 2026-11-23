@@ -2,8 +2,8 @@
 import { type VueWrapper, enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi }                                from 'vitest'
 
-import * as catalog            from '../../lib/orbit/catalog.ts'
-import type { sky as Sky }      from '../../lib/state/sky.ts'
+import * as catalog            from '../../../docs/.vitepress/lib/orbit/catalog.ts'
+import type { sky as Sky }      from '../../../docs/.vitepress/lib/state/sky.ts'
 import { passOf }               from '../common/passes.ts'
 import { addScanned, freshSky } from '../common/sky.ts'
 import { stubMatchMedia }       from '../common/stubs.ts'
@@ -29,7 +29,8 @@ const listed = async (set: (sky: typeof Sky) => void) => {
 const mounted = async (set: (sky: typeof Sky) => void = () => {}) => {
   vi.useFakeTimers()
   stubMatchMedia(() => false)
-  const { component: PlaceSearch, sky } = await freshSky(() => import('../../theme/PlaceSearch.tsx'))
+  const { component: PlaceSearch, sky } = await freshSky(() =>
+    import('../../../docs/.vitepress/theme/PlaceSearch.tsx'))
   set(sky)
   return { sky, wrapper: mount(PlaceSearch, { attachTo: document.body }) }
 }

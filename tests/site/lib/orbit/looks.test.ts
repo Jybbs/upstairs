@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import * as catalog          from '../../../lib/orbit/catalog.ts'
-import * as looks            from '../../../lib/orbit/looks.ts'
-import { STEEP, TRACK_STEP } from '../../../lib/orbit/scan.ts'
-import { HOME }              from '../../../lib/state/address.ts'
+import * as catalog          from '../../../../docs/.vitepress/lib/orbit/catalog.ts'
+import * as looks            from '../../../../docs/.vitepress/lib/orbit/looks.ts'
+import { STEEP, TRACK_STEP } from '../../../../docs/.vitepress/lib/orbit/scan.ts'
+import { HOME }              from '../../../../docs/.vitepress/lib/state/address.ts'
 import { START, watchOf }    from '../../common/drawings.ts'
 
 const STEPS = [1, 10, TRACK_STEP, 120, 240]

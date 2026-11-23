@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 
-import { weighedOf } from '../../../lib/site/names.ts'
+import { weighedOf } from '../../../../docs/.vitepress/lib/site/names.ts'
 
 it.each([
   ['STARLINK-31414', 'STARLINK', '-31414'],

@@ -12,4 +12,4 @@ export const README = readFileSync(join(ROOT, '.github/README.md'), 'utf8')
  * Reads a file under `docs/public/` as the site ships it.
  */
 export const publicOf = (file: string) =>
-  readFileSync(new URL(`../../../public/${file}`, import.meta.url), 'utf8')
+  readFileSync(new URL(`../../../docs/public/${file}`, import.meta.url), 'utf8')

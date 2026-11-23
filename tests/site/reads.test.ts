@@ -36,19 +36,19 @@ import {
 import TABLE_TEXT from './common/reads.ts?raw'
 import { reads }  from './vitest.config.ts'
 
-const AUDIT    = 'docs/.vitepress/tests/tools/audit.test.ts'
-const CHECK    = 'docs/.vitepress/tests/tools/check.test.ts'
-const DRAWN    = join(ROOT, 'docs/.vitepress/tests/lib/state/drawings.test.ts')
-const FIXTURES = join(ROOT, 'docs/.vitepress/tests/fixtures')
-const GH       = join(ROOT, 'docs/.vitepress/tests/common/bin/gh')
-const GONE     = 'docs/.vitepress/tests/gone.test.ts'
-const LOOKS    = join(ROOT, 'docs/.vitepress/tests/lib/orbit/looks.test.ts')
+const AUDIT    = 'tests/site/tools/audit.test.ts'
+const CHECK    = 'tests/site/tools/check.test.ts'
+const DRAWN    = join(ROOT, 'tests/site/lib/state/drawings.test.ts')
+const FIXTURES = join(ROOT, 'tests/site/fixtures')
+const GH       = join(ROOT, 'tests/site/common/bin/gh')
+const GONE     = 'tests/site/gone.test.ts'
+const LOOKS    = join(ROOT, 'tests/site/lib/orbit/looks.test.ts')
 const ORPHAN   = join(ROOT, 'LICENSE')
 const PAGE     = join(ROOT, 'docs/gone/index.md')
 const PAGES    = ['cards', 'markdown', 'sections']
-  .map(name => join(ROOT, `docs/.vitepress/tests/lib/site/${name}.test.ts`))
+  .map(name => join(ROOT, `tests/site/lib/site/${name}.test.ts`))
 const SOURCES  = join(ROOT, 'rust/src')
-const SYNC     = join(ROOT, 'docs/.vitepress/tests/tools/sync.test.ts')
+const SYNC     = join(ROOT, 'tests/site/tools/sync.test.ts')
 
 /**
  * The tests loading the crate's build under `rust/pkg/`, by their paths from
@@ -76,7 +76,7 @@ beforeAll(async () => {
 
 const selected = async (options: CliOptions) => {
   const vitest = await createVitest({
-    config            : join(ROOT, 'docs/.vitepress/tests/vitest.config.ts'),
+    config            : join(ROOT, 'tests/site/vitest.config.ts'),
     fsModuleCachePath : cache,
     root              : join(ROOT, 'docs'),
     watch             : false,
@@ -208,13 +208,13 @@ describe('the reads plugin', () => {
     ["the crate's sources", 'rust/src/lib.rs', BUILT],
     ["the crate's manifest", 'rust/Cargo.toml', [...BUILT, 'lib/site/licenses.test.ts'].sort()],
     ["the crate's lockfile", 'rust/Cargo.lock', [...BUILT, 'lib/site/provenance.test.ts'].sort()],
-    ["the crate's own tests, which its build leaves out", 'rust/tests/answers/main.rs', []],
+    ["the crate's own tests, which its build leaves out", 'tests/rust/answers/main.rs', []],
     ['the cargo-deny settings under rust/.cargo/', 'rust/.cargo/deny.toml', []],
     ['a file under docs/public/ that one test reads', 'docs/public/_headers', ['config.test.ts']],
     ['a badge no test reads', 'docs/public/badges/rust.svg', []]
   ])('selects the tests an edit to %s reaches', { tags: ['slow'] }, async (_, file, tests) => {
     expect(await selectedAfter(async () => [join(ROOT, file)]))
-      .toEqual(tests.map(test => join(ROOT, 'docs/.vitepress/tests', test)))
+      .toEqual(tests.map(test => join(ROOT, 'tests/site', test)))
   })
 
   /**
@@ -362,12 +362,12 @@ describe('the read check', () => {
     expect(async () => list()).rejects.toThrow(refused('reads', 'rust/src/\\S+')))
 
   it('fails a test listing the folders below a folder through opendirSync', () =>
-    expect(() => opendirSync(join(ROOT, 'docs/.vitepress/tests/lib'), { recursive: true }))
-      .toThrow(refused('reads', 'docs/\\.vitepress/tests/lib/\\S+')))
+    expect(() => opendirSync(join(ROOT, 'tests/site/lib'), { recursive: true }))
+      .toThrow(refused('reads', 'tests/site/lib/\\S+')))
 
   it('fails a test copying a folder whose undeclared files follow a declared one', () =>
     expect(() => cpSync(FIXTURES, join(tmpdir(), 'upstairs-reads-fixtures'), { recursive: true }))
-      .toThrow(refused('reads', 'docs/\\.vitepress/tests/fixtures/\\S+')))
+      .toThrow(refused('reads', 'tests/site/fixtures/\\S+')))
 
   it('fails a test copying a folder that holds an undeclared file', () =>
     expect(() => cpSync(SOURCES, join(tmpdir(), 'upstairs-reads-copy'), { recursive: true }))

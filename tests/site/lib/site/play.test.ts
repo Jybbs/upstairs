@@ -3,7 +3,7 @@ import { flushPromises, mount }       from '@vue/test-utils'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref }    from 'vue'
 
-import { usePlay }                          from '../../../lib/site/play.ts'
+import { usePlay }                          from '../../../../docs/.vitepress/lib/site/play.ts'
 import { fakeClock }                        from '../../common/frames.ts'
 import { stubIntersection, stubMatchMedia } from '../../common/stubs.ts'
 

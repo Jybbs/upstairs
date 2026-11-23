@@ -2,8 +2,8 @@
 import { mount }      from '@vue/test-utils'
 import { expect, it } from 'vitest'
 
-import type { Mark } from '../../lib/state/words.ts'
-import StepMark      from '../../theme/StepMark.tsx'
+import type { Mark } from '../../../docs/.vitepress/lib/state/words.ts'
+import StepMark      from '../../../docs/.vitepress/theme/StepMark.tsx'
 
 it.each([
   ['fills a disc once the step is done', 'done', ['circle.fill-u']],

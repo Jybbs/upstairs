@@ -4,14 +4,14 @@ import { join }     from 'node:path'
 import { onTestFinished }             from 'vitest'
 import { onMounted, ref, shallowRef } from 'vue'
 
-import init, * as orbit  from '../../../../rust/pkg/orbit.js'
-import * as catalog      from '../../lib/orbit/catalog.ts'
-import { kindOf }        from '../../lib/orbit/kinds.ts'
-import * as looks        from '../../lib/orbit/looks.ts'
-import type { Spot }     from '../../lib/orbit/scan.ts'
-import { kindColor }     from '../../lib/site/palette.ts'
-import { HOME }          from '../../lib/state/address.ts'
-import type { Drawings } from '../../lib/state/drawings.ts'
+import * as catalog      from '../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { kindOf }        from '../../../docs/.vitepress/lib/orbit/kinds.ts'
+import * as looks        from '../../../docs/.vitepress/lib/orbit/looks.ts'
+import type { Spot }     from '../../../docs/.vitepress/lib/orbit/scan.ts'
+import { kindColor }     from '../../../docs/.vitepress/lib/site/palette.ts'
+import { HOME }          from '../../../docs/.vitepress/lib/state/address.ts'
+import type { Drawings } from '../../../docs/.vitepress/lib/state/drawings.ts'
+import init, * as orbit  from '../../../rust/pkg/orbit.js'
 import full              from '../fixtures/records.json' with { type: 'json' }
 
 /**
@@ -26,7 +26,7 @@ const station      = records.filter(record => record.NORAD_CAT_ID === looks.ISS)
  * the day from `start`.
  */
 export const watchOf = async (spot: Spot = HOME.spot, start = START) => {
-  const wasm = join(import.meta.dirname, '../../../../rust/pkg/orbit_bg.wasm')
+  const wasm = join(import.meta.dirname, '../../../rust/pkg/orbit_bg.wasm')
   await init({ module_or_path: await readFile(wasm) })
   const orbits = new orbit.Orbits()
   orbits.extend(station.map(record => record.EPOCH), catalog.elementsOf(station))

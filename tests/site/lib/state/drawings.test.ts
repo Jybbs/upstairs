@@ -3,10 +3,10 @@ import { flushPromises, mount }     from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent }          from 'vue'
 
-import { encode }                        from '../../../catalog/encode.ts'
-import { UNLOADED, agesOf, type Record } from '../../../lib/orbit/catalog.ts'
-import { ISS }                           from '../../../lib/orbit/looks.ts'
-import { UNDRAWN, titleOf, useDrawings } from '../../../lib/state/drawings.ts'
+import { encode }                        from '../../../../docs/.vitepress/catalog/encode.ts'
+import { UNLOADED, agesOf, type Record } from '../../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { ISS }                           from '../../../../docs/.vitepress/lib/orbit/looks.ts'
+import { UNDRAWN, titleOf, useDrawings } from '../../../../docs/.vitepress/lib/state/drawings.ts'
 import { START, drawingsOf }             from '../../common/drawings.ts'
 import full                              from '../../fixtures/records.json' with { type: 'json' }
 

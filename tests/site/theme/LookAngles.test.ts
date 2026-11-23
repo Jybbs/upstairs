@@ -2,16 +2,16 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi }     from 'vitest'
 
-import { LOOK_STEP }                                   from '../../lib/orbit/looks.ts'
-import { CLOCK }                                       from '../../lib/state/clock.ts'
-import { titleOf }                                     from '../../lib/state/drawings.ts'
-import LookAngles                                      from '../../theme/LookAngles.tsx'
+import { LOOK_STEP }                                   from '../../../docs/.vitepress/lib/orbit/looks.ts'
+import { CLOCK }                                       from '../../../docs/.vitepress/lib/state/clock.ts'
+import { titleOf }                                     from '../../../docs/.vitepress/lib/state/drawings.ts'
+import LookAngles                                      from '../../../docs/.vitepress/theme/LookAngles.tsx'
 import { drawingsOf }                                  from '../common/drawings.ts'
 import { observeWidth, readingsOf, statesEachFailure } from '../common/drawn.ts'
 import { fakeClock }                                   from '../common/frames.ts'
 import { stubIntersection, stubMatchMedia }            from '../common/stubs.ts'
 
-vi.mock('../../lib/state/drawings.ts', async original =>
+vi.mock('../../../docs/.vitepress/lib/state/drawings.ts', async original =>
   (await import('../common/drawings.ts')).drawingsModuleOf(await original()))
 
 enableAutoUnmount(afterEach)

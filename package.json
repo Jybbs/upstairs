@@ -81,11 +81,11 @@
   },
   "knip": {
     "entry": [
-      ".vitepress/catalog/fetch.ts",
-      ".vitepress/catalog/service.ts",
-      ".vitepress/lib/site/*.data.ts",
-      ".vitepress/preview/functions/*.ts",
-      ".vitepress/tools/*.ts"
+      "docs/.vitepress/catalog/fetch.ts",
+      "docs/.vitepress/catalog/service.ts",
+      "docs/.vitepress/lib/site/*.data.ts",
+      "docs/.vitepress/preview/functions/*.ts",
+      "docs/.vitepress/tools/*.ts"
     ],
     "ignoreBinaries": [
       "mise"
@@ -97,13 +97,19 @@
     ],
     "typescript": {
       "config": [
-        ".vitepress/catalog/tsconfig.json",
-        ".vitepress/tsconfig.json"
+        "docs/.vitepress/catalog/tsconfig.json",
+        "docs/.vitepress/tsconfig.json"
+      ]
+    },
+    "vitepress": {
+      "entry": [
+        "docs/.vitepress/config.ts",
+        "docs/.vitepress/theme/index.ts"
       ]
     },
     "vitest": {
       "config": [
-        ".vitepress/tests/vitest.config.ts"
+        "tests/site/vitest.config.ts"
       ]
     }
   }

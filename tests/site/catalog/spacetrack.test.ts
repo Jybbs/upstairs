@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import * as spacetrack  from '../../catalog/spacetrack.ts'
-import { AGES, FIELDS } from '../../lib/orbit/catalog.ts'
+import * as spacetrack  from '../../../docs/.vitepress/catalog/spacetrack.ts'
+import { AGES, FIELDS } from '../../../docs/.vitepress/lib/orbit/catalog.ts'
 import { QUERIED }      from '../common/catalog.ts'
 import * as answers     from '../common/spacetrack.ts'
 

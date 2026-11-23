@@ -3,15 +3,15 @@ import { mount }           from '@vue/test-utils'
 import { expect, it, vi }  from 'vitest'
 import { type VNode, ref } from 'vue'
 
-import { followFootnotes } from '../../lib/site/landing.ts'
-import MARK                from '../../lib/site/mark.json' with { type: 'json' }
-import theme               from '../../theme/index.ts'
+import { followFootnotes } from '../../../docs/.vitepress/lib/site/landing.ts'
+import MARK                from '../../../docs/.vitepress/lib/site/mark.json' with { type: 'json' }
+import theme               from '../../../docs/.vitepress/theme/index.ts'
 import { stubCanvas }      from '../common/stubs.ts'
 
 type Slots = Record<'doc-after' | 'nav-bar-title-before' | 'not-found', () => VNode>
 
-vi.mock('../../lib/site/landing.ts', () => ({ followFootnotes: vi.fn() }))
-vi.mock('../../lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
+vi.mock('../../../docs/.vitepress/lib/site/landing.ts', () => ({ followFootnotes: vi.fn() }))
+vi.mock('../../../docs/.vitepress/lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
 vi.mock('vitepress', () => ({
   defineClientComponent : () => ({ render: () => null }),
   useData               : () => ({ isDark: ref(false) })

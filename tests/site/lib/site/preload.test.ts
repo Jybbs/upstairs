@@ -1,7 +1,7 @@
 import type { TransformContext } from 'vitepress'
 import { describe, expect, it }  from 'vitest'
 
-import { preloadOf } from '../../../lib/site/preload.ts'
+import { preloadOf } from '../../../../docs/.vitepress/lib/site/preload.ts'
 
 type Generate = (options: object, bundle: object) => void
 

@@ -7,84 +7,81 @@ import { join, matchesGlob, relative } from 'node:path'
  * them, which `vitest.config.ts` adds to the module's graph as watched files.
  */
 export const READS: Record<string, string[]> = {
-  'docs/.vitepress/lib/site/markdown.ts'              : ['docs/.vitepress/lib/site/references.bib'],
-  'docs/.vitepress/lib/site/provenance.data.ts'       : ['rust/Cargo.lock'],
-  'docs/.vitepress/tests/catalog/login.test.ts'       : ['docs/.vitepress/catalog/login.ts'],
-  'docs/.vitepress/tests/catalog/request.test.ts'     : ['docs/.vitepress/catalog/request.ts'],
-  'docs/.vitepress/tests/common/drawings.ts'          : ['rust/pkg/orbit_bg.wasm'],
-  'docs/.vitepress/tests/common/shipped.ts'           : ['.github/README.md'],
-  'docs/.vitepress/tests/common/tasks.ts'             : ['docs/.vitepress/tests/common/check/*'],
-  'docs/.vitepress/tests/config.test.ts'              : ['docs/data/index.md', 'docs/public/_headers'],
-  'docs/.vitepress/tests/lib/map/credit.test.ts'      : ['docs/data/index.md'],
-  'docs/.vitepress/tests/lib/orbit/worker.test.ts'    : ['rust/pkg/orbit_bg.wasm'],
-  'docs/.vitepress/tests/lib/site/cards.test.ts'      : ['docs/index.md', 'docs/*/index.md'],
-  'docs/.vitepress/tests/lib/site/guide.test.ts'      : ['docs/guide/index.md'],
-  'docs/.vitepress/tests/lib/site/mark.test.ts'       : ['docs/public/{favicon,wordmark-*}.svg'],
-  'docs/.vitepress/tests/lib/site/markdown.test.ts'   : ['docs/*.md', 'docs/*/*.md'],
-  'docs/.vitepress/tests/lib/site/provenance.test.ts' : ['rust/Cargo.lock'],
-  'docs/.vitepress/tests/lib/site/seals.test.ts'      : ['docs/public/seals/*.svg'],
-  'docs/.vitepress/tests/lib/site/sections.test.ts'   : ['docs/*/index.md'],
-  'docs/.vitepress/tests/lib/site/start.test.ts'      : ['docs/public/start/*.svg'],
-  'docs/.vitepress/tests/theme/Credits.test.ts'       : ['docs/data/index.md'],
-  'docs/.vitepress/tests/theme/GuideFigures.test.ts'  : ['docs/.vitepress/theme/guide.css'],
-  'docs/.vitepress/tests/theme/NotFound.test.ts'      : ['docs/.vitepress/theme/credit.css'],
-  'docs/.vitepress/tests/theme/style.test.ts'         : ['docs/.vitepress/theme/style.css'],
-  'docs/.vitepress/tests/tools/audit.test.ts'         : ['.mise/tasks/lock/audit'],
-  'docs/.vitepress/tests/tools/bump.test.ts'          : ['.mise/tasks/repo/bump'],
-  'docs/.vitepress/tests/tools/lockfile.test.ts'      : ['docs/.vitepress/tools/lockfile.ts'],
-  'docs/.vitepress/tests/tools/logbook.test.ts'       : ['.github/scripts/summaries/deploy.md'],
-  'docs/.vitepress/tests/tools/prune.test.ts'         : ['.mise/tasks/gha/prune'],
-  'docs/.vitepress/tests/tools/reel.test.ts'          : ['.github/reel-*.gif'],
-  'docs/.vitepress/tests/tools/served.test.ts'        : ['docs/.vitepress/tests/fixtures/catalog.bin'],
-  'docs/.vitepress/tests/tools/sync.test.ts'          : ['docs/.vitepress/tests/fixtures/settings.toml'],
+  'docs/.vitepress/lib/site/licenses.ts'        : ['node_modules/{katex,maplibre-gl}/*', 'rust/Cargo.toml'],
+  'docs/.vitepress/lib/site/markdown.ts'        : ['docs/.vitepress/lib/site/references.bib'],
+  'docs/.vitepress/lib/site/provenance.data.ts' : ['rust/Cargo.lock'],
+  'tests/site/catalog/login.test.ts'            : ['docs/.vitepress/catalog/login.ts'],
+  'tests/site/catalog/request.test.ts'          : ['docs/.vitepress/catalog/request.ts'],
+  'tests/site/common/drawings.ts'               : ['rust/pkg/orbit_bg.wasm'],
+  'tests/site/common/shipped.ts'                : ['.github/README.md'],
+  'tests/site/common/tasks.ts'                  : ['tests/site/common/check/*'],
+  'tests/site/config.test.ts'                   : ['docs/data/index.md', 'docs/public/_headers'],
+  'tests/site/lib/map/credit.test.ts'           : ['docs/data/index.md'],
+  'tests/site/lib/orbit/worker.test.ts'         : ['rust/pkg/orbit_bg.wasm'],
+  'tests/site/lib/site/cards.test.ts'           : ['docs/index.md', 'docs/*/index.md'],
+  'tests/site/lib/site/guide.test.ts'           : ['docs/guide/index.md'],
+  'tests/site/lib/site/mark.test.ts'            : ['docs/public/{favicon,wordmark-*}.svg'],
+  'tests/site/lib/site/markdown.test.ts'        : ['docs/*.md', 'docs/*/*.md'],
+  'tests/site/lib/site/provenance.test.ts'      : ['rust/Cargo.lock'],
+  'tests/site/lib/site/seals.test.ts'           : ['docs/public/seals/*.svg'],
+  'tests/site/lib/site/sections.test.ts'        : ['docs/*/index.md'],
+  'tests/site/lib/site/start.test.ts'           : ['docs/public/start/*.svg'],
+  'tests/site/theme/Credits.test.ts'            : ['docs/data/index.md'],
+  'tests/site/theme/GuideFigures.test.ts'       : ['docs/.vitepress/theme/guide.css'],
+  'tests/site/theme/NotFound.test.ts'           : ['docs/.vitepress/theme/credit.css'],
+  'tests/site/theme/style.test.ts'              : ['docs/.vitepress/theme/style.css'],
+  'tests/site/tools/audit.test.ts'              : ['.mise/tasks/lock/audit'],
+  'tests/site/tools/bump.test.ts'               : ['.mise/tasks/repo/bump'],
+  'tests/site/tools/lockfile.test.ts'           : ['docs/.vitepress/tools/lockfile.ts'],
+  'tests/site/tools/logbook.test.ts'            : ['.github/scripts/summaries/deploy.md'],
+  'tests/site/tools/prune.test.ts'              : ['.mise/tasks/gha/prune'],
+  'tests/site/tools/reel.test.ts'               : ['.github/reel-*.gif'],
+  'tests/site/tools/served.test.ts'             : ['tests/site/fixtures/catalog.bin'],
+  'tests/site/tools/sync.test.ts'               : ['tests/site/fixtures/settings.toml'],
 
   'docs/.vitepress/lib/site/faces.ts': [
-    'docs/node_modules/@fontsource*/*/files/*-latin-*-normal.woff2'
-  ],
-
-  'docs/.vitepress/lib/site/licenses.ts': [
-    'docs/node_modules/{katex,maplibre-gl}/*', 'rust/Cargo.toml'
-  ],
-
-  'docs/.vitepress/tests/common/gh.ts': [
-    '.github/**', '.mise/tasks/repo/ci.toml', 'docs/.vitepress/tests/common/bin/gh',
-    'docs/.vitepress/tests/fixtures/settings.toml', 'docs/.vitepress/tools/sync.ts', 'docs/package.json'
-  ],
-
-  'docs/.vitepress/tests/lib/orbit/catalog.test.ts': [
-    'docs/.vitepress/tests/fixtures/catalog.bin', 'rust/pkg/orbit_bg.wasm'
-  ],
-
-  'docs/.vitepress/tests/lib/site/licenses.test.ts': [
-    'docs/.vitepress/tests/fixtures/notices*.txt', 'docs/node_modules/katex/{LICENSE,package.json}',
-    'docs/node_modules/maplibre-gl/LICENSE.txt'
-  ],
-
-  'docs/.vitepress/tests/lib/site/sheets.test.ts': [
-    'docs/node_modules/katex/dist/{katex.min.css,fonts/*}',
-    'docs/node_modules/maplibre-gl/dist/maplibre-gl.css'
-  ],
-
-  'docs/.vitepress/tests/tools/check.test.ts': [
-    '.mise/tasks/crate/affected', '.mise/tasks/site/{affected,check,typecheck}'
+    'node_modules/@fontsource*/*/files/*-latin-*-normal.woff2'
   ],
 
   'docs/.vitepress/tools/repository.ts': [
     '.github/{CONTRIBUTING.md,labels.toml,release.yml,settings.toml}',
     '.github/{ISSUE_TEMPLATE,actions,rulesets,workflows}/**', '.mise/tasks/**',
-    'docs/package.json'
+    'package.json'
+  ],
+
+  'tests/site/common/gh.ts': [
+    '.github/**', '.mise/tasks/repo/ci.toml', 'tests/site/common/bin/gh',
+    'tests/site/fixtures/settings.toml', 'docs/.vitepress/tools/sync.ts', 'package.json'
+  ],
+
+  'tests/site/lib/orbit/catalog.test.ts': [
+    'tests/site/fixtures/catalog.bin', 'rust/pkg/orbit_bg.wasm'
+  ],
+
+  'tests/site/lib/site/licenses.test.ts': [
+    'tests/site/fixtures/notices*.txt', 'node_modules/katex/{LICENSE,package.json}',
+    'node_modules/maplibre-gl/LICENSE.txt'
+  ],
+
+  'tests/site/lib/site/sheets.test.ts': [
+    'node_modules/katex/dist/{katex.min.css,fonts/*}',
+    'node_modules/maplibre-gl/dist/maplibre-gl.css'
+  ],
+
+  'tests/site/tools/check.test.ts': [
+    '.mise/tasks/crate/affected', '.mise/tasks/site/{affected,check,typecheck}'
   ]
 }
 
 /**
  * The root of the worktree the suite runs in.
  */
-export const ROOT = join(import.meta.dirname, '../../../..')
+export const ROOT = join(import.meta.dirname, '../../..')
 
 /**
  * The test checking `READS` against the tree, by its absolute path.
  */
-export const CHECKS = join(ROOT, 'docs/.vitepress/tests/reads.test.ts')
+export const CHECKS = join(ROOT, 'tests/site/reads.test.ts')
 
 /**
  * This module, by its absolute path.

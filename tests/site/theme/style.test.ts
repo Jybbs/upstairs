@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 const LINK  = '.vp-doc a:not(.header-anchor, .footnote-ref > a, .footnote-backref)'
 const SHEET = new CSSStyleSheet()
-SHEET.replaceSync(readFileSync(join(import.meta.dirname, '../../theme/style.css'), 'utf8'))
+SHEET.replaceSync(readFileSync(join(import.meta.dirname, '../../../docs/.vitepress/theme/style.css'), 'utf8'))
 
 const ruleOf  = (selector: string, rules = SHEET.cssRules) =>
   Array.from(rules)

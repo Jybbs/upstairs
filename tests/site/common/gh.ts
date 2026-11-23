@@ -5,8 +5,8 @@ import { delimiter, dirname, join } from 'node:path'
 
 import { $ } from 'bun'
 
-import * as repository from '../../tools/repository.ts'
-import type { Live }   from '../../tools/sync.ts'
+import * as repository from '../../../docs/.vitepress/tools/repository.ts'
+import type { Live }   from '../../../docs/.vitepress/tools/sync.ts'
 import { ROOT }        from './reads.ts'
 
 interface Request {

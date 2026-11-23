@@ -3,8 +3,8 @@ import { enableAutoUnmount, flushPromises, mount }     from '@vue/test-utils'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import { ref }                                       from 'vue'
 
-import { STEEP, TRACK_WIDTH } from '../../lib/orbit/scan.ts'
-import { SHEETS }             from '../../lib/site/sheets.ts'
+import { STEEP, TRACK_WIDTH } from '../../../docs/.vitepress/lib/orbit/scan.ts'
+import { SHEETS }             from '../../../docs/.vitepress/lib/site/sheets.ts'
 import { passOf }             from '../common/passes.ts'
 import { freshSky }           from '../common/sky.ts'
 import { stubMatchMedia }     from '../common/stubs.ts'
@@ -94,9 +94,9 @@ vi.mock('maplibre-contour', () => ({
   }
 }))
 vi.mock('vitepress', () => ({ useData: () => ({ isDark: ref(false) }) }))
-vi.mock('../../lib/map/credit.ts', () => ({ Credit: class { hold = vi.fn() } }))
-vi.mock('../../lib/map/overlay.ts', async () => {
-  const { View } = await import('../../lib/map/mercator.ts')
+vi.mock('../../../docs/.vitepress/lib/map/credit.ts', () => ({ Credit: class { hold = vi.fn() } }))
+vi.mock('../../../docs/.vitepress/lib/map/overlay.ts', async () => {
+  const { View } = await import('../../../docs/.vitepress/lib/map/mercator.ts')
   return {
     Overlay: class {
       covered    = () => [] as unknown[]
@@ -146,7 +146,7 @@ const mounted = async (error: Error | null = null, props = {}) => {
   document.head.append(
     Object.assign(document.createElement('link'), { href: SHEETS.map.hrefOf(VERSION), rel: 'stylesheet' })
   )
-  const { component: SkyMap, sky } = await freshSky(() => import('../../theme/SkyMap.tsx'))
+  const { component: SkyMap, sky } = await freshSky(() => import('../../../docs/.vitepress/theme/SkyMap.tsx'))
   const wrapper                    = mount(SkyMap, { global: { config: { errorHandler: caught } }, props })
   await flushPromises()
   const pass                       = passOf(1)
@@ -269,7 +269,7 @@ it('links the map sheet itself where the page holds only its preload, '
   document.head.replaceChildren(
     Object.assign(document.createElement('link'), { as: 'style', href, rel: 'preload' })
   )
-  const { component: SkyMap } = await freshSky(() => import('../../theme/SkyMap.tsx'))
+  const { component: SkyMap } = await freshSky(() => import('../../../docs/.vitepress/theme/SkyMap.tsx'))
   made.mockClear()
   mount(SkyMap)
   await flushPromises()

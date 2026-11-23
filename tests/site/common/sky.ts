@@ -1,7 +1,7 @@
 import { vi } from 'vitest'
 
-import { TRACK_WIDTH, type Pass } from '../../lib/orbit/scan.ts'
-import type { sky as Sky }        from '../../lib/state/sky.ts'
+import { TRACK_WIDTH, type Pass } from '../../../docs/.vitepress/lib/orbit/scan.ts'
+import type { sky as Sky }        from '../../../docs/.vitepress/lib/state/sky.ts'
 
 /**
  * Adds `passes` to the scan the shared state holds, every one reading the same
@@ -20,7 +20,7 @@ export const freshSky = async <T>(load: () => Promise<{ default: T }>) => {
   history.replaceState(null, '', location.pathname + location.search)
   vi.stubGlobal('Worker', class { postMessage() {} })
   vi.resetModules()
-  const { sky }                = await import('../../lib/state/sky.ts')
+  const { sky }                = await import('../../../docs/.vitepress/lib/state/sky.ts')
   const { default: component } = await load()
   return { component, sky }
 }

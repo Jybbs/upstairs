@@ -6,10 +6,10 @@ import { fileURLToPath } from 'node:url'
 import { build }      from 'vitepress'
 import { expect, it } from 'vitest'
 
-import { FIGURES } from '../lib/site/markdown.ts'
+import { FIGURES } from '../../docs/.vitepress/lib/site/markdown.ts'
 
 const LINKS    = ['one', 'two', 'three', 'four', 'five'].map(word => `[${word}](https://${word}.example/)`)
-const MARKDOWN = fileURLToPath(new URL('../lib/site/markdown.ts', import.meta.url))
+const MARKDOWN = fileURLToPath(new URL('../../docs/.vitepress/lib/site/markdown.ts', import.meta.url))
 
 it(
   'keeps a paragraph of five links ahead of a figure whole in the lean page chunk',

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it, vi } from 'vitest'
 
-import { NUMERAL, numeralIn, slotsOf, type Room } from '../../../lib/map/numeral.ts'
+import { NUMERAL, numeralIn, slotsOf, type Room } from '../../../../docs/.vitepress/lib/map/numeral.ts'
 
 /**
  * Sets the numeral through a stand-in canvas that measures it 200 pixels wide

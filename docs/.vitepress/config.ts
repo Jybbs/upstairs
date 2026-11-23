@@ -4,7 +4,7 @@ import maplibre               from 'maplibre-gl/package.json' with { type: 'json
 import { viteStaticCopy }     from 'vite-plugin-static-copy'
 import { defineConfig }       from 'vitepress'
 
-import manifest               from '../package.json' with { type: 'json' }
+import manifest               from '../../package.json' with { type: 'json' }
 import { writeCards }         from './lib/site/cards.ts'
 import { headOf }             from './lib/site/head.ts'
 import { licensesOf }         from './lib/site/licenses.ts'

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { DETENT, Detents } from '../../../lib/map/detents.ts'
+import { DETENT, Detents } from '../../../../docs/.vitepress/lib/map/detents.ts'
 
 const FAR  = { latitude: 40, longitude: -70, zoom: 4 }
 const NEAR = { latitude: 42, longitude: -71, zoom: 6 }

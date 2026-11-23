@@ -4,10 +4,10 @@ import { join }      from 'node:path'
 
 import { describe, expect, vi } from 'vitest'
 
-import { RUN_ADDRESS, run } from '../../catalog/request.ts'
+import { RUN_ADDRESS, run } from '../../../docs/.vitepress/catalog/request.ts'
 import { it, tilded }       from '../common/scratch.ts'
 
-const CATALOG = join(import.meta.dirname, '../../catalog')
+const CATALOG = join(import.meta.dirname, '../../../docs/.vitepress/catalog')
 const HELD    = 'held-token'
 const OTHERS  = 'machine www.space-track.org\n  login saved\n  password orbit-2026\n'
 const SAVED   = `${OTHERS}machine upstairs.fyi login RUN_TOKEN password ${HELD}\n`

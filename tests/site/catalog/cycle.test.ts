@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as celestrak          from '../../catalog/celestrak.ts'
-import * as cycles             from '../../catalog/cycle.ts'
-import * as spacetrack         from '../../catalog/spacetrack.ts'
-import * as catalog            from '../../lib/orbit/catalog.ts'
+import * as celestrak          from '../../../docs/.vitepress/catalog/celestrak.ts'
+import * as cycles             from '../../../docs/.vitepress/catalog/cycle.ts'
+import * as spacetrack         from '../../../docs/.vitepress/catalog/spacetrack.ts'
+import * as catalog            from '../../../docs/.vitepress/lib/orbit/catalog.ts'
 import { QUERIED, contentsOf } from '../common/catalog.ts'
 import * as answers            from '../common/celestrak.ts'
 
@@ -735,7 +735,9 @@ describe('a download cycle', () => {
 
 describe('the schedule', () => {
   it('runs the cycle once an hour at the minute the cycle records', async () => {
-    const { default: wrangler } = await import('../../catalog/wrangler.json', { with: { type: 'json' } })
+    const { default: wrangler } = await import('../../../docs/.vitepress/catalog/wrangler.json', {
+      with: { type: 'json' }
+    })
     expect(wrangler.triggers.crons).toEqual([`${cycles.MINUTE} * * * *`])
   })
 

@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 
-import * as vacant    from '../../../lib/map/vacant.ts'
-import { SCHEMES }    from '../../../lib/site/palette.ts'
+import * as vacant    from '../../../../docs/.vitepress/lib/map/vacant.ts'
+import { SCHEMES }    from '../../../../docs/.vitepress/lib/site/palette.ts'
 import { canvasWith } from '../../common/stubs.ts'
 
 const DIGITS: Record<string, string> = { '-----': '0', '....-': '4' }

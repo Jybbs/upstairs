@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { CODES, Draft, NOTES, outcomeOf } from '../../tools/cut.ts'
+import { CODES, Draft, NOTES, outcomeOf } from '../../../docs/.vitepress/tools/cut.ts'
 
 const SHA = '761cc15aaf0c1e2a3b4c5d6e7f8091a2b3c4d5e6'
 
@@ -162,7 +162,7 @@ describe('NOTES', () => {
   ] as const)('prints the %s outcome with the version, opening on %s', (outcome, opening) =>
     expect(NOTES[outcome]('0.2.0')).toMatch(new RegExp(`^${opening}.*0\\.2\\.0`)))
 
-  it.each(['mise bump', 'docs/package.json'])('names %s where a published release carries the version',
+  it.each(['mise bump', 'package.json'])('names %s where a published release carries the version',
     named => expect(NOTES.published('0.2.0')).toContain(named))
 
   it('names the tag among what a refresh rewrites', () =>

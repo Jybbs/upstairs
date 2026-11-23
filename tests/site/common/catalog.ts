@@ -1,4 +1,4 @@
-import * as catalog from '../../lib/orbit/catalog.ts'
+import * as catalog from '../../../docs/.vitepress/lib/orbit/catalog.ts'
 import full         from '../fixtures/records.json' with { type: 'json' }
 
 /**

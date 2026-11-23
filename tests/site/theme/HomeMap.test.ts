@@ -5,16 +5,26 @@ import { expect, it, vi } from 'vitest'
 import { freshSky }       from '../common/sky.ts'
 import { stubMatchMedia } from '../common/stubs.ts'
 
-vi.mock('../../theme/Entries.tsx', async () => (await import('../common/stubs.ts')).stubOf('Entries'))
-vi.mock('../../theme/Filters.tsx', async () => (await import('../common/stubs.ts')).stubOf('Filters'))
-vi.mock('../../theme/Focus.tsx', async () => (await import('../common/stubs.ts')).stubOf('Focus'))
-vi.mock('../../theme/PassList.tsx', async () => (await import('../common/stubs.ts')).stubOf('PassList'))
-vi.mock('../../theme/Readout.tsx', async () => (await import('../common/stubs.ts')).stubOf('Readout'))
-vi.mock('../../theme/Sheet.tsx', async () => (await import('../common/stubs.ts')).stubOf('Sheet'))
-vi.mock('../../theme/SkyMap.tsx', async () => (await import('../common/stubs.ts')).stubOf('SkyMap'))
-vi.mock('../../theme/SpotChooser.tsx', async () => (await import('../common/stubs.ts')).stubOf('SpotChooser'))
-vi.mock('../../theme/Stamp.tsx', async () => (await import('../common/stubs.ts')).stubOf('Stamp'))
-vi.mock('../../theme/TimeStrip.tsx', async () => (await import('../common/stubs.ts')).stubOf('TimeStrip'))
+vi.mock('../../../docs/.vitepress/theme/Entries.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Entries'))
+vi.mock('../../../docs/.vitepress/theme/Filters.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Filters'))
+vi.mock('../../../docs/.vitepress/theme/Focus.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Focus'))
+vi.mock('../../../docs/.vitepress/theme/PassList.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('PassList'))
+vi.mock('../../../docs/.vitepress/theme/Readout.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Readout'))
+vi.mock('../../../docs/.vitepress/theme/Sheet.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Sheet'))
+vi.mock('../../../docs/.vitepress/theme/SkyMap.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('SkyMap'))
+vi.mock('../../../docs/.vitepress/theme/SpotChooser.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('SpotChooser'))
+vi.mock('../../../docs/.vitepress/theme/Stamp.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Stamp'))
+vi.mock('../../../docs/.vitepress/theme/TimeStrip.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('TimeStrip'))
 
 type Page = 'desktop' | 'phone' | 'tablet'
 
@@ -26,7 +36,8 @@ type Page = 'desktop' | 'phone' | 'tablet'
 const mounted = async (choosing: boolean, page: Page) => {
   stubMatchMedia(query =>
     page === 'phone' && query.includes('40rem') || page === 'desktop' && query.includes('64rem'))
-  const { component: HomeMap, sky } = await freshSky(() => import('../../theme/HomeMap.tsx'))
+  const { component: HomeMap, sky } = await freshSky(() =>
+    import('../../../docs/.vitepress/theme/HomeMap.tsx'))
   if (choosing) sky.choose()
   return shallowMount(HomeMap, { global: { stubs: { Sidebar: false } } })
 }
@@ -59,7 +70,7 @@ it.each([
 
 it('keeps one map as the page narrows past the desktop breakpoint', async () => {
   const narrow                 = stubMatchMedia(query => query.includes('64rem'))
-  const { component: HomeMap } = await freshSky(() => import('../../theme/HomeMap.tsx'))
+  const { component: HomeMap } = await freshSky(() => import('../../../docs/.vitepress/theme/HomeMap.tsx'))
   const wrapper                = shallowMount(HomeMap, { global: { stubs: { Sidebar: false } } })
   const before                 = wrapper.findComponent({ name: 'SkyMap' }).vm
   const aside                  = wrapper.find('aside').exists()
@@ -71,7 +82,7 @@ it('keeps one map as the page narrows past the desktop breakpoint', async () => 
 
 it('asks for the catalog once the home page mounts', async () => {
   stubMatchMedia(() => false)
-  const { component: HomeMap } = await freshSky(() => import('../../theme/HomeMap.tsx'))
+  const { component: HomeMap } = await freshSky(() => import('../../../docs/.vitepress/theme/HomeMap.tsx'))
   const posted                 = vi.spyOn(Worker.prototype, 'postMessage')
   shallowMount(HomeMap)
   expect(posted.mock.calls.map(([asked]) => asked.type).filter(type => type === 'load')).toEqual(['load'])

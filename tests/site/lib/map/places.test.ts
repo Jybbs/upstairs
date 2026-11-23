@@ -1,11 +1,11 @@
 import type { FilterSpecification, Map } from 'maplibre-gl'
 import { describe, expect, it }         from 'vitest'
 
-import { type Box, View }          from '../../../lib/map/mercator.ts'
-import type { Label }              from '../../../lib/map/overlay.ts'
-import * as places                 from '../../../lib/map/places.ts'
-import { TRACK_STEP, TRACK_WIDTH } from '../../../lib/orbit/scan.ts'
-import { Tracks }                  from '../../../lib/state/tracks.ts'
+import { type Box, View }          from '../../../../docs/.vitepress/lib/map/mercator.ts'
+import type { Label }              from '../../../../docs/.vitepress/lib/map/overlay.ts'
+import * as places                 from '../../../../docs/.vitepress/lib/map/places.ts'
+import { TRACK_STEP, TRACK_WIDTH } from '../../../../docs/.vitepress/lib/orbit/scan.ts'
+import { Tracks }                  from '../../../../docs/.vitepress/lib/state/tracks.ts'
 import { passOf }                  from '../../common/passes.ts'
 
 interface Feature {

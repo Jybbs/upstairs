@@ -20,7 +20,8 @@ vi.mock('@vueuse/core', async original => ({
  */
 const mounted = async (phone = false) => {
   stubMatchMedia(query => phone && query.includes('40rem'))
-  const { component: SpotChooser, sky } = await freshSky(() => import('../../theme/SpotChooser.tsx'))
+  const { component: SpotChooser, sky } = await freshSky(() =>
+    import('../../../docs/.vitepress/theme/SpotChooser.tsx'))
   fakeClock()
   sky.choose()
   const wrapper = mount(SpotChooser, { attachTo: document.body })

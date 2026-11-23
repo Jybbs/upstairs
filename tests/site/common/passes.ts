@@ -1,4 +1,4 @@
-import type { Pass } from '../../lib/orbit/scan.ts'
+import type { Pass } from '../../../docs/.vitepress/lib/orbit/scan.ts'
 
 /**
  * Builds a crewed pass of satellite `id` from 300 to 900 seconds into the

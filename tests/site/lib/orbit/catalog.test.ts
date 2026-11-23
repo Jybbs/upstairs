@@ -2,12 +2,12 @@ import { readFile } from 'node:fs/promises'
 
 import { describe, expect, it, vi } from 'vitest'
 
-import init, * as orbit from '../../../../../rust/pkg/orbit.js'
-import { encode }       from '../../../catalog/encode.ts'
-import type { Record }  from '../../../lib/orbit/catalog.ts'
-import * as catalog     from '../../../lib/orbit/catalog.ts'
-import { kindOf }       from '../../../lib/orbit/kinds.ts'
-import { satellitesOf } from '../../../lib/orbit/scan.ts'
+import { encode }       from '../../../../docs/.vitepress/catalog/encode.ts'
+import type { Record }  from '../../../../docs/.vitepress/lib/orbit/catalog.ts'
+import * as catalog     from '../../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { kindOf }       from '../../../../docs/.vitepress/lib/orbit/kinds.ts'
+import { satellitesOf } from '../../../../docs/.vitepress/lib/orbit/scan.ts'
+import init, * as orbit from '../../../../rust/pkg/orbit.js'
 import answers          from '../../fixtures/answers.json' with { type: 'json' }
 import full             from '../../fixtures/records.json' with { type: 'json' }
 
@@ -37,7 +37,7 @@ describe('the catalog file', () => {
   })
 
   it('places each record, segment by segment, where the known answers do', async () => {
-    const wasm = new URL('../../../../../rust/pkg/orbit_bg.wasm', import.meta.url)
+    const wasm = new URL('../../../../rust/pkg/orbit_bg.wasm', import.meta.url)
     await init({ module_or_path: await readFile(wasm) })
     const orbits = new orbit.Orbits()
     for (const segment of segments) {

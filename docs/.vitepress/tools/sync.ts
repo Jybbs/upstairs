@@ -1,6 +1,6 @@
 import { $ } from 'bun'
 
-import manifest        from '../../package.json' with { type: 'json' }
+import manifest        from '../../../package.json' with { type: 'json' }
 import * as repository from './repository.ts'
 
 export type Live = Pick<repository.Ruleset, 'name'> & { id: number }

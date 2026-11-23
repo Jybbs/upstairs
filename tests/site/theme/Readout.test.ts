@@ -3,10 +3,10 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { expect, it, vi }         from 'vitest'
 import { defineComponent, h }     from 'vue'
 
-import { DAY }                                       from '../../lib/orbit/catalog.ts'
-import { kindOrder }                                 from '../../lib/orbit/kinds.ts'
-import type { sky as Sky }                          from '../../lib/state/sky.ts'
-import { WORDS }                                    from '../../lib/state/words.ts'
+import { DAY }                                       from '../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { kindOrder }                                 from '../../../docs/.vitepress/lib/orbit/kinds.ts'
+import type { sky as Sky }                          from '../../../docs/.vitepress/lib/state/sky.ts'
+import { WORDS }                                    from '../../../docs/.vitepress/lib/state/words.ts'
 import { dialogListens, fakeClock, unmountOnFinish } from '../common/frames.ts'
 import { passOf }                                    from '../common/passes.ts'
 import { addScanned, lateSky }                       from '../common/sky.ts'
@@ -31,7 +31,8 @@ const lineOf = (wrapper: VueWrapper) => wrapper.get('p.truncate')
  */
 const mounted = async (seconds: number, reduced = false) => {
   stubMatchMedia(query => reduced && query.includes('reduce'))
-  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.tsx'))
+  const { component: Readout, sky } = await lateSky(() =>
+    import('../../../docs/.vitepress/theme/Readout.tsx'))
   sky.loaded.value = { count: 9, fetched: sky.start.value }
   sky.done.value   = true
   sky.spoken.value = '5 satellites above the horizon'
@@ -183,9 +184,10 @@ it('keeps the pinned pass on Escape while the spot chooser is open', async () =>
 })
 
 it('keeps the pinned pass on Escape when the spot chooser beside it shuts', async () => {
-  const { component: Readout, sky } = await lateSky(() => import('../../theme/Readout.tsx'))
-  const { default: SpotChooser }    = await import('../../theme/SpotChooser.tsx')
-  const { provideChooser }          = await import('../../lib/site/chooser.ts')
+  const { component: Readout, sky } = await lateSky(() =>
+    import('../../../docs/.vitepress/theme/Readout.tsx'))
+  const { default: SpotChooser }    = await import('../../../docs/.vitepress/theme/SpotChooser.tsx')
+  const { provideChooser }          = await import('../../../docs/.vitepress/lib/site/chooser.ts')
   const pass                        = passOf(1)
   stubMatchMedia(() => false)
   fakeClock()

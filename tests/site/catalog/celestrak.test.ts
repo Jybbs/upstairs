@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as celestrak     from '../../catalog/celestrak.ts'
+import * as celestrak     from '../../../docs/.vitepress/catalog/celestrak.ts'
 import { directoryBody, satcatBody, unchangedBody } from '../common/celestrak.ts'
 import { unbound }        from '../common/fetchers.ts'
 

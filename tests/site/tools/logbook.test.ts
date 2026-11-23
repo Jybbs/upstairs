@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-import { contextOf, logbookOf } from '../../tools/logbook.ts'
+import { contextOf, logbookOf } from '../../../docs/.vitepress/tools/logbook.ts'
 
 const BRANCH   = '20/pull-request-previews'
 const COMMIT   = '[`abc1234`](https://github.com/Jybbs/upstairs/commit/abc1234def)'
-const DEPLOY   = readFileSync(new URL('../../../../.github/scripts/summaries/deploy.md', import.meta.url), {
+const DEPLOY   = readFileSync(new URL('../../../.github/scripts/summaries/deploy.md', import.meta.url), {
   encoding : 'utf8'
 })
 const PREVIEW  = 'https://1.upstairs.pages.dev'

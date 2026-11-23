@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { $ }          from 'bun'
 import { expect, it } from 'vitest'
 
-import { driftsOf }        from '../../tools/lockfile.ts'
+import { driftsOf }        from '../../../docs/.vitepress/tools/lockfile.ts'
 import { ROOT }            from '../common/reads.ts'
 import { it as scratched } from '../common/scratch.ts'
 

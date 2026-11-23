@@ -4,4 +4,4 @@
 #MISE description = "Run the site's suite, passing any further arguments to Vitest"
 #MISE dir         = "{{config_root}}/docs"
 
-bun run --bun vitest run --config .vitepress/tests/vitest.config.ts "$@"
+bun run --bun vitest run --config ../tests/site/vitest.config.ts "$@"

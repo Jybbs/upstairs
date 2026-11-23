@@ -41,15 +41,15 @@ vi.mock('vitepress', async () => {
   }
 })
 
-vi.mock('../../theme/SkyMap.tsx', async () => {
+vi.mock('../../../docs/.vitepress/theme/SkyMap.tsx', async () => {
   const { h } = await import('vue')
   return { default: { render: () => h('div', { 'data-map': '' }) } }
 })
-vi.mock('../../theme/Credit.tsx', async () => {
+vi.mock('../../../docs/.vitepress/theme/Credit.tsx', async () => {
   const { defineComponent, h } = await import('vue')
   return { default: defineComponent({ name: 'Credit', render: () => h('div', { class: 'credit-veil' }) }) }
 })
-vi.mock('../../lib/site/phone.ts', () => ({ usePhone: () => ref(page.phone) }))
+vi.mock('../../../docs/.vitepress/lib/site/phone.ts', () => ({ usePhone: () => ref(page.phone) }))
 
 vi.mock('@vueuse/core', () => ({
   useMediaQuery             : (query: string) => ref(page.width >= Number(query.match(/(\d+)rem/)![1])),
@@ -92,7 +92,8 @@ const mounted = async (reduced = false, strip = BELOW, phone = false, width = 64
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
     return rectOf(this) as DOMRect
   })
-  const { component: NotFound, sky } = await freshSky(() => import('../../theme/NotFound.tsx'))
+  const { component: NotFound, sky } = await freshSky(() =>
+    import('../../../docs/.vitepress/theme/NotFound.tsx'))
   const posted                       = vi.spyOn(Worker.prototype, 'postMessage')
   const wrapper                      = mount(NotFound)
   await flushPromises()
@@ -247,7 +248,8 @@ it.each([
 ])('%s the veil under the credit’s box at %i px', async (_, width, display) => {
   const { innerWidth } = window
   const sheet          = document.createElement('style')
-  sheet.textContent    = readFileSync(join(import.meta.dirname, '../../theme/credit.css'), 'utf8')
+  const credit         = join(import.meta.dirname, '../../../docs/.vitepress/theme/credit.css')
+  sheet.textContent    = readFileSync(credit, 'utf8')
   window.innerWidth    = width
   const { wrapper }    = await mounted()
   document.head.append(sheet)

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 
-import { followFootnotes } from '../../../lib/site/landing.ts'
+import { followFootnotes } from '../../../../docs/.vitepress/lib/site/landing.ts'
 
 const MARKER = (n: string) => `<sup class="footnote-ref"><a href="#footnote1">1</a>`
                             + `<a class="footnote-anchor" id="footnote-ref1${n}"></a></sup>`

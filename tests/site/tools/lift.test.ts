@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { $ }                                      from 'bun'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import * as lift from '../../tools/lift.ts'
+import * as lift from '../../../docs/.vitepress/tools/lift.ts'
 import { it }    from '../common/scratch.ts'
 
 const CHECKOUT                       = 'a'.repeat(40)
@@ -36,7 +36,7 @@ const SEEDED = {
     ''
   ].join('\n'),
 
-  'docs/package.json': `${JSON.stringify({
+  'package.json': `${JSON.stringify({
     dependencies    : { katex: '0.19.1', vitepress: '2.0.0-alpha.21' },
     devDependencies : { typescript: '6.0.3' },
     overrides       : { katex: '0.19.1' }
@@ -156,10 +156,10 @@ describe.concurrent('lift', () => {
 
   it('lifts and holds bun and its types as one pin, at the lower newest', async ({ expect, scratch }) => {
     const repo     = await Repo.seeded(scratch)
-    const manifest = JSON.parse(SEEDED['docs/package.json'])
+    const manifest = JSON.parse(SEEDED['package.json'])
     await repo.commit({
       '.mise/config.toml' : SEEDED['.mise/config.toml'].replace('[tools]', '[tools]\nbun = "1.4.4"'),
-      'docs/package.json' : `${JSON.stringify({
+      'package.json' : `${JSON.stringify({
         ...manifest, devDependencies: { '@types/bun': '1.4.4', ...manifest.devDependencies }
       }, null, 2)}\n`
     })
@@ -173,7 +173,7 @@ describe.concurrent('lift', () => {
     await Bun.write(join(scratch, lift.HOLDS), '')
     await repo.lift('--write')
     expect(await repo.read('.mise/config.toml')).toContain('bun = "1.4.5"')
-    expect(JSON.parse(await repo.read('docs/package.json')).devDependencies['@types/bun']).toBe('1.4.5')
+    expect(JSON.parse(await repo.read('package.json')).devDependencies['@types/bun']).toBe('1.4.5')
   })
 
   it('reads a hold recorded by an earlier run into the table', async ({ expect, scratch }) => {
@@ -286,7 +286,7 @@ describe.concurrent('lift', () => {
         .replace('"1.99.1"', '"1.100.0"'))
       expect(await repo.read('rust/Cargo.toml'))
         .toBe(SEEDED['rust/Cargo.toml'].replace('=0.2.130', '=0.2.131'))
-      expect(JSON.parse(await repo.read('docs/package.json'))).toEqual({
+      expect(JSON.parse(await repo.read('package.json'))).toEqual({
         dependencies    : { katex: '0.19.2', vitepress: '2.0.0-alpha.21' },
         devDependencies : { typescript: '6.0.3' },
         overrides       : { katex: '0.19.2' }

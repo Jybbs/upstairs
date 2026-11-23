@@ -12,15 +12,15 @@ type Change = (repo: Repo) => Promise<unknown>
 type Pinned = keyof typeof PINNED
 type Task   = 'crate/affected' | 'site/affected' | 'site/check' | 'site/typecheck'
 
-const ANSWERS = 'docs/.vitepress/tests/fixtures/answers.json'
+const ANSWERS = 'tests/site/fixtures/answers.json'
 const CHECKED = [
   'run', 'site:lint', ':::', 'site:typecheck', ':::', 'site:affected', ':::', 'crate:affected'
 ]
 const CONFIG  = '.mise/config.toml'
 const DENY    = 'rust/.cargo/deny.toml'
 const LOCK    = '.mise/mise.lock'
-const PHOTON  = 'docs/.vitepress/tests/fixtures/photon.json'
-const RECORDS = 'docs/.vitepress/tests/fixtures/records.json'
+const PHOTON  = 'tests/site/fixtures/photon.json'
+const RECORDS = 'tests/site/fixtures/records.json'
 const SKIPPED = /^crate:affected found no change since origin\/main\b/
 const TYPED   = [
   ['run', '--bun', 'vue-tsc', '--noEmit', '--project', '.vitepress'],
@@ -244,11 +244,12 @@ describe.concurrent('crate:affected', () => {
     ['a commit under rust/', committed(edit('rust/src/lib.rs')), true],
     ['an uncommitted edit under rust/', edit('rust/src/lib.rs'), true],
     ['an untracked file under rust/', edit('rust/src/added.rs'), true],
+    ['an edit under tests/rust/', edit('tests/rust/answers/main.rs'), true],
     ['an edit to the records', edit(RECORDS), true],
     ['an edit to the known answers', edit(ANSWERS), true],
     ['an edit under rust/ beside one under rust/.cargo/', edit(DENY, 'rust/src/lib.rs'), true],
     ['no change', edit(), false],
-    ['an edit and an untracked file outside rust/ and the fixtures', edit('README.md', 'docs/new.md'), false],
+    ['an edit and an untracked file outside rust/, tests/rust/, and the fixtures', edit('README.md', 'docs/new.md'), false],
     ['an edit to another fixture', edit(PHOTON), false],
     ['a build of the crate under the ignored rust/pkg/', edit('rust/pkg/orbit.js'), false],
     ['a commit under rust/.cargo/', committed(edit(DENY)), false],

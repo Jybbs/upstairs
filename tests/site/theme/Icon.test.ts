@@ -2,8 +2,8 @@
 import { mount }      from '@vue/test-utils'
 import { expect, it } from 'vitest'
 
-import { kindColor } from '../../lib/site/palette.ts'
-import Icon          from '../../theme/Icon.tsx'
+import { kindColor } from '../../../docs/.vitepress/lib/site/palette.ts'
+import Icon          from '../../../docs/.vitepress/theme/Icon.tsx'
 
 it.each([
   ['tints a kind’s mark in the kind’s color', 'crewed', kindColor('crewed')],

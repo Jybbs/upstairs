@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as celestrak  from '../../catalog/celestrak.ts'
-import { REGIONS }     from '../../catalog/cycle.ts'
-import { RUN_ADDRESS } from '../../catalog/request.ts'
-import { SECRET }      from '../../catalog/requested.ts'
-import wrangler        from '../../catalog/wrangler.json' with { type: 'json' }
-import { FILE }        from '../../lib/orbit/catalog.ts'
+import * as celestrak  from '../../../docs/.vitepress/catalog/celestrak.ts'
+import { REGIONS }     from '../../../docs/.vitepress/catalog/cycle.ts'
+import { RUN_ADDRESS } from '../../../docs/.vitepress/catalog/request.ts'
+import { SECRET }      from '../../../docs/.vitepress/catalog/requested.ts'
+import wrangler        from '../../../docs/.vitepress/catalog/wrangler.json' with { type: 'json' }
+import { FILE }        from '../../../docs/.vitepress/lib/orbit/catalog.ts'
 import * as answers    from '../common/spacetrack.ts'
 import { stubSubtle }  from '../common/subtle.ts'
 
@@ -13,7 +13,7 @@ vi.mock('cloudflare:workers', () => ({
   DurableObject: class { constructor(readonly ctx: unknown, readonly env: unknown) {} }
 }))
 
-const { default: service, Refresher, Relay } = await import('../../catalog/service.ts')
+const { default: service, Refresher, Relay } = await import('../../../docs/.vitepress/catalog/service.ts')
 
 /**
  * Builds the context of a Durable Object whose storage holds `state`.

@@ -2,8 +2,8 @@
 import { type VueWrapper, enableAutoUnmount, mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi }                 from 'vitest'
 
-import { kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
-import { kindColor }            from '../../lib/site/palette.ts'
+import { kindOrder, type Kind } from '../../../docs/.vitepress/lib/orbit/kinds.ts'
+import { kindColor }            from '../../../docs/.vitepress/lib/site/palette.ts'
 import { fakeClock, framesOf }  from '../common/frames.ts'
 import { freshSky }             from '../common/sky.ts'
 
@@ -16,7 +16,7 @@ const COUNTS: Partial<Record<Kind, number>> = { crewed: 2, earth: 5 }
  * kind off the map, every kind it leaves out at zero.
  */
 const mounted = async () => {
-  const { component: Tally, sky } = await freshSky(() => import('../../theme/Tally.tsx'))
+  const { component: Tally, sky } = await freshSky(() => import('../../../docs/.vitepress/theme/Tally.tsx'))
   const kinds                     = kindOrder.map(kind => COUNTS[kind] ?? 0)
   sky.reading.value               = { above: 0, aboveKinds: kinds, kinds, onMap: 0 }
   return { sky, wrapper: mount(Tally, { attachTo: document.body }) }

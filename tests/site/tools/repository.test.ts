@@ -2,8 +2,8 @@ import { basename, join } from 'node:path'
 
 import { beforeAll, describe, expect, it } from 'vitest'
 
+import * as repository from '../../../docs/.vitepress/tools/repository.ts'
 import manifest        from '../../../package.json' with { type: 'json' }
-import * as repository from '../../tools/repository.ts'
 import { ROOT }        from '../common/reads.ts'
 
 type Change = (base: repository.Repository) => Partial<repository.Repository>
@@ -92,7 +92,7 @@ describe('Repository', () => {
   it.each(['~3.5.45', '>=3.5.45', '3.5', 'latest', 'npm:vue@3.5.45', '3.5.45+build.1'])(
     'reports a package at %s, which is no X.Y.Z version with an optional prerelease',
     version => expect(variant(() => ({ packages: [['vue', version]] })).problems)
-      .toEqual([`docs/package.json sets vue to ${version} rather than one exact version`])
+      .toEqual([`package.json sets vue to ${version} rather than one exact version`])
   )
 
   it.each(['3.5.45', '2.0.0-alpha.21', '1.0.0-rc.1', '1.0.0-alpha-1'])(
@@ -439,7 +439,7 @@ describe('Repository', () => {
     [
       'a package at a range rather than one exact version',
       ({ packages }) => ({ packages: [...packages, ['vue', '^3.5.45']] }),
-      'docs/package.json sets vue to ^3.5.45 rather than one exact version'
+      'package.json sets vue to ^3.5.45 rather than one exact version'
     ],
     [
       'an action pinned to a tag',

@@ -4,16 +4,16 @@ import maplibre           from 'maplibre-gl/package.json' with { type: 'json' }
 import type { PageData, Plugin, SiteConfig, TransformContext, TransformPageContext } from 'vitepress'
 import { expect, it, vi } from 'vitest'
 
-import config         from '../config.ts'
-import { writeCards } from '../lib/site/cards.ts'
-import { cssOf }      from '../lib/site/palette.ts'
-import { SHEETS }     from '../lib/site/sheets.ts'
+import config         from '../../docs/.vitepress/config.ts'
+import { writeCards } from '../../docs/.vitepress/lib/site/cards.ts'
+import { cssOf }      from '../../docs/.vitepress/lib/site/palette.ts'
+import { SHEETS }     from '../../docs/.vitepress/lib/site/sheets.ts'
 
 type Generate = (options: object, bundle: object) => void
 
-vi.mock('../lib/site/cards.ts', async original =>
-  ({ ...await original<typeof import('../lib/site/cards.ts')>(), writeCards: vi.fn() }))
-vi.mock('../lib/site/licenses.ts', () =>
+vi.mock('../../docs/.vitepress/lib/site/cards.ts', async original =>
+  ({ ...await original<typeof import('../../docs/.vitepress/lib/site/cards.ts')>(), writeCards: vi.fn() }))
+vi.mock('../../docs/.vitepress/lib/site/licenses.ts', () =>
   ({ licensesOf: (...args: unknown[]) => ({ copied: args[3], name: 'upstairs:licenses' }) }))
 
 const BUNDLE = {
@@ -46,7 +46,8 @@ it('appends the notice of each package whose sheet the site copies', () =>
 
 it('writes the license notices to the file the Data page links', () => {
   const { fileName } = config.vite!.build!.license as { fileName: string }
-  expect(readFileSync(new URL('../../data/index.md', import.meta.url), 'utf8')).toContain(`](/${fileName})`)
+  expect(readFileSync(new URL('../../docs/data/index.md', import.meta.url), 'utf8'))
+    .toContain(`](/${fileName})`)
 })
 
 it('points the canonical link of a section page at its folder', () => {
@@ -86,7 +87,7 @@ it.each([
   [`/${config.assetsDir ?? 'assets'}/*`, 'Cache-Control: public, max-age=31536000, immutable'],
   [`/${SHEETS.map.name}/*`, 'Cache-Control: public, max-age=31536000, immutable']
 ])('serves the files under %s with their headers', (rule, headers) =>
-  expect(readFileSync(new URL('../../public/_headers', import.meta.url), 'utf8'))
+  expect(readFileSync(new URL('../../docs/public/_headers', import.meta.url), 'utf8'))
     .toContain(`${rule}\n  ${headers}\n`))
 
 it('links the touch icon from the head', () =>

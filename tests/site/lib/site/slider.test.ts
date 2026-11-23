@@ -3,7 +3,7 @@ import { mount }                   from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 
-import { Grip, HOVER_WAIT, Slider, useSlider } from '../../../lib/site/slider.ts'
+import { Grip, HOVER_WAIT, Slider, useSlider } from '../../../../docs/.vitepress/lib/site/slider.ts'
 
 const keyOf = (key: string) => ({ key, preventDefault: vi.fn() }) as unknown as KeyboardEvent
 

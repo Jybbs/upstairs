@@ -2,13 +2,13 @@
 import { mount }          from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
-import { data as entries } from '../../lib/site/entries.data.ts'
-import { kindColor }       from '../../lib/site/palette.ts'
-import { SECTIONS }        from '../../lib/site/sections.ts'
-import Entries             from '../../theme/Entries.tsx'
+import { data as entries } from '../../../docs/.vitepress/lib/site/entries.data.ts'
+import { kindColor }       from '../../../docs/.vitepress/lib/site/palette.ts'
+import { SECTIONS }        from '../../../docs/.vitepress/lib/site/sections.ts'
+import Entries             from '../../../docs/.vitepress/theme/Entries.tsx'
 
-vi.mock('../../lib/site/entries.data.ts', async () => {
-  const sections = await import('../../lib/site/sections.ts')
+vi.mock('../../../docs/.vitepress/lib/site/entries.data.ts', async () => {
+  const sections = await import('../../../docs/.vitepress/lib/site/sections.ts')
   return {
     data: sections.sectionsOf().map(section => ({
       about   : `What the ${section} pages hold.`,

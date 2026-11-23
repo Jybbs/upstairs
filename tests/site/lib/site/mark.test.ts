@@ -1,9 +1,9 @@
 import { Resvg }                from '@resvg/resvg-js'
 import { describe, expect, it } from 'vitest'
 
-import MARK                         from '../../../lib/site/mark.json' with { type: 'json' }
-import * as mark                    from '../../../lib/site/mark.ts'
-import { SCHEMES, type SchemeName } from '../../../lib/site/palette.ts'
+import MARK from '../../../../docs/.vitepress/lib/site/mark.json' with { type: 'json' }
+import * as mark                    from '../../../../docs/.vitepress/lib/site/mark.ts'
+import { SCHEMES, type SchemeName } from '../../../../docs/.vitepress/lib/site/palette.ts'
 import { README, publicOf }         from '../../common/shipped.ts'
 
 const DRAWINGS = [

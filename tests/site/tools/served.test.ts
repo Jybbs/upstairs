@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-import { encode }   from '../../catalog/encode.ts'
-import { answerOf } from '../../tools/served.ts'
+import { encode }   from '../../../docs/.vitepress/catalog/encode.ts'
+import { answerOf } from '../../../docs/.vitepress/tools/served.ts'
 
 const NOT_CATALOG = /^200 with a file that is not a catalog, /
 const UNSTORED    = 'No catalog is stored yet'

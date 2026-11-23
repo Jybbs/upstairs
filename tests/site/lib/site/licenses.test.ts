@@ -2,12 +2,12 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-import { licensesOf } from '../../../lib/site/licenses.ts'
+import { licensesOf } from '../../../../docs/.vitepress/lib/site/licenses.ts'
 
 type Generate = (options: object, bundle: object) => void
 
-const KATEX    = JSON.parse(readFileSync('node_modules/katex/package.json', 'utf8'))
-const MANIFEST = new URL('../../../../../rust/Cargo.toml', import.meta.url)
+const KATEX    = JSON.parse(readFileSync('../node_modules/katex/package.json', 'utf8'))
+const MANIFEST = new URL('../../../../rust/Cargo.toml', import.meta.url)
 const PACKAGES = '# Licenses\n\n## vue - 3.5.0 (MIT)\n'
 
 const bundleOf = (source: string) => ({ 'licenses.txt': { source, type: 'asset' } })
@@ -28,7 +28,7 @@ describe('the licenses', () => {
     const bundle = bundleOf(PACKAGES)
     generate('notices.txt', bundle, ['katex', 'vue'])
     const katex = `\n## katex - ${KATEX.version} (MIT)\n\n`
-                + readFileSync('node_modules/katex/LICENSE', 'utf8')
+                + readFileSync('../node_modules/katex/LICENSE', 'utf8')
     expect(bundle['licenses.txt'].source)
       .toBe(PACKAGES + katex + readFileSync(fixture('notices.txt'), 'utf8'))
   })
@@ -36,7 +36,7 @@ describe('the licenses', () => {
     const bundle = bundleOf(PACKAGES)
     generate('notices.txt', bundle, ['maplibre-gl'])
     expect(bundle['licenses.txt'].source)
-      .toContain(readFileSync('node_modules/maplibre-gl/LICENSE.txt', 'utf8'))
+      .toContain(readFileSync('../node_modules/maplibre-gl/LICENSE.txt', 'utf8'))
   })
   it('fails the build where the notices hold none for sgp4', () =>
     expect(() => generate('notices-without-sgp4.txt', bundleOf(''))).toThrow(/holds no notice for sgp4$/))

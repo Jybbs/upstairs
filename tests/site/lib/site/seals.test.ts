@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { Face }                     from '../../../lib/site/faces.ts'
-import { SCHEMES, type SchemeName } from '../../../lib/site/palette.ts'
-import * as seals                   from '../../../lib/site/seals.ts'
+import { Face }                     from '../../../../docs/.vitepress/lib/site/faces.ts'
+import { SCHEMES, type SchemeName } from '../../../../docs/.vitepress/lib/site/palette.ts'
+import * as seals                   from '../../../../docs/.vitepress/lib/site/seals.ts'
 import { README, publicOf }         from '../../common/shipped.ts'
 
 const faces  = await Face.faces()

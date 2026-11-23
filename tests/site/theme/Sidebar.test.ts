@@ -8,9 +8,12 @@ import { passOf }               from '../common/passes.ts'
 import { addScanned, freshSky } from '../common/sky.ts'
 import { stubMatchMedia }       from '../common/stubs.ts'
 
-vi.mock('../../theme/Filters.tsx', async () => (await import('../common/stubs.ts')).stubOf('Filters'))
-vi.mock('../../theme/Focus.tsx', async () => (await import('../common/stubs.ts')).stubOf('Focus'))
-vi.mock('../../theme/PassList.tsx', async () => (await import('../common/stubs.ts')).stubOf('PassList'))
+vi.mock('../../../docs/.vitepress/theme/Filters.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Filters'))
+vi.mock('../../../docs/.vitepress/theme/Focus.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('Focus'))
+vi.mock('../../../docs/.vitepress/theme/PassList.tsx', async () =>
+  (await import('../common/stubs.ts')).stubOf('PassList'))
 
 /**
  * Mounts the sidebar beside a stand-in map over a fresh copy of the shared
@@ -20,7 +23,8 @@ vi.mock('../../theme/PassList.tsx', async () => (await import('../common/stubs.t
 const mounted = async (reduced: boolean) => {
   stubMatchMedia(query => reduced && query.includes('reduce'))
   fakeClock()
-  const { component: Sidebar, sky } = await freshSky(() => import('../../theme/Sidebar.tsx'))
+  const { component: Sidebar, sky } = await freshSky(() =>
+    import('../../../docs/.vitepress/theme/Sidebar.tsx'))
   addScanned(sky, [1, 2, 3].map(id => passOf(id, { kind: 'weather', peakAt: 300 + id * 60 })))
   sky.scope.value = 'sky'
   const wrapper   = mount(Sidebar, {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { timeOf, type Record } from '../../../lib/orbit/catalog.ts'
-import { kindOf }              from '../../../lib/orbit/kinds.ts'
-import * as scan               from '../../../lib/orbit/scan.ts'
+import { timeOf, type Record } from '../../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { kindOf }              from '../../../../docs/.vitepress/lib/orbit/kinds.ts'
+import * as scan               from '../../../../docs/.vitepress/lib/orbit/scan.ts'
 import answers                 from '../../fixtures/answers.json' with { type: 'json' }
 import full                    from '../../fixtures/records.json' with { type: 'json' }
 

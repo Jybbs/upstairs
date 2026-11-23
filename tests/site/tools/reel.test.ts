@@ -4,8 +4,8 @@ import { join }     from 'node:path'
 import sharp                    from 'sharp'
 import { describe, expect, it } from 'vitest'
 
-import { SCHEMES, type SchemeName } from '../../lib/site/palette.ts'
-import * as reel                    from '../../tools/reel.ts'
+import { SCHEMES, type SchemeName } from '../../../docs/.vitepress/lib/site/palette.ts'
+import * as reel                    from '../../../docs/.vitepress/tools/reel.ts'
 import { ROOT }                     from '../common/reads.ts'
 import { README }                   from '../common/shipped.ts'
 

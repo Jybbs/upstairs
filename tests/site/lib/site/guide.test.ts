@@ -3,9 +3,9 @@ import { resolve }      from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import * as guide from '../../../lib/site/guide.ts'
+import * as guide from '../../../../docs/.vitepress/lib/site/guide.ts'
 
-const GUIDE = readFileSync(resolve(import.meta.dirname, '../../../../guide/index.md'), 'utf8')
+const GUIDE = readFileSync(resolve(import.meta.dirname, '../../../../docs/guide/index.md'), 'utf8')
 
 describe('the Guide’s figures', () => {
   it.each(guide.PARTS)('heads a section of the Guide with the %s figure’s title', part =>

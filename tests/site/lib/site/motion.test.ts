@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { clamp, Spring } from '../../../lib/site/motion.ts'
+import { clamp, Spring } from '../../../../docs/.vitepress/lib/site/motion.ts'
 
 describe('holding a value', () => {
   it.each([

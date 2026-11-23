@@ -2,8 +2,8 @@
 import { mount }                from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
-import { CONTROLS, PARTS } from '../../lib/site/guide.ts'
-import Locator             from '../../theme/Locator.tsx'
+import { CONTROLS, PARTS } from '../../../docs/.vitepress/lib/site/guide.ts'
+import Locator             from '../../../docs/.vitepress/theme/Locator.tsx'
 
 describe('the miniature of the first screen', () => {
   it.each(PARTS)('names the %s control in its label', part =>

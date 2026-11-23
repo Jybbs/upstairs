@@ -2,8 +2,8 @@
 import { mount }      from '@vue/test-utils'
 import { expect, it } from 'vitest'
 
-import { type Standing, momentOf } from '../../lib/state/words.ts'
-import Orbits                      from '../../theme/Orbits.tsx'
+import { type Standing, momentOf } from '../../../docs/.vitepress/lib/state/words.ts'
+import Orbits                      from '../../../docs/.vitepress/theme/Orbits.tsx'
 
 const TRACING: Standing = { above: 9, blank: false, count: 12, done: false, share: 0.5, stage: 'tracing' }
 

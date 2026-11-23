@@ -2,14 +2,15 @@
 import { flushPromises, mount }       from '@vue/test-utils'
 import { beforeEach, expect, it, vi } from 'vitest'
 
-import { CREDITS, type pitchOf } from '../../lib/map/credit.ts'
+import { CREDITS, type pitchOf } from '../../../docs/.vitepress/lib/map/credit.ts'
 import { TILES }                 from '../common/credits.ts'
 import { freshSky }              from '../common/sky.ts'
 import { stubMatchMedia }        from '../common/stubs.ts'
 
 const pitch = vi.hoisted(() => vi.fn<typeof pitchOf>(() => 321))
 
-vi.mock(import('../../lib/map/credit.ts'), async load => ({ ...await load(), pitchOf: pitch }))
+vi.mock(import('../../../docs/.vitepress/lib/map/credit.ts'), async load =>
+  ({ ...await load(), pitchOf: pitch }))
 
 /**
  * Mounts the credit over a fresh copy of the shared state, its lines the ones
@@ -19,7 +20,7 @@ vi.mock(import('../../lib/map/credit.ts'), async load => ({ ...await load(), pit
 const mounted = async (matching: readonly string[] = []) => {
   stubMatchMedia(query => matching.includes(query))
   Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } })
-  const { component: Credit, sky } = await freshSky(() => import('../../theme/Credit.tsx'))
+  const { component: Credit, sky } = await freshSky(() => import('../../../docs/.vitepress/theme/Credit.tsx'))
   sky.credit.lines.value           = [...CREDITS, TILES]
   const strip                      = document.createElement('section')
   strip.innerHTML                  = '<button class="beside" type="button"></button><div></div>'

@@ -1,8 +1,8 @@
 import type { TransformContext } from 'vitepress'
 import { describe, expect, it }  from 'vitest'
 
-import { CARD }   from '../../../lib/site/cards.ts'
-import { headOf } from '../../../lib/site/head.ts'
+import { CARD }   from '../../../../docs/.vitepress/lib/site/cards.ts'
+import { headOf } from '../../../../docs/.vitepress/lib/site/head.ts'
 
 const HOMEPAGE = 'https://upstairs.fyi'
 const LINE     = 'Every active satellite above a spot you choose.'

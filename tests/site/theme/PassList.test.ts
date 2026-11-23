@@ -2,8 +2,8 @@
 import { flushPromises, mount }                     from '@vue/test-utils'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
-import type { Pass }           from '../../lib/orbit/scan.ts'
-import type { sky as Sky }     from '../../lib/state/sky.ts'
+import type { Pass }           from '../../../docs/.vitepress/lib/orbit/scan.ts'
+import type { sky as Sky }     from '../../../docs/.vitepress/lib/state/sky.ts'
 import { passOf }              from '../common/passes.ts'
 import { addScanned, lateSky } from '../common/sky.ts'
 import { stubMatchMedia }      from '../common/stubs.ts'
@@ -15,7 +15,8 @@ import { stubMatchMedia }      from '../common/stubs.ts'
  * scan, after `set` has changed what else the state holds.
  */
 const mounted = async (passes: Pass[], set: (sky: typeof Sky) => void = () => {}) => {
-  const { component: PassList, sky } = await lateSky(() => import('../../theme/PassList.tsx'))
+  const { component: PassList, sky } = await lateSky(() =>
+    import('../../../docs/.vitepress/theme/PassList.tsx'))
   addScanned(sky, passes)
   sky.scope.value = 'sky'
   set(sky)
@@ -146,7 +147,8 @@ describe('the list in its box', () => {
       disconnect() {}
       observe() {}
     })
-    const { component: PassList, sky } = await lateSky(() => import('../../theme/PassList.tsx'))
+    const { component: PassList, sky } = await lateSky(() =>
+      import('../../../docs/.vitepress/theme/PassList.tsx'))
     addScanned(sky, weatherOf(12))
     sky.scope.value = 'sky'
     sky.done.value  = false
@@ -179,7 +181,8 @@ describe('the list in its box', () => {
   })
 
   it('opens the box on the next pass to peak when it mounts after the scan has finished', async () => {
-    const { component: PassList, sky } = await lateSky(() => import('../../theme/PassList.tsx'))
+    const { component: PassList, sky } = await lateSky(() =>
+      import('../../../docs/.vitepress/theme/PassList.tsx'))
     addScanned(sky, weatherOf(12))
     sky.scope.value = 'sky'
     sky.at.value    = 300 + 5 * 60
@@ -242,7 +245,8 @@ describe('the list in its box', () => {
   })
 
   it('scrolls the pinned row back into the box once rows peaking earlier push it below', async () => {
-    const { component: PassList, sky } = await lateSky(() => import('../../theme/PassList.tsx'))
+    const { component: PassList, sky } = await lateSky(() =>
+      import('../../../docs/.vitepress/theme/PassList.tsx'))
     addScanned(sky, weatherOf(12))
     sky.scope.value = 'sky'
     const scrolls   = vi.fn()

@@ -2,7 +2,7 @@
 import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { afterEach, expect, it }    from 'vitest'
 
-import { KINDS, kindOrder, type Kind } from '../../lib/orbit/kinds.ts'
+import { KINDS, kindOrder, type Kind } from '../../../docs/.vitepress/lib/orbit/kinds.ts'
 import { fakeClock, framesOf }         from '../common/frames.ts'
 import { passOf }                      from '../common/passes.ts'
 import { addScanned, freshSky }        from '../common/sky.ts'
@@ -27,7 +27,8 @@ const PASSES = [
  * reads the passes the list shows and whether each dot draws at full strength.
  */
 const mounted = async () => {
-  const { component: Filters, sky } = await freshSky(() => import('../../theme/Filters.tsx'))
+  const { component: Filters, sky } = await freshSky(() =>
+    import('../../../docs/.vitepress/theme/Filters.tsx'))
   addScanned(sky, PASSES)
   sky.inFrame.value = Uint8Array.of(1, 0, 1, 1)
   const wrapper     = mount(Filters)
@@ -77,7 +78,8 @@ it.each([
 })
 
 it('folds the filters away under their heading and opens them again', async () => {
-  const { component: Filters, sky } = await freshSky(() => import('../../theme/Filters.tsx'))
+  const { component: Filters, sky } = await freshSky(() =>
+    import('../../../docs/.vitepress/theme/Filters.tsx'))
   const wrapper                     = mount(Filters)
   const heading                     = wrapper.get('h2 button')
   const read                        = () => [heading.attributes('aria-expanded'),
@@ -95,7 +97,7 @@ it.each([
   ['moves to the last kind on End', 0, 'End', kindOrder.length - 1],
   ['moves to the first kind on Home', kindOrder.length - 1, 'Home', 0]
 ] as const)('%s, the kinds one tab stop between them', async (_, from, key, to) => {
-  const { component: Filters } = await freshSky(() => import('../../theme/Filters.tsx'))
+  const { component: Filters } = await freshSky(() => import('../../../docs/.vitepress/theme/Filters.tsx'))
   const wrapper                = mount(Filters, { attachTo: document.body })
   const chips                  = wrapper.get('[role="group"]').findAll<HTMLButtonElement>('button')
   fakeClock()

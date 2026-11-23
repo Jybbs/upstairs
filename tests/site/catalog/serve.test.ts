@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { HEADERS, serve } from '../../catalog/serve.ts'
-import { FILE }          from '../../lib/orbit/catalog.ts'
+import { HEADERS, serve } from '../../../docs/.vitepress/catalog/serve.ts'
+import { FILE }          from '../../../docs/.vitepress/lib/orbit/catalog.ts'
 
 const file = new Uint8Array([1, 2, 3])
 

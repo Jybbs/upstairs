@@ -2,11 +2,11 @@
 import { shallowMount }   from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
-import { DAY }                  from '../../lib/orbit/catalog.ts'
-import { KINDS, NOTES }         from '../../lib/orbit/kinds.ts'
-import type { Pass }            from '../../lib/orbit/scan.ts'
-import type { sky as Sky }      from '../../lib/state/sky.ts'
-import { WORDS }                from '../../lib/state/words.ts'
+import { DAY }                  from '../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { KINDS, NOTES }         from '../../../docs/.vitepress/lib/orbit/kinds.ts'
+import type { Pass }            from '../../../docs/.vitepress/lib/orbit/scan.ts'
+import type { sky as Sky }      from '../../../docs/.vitepress/lib/state/sky.ts'
+import { WORDS }                from '../../../docs/.vitepress/lib/state/words.ts'
 import { passOf }               from '../common/passes.ts'
 import { addScanned, freshSky } from '../common/sky.ts'
 
@@ -20,7 +20,7 @@ const NOW    = Date.parse('2026-11-06T18:37:00Z')
  */
 const mounted = async (passes: Pass[], set: (sky: typeof Sky) => void = () => {}) => {
   vi.useFakeTimers({ now: NOW })
-  const { component: Focus, sky } = await freshSky(() => import('../../theme/Focus.tsx'))
+  const { component: Focus, sky } = await freshSky(() => import('../../../docs/.vitepress/theme/Focus.tsx'))
   sky.loaded.value                = { count: 1, fetched: NOW }
   addScanned(sky, passes)
   if (passes.length) sky.pin(passes[0])

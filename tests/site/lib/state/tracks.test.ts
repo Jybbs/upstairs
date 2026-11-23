@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { TRACK_WIDTH } from '../../../lib/orbit/scan.ts'
-import { Tracks }      from '../../../lib/state/tracks.ts'
+import { TRACK_WIDTH } from '../../../../docs/.vitepress/lib/orbit/scan.ts'
+import { Tracks }      from '../../../../docs/.vitepress/lib/state/tracks.ts'
 import { passOf }      from '../../common/passes.ts'
 
 describe('docked craft', () => {

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { FILE }         from '../../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { onRequestGet } from '../../../../docs/.vitepress/preview/functions/catalog.bin.ts'
 import manifest         from '../../../../package.json' with { type: 'json' }
-import { FILE }         from '../../../lib/orbit/catalog.ts'
-import { onRequestGet } from '../../../preview/functions/catalog.bin.ts'
 
 const answering = (response: Response) => {
   const fetch = vi.fn<typeof globalThis.fetch>(async () => response)

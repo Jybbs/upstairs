@@ -4,7 +4,7 @@ import { expect, it, vi } from 'vitest'
 
 import { freshSky } from '../common/sky.ts'
 
-vi.mock('../../lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
+vi.mock('../../../docs/.vitepress/lib/site/provenance.data.ts', () => import('../common/provenance.ts'))
 
 const FETCHED = Date.parse('2026-11-06T18:53:57Z')
 
@@ -13,7 +13,7 @@ const FETCHED = Date.parse('2026-11-06T18:53:57Z')
  * with `count` satellites where `count` is given, and returns its footer.
  */
 const mounted = async (count?: number) => {
-  const { component: Stamp, sky } = await freshSky(() => import('../../theme/Stamp.tsx'))
+  const { component: Stamp, sky } = await freshSky(() => import('../../../docs/.vitepress/theme/Stamp.tsx'))
   if (count) sky.loaded.value = { count, fetched: FETCHED }
   return mount(Stamp).get('footer')
 }

@@ -5,11 +5,11 @@ import { resolve }      from 'node:path'
 import type { Map }                                        from 'maplibre-gl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as credit               from '../../../lib/map/credit.ts'
-import { SOURCES, sealAnchorOf } from '../../../lib/site/seals.ts'
+import * as credit               from '../../../../docs/.vitepress/lib/map/credit.ts'
+import { SOURCES, sealAnchorOf } from '../../../../docs/.vitepress/lib/site/seals.ts'
 import { TILES }                 from '../../common/credits.ts'
 
-const DATA = readFileSync(resolve(import.meta.dirname, '../../../../data/index.md'), 'utf8')
+const DATA = readFileSync(resolve(import.meta.dirname, '../../../../docs/data/index.md'), 'utf8')
 
 /**
  * Stands in for a map whose sources `carrying` share the base's `attribution`

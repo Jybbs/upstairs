@@ -1,8 +1,8 @@
 import { flushPromises, mount }     from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
-import { UNLOADED } from '../../lib/orbit/catalog.ts'
-import { UNDRAWN }  from '../../lib/state/drawings.ts'
+import { UNLOADED } from '../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { UNDRAWN }  from '../../../docs/.vitepress/lib/state/drawings.ts'
 import { ageWith }  from './drawings.ts'
 
 type Component = Parameters<typeof mount>[0]

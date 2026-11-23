@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import * as compass from '../../../lib/orbit/compass.ts'
+import * as compass from '../../../../docs/.vitepress/lib/orbit/compass.ts'
 
 describe('compass words', () => {
   it.each([[0, 'N'], [359, 'N'], [45, 'NE'], [180, 'S'], [292.5, 'WNW'], [-45, 'NW']])(

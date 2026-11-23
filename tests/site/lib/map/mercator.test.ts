@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import * as mercator          from '../../../lib/map/mercator.ts'
-import { FLOORS, reliefRamp } from '../../../lib/map/style.ts'
-import { SCHEMES }            from '../../../lib/site/palette.ts'
+import * as mercator          from '../../../../docs/.vitepress/lib/map/mercator.ts'
+import { FLOORS, reliefRamp } from '../../../../docs/.vitepress/lib/map/style.ts'
+import { SCHEMES }            from '../../../../docs/.vitepress/lib/site/palette.ts'
 
 describe('the view', () => {
   const view = new mercator.View()

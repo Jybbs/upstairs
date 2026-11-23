@@ -5,10 +5,10 @@ import { resolve }      from 'node:path'
 import { mount }                from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
-import { GLYPHS, PROVIDERS, SOURCES, sealAnchorOf } from '../../lib/site/seals.ts'
-import Credits                                      from '../../theme/Credits.tsx'
+import { GLYPHS, PROVIDERS, SOURCES, sealAnchorOf } from '../../../docs/.vitepress/lib/site/seals.ts'
+import Credits                                      from '../../../docs/.vitepress/theme/Credits.tsx'
 
-const DATA  = readFileSync(resolve(import.meta.dirname, '../../../data/index.md'), 'utf8')
+const DATA  = readFileSync(resolve(import.meta.dirname, '../../../docs/data/index.md'), 'utf8')
 const first = SOURCES.map((_, at) => at === 0)
 const last  = SOURCES.length - 1
 

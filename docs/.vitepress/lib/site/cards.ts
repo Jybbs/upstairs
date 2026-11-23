@@ -5,7 +5,7 @@ import { Resvg }                                                    from '@resvg
 import { clampRgb, formatHex, oklab, wcagContrast, wcagLuminance } from 'culori'
 import { createContentLoader }                                      from 'vitepress'
 
-import manifest                                    from '../../../package.json' with { type: 'json' }
+import manifest                                    from '../../../../package.json' with { type: 'json' }
 import CLIMB                                       from './climb.json' with { type: 'json' }
 import { Face, type Faces, type Setting }          from './faces.ts'
 import MARK                                        from './mark.json' with { type: 'json' }

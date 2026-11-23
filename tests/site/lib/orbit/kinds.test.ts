@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { kindOf, type Kind } from '../../../lib/orbit/kinds.ts'
+import { kindOf, type Kind } from '../../../../docs/.vitepress/lib/orbit/kinds.ts'
 
 describe('kindOf', () => {
   it.each<[string, Kind]>([

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { Netrc } from '../../catalog/netrc.ts'
+import { Netrc } from '../../../docs/.vitepress/catalog/netrc.ts'
 
 const HOST   = 'www.space-track.org'
 const LOGIN  = { identity: 'observer', password: 'orbit-2026' }

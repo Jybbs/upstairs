@@ -6,7 +6,7 @@ import { it as scratched }       from '../common/scratch.ts'
 import { type TaskRun, runTask } from '../common/tasks.ts'
 
 const ANOTHER   = 'GHSA-0000-0000-0000'
-const BUN       = ['audit', '--cwd', 'docs']
+const BUN       = ['audit']
 const DENY      = ['deny', '--locked', '--manifest-path', 'rust/Cargo.toml']
 const LIFTED    = 'GHSA-1111-1111-1111'
 const PATCHED   = 'GHSA-3h5v-q93c-6h6q'
