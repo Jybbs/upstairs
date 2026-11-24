@@ -283,6 +283,18 @@ describe('the window', () => {
   })
 })
 
+describe('the device clock set back', () => {
+  it('moves the window to begin at the present, its count still a number', async () => {
+    const sky = await loaded()
+    hear({ counts: countsOf(3), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
+    const now = sky.start.value - 600_000
+    vi.setSystemTime(now)
+    sky.advance(1)
+    sky.tally()
+    expect([sky.start.value, sky.seconds, sky.up.value]).toEqual([scan.minuteOf(now) - 300_000, 300, 3])
+  })
+})
+
 describe('the clock times of a range', () => {
   it.each([
     ['writes the half of the day once within one day', [21, 5], [21, 20], '9:05 – 9:20 PM'],
@@ -344,6 +356,25 @@ describe('the spot in the address', () => {
     const sky = await loaded('#48.86,2.29?kinds=starlink')
     move(sky)
     expect(location.hash).toBe(written)
+  })
+
+  it.each([
+    ['moves to the spot and shows the kinds a changed address names', '#48.86,2.29?kinds=starlink',
+      { latitude: 48.86, longitude: 2.29 }, null, ['starlink']],
+    ['moves to the spot a changed address names, keeping the kinds shown', '#48.86,2.29',
+      { latitude: 48.86, longitude: 2.29 }, null, ['earth']],
+    ['shows the kinds a changed address names, keeping the spot', '#?kinds=starlink',
+      { latitude: 42.36, longitude: -71.06 }, 'Boston', ['starlink']],
+    ['leaves the page as it is where a changed address names neither', '#credits',
+      { latitude: 42.36, longitude: -71.06 }, 'Boston', ['earth']]
+  ] as const)('%s', async (_, fragment, spot, place, kinds) => {
+    const sky = await loaded()
+    sky.trace(['earth'])
+    const asked = posted.length
+    history.replaceState(null, '', `/somewhere?at=1${fragment}`)
+    sky.reread()
+    expect([sky.spot.value, sky.place.value, sky.showing.value, posted.length > asked])
+      .toEqual([spot, place, kinds, place === null])
   })
 
   it('clears the address of any spot once the browser locates the reader', async () => {

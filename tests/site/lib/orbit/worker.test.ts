@@ -22,7 +22,12 @@ const batches = encode(FETCHED, Array.from(
   (_, copy) => full.map(record => ({ ...record, NORAD_CAT_ID: record.NORAD_CAT_ID + copy * 100_000 }))
 ).flat() as unknown as Record[])
 
-const built = vi.hoisted(() => ({ grids: 0, ready: Promise.resolve() as Promise<unknown>, throws: false }))
+const built = vi.hoisted(() => ({
+  fails  : 0,
+  grids  : 0,
+  ready  : Promise.resolve() as Promise<unknown>,
+  throws : false
+}))
 
 vi.mock('../../../../rust/pkg/orbit.js', async importOriginal => {
   const crate = await importOriginal<typeof import('../../../../rust/pkg/orbit.js')>()
@@ -31,6 +36,7 @@ vi.mock('../../../../rust/pkg/orbit.js', async importOriginal => {
     ...crate,
     default : async () => {
       await built.ready
+      if (built.fails-- > 0) throw new TypeError('Failed to fetch')
       return crate.default({ module_or_path: await readFile(wasm) })
     },
     Grid    : class extends crate.Grid {
@@ -76,6 +82,7 @@ class Channel {
 const loaded = async (answer = () => new Response(file), helpers: MessagePort[] = []) => {
   heard        = []
   heed         = () => {}
+  built.fails  = 0
   built.grids  = 0
   built.ready  = Promise.resolve()
   built.throws = false
@@ -151,6 +158,18 @@ describe('loading the catalog', () => {
     const first = heard.length
     await hear(LOAD)
     expect(heard.slice(first)).toEqual(heard.slice(0, first))
+  })
+
+  it('downloads the orbit module again on a load after it failed to download', async () => {
+    await loaded()
+    const counts = answersOf('loaded').map(({ count }) => count)
+    built.fails  = 1
+    hear         = await started()
+    heard        = []
+    await hear(LOAD)
+    await hear(LOAD)
+    expect(heard.map(answer => answer.type === 'loaded' ? answer.count : answer))
+      .toEqual([{ reason: 'TypeError: Failed to fetch', type: 'failed' }, ...counts])
   })
 
   it('answers no scan asked for before a catalog has loaded', async () => {
@@ -315,6 +334,17 @@ describe('a catalog shared with a helper', () => {
     await first({ data: shares[1] })
     expect([heard, port.close.mock.calls.length])
       .toEqual([[{ count: shares[0].count, fetched: FETCHED, satellites: [], type: 'loaded' }], 1])
+  })
+
+  it('posts why where its module fails to load, holding no share it is handed', async () => {
+    const { shares } = await shared()
+    built.fails      = 1
+    const port       = portOf()
+    const helper     = await started()
+    heard            = []
+    await helper({ from: port as unknown as MessagePort, type: 'follow' })
+    await port.onmessage!({ data: shares[0] })
+    expect(heard).toEqual([{ reason: 'TypeError: Failed to fetch', type: 'failed' }])
   })
 
   it('holds a share that arrives before its module is ready until the module is ready', async () => {

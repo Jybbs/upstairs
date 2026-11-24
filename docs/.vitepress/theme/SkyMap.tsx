@@ -229,6 +229,7 @@ export default defineComponent(
 
     useEventListener(frame, 'wheel', wheel, { capture: true, passive: false })
     useEventListener(frame, 'keydown', keyed, { capture: true })
+    if (!props.backdrop) useEventListener('hashchange', () => sky.reread())
 
     const fit = () => {
       const { clientWidth, clientHeight } = frame.value!
@@ -265,13 +266,14 @@ export default defineComponent(
 
     /**
      * Links the map's stylesheet from the page's head once, resolving once it
-     * has loaded.
+     * has loaded or failed to, since the map draws without it.
      */
     const styled = () => new Promise(resolve => {
       const href = SHEETS.map.hrefOf(maplibregl.getVersion())
       if (document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) return resolve(null)
-      const link = Object.assign(document.createElement('link'), { href, rel: 'stylesheet' })
-      link.onload = resolve
+      const link   = Object.assign(document.createElement('link'), { href, rel: 'stylesheet' })
+      link.onerror = resolve
+      link.onload  = resolve
       document.head.append(link)
     })
 

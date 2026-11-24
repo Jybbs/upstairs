@@ -83,6 +83,13 @@ describe('the credit as the map loads', () => {
     expect(shown.lines.value).toEqual([...credit.CREDITS, TILES])
   })
 
+  it('keeps the lines and the groups it holds where an event of a source leaves the lines as they were', () => {
+    drawn.arrive()
+    const [lines, groups] = [shown.lines.value, shown.groups.value]
+    drawn.fired.get('sourcedata')!()
+    expect([shown.lines.value === lines, shown.groups.value === groups]).toEqual([true, true])
+  })
+
   it('opens and closes as the reader presses it', () => {
     shown.toggle()
     expect(shown.open.value).toBe(true)
