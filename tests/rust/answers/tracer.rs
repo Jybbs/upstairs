@@ -8,10 +8,11 @@ use crate::{
     start, turned,
 };
 
-/// The seconds after the answers' start, a whole number of the track's steps,
-/// nearest the moment the satellite in `antimeridian.json` crosses the
-/// antimeridian, which it does about 13 seconds earlier.
-const CROSSING: f64 = 22_440.0;
+/// The seconds after the answers' start, each a whole number of the track's
+/// steps, nearest the moments the satellite in `antimeridian.json` crosses the
+/// antimeridian, eastward about 13 seconds before the first and westward about
+/// 12 seconds before the second.
+const CROSSINGS: [f64; 2] = [22_440.0, 65_160.0];
 
 #[test]
 fn looks_at_each_satellite_as_its_traced_passes_do() {
@@ -241,24 +242,31 @@ fn finds_a_zenith_between_samples_within_a_hundredth_of_a_degree() {
 fn gives_no_heading_to_a_satellite_holding_its_place_across_the_antimeridian() {
     let window = &ANSWERS.track;
     let records: Vec<Map<String, Value>> = read("antimeridian.json");
-    let (west, east) = (
-        below(&records[0], CROSSING - window.step),
-        below(&records[0], CROSSING + window.step),
-    );
-    assert!(
-        west.longitude > 0.0 && east.longitude < 0.0,
-        "samples beside the crossing: {} and {}",
-        west.longitude,
-        east.longitude
-    );
     let middle = (window.samples() / 2) as f64 * window.step;
-    let point = below(&records[0], CROSSING);
-    let trace = trace_over(point, CROSSING - middle, &orbits(&records), 0);
-    let [pass] = trace.passes.as_slice() else {
-        panic!("{} passes", trace.passes.len());
-    };
-    close("highest moment", pass.peak_at, middle, window.step / 2.0);
-    assert_eq!(pass.heading, None, "heading");
+    for crossing in CROSSINGS {
+        let (before, after) = (
+            below(&records[0], crossing - window.step),
+            below(&records[0], crossing + window.step),
+        );
+        assert!(
+            before.longitude.signum() != after.longitude.signum(),
+            "samples beside {crossing} s: {} and {}",
+            before.longitude,
+            after.longitude
+        );
+        let point = below(&records[0], crossing);
+        let trace = trace_over(point, crossing - middle, &orbits(&records), 0);
+        let [pass] = trace.passes.as_slice() else {
+            panic!("{crossing} s: {} passes", trace.passes.len());
+        };
+        close(
+            &format!("{crossing} s, highest moment"),
+            pass.peak_at,
+            middle,
+            window.step / 2.0,
+        );
+        assert_eq!(pass.heading, None, "{crossing} s, heading");
+    }
 }
 
 #[test]
