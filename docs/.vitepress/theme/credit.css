@@ -417,7 +417,7 @@
   .credit-ring {
     position : absolute;
     top      : 1px;
-    right    : 12px;
+    right    : var(--spacing-inset);
   }
 
   .credit :is(.credit-veil, .credit-plate, .credit-panel) {

@@ -94,7 +94,7 @@ vi.mock('maplibre-contour', () => ({
   }
 }))
 vi.mock('vitepress', () => ({ useData: () => ({ isDark: ref(false) }) }))
-vi.mock('../../../docs/.vitepress/lib/map/credit.ts', () => ({ Credit: class { hold = vi.fn() } }))
+vi.mock('../../../docs/.vitepress/lib/map/credit.ts', () => ({ Credit: class { follow = vi.fn() } }))
 vi.mock('../../../docs/.vitepress/lib/map/overlay.ts', async () => {
   const { View } = await import('../../../docs/.vitepress/lib/map/mercator.ts')
   return {
@@ -162,9 +162,9 @@ it('hands the overlay the kinds shown as they are switched', async () => {
   expect(drawn.state.kinds).toMatchObject({ crewed: false, earth: true })
 })
 
-it('holds the credit open over the map it makes', async () => {
+it('has the credit follow the lines of the map it makes', async () => {
   const { sky } = await mounted()
-  expect(sky.credit.hold).toHaveBeenCalledOnce()
+  expect(sky.credit.follow).toHaveBeenCalledOnce()
 })
 
 it('gives each pass its point in the numeral again once a scan lands while the sky is gathered', async () => {
@@ -216,6 +216,11 @@ it.each([
   if (chosen === 'hold') sky.held.value = pass
   await flushPromises()
   expect((wrapper.get('[aria-label="Zoom"]').element as HTMLElement).style.top).toBe(top)
+})
+
+it('holds the zoom buttons one inset from the map’s right edge', async () => {
+  const { wrapper } = await mounted()
+  expect(wrapper.get('[aria-label="Zoom"]').classes()).toContain('right-inset')
 })
 
 it.each([

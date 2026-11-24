@@ -11,6 +11,7 @@ import { stubCanvas } from '../common/stubs.ts'
 
 const BELOW   = { bottom: 900, left: 0, right: 400, top: 600 }
 const BOX     = '.credit-unveiled'
+const CREDIT  = readFileSync(join(import.meta.dirname, '../../../docs/.vitepress/theme/credit.css'), 'utf8')
 const FOOT    = { bottom: 576, left: 0, right: 400, top: 480 }
 const LIP     = { bottom: 900, left: 0, right: 400, top: 584 }
 const MAP     = { bottom: 600, left: 0, right: 400, top: 0 }
@@ -234,12 +235,12 @@ it.each([
 })
 
 it.each([
-  ['over the sheet’s lip from 640 px', 40, 40],
-  ['over the strip from 768 px', 48, 120],
-  ['at the map’s foot from 1024 px', 64, 24]
-])('sets the credit’s box 24 px %s', async (_, width, bottom) => {
+  ['over the sheet’s lip from 640 px', 40, 16],
+  ['over the strip from 768 px', 48, 96],
+  ['at the map’s foot from 1024 px', 64, 0]
+])('sets the credit’s box one inset %s', async (_, width, lift) => {
   const { wrapper } = await mounted(false, OVER, false, width)
-  expect(wrapper.get(BOX).attributes('style')).toBe(`bottom: ${bottom}px;`)
+  expect(wrapper.get(BOX).attributes('style')).toBe(`margin-bottom: ${lift}px;`)
 })
 
 it.each([
@@ -248,8 +249,7 @@ it.each([
 ])('%s the veil under the credit’s box at %i px', async (_, width, display) => {
   const { innerWidth } = window
   const sheet          = document.createElement('style')
-  const credit         = join(import.meta.dirname, '../../../docs/.vitepress/theme/credit.css')
-  sheet.textContent    = readFileSync(credit, 'utf8')
+  sheet.textContent    = CREDIT
   window.innerWidth    = width
   const { wrapper }    = await mounted()
   document.head.append(sheet)
@@ -268,8 +268,29 @@ it.each([
 ])('%s', async (_, phone, inert) => {
   const { sky, wrapper } = await mounted(false, BELOW, phone)
   const strip            = () => wrapper.get('.credit-covered').element.hasAttribute('inert')
+  sky.credit.toggle(true)
+  await flushPromises()
   const open             = strip()
   sky.credit.toggle(false)
   await flushPromises()
   expect([open, strip()]).toEqual(inert)
+})
+
+it('marks the page for the nav bar’s rule and holds its panels one inset in', async () => {
+  const { wrapper } = await mounted(false, OVER)
+  const padded      = ['main > div', '.md\\:order-first', '.credit-covered']
+    .map(selector => wrapper.get(selector).classes().filter(each => /(^|:)px-/.test(each)))
+  const boxed       = wrapper.get(BOX).classes().filter(each => each.endsWith('-inset'))
+  expect([wrapper.element.matches('[data-not-found]'), ...padded, boxed])
+    .toEqual([true, ['px-inset'], ['md:px-inset'], ['md:px-inset'], ['inset-x-inset', 'bottom-inset']])
+})
+
+it('sets the credit’s ring one inset from the window’s edge on a phone', () => {
+  const sheet = new CSSStyleSheet()
+  sheet.replaceSync(CREDIT)
+  const phone = Array.from(sheet.cssRules)
+    .find(rule => rule instanceof CSSMediaRule && rule.conditionText === '(width < 40rem)') as CSSMediaRule
+  const ring  = Array.from(phone.cssRules)
+    .find(rule => rule instanceof CSSStyleRule && rule.selectorText === '.credit-ring') as CSSStyleRule
+  expect(ring.style.getPropertyValue('right')).toBe('var(--spacing-inset)')
 })

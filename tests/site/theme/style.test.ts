@@ -59,4 +59,11 @@ describe('a link in a page', () => {
 describe('the nav bar', () => {
   it('keeps the section links in the bar at every width', () =>
     expect(styleOf('.VPNavBar .content-body .VPNavBarMenu', 'display')).toBe('flex'))
+  it.each([
+    { part: '.wrapper',   property: 'padding-inline', value: 'var(--spacing-inset)' },
+    { part: '.container', property: 'max-width',      value: 'none' }
+  ])('runs the bar to the inset the map’s controls keep on the map pages, setting $part $property', ({
+    part, property, value
+  }) => expect(styleOf(`:is(.VPNavBar.home, .Layout:has([data-not-found]) .VPNavBar) ${part}`, property))
+    .toBe(value))
 })

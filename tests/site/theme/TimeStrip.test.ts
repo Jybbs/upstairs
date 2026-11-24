@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { mount, type VueWrapper }         from '@vue/test-utils'
 import { expect, it, onTestFinished, vi } from 'vitest'
-import { ref }                            from 'vue'
+import { nextTick, ref }                  from 'vue'
 
 import { TRACK_WIDTH, type Pass } from '../../../docs/.vitepress/lib/orbit/scan.ts'
 import type { sky as Sky }        from '../../../docs/.vitepress/lib/state/sky.ts'
@@ -20,6 +20,12 @@ vi.mock('@vueuse/core', async original => ({
 }))
 vi.mock('../../../docs/.vitepress/theme/Credit.tsx', async () =>
   (await import('../common/stubs.ts')).stubOf('Credit'))
+
+/**
+ * How far JetBrains Mono's O and digits reach above and below the baseline, in
+ * ems, read from the font's glyph bounds of 741 and 10 units in 1,000.
+ */
+const CAPS = { above: 0.741, below: 0.01 } as const
 
 /**
  * Each locale beside each page width a reader might open the strip at, and the
@@ -406,6 +412,21 @@ it('ends the playhead’s line above the Now beneath the ground', async () => {
 })
 
 it.each([
+  ['on a wider page', false, 11],
+  ['on a phone', true, 12]
+] as const)('ends the Now tick 2 px above its label and the label 2 px above the hour labels, %s',
+  async (_, phone, em) => {
+    const { wrapper } = await mounted(false, phone)
+    const tick        = Number(wrapper.get('line.stroke-ink').attributes('y2'))
+    const now         = Number(wrapper.get('text.fill-ink').attributes('y'))
+    const hours       = wrapper.findAll('text.fill-soft').map(label => Number(label.attributes('y')))
+    expect({
+      hours : now + CAPS.below * em + 2 <= Math.min(...hours) - CAPS.above * em,
+      tick  : tick + 2 <= now - CAPS.above * em
+    }).toEqual({ hours: true, tick: true })
+  })
+
+it.each([
   ['sets the credit at the strip’s end on a wider page', false, true],
   ['leaves the credit to the sheet on a phone', true, false]
 ] as const)('%s', async (_, phone, shown) => {
@@ -417,15 +438,19 @@ it('grays the strip while the credit stands open and closes it on a press of the
   const { sky, wrapper } = await mounted(false)
   const strip            = wrapper.get('[aria-label="Time within the window"]')
   const grayed           = () => [sky.credit.open.value, strip.classes().includes('grayscale')]
-  expect(grayed()).toEqual([true, true])
+  const loaded           = grayed()
+  sky.credit.toggle(true)
+  await nextTick()
+  const opened           = grayed()
   await wrapper.get('button').trigger('pointerdown')
-  expect(grayed()).toEqual([false, false])
+  expect([loaded, opened, grayed()]).toEqual([[false, false], [true, true], [false, false]])
 })
 
 it.each(['credit-panel', 'credit-ring'])('keeps the credit open on a press of its %s', async name => {
   const { sky, wrapper } = await mounted(false)
   const part             = document.createElement('div')
   part.className         = name
+  sky.credit.toggle(true)
   wrapper.get('section').element.append(part)
   part.dispatchEvent(new Event('pointerdown', { bubbles: true }))
   expect(sky.credit.open.value).toBe(true)

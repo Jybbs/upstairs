@@ -382,8 +382,8 @@ export default defineComponent(
                   </g>
                 ))}
                 <g class="pointer-events-none" transform={`translate(${xOf(sky.now.value)} 0)`}>
-                  <line y1={STRIP.ground + 3} y2={STRIP.ground + 12} class="stroke-ink" stroke-width="1.5" />
-                  <text y={STRIP.height - 20} text-anchor="middle" class="caps fill-ink">Now</text>
+                  <line y1={STRIP.ground + 3} y2={STRIP.ground + 7} class="stroke-ink" stroke-width="1.5" />
+                  <text y={STRIP.height - 18} text-anchor="middle" class="caps fill-ink">Now</text>
                 </g>
                 <g ref={cursor} class="pointer-events-none">
                   <line y1={4} y2={STRIP.ground + 3} class="stroke-u" stroke-width="1.5" />
