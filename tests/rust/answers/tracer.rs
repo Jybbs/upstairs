@@ -3,7 +3,7 @@
 use orbit::{Moment, Point, Traced, Tracer};
 
 use crate::{
-    ANGLE, ANSWERS, DISTANCE, Pass, RECORDS, SKIES, TRACE, close, id, orbits, propagator, start,
+    ANGLE, ANSWERS, DISTANCE, Pass, RECORDS, SKIES, TRACES, close, id, orbits, propagator, start,
     turned,
 };
 
@@ -12,11 +12,11 @@ fn looks_at_each_satellite_as_its_traced_passes_do() {
     let window = &ANSWERS.track;
     let orbits = orbits(&RECORDS);
     let tracer = window.tracer(&ANSWERS.spot);
-    for (index, pass) in TRACE.passes.iter().enumerate() {
+    for (index, pass) in TRACES[0].passes.iter().enumerate() {
         let looks = tracer.looks(&orbits, pass.row);
         let rise = (pass.rise_at / window.step) as usize;
         let set = (pass.set_at / window.step) as usize;
-        let tracked = TRACE.offsets[index] as usize + rise * window.width + 2;
+        let tracked = TRACES[0].offsets[index] as usize + rise * window.width + 2;
         let what = |field: &str| format!("{}, {field}", id(pass.row));
         assert_eq!(
             looks.elevations.len(),
@@ -34,7 +34,7 @@ fn looks_at_each_satellite_as_its_traced_passes_do() {
         close(
             &what("elevation"),
             looks.elevations[rise],
-            f64::from(TRACE.track[tracked]),
+            f64::from(TRACES[0].track[tracked]),
             ANGLE,
         );
     }
@@ -43,8 +43,7 @@ fn looks_at_each_satellite_as_its_traced_passes_do() {
 #[test]
 fn traces_the_highest_pass_of_each_satellite_where_the_answers_do() {
     let window = &ANSWERS.track;
-    for sky in &*SKIES {
-        let trace = sky.trace();
+    for (sky, trace) in SKIES.iter().zip(&*TRACES) {
         let mut traced: Vec<u64> = trace.passes.iter().map(|pass| id(pass.row)).collect();
         traced.dedup();
         let expected: Vec<&Pass> = sky.passes.iter().flatten().collect();
@@ -116,7 +115,7 @@ fn traces_the_highest_pass_of_each_satellite_where_the_answers_do() {
 #[test]
 fn keeps_one_track_per_satellite_however_many_passes_it_makes() {
     let window = &ANSWERS.track;
-    let trace = &*TRACE;
+    let trace = &TRACES[0];
     let mut offsets = trace.offsets.clone();
     offsets.dedup();
     let width = window.samples() * window.width;
@@ -136,7 +135,7 @@ fn keeps_one_track_per_satellite_however_many_passes_it_makes() {
 #[test]
 fn gives_each_rising_of_a_satellite_a_pass_of_its_own() {
     let window = &ANSWERS.track;
-    let trace = &*TRACE;
+    let trace = &TRACES[0];
     let elevation =
         |offset: u32, sample: usize| trace.track[offset as usize + sample * window.width + 2];
     let mut twice = 0;
@@ -183,9 +182,9 @@ fn gives_each_rising_of_a_satellite_a_pass_of_its_own() {
 fn finds_each_highest_point_within_a_hundredth_of_a_degree() {
     let window = &ANSWERS.track;
     let end = window.minutes * 60.0;
-    for sky in &*SKIES {
+    for (sky, trace) in SKIES.iter().zip(&*TRACES) {
         let site = sky.spot.site();
-        for pass in &sky.trace().passes {
+        for pass in &trace.passes {
             let propagator = propagator(&RECORDS[pass.row as usize]).unwrap();
             let elevation = |seconds: f64| {
                 let time = start() + seconds * 1000.0;
@@ -245,9 +244,9 @@ fn finds_a_zenith_between_samples_within_a_hundredth_of_a_degree() {
 
 #[test]
 fn reads_each_height_and_range_at_the_highest_point() {
-    for sky in &*SKIES {
+    for (sky, trace) in SKIES.iter().zip(&*TRACES) {
         let site = sky.spot.site();
-        for pass in &sky.trace().passes {
+        for pass in &trace.passes {
             let what = |field: &str| format!("{} from {:?}, {field}", id(pass.row), sky.spot);
             let time = start() + pass.peak_at * 1000.0;
             let propagator = propagator(&RECORDS[pass.row as usize]).unwrap();

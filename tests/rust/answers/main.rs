@@ -15,7 +15,7 @@ mod tracer;
 use std::iter;
 use std::sync::LazyLock;
 
-use orbit::{ELEMENTS, Grid, Orbits, Propagator, Site, Trace, Tracer};
+use orbit::{ELEMENTS, Grid, Orbits, Propagator, Sighting, Site, Trace, Tracer};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
@@ -102,14 +102,6 @@ struct Sky {
     spot: Spot,
 }
 
-impl Sky {
-    fn trace(&self) -> Trace {
-        let orbits = orbits(&RECORDS);
-        let rows: Vec<u32> = (0..orbits.size() as u32).collect();
-        ANSWERS.track.tracer(&self.spot).trace(&orbits, &rows)
-    }
-}
-
 #[derive(Debug, Deserialize)]
 struct Spot {
     latitude: f64,
@@ -117,6 +109,10 @@ struct Spot {
 }
 
 impl Spot {
+    fn sight(&self, grid: &Grid) -> Sighting {
+        grid.sight(self.latitude, self.longitude)
+    }
+
     fn site(&self) -> Site {
         Site::new(self.latitude, self.longitude)
     }
@@ -124,11 +120,7 @@ impl Spot {
 
 #[derive(Deserialize)]
 struct Window {
-    #[serde(default)]
-    counts: Vec<u16>,
     minutes: f64,
-    #[serde(default)]
-    risen: Vec<u64>,
     step: f64,
     #[serde(default)]
     width: usize,
@@ -158,12 +150,18 @@ impl Window {
 
 static ANSWERS: LazyLock<Answers> = LazyLock::new(|| read("answers.json"));
 static RECORDS: LazyLock<Vec<Map<String, Value>>> = LazyLock::new(|| read("records.json"));
-/// The sky above each spot of the answers, the first one `ANSWERS.spot`.
+/// The sky above each spot of the answers, the first standing at `ANSWERS.spot`.
 static SKIES: LazyLock<Vec<Sky>> = LazyLock::new(|| {
     let Skies { elsewhere, home } = read("answers.json");
     iter::once(home).chain(elsewhere).collect()
 });
-static TRACE: LazyLock<Trace> = LazyLock::new(|| SKIES[0].trace());
+/// Every record traced over each spot of `SKIES`, in its order.
+static TRACES: LazyLock<Vec<Trace>> = LazyLock::new(|| {
+    let orbits = orbits(&RECORDS);
+    let rows: Vec<u32> = (0..orbits.size() as u32).collect();
+    let trace = |sky: &Sky| ANSWERS.track.tracer(&sky.spot).trace(&orbits, &rows);
+    SKIES.iter().map(trace).collect()
+});
 
 const ANGLE: f64 = 1e-3;
 const DISTANCE: f64 = 1e-2;

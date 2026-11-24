@@ -25,8 +25,9 @@ describe('the coordinates of a spot', () => {
     ['north and east', { latitude: 89.91, longitude: 30 }, '89.91° N, 30.00° E'],
     ['north and west', { latitude: 42.36, longitude: -71.06 }, '42.36° N, 71.06° W'],
     ['south and east', { latitude: -33.87, longitude: 151.21 }, '33.87° S, 151.21° E'],
-    ['south and west', { latitude: -16.82, longitude: -179.95 }, '16.82° S, 179.95° W']
-  ])('name the %s hemispheres', (_, spot, coordinates) =>
+    ['south and west', { latitude: -16.82, longitude: -179.95 }, '16.82° S, 179.95° W'],
+    ['north and east on the equator at the prime meridian', { latitude: 0, longitude: 0 }, '0.00° N, 0.00° E']
+  ])('names a spot %s', (_, spot, coordinates) =>
     expect(compass.coordinatesOf(spot)).toBe(coordinates))
 })
 
