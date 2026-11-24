@@ -404,9 +404,14 @@ it.each(PAGES)('centers each %s hour label on its tick, %i px page', async (loca
   }).toEqual({ centered: true, inside: true })
 })
 
-it('draws the strip 110 px tall at a root size of 16 px', async () => {
+it('draws the strip as before at a root size of 16 px, 110 px tall, the Now at 92 and the hour '
+  + 'labels at 105', async () => {
   const { wrapper } = await mounted(false)
-  expect(wrapper.get('svg.cursor-ew-resize').attributes('height')).toBe('110')
+  expect([
+    wrapper.get('svg.cursor-ew-resize').attributes('height'),
+    wrapper.get('text.fill-ink').attributes('y'),
+    ...new Set(wrapper.findAll('text.fill-soft').map(label => label.attributes('y')))
+  ]).toEqual(['110', '92', '105'])
 })
 
 it('ends the playhead’s line above the Now beneath the ground', async () => {
@@ -423,8 +428,8 @@ it.each([
   ['on a phone', 20, true, 12],
   ['on a wider page', 24, false, 11],
   ['on a phone', 24, true, 12]
-] as const)('ends the Now tick 2 px above its label and the label 2 px above the hour labels, %s at a root '
-  + 'size of %i px',
+] as const)('ends the Now tick 2 px above its label and the label 2 px above the hour labels inside the '
+  + 'strip, %s at a root size of %i px',
   async (_, root, phone, base) => {
     document.documentElement.style.fontSize = `${root}px`
     onTestFinished(() => { document.documentElement.style.fontSize = '' })
@@ -433,10 +438,12 @@ it.each([
     const tick        = Number(wrapper.get('line.stroke-ink').attributes('y2'))
     const now         = Number(wrapper.get('text.fill-ink').attributes('y'))
     const hours       = wrapper.findAll('text.fill-soft').map(label => Number(label.attributes('y')))
+    const height      = Number(wrapper.get('svg.cursor-ew-resize').attributes('height'))
     expect({
-      hours : now + CAPS.below * em + 2 <= Math.min(...hours) - CAPS.above * em,
-      tick  : tick + 2 <= now - CAPS.above * em
-    }).toEqual({ hours: true, tick: true })
+      hours  : now + CAPS.below * em + 2 <= Math.min(...hours) - CAPS.above * em,
+      inside : Math.max(...hours) + CAPS.below * em <= height,
+      tick   : tick + 2 <= now - CAPS.above * em
+    }).toEqual({ hours: true, inside: true, tick: true })
   })
 
 it.each([

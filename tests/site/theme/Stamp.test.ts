@@ -48,7 +48,7 @@ it.each([
   ['in whole hours from an hour on', HOUR, '1 hour ago'],
   ['in whole hours to the end of the first day', DAY - 1000, '23 hours ago'],
   ['in whole days from a day on', DAY, '1 day ago'],
-  ['in whole days past it', 50 * HOUR, '2 days ago']
+  ['in whole days past it', 71 * HOUR, '2 days ago']
 ])('says how long ago the orbits were fetched %s', async (_, since, ago) => {
   const { footer } = await mounted(16_904, since)
   expect(footer.findAll('dd')[1].text()).toMatch(new RegExp(`, ${ago}$`))

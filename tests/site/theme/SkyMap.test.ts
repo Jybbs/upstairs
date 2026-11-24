@@ -218,6 +218,13 @@ it('holds the zoom buttons one inset from the map’s right edge', async () => {
   expect(wrapper.find('.right-inset [aria-label="Zoom"]').exists()).toBe(true)
 })
 
+it('sets the zoom buttons side by side where the map above the sheet stands under 6rem tall', async () => {
+  const { wrapper } = await mounted()
+  const group       = wrapper.get('[aria-label="Zoom"]')
+  expect([group.element.parentElement!.classList.contains('@container-size'), group.classes()])
+    .toEqual([true, expect.arrayContaining(['[@container(height<6rem)]:flex-row'])])
+})
+
 it.each([
   ['answers the pointer and holds its zoom buttons, spot, names, and sky as the home map', {},
     [true, true, true, true, 'crosshair', 1, 1]],
