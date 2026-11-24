@@ -32,6 +32,7 @@ export const READS: Record<string, string[]> = {
   'tests/site/theme/style.test.ts'              : ['docs/.vitepress/theme/style.css'],
   'tests/site/tools/audit.test.ts'              : ['.mise/tasks/lock/audit'],
   'tests/site/tools/bump.test.ts'               : ['.mise/tasks/repo/bump'],
+  'tests/site/tools/install.test.ts'            : ['.mise/tasks/site/install'],
   'tests/site/tools/lockfile.test.ts'           : ['docs/.vitepress/tools/lockfile.ts'],
   'tests/site/tools/logbook.test.ts'            : ['.github/scripts/summaries/deploy.md'],
   'tests/site/tools/prune.test.ts'              : ['.mise/tasks/gha/prune'],
