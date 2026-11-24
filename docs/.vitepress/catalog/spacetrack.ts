@@ -69,7 +69,7 @@ export class Unchecked extends Failure {
 /**
  * Cancels the body of an answer nothing reads, whether or not it still arrives.
  */
-const dropped = async (answer: Response) => { await answer.body?.cancel().catch(() => {}) }
+const discard = async (answer: Response) => { await answer.body?.cancel().catch(() => {}) }
 
 /**
  * Reads the JSON of an answer, or `undefined` where its body is not JSON,
@@ -77,7 +77,7 @@ const dropped = async (answer: Response) => { await answer.body?.cancel().catch(
  */
 const jsonOf = (answer: Response): Promise<unknown> => answer.json().catch((cause: unknown) => {
   if (!(cause instanceof SyntaxError))
-    throw new Unavailable('The answer of Space-Track stopped arriving', { cause })
+    throw new Unavailable('Space-Track’s answer stopped arriving', { cause })
 })
 
 /**
@@ -128,8 +128,8 @@ export class SpaceTrack {
    * Logs in with `login`, queries `QUERY` inside the session, and logs out,
    * returning the records of the answer and passing the error of a logout that
    * fails to `unclosed`. A rejected login fails with `Rejected`, a login or a
-   * query that fails or whose body stops arriving with `Unavailable`, and an
-   * answer that is not a catalog with `Unchecked`.
+   * query that fails with `Unavailable`, as does one whose body stops arriving,
+   * and an answer that is not a catalog with `Unchecked`.
    */
   async elements(login: Login, unclosed: (error: Error) => void) {
     const records = await this.session(login, async cookie =>
@@ -148,7 +148,7 @@ export class SpaceTrack {
     const answer = await fetcher(`${ORIGIN}/${path}`, { ...init, signal: AbortSignal.timeout(wait) })
       .catch((cause: unknown) => { throw new Unavailable('Space-Track could not be reached', { cause }) })
     if (answer.status === 200) return answer
-    await dropped(answer)
+    await discard(answer)
     throw new Unavailable(`Space-Track answered ${answer.status}`)
   }
 
@@ -173,7 +173,7 @@ export class SpaceTrack {
     try {
       return await use(cookie)
     } finally {
-      await this.send('ajaxauth/logout', { headers: { cookie } }).then(dropped, unclosed)
+      await this.send('ajaxauth/logout', { headers: { cookie } }).then(discard, unclosed)
     }
   }
 }

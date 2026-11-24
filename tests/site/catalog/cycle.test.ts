@@ -6,6 +6,7 @@ import * as spacetrack         from '../../../docs/.vitepress/catalog/spacetrack
 import * as catalog            from '../../../docs/.vitepress/lib/orbit/catalog.ts'
 import { QUERIED, contentsOf } from '../common/catalog.ts'
 import * as answers            from '../common/celestrak.ts'
+import { LOST, stopping }      from '../common/fetchers.ts'
 import * as replies            from '../common/spacetrack.ts'
 
 type Answer = (region: cycles.Region, source: string, init?: RequestInit) => Response | Promise<Response>
@@ -52,7 +53,7 @@ const MISSES    = [
   ['Cloudflare answers 521', refused(521), '521'],
   ['Cloudflare answers 522', refused(522), '522'],
   ['Cloudflare answers 523', refused(523), '523'],
-  ['the request throws', () => { throw new TypeError('Network connection lost') }, 'Network connection lost']
+  ['the request throws', () => { throw LOST }, LOST.message]
 ] as const
 
 /**
@@ -271,7 +272,7 @@ describe('a download cycle', () => {
   })
 
   it('stores the elements a query returned where the logout fails, logging the logout', async () => {
-    const elements = answeredBy(replies.ACCEPTED, () => Response.json(QUERIED), refused(500))
+    const elements = answeredBy(replies.ACCEPTED, replies.json(QUERIED), refused(500))
     const { cycle, stored } = cycleOf(good, { elements })
     expect(await cycle.run(start)).toEqual({ elements: 'stored', satcat: 'downloaded' })
     expect(await countOf(stored.get(catalog.FILE))).toBe(QUERIED.length)
@@ -292,7 +293,7 @@ describe('a download cycle', () => {
   })
 
   it('logs a body that stops arriving as Space-Track being unavailable', async () => {
-    const stopped   = replies.stopping('[{"OBJECT', new TypeError('Network connection lost'))
+    const stopped   = stopping('[{"OBJECT', LOST)
     const { cycle } = cycleOf(good, { elements: answeredBy(replies.ACCEPTED, stopped, replies.LOGGED) })
     expect(await cycle.run(start)).toMatchObject({ elements: 'failed' })
     expect(logged()).toEqual([expect.objectContaining({ event: 'catalog.failed', kind: 'unavailable' })])
@@ -305,12 +306,12 @@ describe('a download cycle', () => {
     ['the query is answered with a page naming it', [replies.ACCEPTED, () => new Response(NAMED),
       replies.LOGGED]],
     ['the query is answered with an object naming it', [replies.ACCEPTED,
-      () => Response.json({ error: NAMED }), replies.LOGGED]],
-    ['the query is answered with a list naming it', [replies.ACCEPTED, () => Response.json([NAMED]),
+      replies.json({ error: NAMED }), replies.LOGGED]],
+    ['the query is answered with a list naming it', [replies.ACCEPTED, replies.json([NAMED]),
       replies.LOGGED]],
     ['the query stops arriving on an error naming it', [replies.ACCEPTED,
-      replies.stopping(NAMED, new TypeError(NAMED)), replies.LOGGED]],
-    ['the logout fails on an error naming it', [replies.ACCEPTED, () => Response.json(QUERIED),
+      stopping(NAMED, new TypeError(NAMED)), replies.LOGGED]],
+    ['the logout fails on an error naming it', [replies.ACCEPTED, replies.json(QUERIED),
       () => { throw new TypeError(NAMED) }]]
   ])('keeps the account and the password of the login out of every record where %s', async (_, given) => {
     const { cycle } = cycleOf(good, { elements: answeredBy(...given) })
@@ -371,10 +372,7 @@ describe('a download cycle', () => {
     })
 
   it('waits on a refusal whose body fails while it is read, asking CelesTrak once', async () => {
-    const body = () => new ReadableStream({
-      pull: controller => controller.error(new TypeError('Network connection lost'))
-    })
-    const { cycle, state, fetcher } = cycleOf(() => new Response(body(), { status: 403 }))
+    const { cycle, state, fetcher } = cycleOf(stopping('', LOST, { status: 403 }))
     await cycle.run(start)
     expect(await cycle.run(start + EVERY - MINUTE - 1)).toBe('early')
     expect(fetcher).toHaveBeenCalledOnce()
@@ -456,8 +454,8 @@ describe('a download cycle', () => {
     expect(spaceTrack.elements).toHaveBeenCalledTimes(3)
   })
 
-  it('reads a listing back at the time of the SATCAT kept as current past a newer file that failed its '
-   + 'check', async () => {
+  it('answers current once the directory lists the time of the SATCAT kept again after a newer file '
+   + 'failed its check', async () => {
     let answer = good
     const { cycle } = cycleOf((...args) => answer(...args))
     await cycle.run(start)
@@ -468,7 +466,7 @@ describe('a download cycle', () => {
   })
 
   it('downloads a SATCAT file whose body stopped arriving again on the next run', async () => {
-    const stopped  = replies.stopping('OBJECT_NAME\r\n', new TypeError('Network connection lost'))
+    const stopped  = stopping('OBJECT_NAME\r\n', LOST)
     let answer: Answer = (region, source) => source === SATCAT ? stopped() : good(region, source)
     const { asked, cycle, fetcher } = cycleOf((...args) => answer(...args))
     expect(await cycle.run(start)).toMatchObject({ satcat: 'waiting' })

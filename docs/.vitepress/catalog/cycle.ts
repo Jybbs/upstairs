@@ -2,7 +2,7 @@
  * Runs the download cycle once an hour, keeping CelesTrak's SATCAT current and
  * storing in Workers KV the elements Space-Track serves for each payload the
  * SATCAT marks active. The SATCAT is downloaded only where its directory lists
- * a file newer than the one kept and than the last one to fail its check, each
+ * a file newer than both the one kept and the last one to fail its check, each
  * request sent from each region in turn until one reaches CelesTrak with an
  * answer other than a 403 naming a download the cycle did not make. A refusal,
  * a 403 for data that has not updated, an answer that fails its check, no
@@ -46,7 +46,7 @@ export type Region = typeof REGIONS[number]
  * The fault of the last SATCAT file that arrived whole and failed its check,
  * beside the time the directory listed for that file.
  */
-type Unchecked = { fault: Fault, time: number }
+type Unchecked = { fault: celestrak.Failure & { region: Region }, time: number }
 
 /**
  * The record of a wait, naming the kind of failure, the reason, and the region
@@ -209,7 +209,7 @@ export class Cycle {
     const regions: Misses = {}
     let checked: number | undefined
     let listed: number | undefined
-    let shared: celestrak.Failure & { region: Region } | undefined
+    let shared: Unchecked['fault'] | undefined
     for (const region of REGIONS.toSorted((a, b) => Number(b === reached) - Number(a === reached))) {
       let sent = Date.now()
       try {
@@ -297,9 +297,8 @@ export class Cycle {
     if (satcat === undefined) return failed('unsorted', 'No SATCAT is kept yet')
     if (identity === undefined || password === undefined)
       return failed('unset', 'No Space-Track login is set as the service’s secrets')
-    const records = await this.spaceTrack.elements({ identity, password }, ({ message: reason }) => {
-      console.error({ event: 'catalog.unclosed', reason, time: isoOf(time) })
-    }).catch((error: unknown) => {
+    const records = await this.spaceTrack.elements({ identity, password }, ({ message: reason }) =>
+      console.error({ event: 'catalog.unclosed', reason, time: isoOf(time) })).catch((error: unknown) => {
       if (error instanceof spacetrack.Failure) return error
       throw error
     })

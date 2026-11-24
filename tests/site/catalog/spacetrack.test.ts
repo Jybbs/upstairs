@@ -1,18 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import * as spacetrack  from '../../../docs/.vitepress/catalog/spacetrack.ts'
-import { AGES, FIELDS } from '../../../docs/.vitepress/lib/orbit/catalog.ts'
-import { QUERIED }      from '../common/catalog.ts'
-import * as answers     from '../common/spacetrack.ts'
+import * as spacetrack    from '../../../docs/.vitepress/catalog/spacetrack.ts'
+import { AGES, FIELDS }   from '../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { QUERIED }        from '../common/catalog.ts'
+import { LOST, stopping } from '../common/fetchers.ts'
+import * as answers       from '../common/spacetrack.ts'
 
-const LOGIN   = { identity: 'observer', password: 'orbit 2026&more' }
-const LOST    = new TypeError('Network connection lost')
+const LOGIN = { identity: 'observer', password: 'orbit 2026&more' }
 /**
  * The records as Space-Track's JSON writes them, every value as text.
  */
 const textual = QUERIED.map(record => Object.fromEntries(Object.entries(record).map(([key, value]) =>
   [key, String(value)])))
-const answer = (body: unknown) => () => Response.json(body)
 
 /**
  * The ways a logout fails.
@@ -20,7 +19,7 @@ const answer = (body: unknown) => () => Response.json(body)
 const UNCLOSED = [
   ['answered with a server error', () => new Response('', { status: 500 }), 'Space-Track answered 500'],
   ['answered with a server error whose body stops arriving',
-    answers.stopping('', LOST, { status: 500 }), 'Space-Track answered 500'],
+    stopping('', LOST, { status: 500 }), 'Space-Track answered 500'],
   ['left unanswered', () => { throw LOST }, 'Space-Track could not be reached']
 ] as const
 
@@ -29,11 +28,11 @@ const UNCLOSED = [
  * the error the query fails with beside each error it reports for the logout.
  */
 const queried = async (...replies: (() => Response)[]) => {
-  const unclosed = vi.fn()
+  const unclosed = vi.fn<(error: Error) => void>()
   const fetcher  = answers.answering(...replies)
   const result   = await new spacetrack.SpaceTrack(fetcher).elements(LOGIN, unclosed)
     .catch((error: Error) => error)
-  return { fetcher, result, unclosed: unclosed.mock.calls.map(([error]) => error as Error) }
+  return { fetcher, result, unclosed: unclosed.mock.calls.map(([error]) => error) }
 }
 
 describe('the stand-in for fetch', () => {
@@ -76,9 +75,9 @@ describe('a login', () => {
     ['a server error', [() => new Response('', { status: 503 })], 'Space-Track answered 503'],
     ['a body naming no verdict', [() => new Response('<html>')],
       'Space-Track answered the login with neither an acceptance nor a rejection'],
-    ['a body that stops arriving', [answers.stopping('"', LOST)],
-      'The answer of Space-Track stopped arriving'],
-    ['a server error whose body stops arriving', [answers.stopping('', LOST, { status: 503 })],
+    ['a body that stops arriving', [stopping('"', LOST)],
+      'Space-Track’s answer stopped arriving'],
+    ['a server error whose body stops arriving', [stopping('', LOST, { status: 503 })],
       'Space-Track answered 503'],
     ['a logout answered with a server error', [answers.ACCEPTED, () => new Response('', { status: 500 })],
       'Space-Track answered 500']
@@ -102,7 +101,7 @@ describe('a query', () => {
   })
 
   it('logs in, queries inside the session with its cookies, and logs out, reading each number', async () => {
-    const fetcher = answers.answering(answers.ACCEPTED, answer(textual), answers.LOGGED)
+    const fetcher = answers.answering(answers.ACCEPTED, answers.json(textual), answers.LOGGED)
     expect(await new spacetrack.SpaceTrack(fetcher).elements(LOGIN, vi.fn()))
       .toEqual(QUERIED.map(record => Object.fromEntries(FIELDS.map(field => [field, record[field]]))))
     const cookie = 'chocolatechip=abc; spacetrack_csrf_cookie=def'
@@ -121,20 +120,20 @@ describe('a query', () => {
 
   it.each(UNCLOSED)('returns the records the query answered with past a logout %s, reporting it',
     async (_, logout, reason) => {
-      const { result, unclosed } = await queried(answers.ACCEPTED, answer(textual), logout)
+      const { result, unclosed } = await queried(answers.ACCEPTED, answers.json(textual), logout)
       expect(result).toHaveLength(QUERIED.length)
       expect(unclosed).toEqual([new spacetrack.Unavailable(reason)])
     })
 
   it.each(UNCLOSED)('fails as the query did past a logout %s, reporting the logout beside it',
     async (_, logout, reason) => {
-      const { result, unclosed } = await queried(answers.ACCEPTED, answer([]), logout)
+      const { result, unclosed } = await queried(answers.ACCEPTED, answers.json([]), logout)
       expect(result).toBeInstanceOf(spacetrack.Unchecked)
       expect(unclosed).toEqual([new spacetrack.Unavailable(reason)])
     })
 
   it('reports nothing for a logout whose body stops arriving after a 200', async () => {
-    const { result, unclosed } = await queried(answers.ACCEPTED, answer(textual), answers.stopping('', LOST))
+    const { result, unclosed } = await queried(answers.ACCEPTED, answers.json(textual), stopping('', LOST))
     expect(result).toHaveLength(QUERIED.length)
     expect(unclosed).toEqual([])
   })
@@ -144,18 +143,19 @@ describe('a query', () => {
     ['within the wait', new DOMException('The operation timed out', 'TimeoutError')]
   ])('fails as unavailable on a body that stops arriving %s, logging out', async (_, error) => {
     const body = JSON.stringify(textual).slice(0, -100)
-    const { fetcher, result } = await queried(answers.ACCEPTED, answers.stopping(body, error), answers.LOGGED)
-    expect(result).toEqual(new spacetrack.Unavailable('The answer of Space-Track stopped arriving'))
+    const { fetcher, result } = await queried(answers.ACCEPTED, stopping(body, error), answers.LOGGED)
+    expect(result).toEqual(new spacetrack.Unavailable('Space-Track’s answer stopped arriving'))
     expect(fetcher).toHaveBeenCalledTimes(3)
   })
 
   it.each([
     ['a server error', () => new Response('', { status: 500 }), spacetrack.Unavailable],
     ['a body that is not JSON', () => new Response('<html>'), spacetrack.Unchecked],
-    ['a list shorter than a catalog', answer(textual.slice(0, 10)), spacetrack.Unchecked],
-    ['an object', answer({ error: 'busy' }), spacetrack.Unchecked],
-    ['a record missing a field', answer([...textual.slice(1), { OBJECT_NAME: 'X' }]), spacetrack.Unchecked],
-    ['a number that reads as none', answer([...textual.slice(1), { ...textual[0], BSTAR: 'n/a' }]),
+    ['a list shorter than a catalog', answers.json(textual.slice(0, 10)), spacetrack.Unchecked],
+    ['an object', answers.json({ error: 'busy' }), spacetrack.Unchecked],
+    ['a record missing a field', answers.json([...textual.slice(1), { OBJECT_NAME: 'X' }]),
+      spacetrack.Unchecked],
+    ['a number that reads as none', answers.json([...textual.slice(1), { ...textual[0], BSTAR: 'n/a' }]),
       spacetrack.Unchecked]
   ])('fails on %s, logging out of the session', async (_, reply, kind) => {
     const { fetcher, result } = await queried(answers.ACCEPTED, reply, answers.LOGGED)
