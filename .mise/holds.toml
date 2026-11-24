@@ -1,2 +1,4 @@
-fontkit = "site:check fails in site:test, where start.test.ts finds the glyph paths fontkit 3 draws for the Method card differ from the committed card in both schemes"
+fontkit = "site:check fails in site:test, where start.test.ts finds the glyph paths fontkit 3 draws for the Method and Data cards differ from the committed cards in both schemes"
 typescript = "site:check fails in site:typecheck, where vue-tsc cannot resolve typescript/lib/tsc, a path the exports map of typescript 7 no longer exposes"
+vitest = "site:check fails in site:test, where vitest 5.1.1 times out terminating its forks workers"
+"@vitest/coverage-istanbul" = "moves with vitest, which site:check fails at 5.1.1"
