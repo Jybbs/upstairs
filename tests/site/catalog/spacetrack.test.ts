@@ -155,6 +155,7 @@ describe('a query', () => {
       new spacetrack.Unavailable('Space-Track answered 500')],
     ['a body that is not JSON', () => new Response('<html>'),
       new spacetrack.Unchecked(expected('a body that is not JSON'))],
+    ['an empty JSON string', answers.json(''), new spacetrack.Unchecked(expected('string'))],
     ['an empty list', answers.json([]), new spacetrack.Unchecked(expected('0 of 0'))],
     ['a list shorter than a catalog', answers.json(textual.slice(0, 10)),
       new spacetrack.Unchecked(expected('10 of 10'))],
