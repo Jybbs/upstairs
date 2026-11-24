@@ -34,7 +34,7 @@ fn leaves_out(field: &str, value: Value) {
     let risen = grid
         .sight(ANSWERS.spot.latitude, ANSWERS.spot.longitude)
         .risen;
-    let trace = ANSWERS.track.tracer().trace(&orbits, &[1]);
+    let trace = ANSWERS.track.tracer(&ANSWERS.spot).trace(&orbits, &[1]);
     let others: Vec<u64> = window
         .risen
         .iter()

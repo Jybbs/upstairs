@@ -163,10 +163,11 @@ describe('loading the catalog', () => {
 describe('a scan', () => {
   beforeEach(() => loaded())
 
-  it('counts the sky over the spot as the known answers do, then traces each pass and finishes', async () => {
-    await hear(scanOf(1))
+  it.each([answers, ...answers.elsewhere])('counts the sky over $spot as the known answers do, then traces '
+                                         + 'each pass and finishes', async ({ grid, spot }) => {
+    await hear(scanOf(1, spot))
     const [counts] = answersOf('counts')
-    expect(Array.from(counts.counts)).toEqual(answers.grid.counts)
+    expect(Array.from(counts.counts)).toEqual(grid.counts)
     const types = typesOf(1)
     expect(types).toEqual(['counts', ...types.slice(1, -1).map(() => 'passes'), 'done'])
   })

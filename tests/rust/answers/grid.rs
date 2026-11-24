@@ -1,18 +1,18 @@
-//! Holds the grid's count of the satellites above the spot to the answers.
+//! Holds the grid's count of the satellites above each spot to the answers.
 
 use orbit::Grid;
 
-use crate::{ANSWERS, RECORDS, append, id, orbits, start};
+use crate::{ANSWERS, RECORDS, SKIES, append, id, orbits, start};
 
 #[test]
-fn counts_the_satellites_above_the_spot() {
-    let orbits = orbits(&RECORDS);
-    let window = &ANSWERS.grid;
-    let grid = window.grid(&orbits);
-    let sighting = grid.sight(ANSWERS.spot.latitude, ANSWERS.spot.longitude);
-    let risen: Vec<u64> = sighting.risen.into_iter().map(id).collect();
-    assert_eq!(sighting.counts, window.counts);
-    assert_eq!(risen, window.risen);
+fn counts_the_satellites_above_each_spot() {
+    let grid = ANSWERS.grid.grid(&orbits(&RECORDS));
+    for sky in &*SKIES {
+        let sighting = grid.sight(sky.spot.latitude, sky.spot.longitude);
+        let risen: Vec<u64> = sighting.risen.into_iter().map(id).collect();
+        assert_eq!(sighting.counts, sky.grid.counts, "{:?}", sky.spot);
+        assert_eq!(risen, sky.grid.risen, "{:?}", sky.spot);
+    }
 }
 
 #[test]
