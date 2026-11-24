@@ -20,7 +20,7 @@ interface Job {
   strategy? : { matrix?: { include?: Row[] } }
 }
 
-interface MiseTask {
+export interface MiseTask {
   aliases : string[]
   name    : string
 }
@@ -76,6 +76,8 @@ export const FILES = {
   sweep    : '.mise/tasks/repo/ci.toml',
   warm     : '.github/workflows/warm.yml'
 }
+const ALIAS         = /^ {4}alias (.+)$/gm
+const COMMAND       = /^cmd ([\w-]+)/
 const DRAFT_GROUP   = '${{ github.event.pull_request.draft }}'
 const EXACT         = /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/
 const EXPRESSION    = /^\$\{\{ (.*) \}\}$/s
@@ -85,6 +87,7 @@ const LABEL_GAP     = 15
 const LABEL_LENGTH  = 100
 const MAIN          = "github.ref == 'refs/heads/main'"
 const MATRIX_TOOLS  = '${{ matrix.tools }}'
+const NODE          = /\n(?=\S)/
 const PIN           = /^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/
 const PINNED        = ['dependencies', 'devDependencies', 'overrides'] as const
 const PROVISION     = '/.github/actions/provision'
@@ -92,6 +95,7 @@ const READY         = '!github.event.pull_request.draft'
 const READY_TYPE    = 'ready_for_review'
 const ROW_KEYS      = new Set(['name', 'task', 'tools'])
 const TASK_RUN      = /\bmise run (\w[\w:-]*)/g
+const WORD          = /^[\w-]+$/
 const colorDistance = differenceEuclidean('oklab')
 const statuses      = ['always', 'cancelled', 'failure', 'success']
   .map(name => ({ maxArgs: 0, minArgs: 0, name }))
@@ -129,6 +133,18 @@ const PARSERS = {
  * Parses `condition`, unwrapped from a `${{ }}` spanning all of it, as GitHub's
  * expression parser reads a job's `if`, throwing where it cannot.
  */
+/**
+ * The words that run one of mise's own commands, meaning `help`, which clap
+ * adds and the spec leaves out, and the name and each bare alias of every
+ * top-level `cmd` node in the KDL usage spec `mise usage` prints, where a
+ * top-level node opens its line and its children sit four spaces in. A
+ * property such as `hide=#true` beside an alias is no word.
+ */
+export const commandsOf = (spec: string) => ['help', ...spec.split(NODE).flatMap(node => {
+  const name = COMMAND.exec(node)?.[1]
+  return name ? [name, ...[...node.matchAll(ALIAS)].flatMap(([, words]) => words.split(' '))] : []
+}).filter(word => WORD.test(word))]
+
 const conditionOf = (condition: string) => new Parser(
   new Lexer(condition.replace(EXPRESSION, '$1')).lex().tokens, ['github', 'inputs', 'needs', 'vars'], statuses
 ).parse()
@@ -201,22 +217,24 @@ export const wordOf = (name: string) => name.split(' ').at(-1) ?? ''
  * meaning the label registry, the release categories, the issue templates, the
  * contributor guide, the site's manifest, the workflows and the action
  * manifests, the rulesets, the tasks, the task the local sweep runs, and the
- * toggles of the repository settings. It reports where two of them disagree,
- * where a label, a package, an action, a matrix row, or a workflow breaks a
- * rule of its own, where a publishing job is missing or runs under another
- * condition, where a draft pull request runs a job, and where the settings
- * leave immutable releases off.
+ * toggles of the repository settings, beside the commands the running mise
+ * ships. It reports where two of them disagree, where a label, a package, an
+ * action, a matrix row, or a workflow breaks a rule of its own, where a
+ * publishing job is missing or runs under another condition, where a draft
+ * pull request runs a job, where a task alias repeats one of mise's own
+ * commands, and where the settings leave immutable releases off.
  */
 export class Repository {
   constructor(
     readonly actions    : Workflow[],
     readonly categories : Category[],
+    readonly commands   : string[],
     readonly guide      : string,
     readonly labels     : RegistryLabel[],
     readonly packages   : [string, string][],
     readonly rulesets   : Ruleset[],
     readonly sweep      : string[],
-    readonly tasks      : string[],
+    readonly tasks      : MiseTask[],
     readonly templates  : Template[],
     readonly toggles    : Record<string, boolean>,
     readonly workflows  : Workflow[]
@@ -231,13 +249,13 @@ export class Repository {
       await Promise.all((await pathsOf(root, '.github/actions/*/action.yml')).map(async path =>
         ({ jobs: { [basename(dirname(path))]: (await parseFile(path)).runs }, on: {}, path }))),
       (await parseFile(at(FILES.release))).changelog.categories,
+      commandsOf(await $`mise usage`.cwd(root).text()),
       await Bun.file(at(FILES.guide)).text(),
       (await parseFile(at(FILES.labels))).labels,
       packagesOf(await parseFile(at(FILES.manifest))),
       await Promise.all((await pathsOf(root, '.github/rulesets/*.json')).map(parseFile)),
       (await parseFile(at(FILES.sweep)))['repo:ci'].depends,
-      (await $`mise tasks ls --hidden --json --no-global`.cwd(root).json() as MiseTask[])
-        .flatMap(task => [task.name, ...task.aliases]),
+      await $`mise tasks ls --hidden --json --no-global`.cwd(root).json() as MiseTask[],
       await Promise.all((await pathsOf(root, '.github/ISSUE_TEMPLATE/*.{md,yml}'))
         .filter(path => !path.endsWith('config.yml'))
         .map(async path => ({ labels: (await parseFile(path)).labels ?? [], path }))),
@@ -282,12 +300,13 @@ export class Repository {
    *   activity types, holding a job whose condition does not end on the draft
    *   check, or sharing a concurrency group between a draft run and a ready one
    * - A `GUARDS` job missing or running under another condition
+   * - A task alias matching a command or command alias the running mise lists
    * - A settings file leaving `immutable-releases` off or undeclared
    * - A `TRIGGERS` workflow running on triggers other than the ones it gives
    */
   get problems(): string[] {
     return [
-      ...this.categoryProblems, ...this.draftProblems, ...this.endingProblems, ...this.gateProblems,
+      ...this.aliasProblems, ...this.categoryProblems, ...this.draftProblems, ...this.endingProblems, ...this.gateProblems,
       ...this.guardProblems, ...this.guideProblems, ...this.labelProblems, ...this.packageProblems,
       ...this.pinProblems, ...this.rowProblems, ...this.sweepProblems, ...this.taskProblems,
       ...this.templateProblems, ...this.toggleProblems, ...this.toolProblems, ...this.triggerProblems
@@ -299,6 +318,14 @@ export class Repository {
    */
   get rows(): Row[] {
     return jobsOf(this.checks).flatMap(({ job }) => rowsOf(job))
+  }
+
+  private get aliasProblems(): string[] {
+    const commands = new Set(this.commands)
+    return this.tasks.flatMap(task => task.aliases
+      .filter(alias => commands.has(alias))
+      .map(alias =>
+        `${task.name} takes the alias ${alias}, which runs one of mise's own commands rather than the task`))
   }
 
   private get categoryProblems(): string[] {
@@ -477,7 +504,7 @@ export class Repository {
   }
 
   private get taskProblems(): string[] {
-    const declared = new Set(this.tasks)
+    const declared = new Set(this.tasks.flatMap(task => [task.name, ...task.aliases]))
     return [...new Set(jobsOf(this.manifests)
       .flatMap(({ job, path }) => [
         ...(job.steps ?? [])
