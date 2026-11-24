@@ -204,6 +204,12 @@ describe('the reads plugin', () => {
     }
   )
 
+  it.each(['.mise/config.toml', '.mise/mise.lock', 'bun.lock', 'package.json'])(
+    'selects every test for an edit to %s',
+    { tags: ['slow'] },
+    async file => expect(await selectedAfter(async () => [join(ROOT, file)])).toEqual(await selected({}))
+  )
+
   it.each<[string, string, string[]]>([
     ["the crate's sources", 'rust/src/lib.rs', BUILT],
     ["the crate's manifest", 'rust/Cargo.toml', [...BUILT, 'lib/site/licenses.test.ts'].sort()],

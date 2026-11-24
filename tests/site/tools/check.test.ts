@@ -230,7 +230,7 @@ describe.concurrent('site:check', () => {
 describe.concurrent('site:affected', () => {
   it.for<[string, string[]]>([
     ['no further arguments', []],
-    ['a case file and --bail 1', ['tests/tools/check.test.ts', '--bail', '1']]
+    ['a case file and --bail 1', ['tools/check.test.ts', '--bail', '1']]
   ])(
     'runs the suite with --changed origin/main given %s',
     async ([, args], { expect, repo }) =>
