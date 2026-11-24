@@ -441,6 +441,21 @@ it('draws the strip as before at a root size of 16 px, 110 px tall, the Now at 9
   ]).toEqual(['110', '92', '105'])
 })
 
+it('sets Now in the hours’ row once the root size grows past 16 px with the page open', async () => {
+  const resized = { run: () => {} }
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(run: () => void) { resized.run = run }
+    disconnect() {}
+    observe() {}
+  })
+  onTestFinished(() => { document.documentElement.style.fontSize = ''; vi.unstubAllGlobals() })
+  const { wrapper } = await mounted(false)
+  document.documentElement.style.fontSize = '24px'
+  resized.run()
+  await nextTick()
+  expect(wrapper.get('text.fill-ink').attributes('y')).toBe('105')
+})
+
 it('ends the playhead’s line above the Now beneath the ground', async () => {
   const { wrapper } = await mounted(false)
   const playhead    = wrapper.get('line.stroke-u')
@@ -455,10 +470,11 @@ it.each(([
   ['on a phone', 20, true, 12],
   ['on a wider page', 24, false, 11],
   ['on a phone', 24, true, 12]
-] as const).flatMap(row => Array.from({ length: 13 }, (_, step) => [...row, step * 5] as const)))(
+] as const).flatMap(([where, root, phone, base]) =>
+  Array.from({ length: 13 }, (_, step) => [where, root, step * 5, phone, base] as const)))(
   'keeps the strip 110 px tall, its hour labels inside it, and its Now 2 px clear of its tick and of every '
   + 'hour label, %s at a root size of %i px, %i minutes into the window',
-  async (_, root, phone, base, minutes) => {
+  async (_, root, minutes, phone, base) => {
     document.documentElement.style.fontSize = `${root}px`
     onTestFinished(() => { document.documentElement.style.fontSize = '' })
     const em               = base * root / 16

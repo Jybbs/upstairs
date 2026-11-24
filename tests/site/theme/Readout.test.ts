@@ -137,6 +137,14 @@ it.each([
   expect(lineOf(wrapper)).toBe(`Above Boston · ${time} EST`)
 })
 
+it('cuts the place where the line runs out of room, keeping the time and its zone whole', async () => {
+  const { wrapper } = await mounted(30)
+  const line        = wrapper.get('p.caps')
+  const time        = line.get(':scope > span:last-child')
+  expect([line.classes('truncate'), line.get('button').classes('truncate'), time.classes()])
+    .toEqual([false, true, expect.arrayContaining(['shrink-0', 'whitespace-pre'])])
+})
+
 it('opens the spot chooser from the place it reads', async () => {
   const { sky, wrapper } = await mounted(0)
   await wrapper.get('button[aria-expanded]').trigger('click')

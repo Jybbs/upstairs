@@ -1,4 +1,4 @@
-import { useElementSize, useEventListener, useRafFn } from '@vueuse/core'
+import { useElementSize, useEventListener, useRafFn, useResizeObserver } from '@vueuse/core'
 import * as slider                                     from '@zag-js/slider'
 import { mergeProps, normalizeProps, useMachine }      from '@zag-js/vue'
 import { computed, defineComponent, ref, useId }       from 'vue'
@@ -56,6 +56,7 @@ const nudges = new Map([['ArrowLeft', -60], ['ArrowRight', 60], ['PageDown', -60
 export default defineComponent(
   () => {
     const cursor    = ref<SVGGElement>()
+    const nowLabel  = ref<SVGTextElement>()
     const root      = ref<HTMLElement>()
     const strip     = ref<SVGSVGElement>()
     const phone     = usePhone()
@@ -74,10 +75,11 @@ export default defineComponent(
     })
     /**
      * The page's root font size in pixels, which scales the rems `caps` sets a
-     * label in.
+     * label in, read again each time the box of `Now` changes size.
      */
-    const rem    = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-    const size   = computed(() => (phone.value ? LABEL.phone : LABEL.wide) * rem)
+    const rootSize = () => Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+    const rem      = ref(rootSize())
+    const size     = computed(() => (phone.value ? LABEL.phone : LABEL.wide) * rem.value)
     const clocks = computed(() =>
       Array.from({ length: TICKS + 1 }, (_, index) => sky.clockOf(index * sky.span / TICKS)))
     /**
@@ -144,7 +146,7 @@ export default defineComponent(
      */
     const foot = computed(() => {
       const now = xOf(sky.now.value)
-      if (rem <= 16) {
+      if (rem.value <= 16) {
         return { end: STRIP.ground + 7, lean: 0, now: now, row: STRIP.height - 18, ticks: ticks.value }
       }
       const first = ticks.value[0], last = ticks.value[TICKS]
@@ -265,6 +267,7 @@ export default defineComponent(
     }
 
     useEventListener(root, 'pointerdown', shade, { capture: true })
+    useResizeObserver(nowLabel, () => { rem.value = rootSize() })
 
     /**
      * The width in pixels a label of `text` sets, its last letter's spacing
@@ -427,7 +430,13 @@ export default defineComponent(
                 ))}
                 <g class="pointer-events-none" transform={`translate(${foot.value.now} 0)`}>
                   <line y1={STRIP.ground + 3} y2={foot.value.end} class="stroke-ink" stroke-width="1.5" />
-                  <text x={foot.value.lean} y={foot.value.row} text-anchor="middle" class="caps fill-ink">
+                  <text
+                    ref={nowLabel}
+                    x={foot.value.lean}
+                    y={foot.value.row}
+                    text-anchor="middle"
+                    class="caps fill-ink"
+                  >
                     Now
                   </text>
                 </g>
