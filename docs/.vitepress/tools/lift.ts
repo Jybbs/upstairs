@@ -94,7 +94,7 @@ export const HOLDS = '.mise/holds.toml'
 const LINKS = [['github:wasm-bindgen/wasm-bindgen', 'wasm-bindgen'], ['bun', '@types/bun']]
 const MANIFESTS = {
   actions : ['.github/workflows/*.yml', '.github/actions/*/action.yml'],
-  bun     : 'docs/package.json',
+  bun     : 'package.json',
   cargo   : 'rust/Cargo.toml',
   mise    : '.mise/config.toml'
 }

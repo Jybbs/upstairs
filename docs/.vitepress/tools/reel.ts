@@ -6,9 +6,9 @@ import { writeFile }     from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 
 import { GIFEncoder, applyPalette, quantize } from 'gifenc'
-import { chromium, type Page }               from 'playwright'
-import sharp                                 from 'sharp'
-import { createServer }                      from 'vitepress'
+import { chromium, type Page }                from 'playwright'
+import sharp                                  from 'sharp'
+import { createServer }                       from 'vitepress'
 
 import type { SchemeName } from '../lib/site/palette.ts'
 
@@ -24,7 +24,7 @@ const CLEAR = [0, 0, 0]
 /**
  * The committed catalog the reel's map reads in place of the live one.
  */
-const FIXTURE = fileURLToPath(new URL('../tests/fixtures/catalog.bin', import.meta.url))
+const FIXTURE = fileURLToPath(new URL('../../../tests/site/fixtures/catalog.bin', import.meta.url))
 /**
  * The folder the reel's files are written to, beside the README that shows
  * them.

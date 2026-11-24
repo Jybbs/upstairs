@@ -6,10 +6,10 @@
 import { homedir } from 'node:os'
 import { join }    from 'node:path'
 
-import manifest         from '../../package.json' with { type: 'json' }
-import type { Cycle }   from './cycle.ts'
-import { Netrc }        from './netrc.ts'
-import { RUN_PATH }     from './requested.ts'
+import manifest       from '../../../package.json' with { type: 'json' }
+import type { Cycle } from './cycle.ts'
+import { Netrc }      from './netrc.ts'
+import { RUN_PATH }   from './requested.ts'
 
 /**
  * What a run reads and writes beyond `~/.netrc`.

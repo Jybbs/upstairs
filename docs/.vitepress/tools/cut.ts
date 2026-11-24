@@ -1,6 +1,6 @@
 import { $ } from 'bun'
 
-import manifest  from '../../package.json' with { type: 'json' }
+import manifest  from '../../../package.json' with { type: 'json' }
 import { FILES } from './repository.ts'
 
 type Outcome = keyof typeof NOTES

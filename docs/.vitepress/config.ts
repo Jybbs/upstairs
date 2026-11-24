@@ -1,10 +1,10 @@
-import tailwindcss            from '@tailwindcss/vite'
-import vueJsx                 from '@vitejs/plugin-vue-jsx'
-import maplibre               from 'maplibre-gl/package.json' with { type: 'json' }
-import { viteStaticCopy }     from 'vite-plugin-static-copy'
-import { defineConfig }       from 'vitepress'
+import tailwindcss        from '@tailwindcss/vite'
+import vueJsx             from '@vitejs/plugin-vue-jsx'
+import maplibre           from 'maplibre-gl/package.json' with { type: 'json' }
+import { viteStaticCopy } from 'vite-plugin-static-copy'
+import { defineConfig }   from 'vitepress'
 
-import manifest               from '../package.json' with { type: 'json' }
+import manifest               from '../../package.json' with { type: 'json' }
 import { writeCards }         from './lib/site/cards.ts'
 import { headOf }             from './lib/site/head.ts'
 import { licensesOf }         from './lib/site/licenses.ts'
@@ -46,7 +46,6 @@ export default defineConfig({
   vite: {
     build        : { license: { fileName: LICENSES } },
     optimizeDeps : { exclude: ['maplibre-gl'] },
-    server       : { fs: { allow: ['../rust/pkg'] } },
     worker       : { format: 'es' },
     plugins      : [
       tailwindcss(),

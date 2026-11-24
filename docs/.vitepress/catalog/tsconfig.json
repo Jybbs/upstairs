@@ -5,5 +5,5 @@
     "target": "ES2023",
     "types": ["@cloudflare/workers-types", "node"]
   },
-  "include": [".", "../preview", "../tests/catalog", "../tests/preview"]
+  "include": [".", "../preview", "../../../tests/site/catalog", "../../../tests/site/preview"]
 }
