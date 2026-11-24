@@ -20,7 +20,7 @@ interface Job {
   strategy? : { matrix?: { include?: Row[] } }
 }
 
-export interface MiseTask {
+interface MiseTask {
   aliases : string[]
   name    : string
 }
@@ -130,21 +130,21 @@ const PARSERS = {
 }
 
 /**
- * Parses `condition`, unwrapped from a `${{ }}` spanning all of it, as GitHub's
- * expression parser reads a job's `if`, throwing where it cannot.
- */
-/**
  * The words that run one of mise's own commands, meaning `help`, which clap
  * adds and the spec leaves out, and the name and each bare alias of every
  * top-level `cmd` node in the KDL usage spec `mise usage` prints, where a
  * top-level node opens its line and its children sit four spaces in. A
- * property such as `hide=#true` beside an alias is no word.
+ * property beside an alias, such as `hide=#true`, is left out.
  */
 export const commandsOf = (spec: string) => ['help', ...spec.split(NODE).flatMap(node => {
   const name = COMMAND.exec(node)?.[1]
   return name ? [name, ...[...node.matchAll(ALIAS)].flatMap(([, words]) => words.split(' '))] : []
 }).filter(word => WORD.test(word))]
 
+/**
+ * Parses `condition`, unwrapped from a `${{ }}` spanning all of it, as GitHub's
+ * expression parser reads a job's `if`, throwing where it cannot.
+ */
 const conditionOf = (condition: string) => new Parser(
   new Lexer(condition.replace(EXPRESSION, '$1')).lex().tokens, ['github', 'inputs', 'needs', 'vars'], statuses
 ).parse()
@@ -306,10 +306,11 @@ export class Repository {
    */
   get problems(): string[] {
     return [
-      ...this.aliasProblems, ...this.categoryProblems, ...this.draftProblems, ...this.endingProblems, ...this.gateProblems,
-      ...this.guardProblems, ...this.guideProblems, ...this.labelProblems, ...this.packageProblems,
-      ...this.pinProblems, ...this.rowProblems, ...this.sweepProblems, ...this.taskProblems,
-      ...this.templateProblems, ...this.toggleProblems, ...this.toolProblems, ...this.triggerProblems
+      ...this.aliasProblems, ...this.categoryProblems, ...this.draftProblems, ...this.endingProblems,
+      ...this.gateProblems, ...this.guardProblems, ...this.guideProblems, ...this.labelProblems,
+      ...this.packageProblems, ...this.pinProblems, ...this.rowProblems, ...this.sweepProblems,
+      ...this.taskProblems, ...this.templateProblems, ...this.toggleProblems, ...this.toolProblems,
+      ...this.triggerProblems
     ]
   }
 

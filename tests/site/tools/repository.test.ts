@@ -29,6 +29,9 @@ const SPEC          = [
   'flag --timing {',
   '    alias "--no-timing" hide=#true',
   '}',
+  'flag --quiet {',
+  '    alias quiet',
+  '}',
   'cmd audit help="Check tool versions" effect=read {',
   '    flag --json',
   '}',
@@ -56,6 +59,11 @@ const checked = (jobs: Record<string, Job>, types?: string[]) =>
 
 const job = (change: Job) => added({ added: change })
 
+const realias = (...aliases: string[]): Change => ({ tasks }) => ({
+  commands : repository.commandsOf(SPEC),
+  tasks    : tasks.map(task => task.name === 'repo:audit' ? { ...task, aliases } : task)
+})
+
 const refit = (file: string, fields: Partial<repository.Workflow>) =>
   rework(file, workflow => ({ ...workflow, ...fields }))
 
@@ -67,11 +75,6 @@ const relabel = (change: object, index: number): Change => ({ labels }) =>
 
 const retrigger = (on: repository.Workflow['on']): [Change, string] =>
   [refit(DRAFT, { on }), `${DRAFT} runs on ${JSON.stringify(on)} rather than ${JSON.stringify(TRIGGERS)}`]
-
-const realias = (alias: string): Change => ({ tasks }) => ({
-  commands : repository.commandsOf(SPEC),
-  tasks    : tasks.map(task => task.name === 'repo:audit' ? { ...task, aliases: [alias] } : task)
-})
 
 const rework = (file: string, change: (workflow: repository.Workflow) => repository.Workflow): Change =>
   ({ workflows }) =>
@@ -496,6 +499,11 @@ describe('Repository', () => {
       'a task alias a mise command alias takes',
       realias('x'),
       "repo:audit takes the alias x, which runs one of mise's own commands rather than the task"
+    ],
+    [
+      'only the alias a mise command takes, of a task with two',
+      realias('declarations', 'audit'),
+      "repo:audit takes the alias audit, which runs one of mise's own commands rather than the task"
     ],
     [
       'settings turning immutable releases off',
