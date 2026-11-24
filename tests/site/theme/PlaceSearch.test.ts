@@ -16,11 +16,10 @@ const { build } = await compile('@tailwind utilities;')
 const STYLES    = document.head.appendChild(document.createElement('style'))
 
 /**
- * Lays the page out `width` by `height` pixels with the search's form at
- * `top`, 44 pixels tall, and the list as tall as its rows of 44 pixels with its
- * padding and border, held to the `max-height` its classes set once Tailwind
- * compiles them into the page's styles, leaving out the other classes, whose
- * `@layer` statement happy-dom fails to parse.
+ * Lays the page out `width` by `height` pixels with the search's 44-pixel form
+ * at `top`, and the list as tall as its 44-pixel rows with its padding and
+ * border, held to the `max-height` Tailwind compiles from its `max-h-` class,
+ * since happy-dom fails to parse the `@layer` statement other classes bring.
  */
 const laidOut = (top: number, width: number, height: number) => {
   vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(height)

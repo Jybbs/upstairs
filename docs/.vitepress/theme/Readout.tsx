@@ -37,7 +37,8 @@ const zonedFormats = {
  * at any failure.
  *
  * `folded` folds the readout into the head of a phone's sheet, the count and
- * the time over the search, where the sheet shows the pinned pass below.
+ * the time over the search, with the orbits' age under the count once the
+ * catalog has expired, where the sheet shows the pinned pass below.
  */
 export default defineComponent(
   (props: { folded?: boolean }) => {

@@ -18,10 +18,10 @@ type Result = { craft: search.Match } | { place: search.Place }
  */
 const LEAST  = 3
 /**
- * The list's height cap: the space on the side it opens to, but no less than
- * three rows of 44 pixels with the list's padding and border, so a list
- * outgrowing the space below opens above it, the floor Floating UI's `size`
- * sets for `flip` at https://floating-ui.com/docs/size.
+ * Holds the list to the space on the side it opens to, and to no less than
+ * three rows of 44 pixels with its padding and border, so a list outgrowing
+ * the space below overflows it and opens above, the minimum height Floating
+ * UI's `size` documentation gives `flip` at https://floating-ui.com/docs/size.
  */
 const LISTED = 'max-h-[max(var(--available-height),9rem)]'
 /**
@@ -256,7 +256,8 @@ export default defineComponent(
                     class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left
                            hover:bg-panel data-highlighted:bg-panel max-sm:min-h-11"
                   >
-                    <Icon name="place" class="text-soft" /><span class="wrap-anywhere">{place.label}</span>{' '}
+                    <Icon name="place" class="text-soft" />
+                    <span class="wrap-anywhere">{place.label}</span>{' '}
                     {place.kind && <span class="ml-auto shrink-0 text-soft">{place.kind}</span>}
                   </button>
                 </li>

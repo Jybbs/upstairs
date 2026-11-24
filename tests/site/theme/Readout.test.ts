@@ -273,22 +273,24 @@ it.each([
   expect([lines[0].classes('font-display'), lines.at(-1)!.text()]).toEqual([true, sky.moment.value.next])
 })
 
-it('reads no count and the orbits’ age once the catalog has expired', async () => {
-  const { sky, wrapper } = await mounted(0)
-  sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
-  await wrapper.vm.$nextTick()
-  expect([wrapper.get('output').text(), wrapper.get('p.h-3').text()])
-    .toEqual(['—', 'Orbits 15 days old, too old to draw'])
-})
-
-it('says why a folded readout reads no count once the catalog has expired, aloud as well', async () => {
+it.each([
+  ['reads no count and the orbits’ age once the catalog has expired', false],
+  ['says why a folded readout reads no count once the catalog has expired', true]
+])('%s, aloud as well', async (_, folded) => {
   const { Readout, sky } = await mounted(0)
-  const wrapper          = mount(Readout, { props: { folded: true } })
+  const wrapper          = mount(Readout, { props: { folded } })
   sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
   const aged             = 'Orbits 15 days old, too old to draw'
   await wrapper.vm.$nextTick()
   expect(['output', 'p.h-3', '[aria-live="polite"]'].map(selector => wrapper.get(selector).text()))
     .toEqual(['—', aged, aged])
+})
+
+it('leaves the orbits’ age out of a folded readout while the catalog is fresh', async () => {
+  const { Readout } = await mounted(0)
+  const wrapper     = mount(Readout, { props: { folded: true } })
+  expect([wrapper.find('p.h-3').exists(), wrapper.get('[aria-live="polite"]').text()])
+    .toEqual([false, '5 satellites above the horizon'])
 })
 
 it.each([
