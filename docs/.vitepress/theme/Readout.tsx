@@ -72,6 +72,14 @@ export default defineComponent(
       }
     })
     /**
+     * The orbits' age once the catalog has expired, which the line under the
+     * count shows, folded or not, and the polite region reads in the count's
+     * place.
+     */
+    const aged = computed(() => sky.expired.value
+      ? `Orbits ${Math.floor(sky.age.value)} days old, too old to draw`
+      : '')
+    /**
      * The kinds not shown, which every count the readout gives leaves out.
      */
     const hidden = computed(() => kindOrder.filter(kind => !sky.traced[kind]))
@@ -116,9 +124,7 @@ export default defineComponent(
      * expired, the kind the tally names, or how many stand above the horizon.
      */
     const status = () => {
-      if (sky.stage.value === 'expired') {
-        return `Orbits ${Math.floor(sky.age.value)} days old, too old to draw`
-      }
+      if (aged.value) return aged.value
       if (named.value) return [<Icon name={named.value.kind} />, named.value.line]
       return `Of ${sky.reading.value.above.toLocaleString()} above the horizon`
     }
@@ -271,13 +277,15 @@ export default defineComponent(
             </div>,
             sky.waiting.value
               ? [<Orbits moment={sky.moment.value} size={props.folded ? 72 : 80} />, foot()]
-              : !props.folded && [
-                <Tally />,
-                <p class="caps flex h-3 items-center gap-2 text-soft">{status()}</p>
+              : [
+                !props.folded && <Tally />,
+                (!props.folded || aged.value) && (
+                  <p class="caps flex h-3 items-center gap-2 text-soft">{status()}</p>
+                )
               ],
             leftOut()
           ]}
-        <p class="sr-only" aria-live="polite">{sky.spoken.value}</p>
+        <p class="sr-only" aria-live="polite">{aged.value || sky.spoken.value}</p>
         <p class="sr-only" aria-live="polite">{dated.value}</p>
         <PlaceSearch />
       </section>

@@ -18,6 +18,13 @@ type Result = { craft: search.Match } | { place: search.Place }
  */
 const LEAST  = 3
 /**
+ * The list's height cap: the space on the side it opens to, but no less than
+ * three rows of 44 pixels with the list's padding and border, so a list
+ * outgrowing the space below opens above it, the floor Floating UI's `size`
+ * sets for `flip` at https://floating-ui.com/docs/size.
+ */
+const LISTED = 'max-h-[max(var(--available-height),9rem)]'
+/**
  * The longest the browser looks for a location once it may share one, in
  * milliseconds, the wait the Geolocation specification's example sets.
  */
@@ -219,8 +226,10 @@ export default defineComponent(
           <div {...box.value.getPositionerProps()} class="z-20">
             <ul
               {...box.value.getContentProps()}
-              class="max-h-(--available-height) overflow-y-auto rounded-sm border border-rule bg-lift py-1
-                     text-sm shadow-md"
+              class={[
+                LISTED,
+                'overflow-y-auto rounded-sm border border-rule bg-lift py-1 text-sm shadow-md'
+              ]}
             >
               {crafts.value.map(craft => (
                 <li key={craft.satellite.id} role="presentation">

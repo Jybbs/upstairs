@@ -281,6 +281,16 @@ it('reads no count and the orbits’ age once the catalog has expired', async ()
     .toEqual(['—', 'Orbits 15 days old, too old to draw'])
 })
 
+it('says why a folded readout reads no count once the catalog has expired, aloud as well', async () => {
+  const { Readout, sky } = await mounted(0)
+  const wrapper          = mount(Readout, { props: { folded: true } })
+  sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
+  const aged             = 'Orbits 15 days old, too old to draw'
+  await wrapper.vm.$nextTick()
+  expect(['output', 'p.h-3', '[aria-live="polite"]'].map(selector => wrapper.get(selector).text()))
+    .toEqual(['—', aged, aged])
+})
+
 it.each([
   ['shows the tag beside a count', false, true],
   ['drops the tag beside a dash', true, false]
