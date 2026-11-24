@@ -1,17 +1,17 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join }    from 'node:path'
 
-import { Resvg }                                                    from '@resvg/resvg-js'
+import { Resvg }               from '@resvg/resvg-js'
 import { clampRgb, formatHex, oklab, wcagContrast, wcagLuminance } from 'culori'
-import { createContentLoader }                                      from 'vitepress'
+import { createContentLoader } from 'vitepress'
 
-import manifest                                    from '../../../../package.json' with { type: 'json' }
-import CLIMB                                       from './climb.json' with { type: 'json' }
-import { Face, type Faces, type Setting }          from './faces.ts'
-import MARK                                        from './mark.json' with { type: 'json' }
+import manifest                                   from '../../../../package.json' with { type: 'json' }
+import CLIMB                                      from './climb.json' with { type: 'json' }
+import { Face, type Faces, type Setting }         from './faces.ts'
+import MARK                                       from './mark.json' with { type: 'json' }
 import { TOUCH, boxOf, fadedWordOf, touchIconOf } from './mark.ts'
-import { SCHEMES, type SchemeName }                from './palette.ts'
-import * as sections                               from './sections.ts'
+import { SCHEMES, type SchemeName }               from './palette.ts'
+import * as sections                              from './sections.ts'
 
 /**
  * A link-preview card drawn as SVG, the file it is written to, and its size

@@ -1,5 +1,5 @@
 import type { FilterSpecification, Map } from 'maplibre-gl'
-import { describe, expect, it }         from 'vitest'
+import { describe, expect, it }          from 'vitest'
 
 import { type Box, View }          from '../../../../docs/.vitepress/lib/map/mercator.ts'
 import type { Label }              from '../../../../docs/.vitepress/lib/map/overlay.ts'

@@ -5,7 +5,7 @@ import { join }                  from 'node:path'
 import { $ }                   from 'bun'
 import { beforeAll, describe } from 'vitest'
 
-import { it as scratched } from '../common/scratch.ts'
+import { it as scratched }                                         from '../common/scratch.ts'
 import { type Env, STAND_IN_PATH, type TaskRun, linesOf, runTask } from '../common/tasks.ts'
 
 type Change = (repo: Repo) => Promise<unknown>

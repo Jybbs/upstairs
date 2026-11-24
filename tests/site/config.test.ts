@@ -1,13 +1,15 @@
 import { readFileSync } from 'node:fs'
 
-import maplibre           from 'maplibre-gl/package.json' with { type: 'json' }
+import maplibre                   from 'maplibre-gl/package.json' with { type: 'json' }
+import { searchForWorkspaceRoot } from 'vite'
 import type { PageData, Plugin, SiteConfig, TransformContext, TransformPageContext } from 'vitepress'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi }         from 'vitest'
 
 import config         from '../../docs/.vitepress/config.ts'
 import { writeCards } from '../../docs/.vitepress/lib/site/cards.ts'
 import { cssOf }      from '../../docs/.vitepress/lib/site/palette.ts'
 import { SHEETS }     from '../../docs/.vitepress/lib/site/sheets.ts'
+import { ROOT }       from './common/reads.ts'
 
 type Generate = (options: object, bundle: object) => void
 
@@ -89,6 +91,9 @@ it.each([
 ])('serves the files under %s with their headers', (rule, headers) =>
   expect(readFileSync(new URL('../../docs/public/_headers', import.meta.url), 'utf8'))
     .toContain(`${rule}\n  ${headers}\n`))
+
+it('gives the dev server the whole repository, which holds the build of the crate', () =>
+  expect(searchForWorkspaceRoot(process.cwd())).toBe(ROOT))
 
 it('links the touch icon from the head', () =>
   expect(config.head).toContainEqual(['link', { href: '/apple-touch-icon.png', rel: 'apple-touch-icon' }]))

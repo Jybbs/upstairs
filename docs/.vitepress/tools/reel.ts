@@ -6,9 +6,9 @@ import { writeFile }     from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 
 import { GIFEncoder, applyPalette, quantize } from 'gifenc'
-import { chromium, type Page }               from 'playwright'
-import sharp                                 from 'sharp'
-import { createServer }                      from 'vitepress'
+import { chromium, type Page }                from 'playwright'
+import sharp                                  from 'sharp'
+import { createServer }                       from 'vitepress'
 
 import type { SchemeName } from '../lib/site/palette.ts'
 

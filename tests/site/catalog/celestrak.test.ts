@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as celestrak     from '../../../docs/.vitepress/catalog/celestrak.ts'
+import * as celestrak                               from '../../../docs/.vitepress/catalog/celestrak.ts'
 import { directoryBody, satcatBody, unchangedBody } from '../common/celestrak.ts'
-import { unbound }        from '../common/fetchers.ts'
+import { unbound }                                  from '../common/fetchers.ts'
 
 const UNCHANGED = unchangedBody('2026-11-15 21:21:36')
 const SINCE     = '2026-11-15T21:21:36.000Z'

@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 
-import { $ }                                      from 'bun'
+import { $ }                                     from 'bun'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import * as lift from '../../../docs/.vitepress/tools/lift.ts'

@@ -1,10 +1,10 @@
 import { Resvg }                from '@resvg/resvg-js'
 import { describe, expect, it } from 'vitest'
 
-import MARK from '../../../../docs/.vitepress/lib/site/mark.json' with { type: 'json' }
-import * as mark                    from '../../../../docs/.vitepress/lib/site/mark.ts'
+import MARK                 from '../../../../docs/.vitepress/lib/site/mark.json' with { type: 'json' }
+import * as mark            from '../../../../docs/.vitepress/lib/site/mark.ts'
 import { SCHEMES, type SchemeName } from '../../../../docs/.vitepress/lib/site/palette.ts'
-import { README, publicOf }         from '../../common/shipped.ts'
+import { README, publicOf } from '../../common/shipped.ts'
 
 const DRAWINGS = [
   { drawing: 'the word’s drawing alone',            height: 69.7, outlined: false, u: MARK.word },

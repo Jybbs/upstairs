@@ -1,5 +1,5 @@
 #!/usr/bin/env -S bash -euo pipefail
-#MISE description = "Run the orbit crate's tests where the branch's changes since `origin/main` reach `rust/` outside `rust/.cargo/`, `tests/rust/`, the records and known answers the tests read, or the Rust toolchain that `.mise/config.toml` and `.mise/mise.lock` pin, passing any further arguments to Cargo"
+#MISE description = "Run the orbit crate's tests where the branch's changes since `origin/main` reach `tests/rust/`, `rust/` outside `rust/.cargo/`, the records and known answers the tests read, or the Rust toolchain that `.mise/config.toml` and `.mise/mise.lock` pin, passing any further arguments to Cargo"
 
 at_base() {
   git show "$base:$1"
@@ -21,7 +21,7 @@ entries=$(rust_entries cat || true)
 base_entries=$(rust_entries at_base || true)
 
 if [[ -z "$changed$untracked" && "$entries" == "$base_entries" ]]; then
-  echo "crate:affected found no change since origin/main under rust/ outside rust/.cargo/, under tests/rust/, in the records and known answers, or in the Rust toolchain"
+  echo "crate:affected found no change since origin/main under tests/rust/, under rust/ outside rust/.cargo/, in the records and known answers, or in the Rust toolchain"
   exit 0
 fi
 

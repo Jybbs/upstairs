@@ -2,6 +2,5 @@
 #MISE alias       = "coverage"
 #MISE depends     = ["crate:compile", "site:install"]
 #MISE description = "Run the site's suite under coverage, failing below the thresholds `tests/site/vitest.config.ts` declares"
-#MISE dir         = "{{config_root}}/docs"
 
-bun run --bun vitest run --config ../tests/site/vitest.config.ts --coverage "$@"
+mise run --skip-deps site:test --coverage "$@"

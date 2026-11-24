@@ -84,7 +84,6 @@ export default defineConfig({
     env                : { TZ: 'UTC' },
     environmentOptions : { happyDOM: { settings: { handleDisabledFileLoadingAsSuccess: true } } },
     forceRerunTriggers : [...configDefaults.forceRerunTriggers, ...triggers],
-    include            : ['**/*.test.ts'],
     setupFiles         : [join(import.meta.dirname, 'common/held.ts')],
     tags               : [{ description: 'A case taking more than a second when run alone', name: 'slow' }],
     testTimeout        : 30_000,

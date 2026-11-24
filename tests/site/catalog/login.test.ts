@@ -1,7 +1,7 @@
-import { spawnSync }                            from 'node:child_process'
+import { spawnSync }                        from 'node:child_process'
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { join }                                 from 'node:path'
-import { PassThrough }                          from 'node:stream'
+import { join }                             from 'node:path'
+import { PassThrough }                      from 'node:stream'
 
 import { describe, expect, test, vi } from 'vitest'
 

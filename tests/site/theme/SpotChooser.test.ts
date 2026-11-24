@@ -4,8 +4,8 @@ import { expect, it, vi }         from 'vitest'
 import { ref }                    from 'vue'
 
 import { dialogListens, fakeClock, framesOf, unmountOnFinish } from '../common/frames.ts'
-import { freshSky }                                            from '../common/sky.ts'
-import { stubMatchMedia }                                      from '../common/stubs.ts'
+import { freshSky }       from '../common/sky.ts'
+import { stubMatchMedia } from '../common/stubs.ts'
 
 vi.mock('@vueuse/core', async original => ({
   ...await original<typeof import('@vueuse/core')>(),

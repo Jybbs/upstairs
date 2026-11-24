@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { RUN_PATH, type Requested, SECRET, requested } from '../../../docs/.vitepress/catalog/requested.ts'
-import { stubSubtle }                              from '../common/subtle.ts'
+import { stubSubtle }                                  from '../common/subtle.ts'
 
 const HELD    = 'held-token'
 const OUTCOME = { elements: 'stored', satcat: 'current' }

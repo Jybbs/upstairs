@@ -1,11 +1,11 @@
 //! Holds the crate to the positions, the grid, and the passes `satellite.js`
-//! computed for the records under `tests/site/fixtures/`, within 10
-//! meters and a thousandth of a degree, which a position's azimuth divides by
-//! the cosine of its elevation. Those answers take each epoch cut to the
-//! millisecond, which moves a low satellite by up to 8 meters, so the tolerance
-//! sits above that shift. The answers place each pass's highest point at a
-//! sample, so a traced peak falls within one sample of theirs, stands no lower,
-//! and lies within a hundredth of a degree of a dense search.
+//! computed for the records under `tests/site/fixtures/`, within 10 meters and
+//! a thousandth of a degree, which a position's azimuth divides by the cosine
+//! of its elevation. Those answers take each epoch cut to the millisecond,
+//! which moves a low satellite by up to 8 meters, so the tolerance sits above
+//! that shift. The answers place each pass's highest point at a sample, so a
+//! traced peak falls within one sample of theirs, stands no lower, and lies
+//! within a hundredth of a degree of a dense search.
 
 mod frame;
 mod grid;

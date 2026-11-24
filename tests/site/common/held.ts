@@ -4,7 +4,7 @@ import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { fileURLToPath }                      from 'node:url'
 import { callbackify, promisify }             from 'node:util'
 
-import type { GlobScanOptions }  from 'bun'
+import type { GlobScanOptions } from 'bun'
 import { afterAll, expect, vi } from 'vitest'
 
 import { ROOT, declares } from './reads.ts'
