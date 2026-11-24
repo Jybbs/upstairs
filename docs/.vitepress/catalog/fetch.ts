@@ -44,7 +44,8 @@ export const run = async (argv: string[], io: Io) => {
   const query                  = elements !== undefined
     ? async () => spacetrack.queriedOf(JSON.parse(await readFile(elements, 'utf8')))
     : identity !== undefined && password !== undefined
-      ? () => new spacetrack.SpaceTrack(io.fetcher).elements({ identity, password })
+      ? () => new spacetrack.SpaceTrack(io.fetcher).elements({ identity, password }, error =>
+          io.error(`${error.message}, so the session may still be open.`))
       : undefined
   if (query === undefined) {
     io.error(`No Space-Track login is saved in ${path}, so save one through mise run catalog:login.`)
