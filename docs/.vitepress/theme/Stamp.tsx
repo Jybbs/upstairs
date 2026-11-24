@@ -1,8 +1,10 @@
 import { computed, defineComponent } from 'vue'
 
-import { sky } from '../lib/state/sky.ts'
-import Shield  from './Shield.tsx'
+import { ageOf } from '../lib/orbit/catalog.ts'
+import { sky }   from '../lib/state/sky.ts'
+import Shield    from './Shield.tsx'
 
+const ago   = new Intl.RelativeTimeFormat()
 const dated = new Intl.DateTimeFormat([], {
   day    : 'numeric',
   hour   : 'numeric',
@@ -11,12 +13,27 @@ const dated = new Intl.DateTimeFormat([], {
 })
 
 /**
+ * Writes how long ago `days` were as whole minutes under an hour, whole hours
+ * under a day, and whole days past it, a negative age reading as none.
+ */
+const agoOf = (days: number) => {
+  const hours = Math.max(days, 0) * 24
+  if (hours < 1) return ago.format(-Math.floor(hours * 60), 'minute')
+  return hours < 24 ? ago.format(-Math.floor(hours), 'hour') : ago.format(-Math.floor(days), 'day')
+}
+
+/**
  * Closes the sheet on the build's shield, the count of active satellites,
- * and when their orbits were fetched.
+ * and when their orbits were fetched and how long ago that was.
  */
 export default defineComponent(
   () => {
-    const updated = computed(() => sky.loaded.value ? dated.format(new Date(sky.loaded.value.fetched)) : '')
+    const updated = computed(() => {
+      const loaded = sky.loaded.value
+      if (!loaded) return ''
+      const age = ageOf(loaded.fetched, +sky.dateOf(sky.now.value))
+      return `${dated.format(loaded.fetched)}, ${agoOf(age)}`
+    })
 
     return () => (
       <footer class="flex shrink-0 items-center gap-5 border-t border-rule px-4 py-[18px]">
@@ -29,8 +46,8 @@ export default defineComponent(
             </dd>
           </div>
           <div class="flex flex-col-reverse gap-0.5">
-            <dt class="caps tracking-[0.14em] text-dim">Orbits</dt>
-            <dd class="m-0 font-book text-[19px] leading-6 whitespace-nowrap">{updated.value}</dd>
+            <dt class="caps tracking-[0.14em] text-dim">Orbits fetched</dt>
+            <dd class="m-0 font-book text-[19px] leading-6">{updated.value}</dd>
           </div>
         </dl>
       </footer>

@@ -106,3 +106,8 @@ it.each(['desktop', 'tablet'] as const)('holds the readout, the strip, and the s
       [['top-inset', 'left-inset'], ['inset-x-inset', 'bottom-inset'], ['max-sm:inset-x-0', 'sm:left-inset']]
     )
   })
+
+it('lifts the readout over the strip while its search lists results', async () => {
+  const wrapper = await mounted(false, 'desktop')
+  expect(wrapper.get('readout-stub').classes()).toContain('has-[[data-part=positioner]]:z-20')
+})

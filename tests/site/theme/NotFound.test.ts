@@ -52,7 +52,8 @@ vi.mock('../../../docs/.vitepress/theme/Credit.tsx', async () => {
 })
 vi.mock('../../../docs/.vitepress/lib/site/phone.ts', () => ({ usePhone: () => ref(page.phone) }))
 
-vi.mock('@vueuse/core', () => ({
+vi.mock('@vueuse/core', async original => ({
+  ...await original<typeof import('@vueuse/core')>(),
   useMediaQuery             : (query: string) => ref(page.width >= Number(query.match(/(\d+)rem/)![1])),
   useMounted                : () => ref(true),
   usePreferredReducedMotion : () => ref(page.motion),

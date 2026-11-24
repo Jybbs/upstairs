@@ -2,7 +2,7 @@
 import { type VueWrapper, enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi }                                from 'vitest'
 
-import * as catalog            from '../../../docs/.vitepress/lib/orbit/catalog.ts'
+import * as catalog             from '../../../docs/.vitepress/lib/orbit/catalog.ts'
 import type { sky as Sky }      from '../../../docs/.vitepress/lib/state/sky.ts'
 import { passOf }               from '../common/passes.ts'
 import { addScanned, freshSky } from '../common/sky.ts'
@@ -20,6 +20,36 @@ const listed = async (set: (sky: typeof Sky) => void) => {
   await search.wrapper.get('input').trigger('focusin')
   await search.wrapper.get('input').setValue('iss')
   return search
+}
+
+/**
+ * Mounts the search over a stand-in for the browser's location whose answers
+ * `fail` and `share` give to the request at `at`, and returns the search's
+ * notice and button beside them and the options each request passed.
+ */
+const locating = async () => {
+  const asks: { failed: PositionErrorCallback, found: PositionCallback, options?: PositionOptions }[] = []
+  const asked = (found: PositionCallback, failed: PositionErrorCallback, options?: PositionOptions) =>
+    { asks.push({ failed, found, options }) }
+  vi.stubGlobal('navigator', { geolocation: { getCurrentPosition: asked } })
+  const { sky, wrapper } = await mounted()
+  const coords           = { latitude: 51.50073, longitude: -0.12463 }
+  return {
+    asks,
+    sky,
+    notice : wrapper.get('form + p[role="status"]'),
+    press  : () => wrapper.get('button').trigger('click'),
+
+    fail: async (at: number, code: number) => {
+      asks[at].failed({ PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3, code, message: '' })
+      await flushPromises()
+    },
+
+    share: async (at: number) => {
+      asks[at].found({ coords } as GeolocationPosition)
+      await flushPromises()
+    }
+  }
 }
 
 /**
@@ -72,19 +102,44 @@ it('leaves a spot found through Near me out of the address', async () => {
   expect(location.hash).toBe('')
 })
 
-it('sets a declined location’s notice in the flow under the search until Near me is pressed again', async () => {
-  let answer: 'decline' | 'share' = 'decline'
-  const coords                    = { latitude: 51.50073, longitude: -0.12463 }
-  const asked                     = (found: PositionCallback, failed: PositionErrorCallback) =>
-    answer === 'share' ? found({ coords } as GeolocationPosition) : failed({} as GeolocationPositionError)
-  vi.stubGlobal('navigator', { geolocation: { getCurrentPosition: asked } })
-  const { wrapper } = await mounted()
-  const notice      = () => wrapper.find('form + p[role="status"]')
-  await wrapper.get('button').trigger('click')
-  const shown       = [notice().text(), wrapper.find('[role="listbox"]').exists()]
-  answer            = 'share'
-  await wrapper.get('button').trigger('click')
-  expect([...shown, notice().exists()]).toEqual(['The browser did not share a location.', false, false])
+it.each([
+  ['a declined location', 1, 'The browser did not share a location.'],
+  ['a location the browser has no way to find', 2, 'The browser did not share a location.'],
+  ['a location not found in the time allowed', 3, 'The browser found no location within 10 seconds.']
+])('announces %s in the region standing empty under the search, until Near me is pressed again',
+  async (_, code, line) => {
+    const { asks, fail, notice, press } = await locating()
+    const before                        = notice.text()
+    await press()
+    await fail(0, code)
+    const shown = notice.text()
+    await press()
+    expect([before, shown, notice.text(), notice.element.isConnected]).toEqual(['', line, '', true])
+    expect(asks.map(({ options }) => options)).toEqual([{ timeout: 10_000 }, { timeout: 10_000 }])
+  })
+
+it('takes back the notice once a later press finds the location', async () => {
+  const { fail, notice, press, share, sky } = await locating()
+  await press()
+  await press()
+  await fail(0, 3)
+  const shown = notice.text()
+  await share(1)
+  expect([shown, notice.text(), sky.place.value])
+    .toEqual(['The browser found no location within 10 seconds.', '', 'your location'])
+})
+
+it('leaves out the failure of an earlier press arriving after a later press finds the location', async () => {
+  const { fail, notice, press, share, sky } = await locating()
+  await press()
+  await press()
+  await share(1)
+  await fail(0, 3)
+  expect([notice.text(), sky.place.value]).toEqual(['', 'your location'])
+})
+
+it('keeps the empty notice on the page for a screen reader and out of the flow', async () => {
+  expect((await locating()).notice.classes()).toContain('empty:sr-only')
 })
 
 it('lists each satellite the words typed name by its next rise, and holds the pass chosen', async () => {
@@ -287,6 +342,17 @@ it('searches for the words typed and moves to the place chosen, named by its fir
   expect(fetch).toHaveBeenCalledWith('https://photon.komoot.io/api/?limit=5&lang=en&q=new%20london')
   expect([sky.place.value, sky.spot.value, wrapper.find('li').exists()])
     .toEqual(['London', { latitude: 42.9836747, longitude: -81.2496068 }, false])
+})
+
+it('lets a satellite’s name and a place’s run onto further lines', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(photon)))
+  const { wrapper } = await mounted(state => {
+    state.satellites.value = [{ epoch: 0, id: 99999, kind: 'other', name: 'LONDON SAT' }]
+  })
+  await wrapper.get('input').trigger('focusin')
+  await typed(wrapper, 'london')
+  expect(wrapper.findAll('li button').map(result => result.get('button > span').classes()))
+    .toEqual([expect.arrayContaining(['wrap-anywhere']), ['wrap-anywhere'], ['wrap-anywhere']])
 })
 
 it.each([0, 1])('moves to the place chosen of two sharing a name and region, as result %i', async at => {

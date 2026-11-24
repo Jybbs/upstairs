@@ -1,18 +1,20 @@
 // @vitest-environment happy-dom
-import { enableAutoUnmount, flushPromises, mount }     from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount }   from '@vue/test-utils'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import { ref }                                       from 'vue'
 
 import { STEEP, TRACK_WIDTH } from '../../../docs/.vitepress/lib/orbit/scan.ts'
+import { SCHEMES }            from '../../../docs/.vitepress/lib/site/palette.ts'
 import { SHEETS }             from '../../../docs/.vitepress/lib/site/sheets.ts'
 import { passOf }             from '../common/passes.ts'
 import { freshSky }           from '../common/sky.ts'
 import { stubMatchMedia }     from '../common/stubs.ts'
 
 const {
-  GPU, TOWN, VERSION, cameraForBounds, caught, corner, draw, drawn, easeTo, fitBounds, frame, gather,
-  handlers, invalidate, made, queried, thrown
+  DARK, GPU, TOWN, VERSION, cameraForBounds, caught, corner, draw, drawn, easeTo, fitBounds, frame, gather,
+  handlers, invalidate, made, queried, setStyle, thrown
 } = vi.hoisted(() => ({
+  DARK            : { scheme: null as null | { value: boolean } },
   GPU             : class extends Error {},
   TOWN            : 10 * 360 / (512 * 2 ** 5),
   VERSION         : '6.19.0',
@@ -20,7 +22,7 @@ const {
   corner          : { x: 400, y: 300 },
   draw            : vi.fn(),
   drawn           : {
-    overlay : { covered: () => [] as unknown[], labels: [] as unknown[] },
+    overlay : { covered: () => [] as unknown[], labels: [] as unknown[], scheme: null as unknown },
     state   : {
       kinds  : {} as Record<string, boolean>,
       spot   : null as unknown,
@@ -35,6 +37,7 @@ const {
   invalidate      : vi.fn(),
   made            : vi.fn(),
   queried         : vi.fn(),
+  setStyle        : vi.fn(),
   thrown          : { value: null as Error | null },
   cameraForBounds : vi.fn((_bounds: { points: unknown[] }, _options: object) =>
     ({ center: [-71, 42], zoom: 8 }))
@@ -60,6 +63,7 @@ vi.mock('maplibre-gl', () => ({
     cameraForBounds = cameraForBounds
     easeTo          = easeTo
     fitBounds       = fitBounds
+    setStyle        = setStyle
     constructor(options: object) {
       made(options)
       if (thrown.value) throw thrown.value
@@ -93,7 +97,7 @@ vi.mock('maplibre-contour', () => ({
     }
   }
 }))
-vi.mock('vitepress', () => ({ useData: () => ({ isDark: ref(false) }) }))
+vi.mock('vitepress', () => ({ useData: () => ({ isDark: DARK.scheme }) }))
 vi.mock('../../../docs/.vitepress/lib/map/credit.ts', () => ({ Credit: class { follow = vi.fn() } }))
 vi.mock('../../../docs/.vitepress/lib/map/overlay.ts', async () => {
   const { View } = await import('../../../docs/.vitepress/lib/map/mercator.ts')
@@ -105,6 +109,7 @@ vi.mock('../../../docs/.vitepress/lib/map/overlay.ts', async () => {
       invalidate = invalidate
       labels     = [] as unknown[]
       onMap      = new Uint16Array()
+      scheme     = null as unknown
       view       = new View()
       constructor(_lower: unknown, _upper: unknown, state: typeof drawn.state) {
         drawn.overlay = this
@@ -133,11 +138,13 @@ const placeReads = () => queried.mock.calls.filter(([layer]) => layer === 'place
  * Mounts the map over a fresh copy of the shared state holding one pass on the
  * horizon and a stand-in worker, its frame 600 pixels tall, with its
  * stylesheet already linked, the map's constructor throwing `error` where one
- * is given, its `props` set, and every error the mount raises passed to
- * `caught`.
+ * is given, its `props` set, every error the mount raises passed to `caught`,
+ * and the device scheme it follows held in `dark`.
  */
 const mounted = async (error: Error | null = null, props = {}) => {
+  const dark   = ref(false)
   thrown.value = error
+  DARK.scheme  = dark
   caught.mockClear()
   handlers.clear()
   const turn = stubMatchMedia(() => false)
@@ -153,13 +160,25 @@ const mounted = async (error: Error | null = null, props = {}) => {
   sky.tracks.add([pass], new Float32Array(2 * TRACK_WIDTH), Uint32Array.of(0), 2)
   cameraForBounds.mockClear()
   easeTo.mockClear()
-  return { SkyMap, pass, sky, turn, wrapper }
+  return { SkyMap, dark, pass, sky, turn, wrapper }
 }
 
 it('hands the overlay the kinds shown as they are switched', async () => {
   const { sky } = await mounted()
   sky.trace(['earth'])
   expect(drawn.state.kinds).toMatchObject({ crewed: false, earth: true })
+})
+
+it('restyles the map and its overlay in the night scheme once the device turns dark', async () => {
+  const { dark } = await mounted()
+  setStyle.mockClear()
+  invalidate.mockClear()
+  dark.value = true
+  await flushPromises()
+  const ground = expect.objectContaining({ id: 'ground', paint: { 'background-color': SCHEMES.night.page } })
+  expect([setStyle.mock.lastCall, drawn.overlay.scheme, invalidate.mock.calls.length]).toEqual([
+    [expect.objectContaining({ layers: expect.arrayContaining([ground]) })], SCHEMES.night, 1
+  ])
 })
 
 it('has the credit follow the lines of the map it makes', async () => {
@@ -204,23 +223,25 @@ it.each([
 })
 
 it.each([
-  ['centers the zoom buttons in the map above the sheet once a pass is pinned', 480, 'pin',
-    'calc((100% - 480px) / 2)'],
-  ['leaves the zoom buttons at the map’s middle with no pass pinned', 480, null, ''],
-  ['leaves the zoom buttons at the map’s middle while a finger only holds a pass', 330, 'hold', ''],
-  ['leaves the zoom buttons at the map’s middle where no sheet covers it', 0, 'pin', '']
-] as const)('%s', async (_, covered, chosen, top) => {
-  const { pass, sky, wrapper } = await mounted()
-  sky.covered.value            = covered
-  if (chosen === 'pin') sky.pin(pass)
-  if (chosen === 'hold') sky.held.value = pass
+  ['centers the zoom buttons in the map above the sheet', 330, '330px'],
+  ['centers the zoom buttons in the whole map where no sheet covers it', 0, '0px']
+])('%s', async (_, covered, bottom) => {
+  const { sky, wrapper } = await mounted()
+  sky.covered.value      = covered
   await flushPromises()
-  expect((wrapper.get('[aria-label="Zoom"]').element as HTMLElement).style.top).toBe(top)
+  expect(wrapper.get('[aria-label="Zoom"]').element.parentElement!.style.bottom).toBe(bottom)
 })
 
 it('holds the zoom buttons one inset from the map’s right edge', async () => {
   const { wrapper } = await mounted()
-  expect(wrapper.get('[aria-label="Zoom"]').classes()).toContain('right-inset')
+  expect(wrapper.find('.right-inset [aria-label="Zoom"]').exists()).toBe(true)
+})
+
+it('sets the zoom buttons side by side where the map above the sheet stands under 6rem tall', async () => {
+  const { wrapper } = await mounted()
+  const group       = wrapper.get('[aria-label="Zoom"]')
+  expect([group.element.parentElement!.classList.contains('@container-size'), group.classes()])
+    .toEqual([true, expect.arrayContaining(['[@container(height<6rem)]:flex-row'])])
 })
 
 it.each([
@@ -297,6 +318,15 @@ it('takes the zoom-in button and the Plus key to the chosen pass’s next step',
   await wrapper.get('button[aria-label="Zoom in"]').trigger('click')
   await wrapper.get('[data-map] > div').trigger('keydown', { key: '+' })
   expect(easeTo.mock.calls).toEqual([[{ center: [-71, 42], zoom: 8 }], [{ center: [-71, 42], zoom: 8 }]])
+})
+
+it('eases the map under the opening chooser’s pin over MapLibre’s own duration', async () => {
+  const { sky } = await mounted()
+  easeTo.mockClear()
+  sky.choose()
+  await flushPromises()
+  const { latitude, longitude } = sky.spot.value
+  expect(easeTo.mock.calls).toStrictEqual([[{ center: [longitude, latitude], offset: [0, -0] }]])
 })
 
 it('pulls the pin onto a town 10 px away once the map rests', async () => {
@@ -444,29 +474,20 @@ it('places the names again once the sheet covers more of the map', async () => {
   expect(invalidate).toHaveBeenCalledOnce()
 })
 
-it('places the names again once a marked panel changes size', async () => {
+it('observes a panel beside the map once the page turns to a phone’s width, but no zoom button', async () => {
   const resized = { run: () => {}, targets: [] as Element[] }
   vi.stubGlobal('ResizeObserver', class {
     constructor(run: () => void) { resized.run = run }
     disconnect() {}
     observe(target: Element) { resized.targets.push(target) }
   })
-  const { wrapper } = await mounted()
-  invalidate.mockClear()
-  resized.run()
-  expect([resized.targets.at(-1), invalidate.mock.calls.length])
-    .toEqual([wrapper.get('[aria-label="Zoom"]').element, 1])
-})
-
-it('reads the marked panels again once the page turns to a phone’s width', async () => {
-  const observed: Element[] = []
-  vi.stubGlobal('ResizeObserver', class {
-    disconnect() {}
-    observe(target: Element) { observed.push(target) }
-  })
-  const { turn } = await mounted()
-  const before   = observed.length
+  const { turn, wrapper } = await mounted()
+  const panel             = document.createElement('div')
+  panel.toggleAttribute('data-label-clear')
+  wrapper.element.parentElement!.append(panel)
   turn(true)
   await flushPromises()
-  expect(observed.length).toBeGreaterThan(before)
+  invalidate.mockClear()
+  resized.run()
+  expect([resized.targets, invalidate.mock.calls.length]).toEqual([[panel], 1])
 })
