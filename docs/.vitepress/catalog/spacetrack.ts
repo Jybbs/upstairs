@@ -105,7 +105,8 @@ export const queriedOf = (answer: unknown) => {
   const records = entries.map(recordOf).filter(record => record !== undefined)
   if (records.length >= AT_LEAST && records.length === entries.length) return records
   throw new Unchecked(`Expected a list of ${AT_LEAST} or more records holding every field, got `
-                    + (Array.isArray(answer) ? `${records.length} of ${entries.length}` : typeof answer))
+                    + (Array.isArray(answer) ? `${records.length} of ${entries.length}`
+                       : answer === undefined ? 'a body that is not JSON' : typeof answer))
 }
 
 /**
