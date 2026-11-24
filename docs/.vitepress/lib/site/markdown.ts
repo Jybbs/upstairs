@@ -7,7 +7,6 @@ import markdownItKatex           from '@vscode/markdown-it-katex'
 import katex                     from 'katex'
 import type { MarkdownRenderer } from 'vitepress'
 
-import { HOLD }           from '../map/credit.ts'
 import { AGES }           from '../orbit/catalog.ts'
 import * as scan          from '../orbit/scan.ts'
 import { DECIMALS, HOME } from '../state/address.ts'
@@ -25,7 +24,6 @@ export const FIGURES = {
   ageWarn       : AGES.warn,
   decimals      : DECIMALS,
   gridMinutes   : scan.GRID_STEP / 60,
-  holdSeconds   : HOLD.wait / 1000,
   home          : HOME.place,
   lapse         : CLOCK.lapse,
   latchSeconds  : CLOCK.latch / 1000,

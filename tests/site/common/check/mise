@@ -1,0 +1,28 @@
+#!/bin/sh
+if [ "$1" = api ]; then
+  for path; do :; done
+  printf 'api\t%s\n' "$path" >> "$STAND_IN_CALLS"
+  [ "$2" = --jq ] && [ -f "$STAND_IN_REMOTE$path" ] || exit 1
+  exec jq --raw-output "$3" "$STAND_IN_REMOTE$path"
+fi
+if [ "$1 $2 $3" = 'cache list --jq' ]; then
+  filter=$4
+  shift 4
+  (IFS=$(printf '\t'); printf 'cache\tlist\t%s\n' "$*") >> "$STAND_IN_CALLS"
+  exec jq --raw-output "$filter" "$STAND_IN_REMOTE/caches.json"
+fi
+(IFS=$(printf '\t'); printf '%s\n' "$*") >> "$STAND_IN_CALLS"
+if [ "$1 $2 $3" = 'config get --file' ]; then
+  exec awk -v name="${5##*.}" -v table="[${5%.*}]" '
+    /^\[/ { inside = $0 == table; next }
+    inside && sub("^" name "[ \t]*=[ \t]*", "") { print; found = 1 }
+    END { exit !found }
+  ' "$4"
+fi
+call=$(wc -l < "$STAND_IN_CALLS")
+set -- $STAND_IN_EXIT
+while [ "$#" -gt 1 ] && [ "$call" -gt 1 ]; do
+  shift
+  call=$((call - 1))
+done
+exit "$1"

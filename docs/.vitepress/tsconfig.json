@@ -4,6 +4,6 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable", "WebWorker"],
     "types": ["bun", "node", "vite/client"]
   },
-  "include": ["config.ts", "lib", "tests", "theme", "tools"],
-  "exclude": ["tests/catalog", "tests/preview"]
+  "include": ["config.ts", "lib", "theme", "tools", "../../tests/site"],
+  "exclude": ["../../tests/site/catalog", "../../tests/site/preview"]
 }

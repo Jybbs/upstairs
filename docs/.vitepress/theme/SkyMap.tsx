@@ -325,7 +325,7 @@ export default defineComponent(
       }
       map.touchZoomRotate.disableRotation()
       map.keyboard.disableRotation()
-      sky.credit.hold(map)
+      sky.credit.follow(map)
 
       overlay = new Overlay(lower.value!, upper.value!, {
         get gathered() { return sky.gather.value !== null },
@@ -502,7 +502,7 @@ export default defineComponent(
         {!props.backdrop && (
           <div
             style={{ bottom: `${sky.covered.value}px` }}
-            class="pointer-events-none absolute top-0 right-3 z-10 flex w-24 items-center justify-end
+            class="pointer-events-none absolute top-0 right-inset z-10 flex w-24 items-center justify-end
                    @container-size"
           >
             <div

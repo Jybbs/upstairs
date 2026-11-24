@@ -38,15 +38,17 @@ const valueOf = (result: Result) =>
 
 /**
  * Searches the whole catalog by name and the places Photon finds by name
- * through a combobox, moving to the result chosen.
+ * through a combobox, moving to the result chosen, with a notice under it in
+ * the flow of the page where the browser declines to share a location.
  */
 export default defineComponent(
   () => {
-    const found   = ref<search.Place[]>([])
-    const trouble = ref<string | null>(null)
-    const words   = ref('')
-    const typed   = computed(() => words.value.trim())
-    let latest    = 0
+    const declined = ref(false)
+    const found    = ref<search.Place[]>([])
+    const trouble  = ref<string | null>(null)
+    const words    = ref('')
+    const typed    = computed(() => words.value.trim())
+    let latest     = 0
 
     /**
      * Seconds into the window of the present's whole minute.
@@ -79,10 +81,13 @@ export default defineComponent(
       return pass.setAt >= minute.value ? 'Up now' : `Set ${sky.clockOf(pass.setAt)}`
     }
 
-    const nearMe = () => navigator.geolocation.getCurrentPosition(
-      ({ coords }) => sky.locate({ latitude: coords.latitude, longitude: coords.longitude }),
-      () => { trouble.value = 'The browser did not share a location.' }
-    )
+    const nearMe = () => {
+      declined.value = false
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => sky.locate({ latitude: coords.latitude, longitude: coords.longitude }),
+        () => { declined.value = true }
+      )
+    }
 
     const look = async (query: string) => {
       const asked  = ++latest
@@ -156,7 +161,7 @@ export default defineComponent(
     })))
     const box = computed(() => combobox.connect(service, normalizeProps))
 
-    return () => (
+    return () => [
       <form
         {...box.value.getControlProps()}
         class="relative flex gap-1.5"
@@ -224,8 +229,11 @@ export default defineComponent(
             </ul>
           </div>
         )}
-      </form>
-    )
+      </form>,
+      declined.value && (
+        <p class="text-[15px] leading-snug text-soft" role="status">The browser did not share a location.</p>
+      )
+    ]
   },
   { name: 'PlaceSearch' }
 )

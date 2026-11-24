@@ -1,5 +1,5 @@
 #!/usr/bin/env -S bash -euo pipefail
-#MISE description = "Run the orbit crate's tests where the branch's changes since `origin/main` reach `rust/` outside `rust/.cargo/`, the records and known answers the tests read, or the Rust toolchain that `.mise/config.toml` and `.mise/mise.lock` pin, passing any further arguments to Cargo"
+#MISE description = "Run the orbit crate's tests where the branch's changes since `origin/main` reach `tests/rust/`, `rust/` outside `rust/.cargo/`, the records and known answers the tests read, or the Rust toolchain that `.mise/config.toml` and `.mise/mise.lock` pin, passing any further arguments to Cargo"
 
 at_base() {
   git show "$base:$1"
@@ -14,14 +14,14 @@ base=$(git merge-base origin/main HEAD) || {
   echo "crate:affected found no merge base between origin/main and HEAD" >&2
   exit 1
 }
-paths=(docs/.vitepress/tests/fixtures/{answers,records}.json rust ':(exclude)rust/.cargo')
+paths=(rust tests/rust tests/site/fixtures/{answers,records}.json ':(exclude)rust/.cargo')
 changed=$(git diff --name-only "$base" -- "${paths[@]}")
 untracked=$(git ls-files --exclude-standard --others -- "${paths[@]}")
 entries=$(rust_entries cat || true)
 base_entries=$(rust_entries at_base || true)
 
 if [[ -z "$changed$untracked" && "$entries" == "$base_entries" ]]; then
-  echo "crate:affected found no change since origin/main under rust/ outside rust/.cargo/, in the records and known answers, or in the Rust toolchain"
+  echo "crate:affected found no change since origin/main under tests/rust/, under rust/ outside rust/.cargo/, in the records and known answers, or in the Rust toolchain"
   exit 0
 fi
 

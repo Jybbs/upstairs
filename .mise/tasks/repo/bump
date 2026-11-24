@@ -1,7 +1,6 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "bump"
-#MISE description = "Move `version` in `docs/package.json` to the next minor release, or to the next patch or major one through `--patch` or `--major`, leaving the rest of the manifest as it stands"
-#MISE dir         = "{{config_root}}/docs"
+#MISE description = "Move `version` in `package.json` to the next minor release, or to the next patch or major one through `--patch` or `--major`, leaving the rest of the manifest as it stands"
 #USAGE flag "--major" help="Move to the next major release"
 #USAGE flag "--patch" help="Move to the next patch release"
 
