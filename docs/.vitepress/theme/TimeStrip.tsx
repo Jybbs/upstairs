@@ -26,11 +26,11 @@ import RidgeTip                     from './RidgeTip.tsx'
  */
 const LABEL = { advance: 0.7, gap: 8, phone: 0.75, wide: 0.6875 } as const
 /**
- * The strip's height, the row its ground runs along, the height a pass
- * standing straight overhead climbs to above it, and its least inset either
- * side, in pixels.
+ * How far the strip's foot stands below its ground at a root font size of 16
+ * pixels, the row its ground runs along, the height a pass standing straight
+ * overhead climbs to above it, and its least inset either side, in pixels.
  */
-const STRIP = { ground: 74, height: 110, inset: 16, overhead: 60 } as const
+const STRIP = { foot: 36, ground: 74, inset: 16, overhead: 60 } as const
 const TICKS = 6
 /**
  * How many ticks a label may stand apart, each dividing `TICKS` so the last
@@ -71,6 +71,11 @@ export default defineComponent(
      * label in.
      */
     const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+    /**
+     * Returns the row `drop` pixels below the ground at a root font size of 16
+     * pixels, dropping further in step with a larger root size.
+     */
+    const under = (drop: number) => STRIP.ground + drop * Math.max(rem / 16, 1)
     const clocks = computed(() =>
       Array.from({ length: TICKS + 1 }, (_, index) => sky.clockOf(index * sky.span / TICKS)))
     /**
@@ -298,7 +303,7 @@ export default defineComponent(
                    duration-1050 ease-[cubic-bezier(.55,0,.25,1)] motion-reduce:transition-none`,
                   sky.credit.open.value && 'grayscale'
                 ]}
-                height={STRIP.height}
+                height={under(STRIP.foot)}
                 aria-label="Time within the window"
                 aria-keyshortcuts="ArrowUp ArrowDown Enter"
                 aria-valuenow={Math.round(sky.at.value)}
@@ -376,14 +381,14 @@ export default defineComponent(
                       y2={STRIP.ground + 3}
                       class="stroke-dim"
                     />
-                    <text x={tick.x} y={STRIP.height - 5} text-anchor="middle" class="caps fill-soft">
+                    <text x={tick.x} y={under(31)} text-anchor="middle" class="caps fill-soft">
                       {tick.clock}
                     </text>
                   </g>
                 ))}
                 <g class="pointer-events-none" transform={`translate(${xOf(sky.now.value)} 0)`}>
                   <line y1={STRIP.ground + 3} y2={STRIP.ground + 7} class="stroke-ink" stroke-width="1.5" />
-                  <text y={STRIP.height - 18} text-anchor="middle" class="caps fill-ink">Now</text>
+                  <text y={under(18)} text-anchor="middle" class="caps fill-ink">Now</text>
                 </g>
                 <g ref={cursor} class="pointer-events-none">
                   <line y1={4} y2={STRIP.ground + 3} class="stroke-u" stroke-width="1.5" />

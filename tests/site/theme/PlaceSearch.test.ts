@@ -129,6 +129,15 @@ it('takes back the notice once a later press finds the location', async () => {
     .toEqual(['The browser found no location within 10 seconds.', '', 'your location'])
 })
 
+it('leaves out the failure of an earlier press arriving after a later press finds the location', async () => {
+  const { fail, notice, press, share, sky } = await locating()
+  await press()
+  await press()
+  await share(1)
+  await fail(0, 3)
+  expect([notice.text(), sky.place.value]).toEqual(['', 'your location'])
+})
+
 it('keeps the empty notice on the page for a screen reader and out of the flow', async () => {
   expect((await locating()).notice.classes()).toContain('empty:sr-only')
 })

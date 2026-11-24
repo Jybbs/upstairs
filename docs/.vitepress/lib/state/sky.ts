@@ -1,3 +1,4 @@
+import { useThrottleFn }                                  from '@vueuse/core'
 import { computed, reactive, ref, shallowRef, toRaw }     from 'vue'
 
 import { Credit }                                         from '../map/credit.ts'
@@ -230,7 +231,6 @@ class Sky {
   private heard                      = new Heard(0)
   private latchedAt                  = -Infinity
   private scanId                     = 0
-  private spokenAt                   = 0
   /**
    * The scan workers, the first downloading the catalog and handing each of
    * the others its share.
@@ -497,6 +497,7 @@ class Sky {
     this.record(address.spotIn(location.hash))
     if (this.done.value) this.chooseFocus()
     this.unlatch()
+    if (this.blank.value) this.tally()
   }
 
   /**
@@ -712,20 +713,19 @@ class Sky {
         onMap      : onMap.reduce((sum, count) => sum + count, 0)
       }
     }
-    if (this.done.value) this.speak()
+    if (this.done.value) void this.speak()
   }
 
   /**
    * Writes the reading's count above the horizon to `spoken`, the count the
-   * readout shows, at most once every `CLOCK.spoken` milliseconds.
+   * readout shows, at most once every `CLOCK.spoken` milliseconds and once
+   * more as that time ends where a later count waits.
    */
-  private speak() {
-    const now = Date.now()
-    if (now - this.spokenAt < CLOCK.spoken) return
+  private readonly speak = useThrottleFn(() => {
+    if (!this.done.value) return
     const { above }   = this.reading.value
-    this.spokenAt     = now
     this.spoken.value = `${above.toLocaleString()} satellite${above === 1 ? '' : 's'} above the horizon`
-  }
+  }, CLOCK.spoken, true)
 
   /**
    * Returns the climb of `pass` from its rise to its set, cut at the ends of

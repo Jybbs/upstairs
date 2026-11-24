@@ -404,6 +404,11 @@ it.each(PAGES)('centers each %s hour label on its tick, %i px page', async (loca
   }).toEqual({ centered: true, inside: true })
 })
 
+it('draws the strip 110 px tall at a root size of 16 px', async () => {
+  const { wrapper } = await mounted(false)
+  expect(wrapper.get('svg.cursor-ew-resize').attributes('height')).toBe('110')
+})
+
 it('ends the playhead’s line above the Now beneath the ground', async () => {
   const { wrapper } = await mounted(false)
   const playhead    = wrapper.get('line.stroke-u')
@@ -412,10 +417,18 @@ it('ends the playhead’s line above the Now beneath the ground', async () => {
 })
 
 it.each([
-  ['on a wider page', false, 11],
-  ['on a phone', true, 12]
-] as const)('ends the Now tick 2 px above its label and the label 2 px above the hour labels, %s',
-  async (_, phone, em) => {
+  ['on a wider page', 16, false, 11],
+  ['on a phone', 16, true, 12],
+  ['on a wider page', 20, false, 11],
+  ['on a phone', 20, true, 12],
+  ['on a wider page', 24, false, 11],
+  ['on a phone', 24, true, 12]
+] as const)('ends the Now tick 2 px above its label and the label 2 px above the hour labels, %s at a root '
+  + 'size of %i px',
+  async (_, root, phone, base) => {
+    document.documentElement.style.fontSize = `${root}px`
+    onTestFinished(() => { document.documentElement.style.fontSize = '' })
+    const em          = base * root / 16
     const { wrapper } = await mounted(false, phone)
     const tick        = Number(wrapper.get('line.stroke-ink').attributes('y2'))
     const now         = Number(wrapper.get('text.fill-ink').attributes('y'))

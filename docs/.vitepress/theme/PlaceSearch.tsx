@@ -56,7 +56,9 @@ export default defineComponent(
     const trouble = ref<string | null>(null)
     const words   = ref('')
     const typed   = computed(() => words.value.trim())
+    let asks      = 0
     let latest    = 0
+    let shared    = 0
 
     /**
      * Seconds into the window of the present's whole minute.
@@ -91,16 +93,20 @@ export default defineComponent(
 
     /**
      * Moves to the spot the browser locates, saying whether it declined or
-     * found none within `LOCATE` milliseconds where it shares none.
+     * found none within `LOCATE` milliseconds where it shares none, leaving
+     * out the failure of a request older than one that found the spot.
      */
     const nearMe = () => {
+      const asked  = ++asks
       notice.value = ''
       navigator.geolocation.getCurrentPosition(
         ({ coords }) => {
+          shared       = asked
           notice.value = ''
           sky.locate({ latitude: coords.latitude, longitude: coords.longitude })
         },
         ({ code, TIMEOUT }) => {
+          if (shared > asked) return
           notice.value = code === TIMEOUT
             ? `The browser found no location within ${LOCATE / 1000} seconds.`
             : 'The browser did not share a location.'

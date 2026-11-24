@@ -60,3 +60,8 @@ it('moves the age on while the page stays open', async () => {
   await nextTick()
   expect(footer.findAll('dd')[1].text()).toMatch(/, 2 hours ago$/)
 })
+
+it('lets the orbits’ date and age run onto a second line on a narrow screen', async () => {
+  const { footer } = await mounted(16_904)
+  expect(footer.findAll('dd')[1].classes()).not.toContain('whitespace-nowrap')
+})

@@ -188,6 +188,29 @@ describe('the count a screen reader hears', () => {
     expect([sky.reading.value.above, sky.spoken.value]).toEqual([2, '2 satellites above the horizon'])
   })
 
+  it('announces a count held back by the 20 seconds once they end, where the map cannot draw', async () => {
+    const sky       = await loaded()
+    sky.blank.value = true
+    standing(sky, 2)
+    vi.advanceTimersByTime(8_000)
+    sky.scan()
+    standing(sky, 7)
+    const held = sky.spoken.value
+    vi.advanceTimersByTime(12_000)
+    expect([held, sky.reading.value.above, sky.spoken.value])
+      .toEqual(['2 satellites above the horizon', 7, '7 satellites above the horizon'])
+  })
+
+  it('counts again once a kind is switched off where the map cannot draw', async () => {
+    const sky       = await loaded()
+    sky.blank.value = true
+    standing(sky, 2)
+    vi.advanceTimersByTime(20_000)
+    sky.trace(kindOrder.filter(kind => kind !== 'weather'))
+    vi.advanceTimersByTime(20_000)
+    expect([sky.reading.value.above, sky.spoken.value]).toEqual([0, '0 satellites above the horizon'])
+  })
+
   it('keeps announcing the reading’s count once the count above has moved on', async () => {
     const sky = await loaded()
     traced([passAt(sky.seconds - 610, 30)])
