@@ -1,17 +1,39 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import * as spacetrack  from '../../../docs/.vitepress/catalog/spacetrack.ts'
-import { AGES, FIELDS } from '../../../docs/.vitepress/lib/orbit/catalog.ts'
-import { QUERIED }      from '../common/catalog.ts'
-import * as answers     from '../common/spacetrack.ts'
+import * as spacetrack    from '../../../docs/.vitepress/catalog/spacetrack.ts'
+import { AGES, FIELDS }   from '../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { QUERIED }        from '../common/catalog.ts'
+import { LOST, stopping } from '../common/fetchers.ts'
+import * as answers       from '../common/spacetrack.ts'
 
-const LOGIN   = { identity: 'observer', password: 'orbit 2026&more' }
+const LOGIN = { identity: 'observer', password: 'orbit 2026&more' }
 /**
  * The records as Space-Track's JSON writes them, every value as text.
  */
 const textual = QUERIED.map(record => Object.fromEntries(Object.entries(record).map(([key, value]) =>
   [key, String(value)])))
-const answer = (body: unknown) => () => Response.json(body)
+
+/**
+ * The ways a logout fails.
+ */
+const UNCLOSED = [
+  ['answered with a server error', () => new Response('', { status: 500 }), 'Space-Track answered 500'],
+  ['answered with a server error whose body stops arriving',
+    stopping('', LOST, { status: 500 }), 'Space-Track answered 500'],
+  ['left unanswered', () => { throw LOST }, 'Space-Track could not be reached']
+] as const
+
+/**
+ * Queries the elements, Space-Track answering with `replies`, returning them or
+ * the error the query fails with beside each error it reports for the logout.
+ */
+const queried = async (...replies: (() => Response)[]) => {
+  const unclosed = vi.fn<(error: Error) => void>()
+  const fetcher  = answers.answering(...replies)
+  const result   = await new spacetrack.SpaceTrack(fetcher).elements(LOGIN, unclosed)
+    .catch((error: Error) => error)
+  return { fetcher, result, unclosed: unclosed.mock.calls.map(([error]) => error) }
+}
 
 describe('the stand-in for fetch', () => {
   it.each([['undefined', undefined], ['globalThis', globalThis]])('answers a call with %s as its this',
@@ -53,6 +75,10 @@ describe('a login', () => {
     ['a server error', [() => new Response('', { status: 503 })], 'Space-Track answered 503'],
     ['a body naming no verdict', [() => new Response('<html>')],
       'Space-Track answered the login with neither an acceptance nor a rejection'],
+    ['a body that stops arriving', [stopping('"', LOST)],
+      'Space-Track’s answer stopped arriving'],
+    ['a server error whose body stops arriving', [stopping('', LOST, { status: 503 })],
+      'Space-Track answered 503'],
     ['a logout answered with a server error', [answers.ACCEPTED, () => new Response('', { status: 500 })],
       'Space-Track answered 500']
   ])('fails as unavailable on %s', async (_, replies, reason) => {
@@ -75,8 +101,8 @@ describe('a query', () => {
   })
 
   it('logs in, queries inside the session with its cookies, and logs out, reading each number', async () => {
-    const fetcher = answers.answering(answers.ACCEPTED, answer(textual), answers.LOGGED)
-    expect(await new spacetrack.SpaceTrack(fetcher).elements(LOGIN))
+    const fetcher = answers.answering(answers.ACCEPTED, answers.json(textual), answers.LOGGED)
+    expect(await new spacetrack.SpaceTrack(fetcher).elements(LOGIN, vi.fn()))
       .toEqual(QUERIED.map(record => Object.fromEntries(FIELDS.map(field => [field, record[field]]))))
     const cookie = 'chocolatechip=abc; spacetrack_csrf_cookie=def'
     expect(fetcher.mock.calls.map(([url, init]) => [url, init?.headers])).toEqual([
@@ -87,22 +113,64 @@ describe('a query', () => {
   })
 
   it('fails as rejected on a rejected login, querying nothing', async () => {
-    const fetcher = answers.answering(answers.REJECTED)
-    await expect(new spacetrack.SpaceTrack(fetcher).elements(LOGIN)).rejects.toThrow(spacetrack.Rejected)
+    const { fetcher, result } = await queried(answers.REJECTED)
+    expect(result).toEqual(new spacetrack.Rejected('Space-Track rejected the login'))
     expect(fetcher).toHaveBeenCalledOnce()
   })
 
+  it.each(UNCLOSED)('returns the records the query answered with past a logout %s, reporting it',
+    async (_, logout, reason) => {
+      const { result, unclosed } = await queried(answers.ACCEPTED, answers.json(textual), logout)
+      expect(result).toHaveLength(QUERIED.length)
+      expect(unclosed).toEqual([new spacetrack.Unavailable(reason)])
+    })
+
+  it.each(UNCLOSED)('fails as the query did past a logout %s, reporting the logout beside it',
+    async (_, logout, reason) => {
+      const { result, unclosed } = await queried(answers.ACCEPTED, answers.json([]), logout)
+      expect(result).toBeInstanceOf(spacetrack.Unchecked)
+      expect(unclosed).toEqual([new spacetrack.Unavailable(reason)])
+    })
+
+  it('reports nothing for a logout whose body stops arriving after a 200', async () => {
+    const { result, unclosed } = await queried(answers.ACCEPTED, answers.json(textual), stopping('', LOST))
+    expect(result).toHaveLength(QUERIED.length)
+    expect(unclosed).toEqual([])
+  })
+
   it.each([
-    ['a server error', () => new Response('', { status: 500 }), spacetrack.Unavailable],
-    ['a body that is not JSON', () => new Response('<html>'), spacetrack.Unchecked],
-    ['a list shorter than a catalog', answer(textual.slice(0, 10)), spacetrack.Unchecked],
-    ['an object', answer({ error: 'busy' }), spacetrack.Unchecked],
-    ['a record missing a field', answer([...textual.slice(1), { OBJECT_NAME: 'X' }]), spacetrack.Unchecked],
-    ['a number that reads as none', answer([...textual.slice(1), { ...textual[0], BSTAR: 'n/a' }]),
-      spacetrack.Unchecked]
-  ])('fails on %s, logging out of the session', async (_, reply, kind) => {
-    const fetcher = answers.answering(answers.ACCEPTED, reply, answers.LOGGED)
-    await expect(new spacetrack.SpaceTrack(fetcher).elements(LOGIN)).rejects.toThrow(kind)
+    ['as the connection is lost', LOST],
+    ['within the wait', new DOMException('The operation timed out', 'TimeoutError')]
+  ])('fails as unavailable on a body that stops arriving %s, logging out', async (_, error) => {
+    const body = JSON.stringify(textual).slice(0, -100)
+    const { fetcher, result } = await queried(answers.ACCEPTED, stopping(body, error), answers.LOGGED)
+    expect(result).toEqual(new spacetrack.Unavailable('Space-Track’s answer stopped arriving'))
     expect(fetcher).toHaveBeenCalledTimes(3)
   })
+
+  const expected = (got: string) => `Expected a list of 5000 or more records holding every field, got ${got}`
+
+  it.each([
+    ['a server error', () => new Response('', { status: 500 }),
+      new spacetrack.Unavailable('Space-Track answered 500')],
+    ['a body that is not JSON', () => new Response('<html>'),
+      new spacetrack.Unchecked(expected('a body that is not JSON'))],
+    ['an empty JSON string', answers.json(''), new spacetrack.Unchecked(expected('string'))],
+    ['an empty list', answers.json([]), new spacetrack.Unchecked(expected('0 of 0'))],
+    ['a list shorter than a catalog', answers.json(textual.slice(0, 10)),
+      new spacetrack.Unchecked(expected('10 of 10'))],
+    ['an object', answers.json({ error: 'busy' }), new spacetrack.Unchecked(expected('object'))],
+    ['a record missing a field', answers.json([...textual.slice(1), { OBJECT_NAME: 'X' }]),
+      new spacetrack.Unchecked(expected('4999 of 5000'))],
+    ['a full list beside a record missing a field', answers.json([...textual, { OBJECT_NAME: 'X' }]),
+      new spacetrack.Unchecked(expected('5000 of 5001'))],
+    ['a number that reads as none', answers.json([...textual.slice(1), { ...textual[0], BSTAR: 'n/a' }]),
+      new spacetrack.Unchecked(expected('4999 of 5000'))]
+  ])('fails on %s with a reason holding none of its text, logging out of the session',
+    async (_, reply, error) => {
+      const { fetcher, result } = await queried(answers.ACCEPTED, reply, answers.LOGGED)
+      expect(result).toEqual(error)
+      expect(result).toBeInstanceOf(error.constructor)
+      expect(fetcher).toHaveBeenCalledTimes(3)
+    })
 })

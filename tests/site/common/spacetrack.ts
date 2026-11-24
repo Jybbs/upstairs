@@ -21,3 +21,8 @@ export const answering = (...answers: (() => Response)[]) => {
   const queue = [...answers]
   return unbound(async () => queue.shift()!())
 }
+
+/**
+ * Answers with `body` as JSON.
+ */
+export const json = (body: unknown) => () => Response.json(body)
