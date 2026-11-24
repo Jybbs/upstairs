@@ -148,18 +148,25 @@ describe('a query', () => {
     expect(fetcher).toHaveBeenCalledTimes(3)
   })
 
+  const expected = (got: string) => `Expected a list of 5000 or more records holding every field, got ${got}`
+
   it.each([
-    ['a server error', () => new Response('', { status: 500 }), spacetrack.Unavailable],
-    ['a body that is not JSON', () => new Response('<html>'), spacetrack.Unchecked],
-    ['a list shorter than a catalog', answers.json(textual.slice(0, 10)), spacetrack.Unchecked],
-    ['an object', answers.json({ error: 'busy' }), spacetrack.Unchecked],
+    ['a server error', () => new Response('', { status: 500 }),
+      new spacetrack.Unavailable('Space-Track answered 500')],
+    ['a body that is not JSON', () => new Response('<html>'), new spacetrack.Unchecked(expected('undefined'))],
+    ['an empty list', answers.json([]), new spacetrack.Unchecked(expected('0 of 0'))],
+    ['a list shorter than a catalog', answers.json(textual.slice(0, 10)),
+      new spacetrack.Unchecked(expected('10 of 10'))],
+    ['an object', answers.json({ error: 'busy' }), new spacetrack.Unchecked(expected('object'))],
     ['a record missing a field', answers.json([...textual.slice(1), { OBJECT_NAME: 'X' }]),
-      spacetrack.Unchecked],
+      new spacetrack.Unchecked(expected('4999 of 5000'))],
     ['a number that reads as none', answers.json([...textual.slice(1), { ...textual[0], BSTAR: 'n/a' }]),
-      spacetrack.Unchecked]
-  ])('fails on %s, logging out of the session', async (_, reply, kind) => {
-    const { fetcher, result } = await queried(answers.ACCEPTED, reply, answers.LOGGED)
-    expect(result).toBeInstanceOf(kind)
-    expect(fetcher).toHaveBeenCalledTimes(3)
-  })
+      new spacetrack.Unchecked(expected('4999 of 5000'))]
+  ])('fails on %s with a reason holding none of its text, logging out of the session',
+    async (_, reply, error) => {
+      const { fetcher, result } = await queried(answers.ACCEPTED, reply, answers.LOGGED)
+      expect(result).toEqual(error)
+      expect(result).toBeInstanceOf(error.constructor)
+      expect(fetcher).toHaveBeenCalledTimes(3)
+    })
 })

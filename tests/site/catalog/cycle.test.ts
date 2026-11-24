@@ -425,6 +425,22 @@ describe('a download cycle', () => {
     }
   })
 
+  it('names the region a SATCAT file failed its check through on a later run reading the directory '
+   + 'through another region', async () => {
+    let answer = servedOf(LISTED, 'OBJECT_NAME\r\n')
+    const { asked, cycle, fetcher, state, waited } = cycleOf((...args) => answer(...args))
+    await cycle.run(start)
+    fetcher.mockClear()
+    answer = (region, source) => {
+      if (region === REGIONS[0]) throw LOST
+      return good(region, source)
+    }
+    expect(await cycle.run(start + EVERY)).toMatchObject({ satcat: 'waiting' })
+    expect(asked()).toEqual([[REGIONS[0], DIRECTORY], [REGIONS[1], DIRECTORY]])
+    expect(state.get('reached')).toBe(REGIONS[1])
+    expect(waited()).toMatchObject({ kind: 'unchecked', region: REGIONS[0] })
+  })
+
   it.each([
     ['the same time', LISTED, 'waiting', [DIRECTORY]],
     ['an older time', LISTED - 1000, 'waiting', [DIRECTORY]],
