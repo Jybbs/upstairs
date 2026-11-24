@@ -48,7 +48,10 @@ export default defineComponent(
         {phone.value
           ? <Sheet data-label-clear />
           : [
-            <Readout class="absolute top-inset left-inset z-10 w-readout" data-label-clear />,
+            <Readout
+              class="absolute top-inset left-inset z-10 w-readout has-[[data-part=positioner]]:z-20"
+              data-label-clear
+            />,
             <TimeStrip
               class="absolute inset-x-inset bottom-inset z-10 rounded-sm border shadow-lift"
               data-label-clear
