@@ -5,7 +5,7 @@ use orbit::{ELEMENTS, Orbits};
 use serde_json::Value;
 use sgp4::chrono::DateTime;
 
-use crate::{ANSWERS, RECORDS, append, elements, epoch, id, orbits, propagator};
+use crate::{ANSWERS, RECORDS, SKIES, append, elements, epoch, id, orbits, propagator};
 
 #[test]
 fn fails_a_record_once_its_orbit_decays() {
@@ -31,11 +31,10 @@ fn leaves_out(field: &str, value: Value) {
     let orbits = orbits(&records);
     let window = &ANSWERS.grid;
     let grid = window.grid(&orbits);
-    let risen = grid
-        .sight(ANSWERS.spot.latitude, ANSWERS.spot.longitude)
-        .risen;
-    let trace = ANSWERS.track.tracer().trace(&orbits, &[1]);
-    let others: Vec<u64> = window
+    let risen = ANSWERS.spot.sight(&grid).risen;
+    let trace = ANSWERS.track.tracer(&ANSWERS.spot).trace(&orbits, &[1]);
+    let others: Vec<u64> = SKIES[0]
+        .grid
         .risen
         .iter()
         .copied()
@@ -72,10 +71,8 @@ fn appends_each_segment_after_the_records_before_it() {
     let mut orbits = orbits(first);
     append(&mut orbits, rest);
     let window = &ANSWERS.grid;
-    let sighting = window
-        .grid(&orbits)
-        .sight(ANSWERS.spot.latitude, ANSWERS.spot.longitude);
-    assert_eq!(sighting.counts, window.counts);
+    let sighting = ANSWERS.spot.sight(&window.grid(&orbits));
+    assert_eq!(sighting.counts, SKIES[0].grid.counts);
 }
 
 #[test]

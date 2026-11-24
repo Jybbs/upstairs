@@ -8,6 +8,6 @@ mod orbits;
 mod tracer;
 
 pub use frame::{Moment, Point, Site};
-pub use grid::Grid;
+pub use grid::{Grid, Sighting};
 pub use orbits::{ELEMENTS, Orbits, Propagator, Uneven};
 pub use tracer::{Looks, TRACK_WIDTH, Trace, Traced, Tracer};

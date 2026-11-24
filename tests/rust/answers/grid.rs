@@ -1,18 +1,18 @@
-//! Holds the grid's count of the satellites above the spot to the answers.
+//! Holds the grid's count of the satellites above each spot to the answers.
 
 use orbit::Grid;
 
-use crate::{ANSWERS, RECORDS, append, id, orbits, start};
+use crate::{ANSWERS, RECORDS, SKIES, append, id, orbits, start};
 
 #[test]
-fn counts_the_satellites_above_the_spot() {
-    let orbits = orbits(&RECORDS);
-    let window = &ANSWERS.grid;
-    let grid = window.grid(&orbits);
-    let sighting = grid.sight(ANSWERS.spot.latitude, ANSWERS.spot.longitude);
-    let risen: Vec<u64> = sighting.risen.into_iter().map(id).collect();
-    assert_eq!(sighting.counts, window.counts);
-    assert_eq!(risen, window.risen);
+fn counts_the_satellites_above_each_spot() {
+    let grid = ANSWERS.grid.grid(&orbits(&RECORDS));
+    for sky in &*SKIES {
+        let sighting = sky.spot.sight(&grid);
+        let risen: Vec<u64> = sighting.risen.into_iter().map(id).collect();
+        assert_eq!(sighting.counts, sky.grid.counts, "{:?}", sky.spot);
+        assert_eq!(risen, sky.grid.risen, "{:?}", sky.spot);
+    }
 }
 
 #[test]
@@ -23,8 +23,8 @@ fn places_the_same_satellites_when_filled_in_chunks_past_the_last_row() {
     for row in (0..orbits.size()).step_by(5) {
         grid.fill(&orbits, row, row + 5);
     }
-    let sighting = grid.sight(ANSWERS.spot.latitude, ANSWERS.spot.longitude);
-    assert_eq!(sighting.counts, window.counts);
+    let sighting = ANSWERS.spot.sight(&grid);
+    assert_eq!(sighting.counts, SKIES[0].grid.counts);
 }
 
 #[test]
@@ -35,6 +35,6 @@ fn places_only_the_rows_a_grid_was_built_for_once_the_orbits_grow() {
     let mut grid = Grid::new(&orbits, start(), window.samples(), window.step);
     append(&mut orbits, rest);
     grid.fill(&orbits, 0, orbits.size());
-    let sighting = grid.sight(ANSWERS.spot.latitude, ANSWERS.spot.longitude);
+    let sighting = ANSWERS.spot.sight(&grid);
     assert_eq!(sighting.counts.len(), window.samples());
 }
