@@ -1,6 +1,6 @@
 //! Holds each traced pass and the track beside it to the answers.
 
-use orbit::{Moment, Point, Traced, Tracer};
+use orbit::{Moment, Orbits, Point, Trace, Traced, Tracer};
 use serde_json::{Map, Value};
 
 use crate::{
@@ -223,23 +223,12 @@ fn finds_each_highest_point_within_a_hundredth_of_a_degree() {
 
 #[test]
 fn finds_a_zenith_between_samples_within_a_hundredth_of_a_degree() {
-    let window = &ANSWERS.track;
     let row = RECORDS
         .iter()
         .position(|record| record["NORAD_CAT_ID"] == 63848)
         .unwrap();
-    let orbits = orbits(&RECORDS);
-    let time = start() + 1.37 * window.step * 1000.0;
-    let teme = propagator(&RECORDS[row]).unwrap().at(time).unwrap();
-    let below = Point::below(Moment::at(time).fixed(teme));
-    let tracer = Tracer::new(
-        below.latitude,
-        below.longitude,
-        start(),
-        window.samples(),
-        window.step,
-    );
-    let trace = tracer.trace(&orbits, &[row as u32]);
+    let point = below(&RECORDS[row], 1.37 * ANSWERS.track.step);
+    let trace = trace_over(point, 0.0, &orbits(&RECORDS), row as u32);
     let pass = trace
         .passes
         .iter()
@@ -252,28 +241,19 @@ fn finds_a_zenith_between_samples_within_a_hundredth_of_a_degree() {
 fn gives_no_heading_to_a_satellite_holding_its_place_across_the_antimeridian() {
     let window = &ANSWERS.track;
     let records: Vec<Map<String, Value>> = read("antimeridian.json");
-    let propagator = propagator(&records[0]).unwrap();
-    let below = |seconds: f64| {
-        let time = start() + seconds * 1000.0;
-        Point::below(Moment::at(time).fixed(propagator.at(time).unwrap()))
-    };
-    let (west, east) = (below(CROSSING - window.step), below(CROSSING + window.step));
+    let (west, east) = (
+        below(&records[0], CROSSING - window.step),
+        below(&records[0], CROSSING + window.step),
+    );
     assert!(
         west.longitude > 0.0 && east.longitude < 0.0,
         "samples beside the crossing: {} and {}",
         west.longitude,
         east.longitude
     );
-    let spot = below(CROSSING);
     let middle = (window.samples() / 2) as f64 * window.step;
-    let tracer = Tracer::new(
-        spot.latitude,
-        spot.longitude,
-        start() + (CROSSING - middle) * 1000.0,
-        window.samples(),
-        window.step,
-    );
-    let trace = tracer.trace(&orbits(&records), &[0]);
+    let point = below(&records[0], CROSSING);
+    let trace = trace_over(point, CROSSING - middle, &orbits(&records), 0);
     let [pass] = trace.passes.as_slice() else {
         panic!("{} passes", trace.passes.len());
     };
@@ -299,4 +279,25 @@ fn reads_each_height_and_range_at_the_highest_point() {
             close(&what("range"), pass.range, site.look(fixed).range, DISTANCE);
         }
     }
+}
+
+/// Returns the point below the satellite of `record` at `seconds` after the
+/// answers' start.
+fn below(record: &Map<String, Value>, seconds: f64) -> Point {
+    let time = start() + seconds * 1000.0;
+    Point::below(Moment::at(time).fixed(propagator(record).unwrap().at(time).unwrap()))
+}
+
+/// Traces the satellite in `row` over `point` through the track's window,
+/// starting at `from` seconds after the answers' start.
+fn trace_over(point: Point, from: f64, orbits: &Orbits, row: u32) -> Trace {
+    let window = &ANSWERS.track;
+    Tracer::new(
+        point.latitude,
+        point.longitude,
+        start() + from * 1000.0,
+        window.samples(),
+        window.step,
+    )
+    .trace(orbits, &[row])
 }
