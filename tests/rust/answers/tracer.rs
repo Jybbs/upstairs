@@ -1,11 +1,17 @@
 //! Holds each traced pass and the track beside it to the answers.
 
 use orbit::{Moment, Point, Traced, Tracer};
+use serde_json::{Map, Value};
 
 use crate::{
-    ANGLE, ANSWERS, DISTANCE, Pass, RECORDS, SKIES, TRACES, close, id, orbits, propagator, start,
-    turned,
+    ANGLE, ANSWERS, DISTANCE, Pass, RECORDS, SKIES, TRACES, close, id, orbits, propagator, read,
+    start, turned,
 };
+
+/// The seconds after the answers' start, a whole number of the track's steps,
+/// nearest the moment the satellite in `antimeridian.json` crosses the
+/// antimeridian, which it does about 13 seconds earlier.
+const CROSSING: f64 = 22_440.0;
 
 #[test]
 fn looks_at_each_satellite_as_its_traced_passes_do() {
@@ -240,6 +246,39 @@ fn finds_a_zenith_between_samples_within_a_hundredth_of_a_degree() {
         .max_by(|a, b| a.peak.total_cmp(&b.peak))
         .unwrap();
     close("zenith", pass.peak, 90.0, 0.01);
+}
+
+#[test]
+fn gives_no_heading_to_a_satellite_holding_its_place_across_the_antimeridian() {
+    let window = &ANSWERS.track;
+    let records: Vec<Map<String, Value>> = read("antimeridian.json");
+    let propagator = propagator(&records[0]).unwrap();
+    let below = |seconds: f64| {
+        let time = start() + seconds * 1000.0;
+        Point::below(Moment::at(time).fixed(propagator.at(time).unwrap()))
+    };
+    let (west, east) = (below(CROSSING - window.step), below(CROSSING + window.step));
+    assert!(
+        west.longitude > 0.0 && east.longitude < 0.0,
+        "samples beside the crossing: {} and {}",
+        west.longitude,
+        east.longitude
+    );
+    let spot = below(CROSSING);
+    let middle = (window.samples() / 2) as f64 * window.step;
+    let tracer = Tracer::new(
+        spot.latitude,
+        spot.longitude,
+        start() + (CROSSING - middle) * 1000.0,
+        window.samples(),
+        window.step,
+    );
+    let trace = tracer.trace(&orbits(&records), &[0]);
+    let [pass] = trace.passes.as_slice() else {
+        panic!("{} passes", trace.passes.len());
+    };
+    close("highest moment", pass.peak_at, middle, window.step / 2.0);
+    assert_eq!(pass.heading, None, "heading");
 }
 
 #[test]

@@ -14,7 +14,12 @@ base=$(git merge-base origin/main HEAD) || {
   echo "crate:affected found no merge base between origin/main and HEAD" >&2
   exit 1
 }
-paths=(rust tests/rust tests/site/fixtures/{answers,records}.json ':(exclude)rust/.cargo')
+paths=(
+  rust
+  tests/rust
+  tests/site/fixtures/{answers,antimeridian,records}.json
+  ':(exclude)rust/.cargo'
+)
 changed=$(git diff --name-only "$base" -- "${paths[@]}")
 untracked=$(git ls-files --exclude-standard --others -- "${paths[@]}")
 entries=$(rust_entries cat || true)
