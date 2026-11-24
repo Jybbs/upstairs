@@ -172,6 +172,17 @@ describe('a scan', () => {
     expect(types).toEqual(['counts', ...types.slice(1, -1).map(() => 'passes'), 'done'])
   })
 
+  it.each([answers, ...answers.elsewhere])('traces the highest pass of each satellite over $spot where the '
+                                         + 'known answers do', async ({ passes, spot }) => {
+    await hear({ ...scanOf(1, spot), minutes: answers.track.minutes })
+    const traced  = answersOf('passes').flatMap(answer => answer.passes)
+    const highest = (id: number) => traced.filter(pass => pass.id === id).toSorted((a, b) => b.peak - a.peak)[0]
+    const known   = passes.filter(pass => pass !== null)
+    expect([...new Set(traced.map(pass => pass.id))].toSorted()).toEqual(known.map(pass => pass.id).toSorted())
+    expect(known.map(({ id }) => [id, highest(id)?.riseAt, highest(id)?.setAt]))
+      .toEqual(known.map(({ id, riseAt, setAt }) => [id, riseAt, setAt]))
+  })
+
   it('traces every satellite but Starlink before any Starlink', async () => {
     await hear(scanOf(1))
     const starlink = answersOf('passes').flatMap(answer => answer.passes)
