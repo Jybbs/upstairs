@@ -36,7 +36,7 @@ const SPEC          = [
   '    flag --json',
   '}',
   'cmd exec help="Run a command" {',
-  '    alias x',
+  '    alias x ex',
   '    alias run-with hide=#true',
   '    cmd nested {',
   '        alias n',
@@ -132,7 +132,10 @@ describe('Repository', () => {
     ])))
 
   it('reads each top-level command of a usage spec with its bare aliases, beside help', () =>
-    expect(repository.commandsOf(SPEC)).toEqual(['help', 'audit', 'exec', 'x', 'run-with']))
+    expect(repository.commandsOf(SPEC)).toEqual(['help', 'audit', 'exec', 'x', 'ex', 'run-with']))
+
+  it('reads the commands and command aliases the running mise lists, beside help', () =>
+    expect(base.commands).toEqual(expect.arrayContaining(['help', 'exec', 'x'])))
 
   it('reports nothing for a task alias no command of the usage spec takes', () =>
     expect(variant(realias('nested')).problems).toEqual(base.problems))
