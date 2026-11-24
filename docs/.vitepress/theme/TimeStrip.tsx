@@ -1,4 +1,4 @@
-import { useElementSize, useEventListener, useRafFn } from '@vueuse/core'
+import { useElementSize, useEventListener, useRafFn, useResizeObserver } from '@vueuse/core'
 import * as slider                                     from '@zag-js/slider'
 import { mergeProps, normalizeProps, useMachine }      from '@zag-js/vue'
 import { computed, defineComponent, ref, useId }       from 'vue'
@@ -8,6 +8,7 @@ import type { Pass }                from '../lib/orbit/scan.ts'
 import { columnsOf, pickAt }        from '../lib/site/columns.ts'
 import { turnOf }                   from '../lib/site/drag.ts'
 import type { IconName }            from '../lib/site/icons.ts'
+import { clamp }                    from '../lib/site/motion.ts'
 import { kindColor }                from '../lib/site/palette.ts'
 import { usePhone }                 from '../lib/site/phone.ts'
 import { ridgeOf }                  from '../lib/site/ridges.ts'
@@ -20,11 +21,16 @@ import RidgeTip                     from './RidgeTip.tsx'
 
 /**
  * A label's width per character in ems, JetBrains Mono's advance of 0.6 beside
- * the 0.1 the `caps` letter spacing adds, the room in pixels kept between two
- * labels, and the font size in rems `caps` sets a label in on a phone and
- * wider.
+ * the 0.1 the `caps` letter spacing adds, its capital's height in ems, the
+ * room in pixels kept between two labels, the font size in rems `caps` sets a
+ * label in on a phone and wider, and that letter spacing in ems.
  */
-const LABEL = { advance: 0.7, gap: 8, phone: 0.75, wide: 0.6875 } as const
+const LABEL = { advance: 0.7, cap: 0.73, gap: 8, phone: 0.75, spacing: 0.1, wide: 0.6875 } as const
+/**
+ * The share of a capital kept between `Now` and the tick over it, and the room
+ * in pixels kept between the tick and either edge of a `Now` that leans.
+ */
+const NOW = { over: 0.5, under: 1.5 } as const
 /**
  * The strip's height, the row its ground runs along, the height a pass
  * standing straight overhead climbs to above it, and its least inset either
@@ -50,6 +56,7 @@ const nudges = new Map([['ArrowLeft', -60], ['ArrowRight', 60], ['PageDown', -60
 export default defineComponent(
   () => {
     const cursor    = ref<SVGGElement>()
+    const nowLabel  = ref<SVGTextElement>()
     const root      = ref<HTMLElement>()
     const strip     = ref<SVGSVGElement>()
     const phone     = usePhone()
@@ -68,16 +75,18 @@ export default defineComponent(
     })
     /**
      * The page's root font size in pixels, which scales the rems `caps` sets a
-     * label in.
+     * label in, read again each time the box of `Now` changes size.
      */
-    const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+    const rootSize = () => Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+    const rem      = ref(rootSize())
+    const size     = computed(() => (phone.value ? LABEL.phone : LABEL.wide) * rem.value)
     const clocks = computed(() =>
       Array.from({ length: TICKS + 1 }, (_, index) => sky.clockOf(index * sky.span / TICKS)))
     /**
      * The width in pixels of the widest tick label.
      */
-    const label = computed(() => Math.max(...clocks.value.map(clock => clock.length)) * LABEL.advance
-      * (phone.value ? LABEL.phone : LABEL.wide) * rem)
+    const label = computed(() =>
+      Math.max(...clocks.value.map(clock => clock.length)) * LABEL.advance * size.value)
     /**
      * The inset either side, wide enough that the labels at either end center
      * on their ticks inside the strip.
@@ -128,6 +137,31 @@ export default defineComponent(
         const seconds = index * sky.span / TICKS
         return { clock: index % every === 0 ? clock : '', seconds: seconds, x: xOf(seconds) }
       })
+    })
+    /**
+     * Where `Now` and its tick stand, and the ticks labeled beside it. Past a
+     * root size of 16 px `Now` sets in the hours' row, off its tick only as far
+     * as clears the labels at the window's two ends while the tick still stands
+     * over the word, and a label it meets even so gives way to it.
+     */
+    const foot = computed(() => {
+      const now = xOf(sky.now.value)
+      if (rem.value <= 16) {
+        return { end: STRIP.ground + 7, lean: 0, now: now, row: STRIP.height - 18, ticks: ticks.value }
+      }
+      const first = ticks.value[0], last = ticks.value[TICKS]
+      const low   = Math.ceil(first.x + apart(first.clock))
+      const high  = Math.floor(last.x - apart(last.clock))
+      const lean  = low > high ? 0 : clamp(now, low, high) - now
+      const shift = Math.abs(lean) > across('Now') / 2 - NOW.under ? 0 : lean
+      return {
+        end   : Math.max(STRIP.height - 5 - LABEL.cap * size.value * (1 + NOW.over), STRIP.ground + 7),
+        lean  : shift,
+        now   : now,
+        row   : STRIP.height - 5,
+        ticks : ticks.value.map(tick =>
+          Math.abs(tick.x - now - shift) < apart(tick.clock) ? { ...tick, clock: '' } : tick)
+      }
     })
     /**
      * The strip cut into columns around the peaks, which a tap on a phone picks
@@ -233,6 +267,19 @@ export default defineComponent(
     }
 
     useEventListener(root, 'pointerdown', shade, { capture: true })
+    useResizeObserver(nowLabel, () => { rem.value = rootSize() })
+
+    /**
+     * The width in pixels a label of `text` sets, its last letter's spacing
+     * left out.
+     */
+    const across = (text: string) => (text.length * LABEL.advance - LABEL.spacing) * size.value
+
+    /**
+     * How far apart `Now` and the label `clock` center where they stand
+     * `LABEL.gap` apart.
+     */
+    const apart = (clock: string) => (across(clock) + across('Now')) / 2 + LABEL.gap
 
     const secondsAt = (clientX: number) => (xAt(clientX) - inset.value) / inner.value * sky.span
 
@@ -367,7 +414,7 @@ export default defineComponent(
                   y2={STRIP.ground}
                   class="pointer-events-none stroke-dim"
                 />
-                {ticks.value.map(tick => (
+                {foot.value.ticks.map(tick => (
                   <g key={tick.seconds} class="pointer-events-none">
                     <line
                       x1={tick.x}
@@ -381,9 +428,17 @@ export default defineComponent(
                     </text>
                   </g>
                 ))}
-                <g class="pointer-events-none" transform={`translate(${xOf(sky.now.value)} 0)`}>
-                  <line y1={STRIP.ground + 3} y2={STRIP.ground + 7} class="stroke-ink" stroke-width="1.5" />
-                  <text y={STRIP.height - 18} text-anchor="middle" class="caps fill-ink">Now</text>
+                <g class="pointer-events-none" transform={`translate(${foot.value.now} 0)`}>
+                  <line y1={STRIP.ground + 3} y2={foot.value.end} class="stroke-ink" stroke-width="1.5" />
+                  <text
+                    ref={nowLabel}
+                    x={foot.value.lean}
+                    y={foot.value.row}
+                    text-anchor="middle"
+                    class="caps fill-ink"
+                  >
+                    Now
+                  </text>
                 </g>
                 <g ref={cursor} class="pointer-events-none">
                   <line y1={4} y2={STRIP.ground + 3} class="stroke-u" stroke-width="1.5" />

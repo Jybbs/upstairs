@@ -5,8 +5,8 @@ import { defineComponent, h }     from 'vue'
 
 import { DAY }                                       from '../../../docs/.vitepress/lib/orbit/catalog.ts'
 import { kindOrder }                                 from '../../../docs/.vitepress/lib/orbit/kinds.ts'
-import type { sky as Sky }                          from '../../../docs/.vitepress/lib/state/sky.ts'
-import { WORDS }                                    from '../../../docs/.vitepress/lib/state/words.ts'
+import type { sky as Sky }                           from '../../../docs/.vitepress/lib/state/sky.ts'
+import { WORDS }                                     from '../../../docs/.vitepress/lib/state/words.ts'
 import { dialogListens, fakeClock, unmountOnFinish } from '../common/frames.ts'
 import { passOf }                                    from '../common/passes.ts'
 import { addScanned, lateSky }                       from '../common/sky.ts'
@@ -17,17 +17,16 @@ const FAILED = 'Error: The catalog answered 503'
 /**
  * Returns the line naming the place and the time, its spacing collapsed.
  */
-const lineOf = (wrapper: VueWrapper) => wrapper.get('p.truncate')
+const lineOf = (wrapper: VueWrapper) => wrapper.get('p.caps')
   .text()
   .replace(/\s+/g, ' ')
 
 /**
  * Mounts the readout over a fresh copy of the shared state and a stand-in
  * worker, with a catalog loaded, the scan finished, a count announced, and the
- * window opening at
- * 11:47 PM on Tuesday, November 10, 2026 in New York's time zone, read at
- * `seconds` into it, the device asking for reduced motion where `reduced` is
- * set.
+ * window opening at 11:47 PM on Tuesday, November 10, 2026 in New York's time
+ * zone, read at `seconds` into it, the device asking for reduced motion where
+ * `reduced` is set.
  */
 const mounted = async (seconds: number, reduced = false) => {
   stubMatchMedia(query => reduced && query.includes('reduce'))
@@ -51,7 +50,7 @@ it.each([
   ['12:00 AM', 780, ['Wed'], 'The time read is on Wednesday, November 11.']
 ])('names the weekday before the time at %s only once the day turns', async (time, at, weekday, spoken) => {
   const { wrapper } = await mounted(at)
-  expect(lineOf(wrapper)).toBe(`Above Boston · ${[...weekday, time].join(' ')}`)
+  expect(lineOf(wrapper)).toBe(`Above Boston · ${[...weekday, time].join(' ')} EST`)
   expect(wrapper.findAll('[aria-live="polite"]')[1].text()).toBe(spoken)
 })
 
@@ -135,7 +134,15 @@ it.each([
   const { sky, wrapper } = await mounted(30)
   sky.clock.value        = clock
   await wrapper.vm.$nextTick()
-  expect(lineOf(wrapper)).toBe(`Above Boston · ${time}`)
+  expect(lineOf(wrapper)).toBe(`Above Boston · ${time} EST`)
+})
+
+it('cuts the place where the line runs out of room, keeping the time and its zone whole', async () => {
+  const { wrapper } = await mounted(30)
+  const line        = wrapper.get('p.caps')
+  const time        = line.get(':scope > span:last-child')
+  expect([line.classes('truncate'), line.get('button').classes('truncate'), time.classes()])
+    .toEqual([false, true, expect.arrayContaining(['shrink-0', 'whitespace-pre'])])
 })
 
 it('opens the spot chooser from the place it reads', async () => {

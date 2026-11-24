@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
-import { mount, type VueWrapper }         from '@vue/test-utils'
-import { expect, it, onTestFinished, vi } from 'vitest'
-import { nextTick, ref }                  from 'vue'
+import { type DOMWrapper, mount, type VueWrapper } from '@vue/test-utils'
+import { expect, it, onTestFinished, vi }        from 'vitest'
+import { nextTick, ref }                         from 'vue'
 
 import { TRACK_WIDTH, type Pass } from '../../../docs/.vitepress/lib/orbit/scan.ts'
 import type { sky as Sky }        from '../../../docs/.vitepress/lib/state/sky.ts'
@@ -76,6 +76,32 @@ const clocked = async (sky: typeof Sky, wrapper: VueWrapper, locale: string, sta
   sky.start.value   = start
   await wrapper.vm.$nextTick()
 }
+
+/**
+ * The box a label of `em` pixel letters covers on the strip, read from its
+ * anchor, its row, and the group that moves it across to `group`.
+ */
+const boxOf = (label: Omit<DOMWrapper<Element>, 'exists'>, em: number) => {
+  const moved = /translate\((\S+)/.exec(label.element.parentElement!.getAttribute('transform') ?? '')?.[1]
+  const group = Number(moved ?? 0)
+  const x     = group + Number(label.attributes('x') ?? 0)
+  const y     = Number(label.attributes('y'))
+  const half  = label.text().length * (0.6 + 0.1) * em / 2
+  return {
+    bottom : y + CAPS.below * em,
+    group  : group,
+    left   : x - half,
+    right  : x + half,
+    top    : y - CAPS.above * em
+  }
+}
+
+/**
+ * The room in pixels between two boxes, across or up and down, whichever is
+ * wider.
+ */
+const roomOf = (one: ReturnType<typeof boxOf>, other: ReturnType<typeof boxOf>) =>
+  Math.max(other.left - one.right, one.left - other.right, other.top - one.bottom, one.top - other.bottom)
 
 /**
  * Returns the place in time order of each ridge the strip draws, from the back
@@ -360,6 +386,7 @@ it('spaces the hour labels by the root font size a reader sets', async () => {
   document.documentElement.style.fontSize = '20px'
   onTestFinished(() => { document.documentElement.style.fontSize = '' })
   const { sky, wrapper } = await mounted(false, false, [passOf(1)], 560)
+  sky.now.value          = sky.span / 6
   await clocked(sky, wrapper, 'en-US', new Date(2026, 10, 7, 22, 15).getTime())
   const ticks            = wrapper.findAll('text.fill-soft')
   expect(ticks.flatMap((tick, index) => tick.text() ? [index] : [])).toEqual([0, 2, 4, 6])
@@ -404,6 +431,31 @@ it.each(PAGES)('centers each %s hour label on its tick, %i px page', async (loca
   }).toEqual({ centered: true, inside: true })
 })
 
+it('draws the strip as before at a root size of 16 px, 110 px tall, the Now at 92 and the hour '
+  + 'labels at 105', async () => {
+  const { wrapper } = await mounted(false)
+  expect([
+    wrapper.get('svg.cursor-ew-resize').attributes('height'),
+    wrapper.get('text.fill-ink').attributes('y'),
+    ...new Set(wrapper.findAll('text.fill-soft').map(label => label.attributes('y')))
+  ]).toEqual(['110', '92', '105'])
+})
+
+it('sets Now in the hours’ row once the root size grows past 16 px with the page open', async () => {
+  const resized = { run: () => {} }
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(run: () => void) { resized.run = run }
+    disconnect() {}
+    observe() {}
+  })
+  onTestFinished(() => { document.documentElement.style.fontSize = ''; vi.unstubAllGlobals() })
+  const { wrapper } = await mounted(false)
+  document.documentElement.style.fontSize = '24px'
+  resized.run()
+  await nextTick()
+  expect(wrapper.get('text.fill-ink').attributes('y')).toBe('105')
+})
+
 it('ends the playhead’s line above the Now beneath the ground', async () => {
   const { wrapper } = await mounted(false)
   const playhead    = wrapper.get('line.stroke-u')
@@ -411,19 +463,66 @@ it('ends the playhead’s line above the Now beneath the ground', async () => {
   expect(Number(playhead.attributes('y2'))).toBeLessThan(Number(now.attributes('y')) - 11)
 })
 
-it.each([
-  ['on a wider page', false, 11],
-  ['on a phone', true, 12]
-] as const)('ends the Now tick 2 px above its label and the label 2 px above the hour labels, %s',
-  async (_, phone, em) => {
-    const { wrapper } = await mounted(false, phone)
-    const tick        = Number(wrapper.get('line.stroke-ink').attributes('y2'))
-    const now         = Number(wrapper.get('text.fill-ink').attributes('y'))
-    const hours       = wrapper.findAll('text.fill-soft').map(label => Number(label.attributes('y')))
+it.each(([
+  ['on a wider page', 16, false, 11],
+  ['on a phone', 16, true, 12],
+  ['on a wider page', 20, false, 11],
+  ['on a phone', 20, true, 12],
+  ['on a wider page', 24, false, 11],
+  ['on a phone', 24, true, 12]
+] as const).flatMap(([where, root, phone, base]) =>
+  Array.from({ length: 13 }, (_, step) => [where, root, step * 5, phone, base] as const)))(
+  'keeps the strip 110 px tall, its hour labels inside it, and its Now 2 px clear of its tick and of every '
+  + 'hour label, %s at a root size of %i px, %i minutes into the window',
+  async (_, root, minutes, phone, base) => {
+    document.documentElement.style.fontSize = `${root}px`
+    onTestFinished(() => { document.documentElement.style.fontSize = '' })
+    const em               = base * root / 16
+    const { sky, wrapper } = await mounted(false, phone, [passOf(1)], phone ? 322 : 1338)
+    sky.now.value          = minutes * 60
+    await nextTick()
+    const height  = Number(wrapper.get('svg.cursor-ew-resize').attributes('height'))
+    const tick    = Number(wrapper.get('line.stroke-ink').attributes('y2'))
+    const now     = boxOf(wrapper.get('text.fill-ink'), em)
+    const crowded = wrapper.findAll('text.fill-soft')
+      .filter(label => label.text())
+      .filter(label => boxOf(label, em).bottom > height || roomOf(boxOf(label, em), now) < 2)
+      .map(label => label.text())
     expect({
-      hours : now + CAPS.below * em + 2 <= Math.min(...hours) - CAPS.above * em,
-      tick  : tick + 2 <= now - CAPS.above * em
-    }).toEqual({ hours: true, tick: true })
+      crowded : crowded,
+      height  : height,
+      over    : now.left <= now.group && now.group <= now.right,
+      tick    : tick + 2 <= now.top
+    }).toEqual({ crowded: [], height: 110, over: true, tick: true })
+  })
+
+it('leans Now off the first hour label as far as its tick still stands over the word, at a root size of '
+  + '24 px', async () => {
+  document.documentElement.style.fontSize = '24px'
+  onTestFinished(() => { document.documentElement.style.fontSize = '' })
+  const { sky, wrapper } = await mounted(false)
+  await clocked(sky, wrapper, 'en-US', new Date(2026, 10, 7, 22, 15).getTime())
+  const [first, second]  = wrapper.findAll('line.stroke-dim').slice(1)
+    .map(tick => Number(tick.attributes('x1')))
+  sky.now.value          = sky.span / 6 * 60 / (second - first)
+  await nextTick()
+  const lean = Number(wrapper.get('text.fill-ink').attributes('x'))
+  expect([wrapper.get('text.fill-soft').text() !== '', lean > 0, lean < 3 * 0.7 * 16.5 / 2])
+    .toEqual([true, true, true])
+})
+
+it.each([
+  ['first', 0, 0],
+  ['last', 3600, 6]
+] as const)('gives the %s hour label way where Now stands on its tick, at a root size of 24 px',
+  async (_, seconds, index) => {
+    document.documentElement.style.fontSize = '24px'
+    onTestFinished(() => { document.documentElement.style.fontSize = '' })
+    const { sky, wrapper } = await mounted(false)
+    sky.now.value          = seconds
+    await nextTick()
+    const lean = Number(wrapper.get('text.fill-ink').attributes('x'))
+    expect([wrapper.findAll('text.fill-soft')[index].text(), lean]).toEqual(['', 0])
   })
 
 it.each([
