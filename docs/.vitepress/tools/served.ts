@@ -4,7 +4,7 @@
  */
 import { appendFile } from 'node:fs/promises'
 
-import manifest     from '../../package.json' with { type: 'json' }
+import manifest     from '../../../package.json' with { type: 'json' }
 import * as catalog from '../lib/orbit/catalog.ts'
 
 /**

@@ -14,7 +14,7 @@ class Sheet {
     return {
       dest   : this.name,
       rename : { stripBase: 3 },
-      src    : this.files.map(file => `node_modules/${this.name}/dist/${file}`)
+      src    : this.files.map(file => `../node_modules/${this.name}/dist/${file}`)
     }
   }
 

@@ -70,7 +70,7 @@ export interface Workflow {
 export const FILES = {
   guide    : '.github/CONTRIBUTING.md',
   labels   : '.github/labels.toml',
-  manifest : 'docs/package.json',
+  manifest : 'package.json',
   release  : '.github/release.yml',
   settings : '.github/settings.toml',
   sweep    : '.mise/tasks/repo/ci.toml',
@@ -275,8 +275,7 @@ export class Repository {
    *   with another
    * - An action from outside the repository naming no full commit or two
    *   different ones
-   * - A package `docs/package.json` sets to a range rather than one exact
-   *   version
+   * - A package `package.json` sets to a range rather than one exact version
    * - A matrix row holding a key other than `name`, `task`, and `tools`
    * - A workflow ending on no job that needs every other job
    * - A workflow a `pull_request` triggers leaving `ready_for_review` out of its

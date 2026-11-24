@@ -13,8 +13,11 @@ on:
       - .github/scripts/summaries/deploy.md
       - .github/workflows/deploy.yml
       - .mise/**
+      - bun.lock
       - docs/**
+      - package.json
       - rust/**
+      - tests/**
     types: [opened, synchronize, reopened, ready_for_review]
 
   push:

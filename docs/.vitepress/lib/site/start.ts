@@ -1,4 +1,4 @@
-import manifest                     from '../../../package.json' with { type: 'json' }
+import manifest                     from '../../../../package.json' with { type: 'json' }
 import type { Faces }               from './faces.ts'
 import { SCHEMES, type SchemeName } from './palette.ts'
 import { linkOf }                   from './sections.ts'

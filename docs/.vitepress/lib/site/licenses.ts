@@ -12,7 +12,7 @@ interface Manifest {
  * heads each notice it writes.
  */
 const noticeOf = (name: string) => {
-  const root                 = `node_modules/${name}`
+  const root                 = `../node_modules/${name}`
   const { license, version } = JSON.parse(readFileSync(`${root}/package.json`, 'utf8'))
   const file                 = readdirSync(root).find(entry => /^licen[cs]e/i.test(entry))
   return `\n## ${name} - ${version} (${license})\n\n${readFileSync(`${root}/${file}`, 'utf8')}`

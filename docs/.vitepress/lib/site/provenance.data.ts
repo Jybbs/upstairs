@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 
 import { defineLoader } from 'vitepress'
 
-import manifest from '../../../package.json' with { type: 'json' }
+import manifest from '../../../../package.json' with { type: 'json' }
 
 interface Lockfile {
   package : { name: string, version: string }[]
