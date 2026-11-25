@@ -1,5 +1,5 @@
 [advisories]
-ignore = [
+ignore       = [
   { id = "RUSTSEC-2026-0543", reason = "sgp4 2.4.0 requires chrono ^0.4.43 with no feature to drop it" },
 ]
 unmaintained = "all"
