@@ -371,8 +371,8 @@ describe('the spot in the address', () => {
   it.each([
     ['moves to the spot and shows the kinds a changed address names', '#48.86,2.29?kinds=starlink',
       { latitude: 48.86, longitude: 2.29 }, null, ['starlink'], true],
-    ['moves to the spot a changed address names, keeping the kinds shown', '#48.86,2.29',
-      { latitude: 48.86, longitude: 2.29 }, null, ['earth'], true],
+    ['moves to the spot a changed address names, showing the kinds a first visit shows', '#48.86,2.29',
+      { latitude: 48.86, longitude: 2.29 }, null, ['crewed', 'science', 'earth', 'weather', 'navigation'], true],
     ['shows the kinds a changed address names, keeping the spot', '#?kinds=starlink',
       { latitude: 42.36, longitude: -71.06 }, 'Boston', ['starlink'], false],
     ['shows the kinds a changed address names beside the spot shown, keeping its place',

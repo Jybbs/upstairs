@@ -518,8 +518,8 @@ class Sky {
 
   /**
    * Moves to the spot and shows the kinds the page's address names once a
-   * reader changes it, leaving the spot where the address names the one shown
-   * and each it does not name as it stands.
+   * reader changes it, showing the kinds `declared` holds where it names a
+   * spot alone and leaving the spot where it names the one shown or none.
    */
   reread() {
     const spot  = address.spotIn(location.hash)
@@ -527,7 +527,7 @@ class Sky {
     if (spot && address.fragmentOf(spot, null) !== address.fragmentOf(this.spot.value, null)) {
       this.moveTo(spot, null)
     }
-    if (shown) this.trace(shown)
+    if (shown ?? spot) this.trace(shown ?? declared)
   }
 
   private moveTo(spot: Spot, place: string | null) {
