@@ -298,7 +298,9 @@ it('sets no fixed height on the orbits’ age, so a line wrapping on a phone gro
   const wrapper          = mount(Readout, { props: { folded: true } })
   sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
   await wrapper.vm.$nextTick()
-  expect(wrapper.get('p.items-center').classes().filter(name => /^(max-)?h-/.test(name))).toEqual([])
+  const heights = wrapper.get('p.items-center').classes()
+    .filter(name => /^(max-)?h-/.test(name.replace(/^.*:/, '')))
+  expect(heights).toEqual([])
 })
 
 it.each([
