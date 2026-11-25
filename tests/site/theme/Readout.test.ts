@@ -87,7 +87,7 @@ it('names the kind the tally holds last, with how many the map draws of how many
   }
   await wrapper.vm.$nextTick()
   await wrapper.get('[aria-label="Earth, 5 on this map"]').trigger('pointerenter', { pointerType: 'mouse' })
-  expect(wrapper.get('p.h-3').text()).toBe('Earth · 5 of 7 up')
+  expect(wrapper.get('p.items-center').text()).toBe('Earth · 5 of 7 up')
 })
 
 it('sets the figure to what the map draws and the last line to what stands above the horizon', async () => {
@@ -95,7 +95,7 @@ it('sets the figure to what the map draws and the last line to what stands above
   sky.up.value           = 12
   sky.reading.value      = { ...sky.reading.value, above: 9, onMap: 5 }
   await wrapper.vm.$nextTick()
-  expect([wrapper.get('output').text(), wrapper.get('p.h-3').text()]).toEqual(['5', 'Of 9 above the horizon'])
+  expect([wrapper.get('output').text(), wrapper.get('p.items-center').text()]).toEqual(['5', 'Of 9 above the horizon'])
 })
 
 it.each([
@@ -273,12 +273,34 @@ it.each([
   expect([lines[0].classes('font-display'), lines.at(-1)!.text()]).toEqual([true, sky.moment.value.next])
 })
 
-it('reads no count and the orbits’ age once the catalog has expired', async () => {
-  const { sky, wrapper } = await mounted(0)
+it.each([
+  ['reads no count and the orbits’ age once the catalog has expired', false],
+  ['says why a folded readout reads no count once the catalog has expired', true]
+])('%s, aloud as well', async (_, folded) => {
+  const { Readout, sky } = await mounted(0)
+  const wrapper          = mount(Readout, { props: { folded } })
+  sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
+  const aged             = 'Orbits 15 days old, too old to draw'
+  await wrapper.vm.$nextTick()
+  expect(['output', 'p.items-center', '[aria-live="polite"]'].map(selector => wrapper.get(selector).text()))
+    .toEqual(['—', aged, aged])
+})
+
+it('leaves the orbits’ age out of a folded readout while the catalog is fresh', async () => {
+  const { Readout } = await mounted(0)
+  const wrapper     = mount(Readout, { props: { folded: true } })
+  expect([wrapper.find('p.items-center').exists(), wrapper.get('[aria-live="polite"]').text()])
+    .toEqual([false, '5 satellites above the horizon'])
+})
+
+it('sets no fixed height on the orbits’ age, so a line wrapping on a phone grows its row', async () => {
+  const { Readout, sky } = await mounted(0)
+  const wrapper          = mount(Readout, { props: { folded: true } })
   sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
   await wrapper.vm.$nextTick()
-  expect([wrapper.get('output').text(), wrapper.get('p.h-3').text()])
-    .toEqual(['—', 'Orbits 15 days old, too old to draw'])
+  const heights = wrapper.get('p.items-center').classes()
+    .filter(name => /^(max-)?h-/.test(name.replace(/^.*:/, '')))
+  expect(heights).toEqual([])
 })
 
 it.each([

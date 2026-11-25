@@ -37,7 +37,8 @@ const zonedFormats = {
  * at any failure.
  *
  * `folded` folds the readout into the head of a phone's sheet, the count and
- * the time over the search, where the sheet shows the pinned pass below.
+ * the time over the search, with the orbits' age under the count once the
+ * catalog has expired, where the sheet shows the pinned pass below.
  */
 export default defineComponent(
   (props: { folded?: boolean }) => {
@@ -71,6 +72,14 @@ export default defineComponent(
              + `${aboveKinds[index].toLocaleString()} up`
       }
     })
+    /**
+     * The orbits' age once the catalog has expired, which the line under the
+     * count shows, folded or not, and the polite region reads in the count's
+     * place.
+     */
+    const aged = computed(() => sky.expired.value
+      ? `Orbits ${Math.floor(sky.age.value)} days old, too old to draw`
+      : '')
     /**
      * The kinds not shown, which every count the readout gives leaves out.
      */
@@ -114,11 +123,11 @@ export default defineComponent(
     /**
      * Sets the line under the tally: the orbits' age once the catalog has
      * expired, the kind the tally names, or how many stand above the horizon.
+     * The line's negative margins of half its line height less 6 pixels hold
+     * one line to a 12-pixel row, and each wrapped line adds its height.
      */
     const status = () => {
-      if (sky.stage.value === 'expired') {
-        return `Orbits ${Math.floor(sky.age.value)} days old, too old to draw`
-      }
+      if (aged.value) return aged.value
       if (named.value) return [<Icon name={named.value.kind} />, named.value.line]
       return `Of ${sky.reading.value.above.toLocaleString()} above the horizon`
     }
@@ -271,13 +280,15 @@ export default defineComponent(
             </div>,
             sky.waiting.value
               ? [<Orbits moment={sky.moment.value} size={props.folded ? 72 : 80} />, foot()]
-              : !props.folded && [
-                <Tally />,
-                <p class="caps flex h-3 items-center gap-2 text-soft">{status()}</p>
+              : [
+                !props.folded && <Tally />,
+                (!props.folded || aged.value) && (
+                  <p class="caps -my-[calc(0.5lh-0.375rem)] flex items-center gap-2 text-soft">{status()}</p>
+                )
               ],
             leftOut()
           ]}
-        <p class="sr-only" aria-live="polite">{sky.spoken.value}</p>
+        <p class="sr-only" aria-live="polite">{aged.value || sky.spoken.value}</p>
         <p class="sr-only" aria-live="polite">{dated.value}</p>
         <PlaceSearch />
       </section>
