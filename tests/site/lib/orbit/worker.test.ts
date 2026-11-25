@@ -352,6 +352,7 @@ describe('a catalog shared with a helper', () => {
   })
 
   it('posts nothing where its module fails to load after it follows another port', async () => {
+    await shared()
     let fail         = () => {}
     built.fails      = 1
     built.ready      = new Promise<void>(resolve => { fail = resolve })

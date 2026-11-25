@@ -290,8 +290,9 @@ describe('the device clock set back', () => {
     const now = sky.start.value - 600_000
     vi.setSystemTime(now)
     sky.advance(1)
+    const drawn = sky.seconds
     sky.tally()
-    expect([sky.start.value, sky.seconds, sky.up.value]).toEqual([scan.minuteOf(now) - 300_000, 300, 3])
+    expect([drawn, sky.start.value, sky.seconds, sky.up.value]).toEqual([0, scan.minuteOf(now) - 300_000, 300, 3])
   })
 
   it('opens a new window at the present on the way back from a chosen moment', async () => {
