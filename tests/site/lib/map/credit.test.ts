@@ -27,7 +27,7 @@ const mapOf = (carrying = ['base']) => {
     base.attribution = TILES
     fired.get('sourcedata')!()
   }
-  return { arrive, fired, map: map as unknown as Map }
+  return { arrive, base, fired, map: map as unknown as Map }
 }
 
 it.each(credit.CREDITS)('links %s to a section or a seal the Data page carries', line => {
@@ -88,6 +88,14 @@ describe('the credit as the map loads', () => {
     const [lines, groups] = [shown.lines.value, shown.groups.value]
     drawn.fired.get('sourcedata')!()
     expect([shown.lines.value === lines, shown.groups.value === groups]).toEqual([true, true])
+  })
+
+  it('reads a line a source changes in place of the one it carried', () => {
+    drawn.arrive()
+    const changed = TILES.replace('OpenFreeMap', 'Tiles')
+    drawn.base.attribution = changed
+    drawn.fired.get('sourcedata')!()
+    expect(shown.lines.value).toEqual([...credit.CREDITS, changed])
   })
 
   it('opens and closes as the reader presses it', () => {

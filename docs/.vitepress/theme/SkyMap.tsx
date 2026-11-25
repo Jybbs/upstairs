@@ -266,7 +266,7 @@ export default defineComponent(
 
     /**
      * Links the map's stylesheet from the page's head once, resolving once it
-     * has loaded or failed to, since the map draws without it.
+     * has loaded or failed to load, the map drawing without it after a failure.
      */
     const styled = () => new Promise(resolve => {
       const href = SHEETS.map.hrefOf(maplibregl.getVersion())

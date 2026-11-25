@@ -293,6 +293,15 @@ describe('the device clock set back', () => {
     sky.tally()
     expect([sky.start.value, sky.seconds, sky.up.value]).toEqual([scan.minuteOf(now) - 300_000, 300, 3])
   })
+
+  it('opens a new window at the present on the way back from a chosen moment', async () => {
+    const sky = await loaded()
+    sky.seek(2000)
+    const now = sky.start.value - 600_000
+    vi.setSystemTime(now)
+    sky.back()
+    expect([sky.start.value, sky.clock.value]).toEqual([scan.minuteOf(now) - 300_000, 'live'])
+  })
 })
 
 describe('the clock times of a range', () => {
@@ -360,21 +369,23 @@ describe('the spot in the address', () => {
 
   it.each([
     ['moves to the spot and shows the kinds a changed address names', '#48.86,2.29?kinds=starlink',
-      { latitude: 48.86, longitude: 2.29 }, null, ['starlink']],
+      { latitude: 48.86, longitude: 2.29 }, null, ['starlink'], true],
     ['moves to the spot a changed address names, keeping the kinds shown', '#48.86,2.29',
-      { latitude: 48.86, longitude: 2.29 }, null, ['earth']],
+      { latitude: 48.86, longitude: 2.29 }, null, ['earth'], true],
     ['shows the kinds a changed address names, keeping the spot', '#?kinds=starlink',
-      { latitude: 42.36, longitude: -71.06 }, 'Boston', ['starlink']],
+      { latitude: 42.36, longitude: -71.06 }, 'Boston', ['starlink'], false],
+    ['shows the kinds a changed address names beside the spot shown, keeping its place',
+      '#42.36,-71.06?kinds=starlink', { latitude: 42.36, longitude: -71.06 }, 'Boston', ['starlink'], false],
     ['leaves the page as it is where a changed address names neither', '#credits',
-      { latitude: 42.36, longitude: -71.06 }, 'Boston', ['earth']]
-  ] as const)('%s', async (_, fragment, spot, place, kinds) => {
+      { latitude: 42.36, longitude: -71.06 }, 'Boston', ['earth'], false]
+  ] as const)('%s', async (_, fragment, spot, place, kinds, scans) => {
     const sky = await loaded()
     sky.trace(['earth'])
     const asked = posted.length
     history.replaceState(null, '', `/somewhere?at=1${fragment}`)
     sky.reread()
     expect([sky.spot.value, sky.place.value, sky.showing.value, posted.length > asked])
-      .toEqual([spot, place, kinds, place === null])
+      .toEqual([spot, place, kinds, scans])
   })
 
   it('clears the address of any spot once the browser locates the reader', async () => {
