@@ -293,6 +293,14 @@ it('leaves the orbits’ age out of a folded readout while the catalog is fresh'
     .toEqual([false, '5 satellites above the horizon'])
 })
 
+it('sets no fixed height on the orbits’ age, so a line wrapping on a phone grows its row', async () => {
+  const { Readout, sky } = await mounted(0)
+  const wrapper          = mount(Readout, { props: { folded: true } })
+  sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('p.items-center').classes().filter(name => /^(max-)?h-/.test(name))).toEqual([])
+})
+
 it.each([
   ['shows the tag beside a count', false, true],
   ['drops the tag beside a dash', true, false]
