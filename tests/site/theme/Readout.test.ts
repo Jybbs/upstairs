@@ -87,7 +87,7 @@ it('names the kind the tally holds last, with how many the map draws of how many
   }
   await wrapper.vm.$nextTick()
   await wrapper.get('[aria-label="Earth, 5 on this map"]').trigger('pointerenter', { pointerType: 'mouse' })
-  expect(wrapper.get('p.h-3').text()).toBe('Earth · 5 of 7 up')
+  expect(wrapper.get('p.items-center').text()).toBe('Earth · 5 of 7 up')
 })
 
 it('sets the figure to what the map draws and the last line to what stands above the horizon', async () => {
@@ -95,7 +95,7 @@ it('sets the figure to what the map draws and the last line to what stands above
   sky.up.value           = 12
   sky.reading.value      = { ...sky.reading.value, above: 9, onMap: 5 }
   await wrapper.vm.$nextTick()
-  expect([wrapper.get('output').text(), wrapper.get('p.h-3').text()]).toEqual(['5', 'Of 9 above the horizon'])
+  expect([wrapper.get('output').text(), wrapper.get('p.items-center').text()]).toEqual(['5', 'Of 9 above the horizon'])
 })
 
 it.each([
@@ -282,14 +282,14 @@ it.each([
   sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
   const aged             = 'Orbits 15 days old, too old to draw'
   await wrapper.vm.$nextTick()
-  expect(['output', 'p.h-3', '[aria-live="polite"]'].map(selector => wrapper.get(selector).text()))
+  expect(['output', 'p.items-center', '[aria-live="polite"]'].map(selector => wrapper.get(selector).text()))
     .toEqual(['—', aged, aged])
 })
 
 it('leaves the orbits’ age out of a folded readout while the catalog is fresh', async () => {
   const { Readout } = await mounted(0)
   const wrapper     = mount(Readout, { props: { folded: true } })
-  expect([wrapper.find('p.h-3').exists(), wrapper.get('[aria-live="polite"]').text()])
+  expect([wrapper.find('p.items-center').exists(), wrapper.get('[aria-live="polite"]').text()])
     .toEqual([false, '5 satellites above the horizon'])
 })
 

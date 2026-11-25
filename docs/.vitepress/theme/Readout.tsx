@@ -123,6 +123,9 @@ export default defineComponent(
     /**
      * Sets the line under the tally: the orbits' age once the catalog has
      * expired, the kind the tally names, or how many stand above the horizon.
+     * Its 3-pixel margins above and below take back the half-leading of its
+     * 18-pixel lines, so one line spaces like a 12-pixel row and a line
+     * wrapping on a narrow phone grows the row rather than overlapping it.
      */
     const status = () => {
       if (aged.value) return aged.value
@@ -281,7 +284,7 @@ export default defineComponent(
               : [
                 !props.folded && <Tally />,
                 (!props.folded || aged.value) && (
-                  <p class="caps flex h-3 items-center gap-2 text-soft">{status()}</p>
+                  <p class="caps -my-0.75 flex items-center gap-2 text-soft">{status()}</p>
                 )
               ],
             leftOut()
