@@ -28,5 +28,5 @@ runs:
 
     - name : Install the tools
       env  : { MISE_CARGO_HOME: "${{ steps.floor.outputs.data }}/cargo", MISE_RUSTUP_HOME: "${{ steps.floor.outputs.data }}/rustup" }
-      uses : jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d
+      uses : jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78
       with : { cache: "${{ inputs.cache }}", cache_key: "provision-${{ steps.floor.outputs.label }}-{{default}}", cache_key_prefix: mise-v2, cache_max_age_days: '0', cache_save: "${{ inputs.save }}", install_args: "${{ inputs.tools }}", version: "${{ steps.floor.outputs.version }}" }
