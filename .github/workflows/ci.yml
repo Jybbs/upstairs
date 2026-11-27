@@ -61,8 +61,8 @@ jobs:
         run  : echo "task=$(mise run -q gha:failed)" >> "$GITHUB_OUTPUT"
 
       - name : Failed task ${{ steps.failed.outputs.task }}
-        if   : failure() && steps.failed.outputs.task != ''
         env  : { FAILED: "${{ steps.failed.outputs.task }}" }
+        if   : failure() && steps.failed.outputs.task != ''
         run  : echo "::error title=Failed task::$FAILED"
 
       - name : Write the coverage figure the badge reads

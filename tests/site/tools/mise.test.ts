@@ -39,6 +39,13 @@ class Project {
   }
 
   /**
+   * The name of each program the stand-ins recorded a call to, in order.
+   */
+  async programs(): Promise<string[]> {
+    return (await this.calls()).map(([program]) => program)
+  }
+
+  /**
    * Replaces the text of `file`, or moves its modified time a minute past now
    * where `text` is left out.
    */
@@ -71,22 +78,18 @@ describe.concurrent('crate:compile', () => {
     await project.run('crate:compile')
     await Promise.all(SOURCES.map(file => project.change(file)))
     const again = await project.run('crate:compile')
-    expect([again.code, (await project.calls()).map(([call]) => call)]).toEqual([0, ['build', 'wasm-bindgen']])
+    expect([again.code, await project.programs()]).toEqual([0, ['build', 'wasm-bindgen']])
   })
 
-  it.for(SOURCES)('builds again once %s changes in content', async (file, { expect, project }) => {
-    await project.run('crate:compile')
-    await project.change(file, 'edited\n')
-    await project.run('crate:compile')
-    expect((await project.calls()).map(([call]) => call)).toEqual(['build', 'wasm-bindgen', 'build', 'wasm-bindgen'])
-  })
-
-  it('builds again once the lockfile of the tools changes in content', async ({ expect, project }) => {
-    await project.run('crate:compile')
-    await project.change('.mise/mise.lock', 'edited\n')
-    await project.run('crate:compile')
-    expect((await project.calls()).map(([call]) => call)).toEqual(['build', 'wasm-bindgen', 'build', 'wasm-bindgen'])
-  })
+  it.for([...SOURCES, '.mise/mise.lock'])(
+    'builds again once %s changes in content',
+    async (file, { expect, project }) => {
+      await project.run('crate:compile')
+      await project.change(file, 'edited\n')
+      await project.run('crate:compile')
+      expect(await project.programs()).toEqual(['build', 'wasm-bindgen', 'build', 'wasm-bindgen'])
+    }
+  )
 })
 
 describe.concurrent('repo:ci', () => {
@@ -103,7 +106,7 @@ describe.concurrent('repo:ci', () => {
 
   ci('runs every check after one fails, exiting with its status', async ({ expect, project }) => {
     const { code } = await project.run('repo:ci')
-    const ran      = (await Bun.file(join(project.root, 'calls')).text()).split('\n').filter(Boolean)
+    const ran      = (await project.calls()).flat()
     expect([code, ran.sort()]).toEqual([3, [...CHECKS].sort()])
   })
 
