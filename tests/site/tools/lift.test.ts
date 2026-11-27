@@ -16,9 +16,10 @@ const FAILING                        = { 'crate:test': ['=1.0.230'], 'site:check
 const LIFTED                         = 'c'.repeat(40)
 const MISE                           = 'b'.repeat(40)
 const NEWEST: Record<string, string> = {
-  '@types/bun': '1.4.5', 'bun': '1.4.6', 'github:wasm-bindgen/wasm-bindgen': '0.2.132', 'katex': '0.19.2',
+  '@types/bun': '1.4.5', '@vitest/coverage-istanbul': '5.1.1', '@zag-js/dialog': '1.50.0', '@zag-js/tabs': '1.49.1',
+  'bun': '1.4.6', 'github:wasm-bindgen/wasm-bindgen': '0.2.132', 'katex': '0.19.2',
   'rust': '1.100.0', 'serde': '1.0.230', 'sgp4': '2.4.0', 'typescript': '7.0.2',
-  'vitepress': '2.0.0-alpha.21', 'wasm-bindgen': '0.2.131', 'zizmor': '1.31.9'
+  'vitepress': '2.0.0-alpha.21', 'vitest': '5.1.2', 'wasm-bindgen': '0.2.131', 'zizmor': '1.31.9'
 }
 const SEEDED = {
   '.github/actions/provision/action.yml': `runs:\n  steps:\n    - uses : jdx/mise-action@${MISE}\n`,
@@ -175,6 +176,35 @@ describe.concurrent('lift', () => {
     expect(await repo.read('.mise/config.toml')).toContain('bun = "1.4.5"')
     expect(JSON.parse(await repo.read('package.json')).devDependencies['@types/bun']).toBe('1.4.5')
   })
+
+  it('lifts and holds each tied package set as one pin, at the lowest newest among its members',
+    async ({ expect, scratch }) => {
+      const repo     = await Repo.seeded(scratch)
+      const manifest = JSON.parse(SEEDED['package.json'])
+      await repo.commit({
+        'package.json': `${JSON.stringify({
+          ...manifest,
+          devDependencies: {
+            ...manifest.devDependencies,
+            '@vitest/coverage-istanbul': '5.1.0', '@zag-js/dialog': '1.49.0', '@zag-js/tabs': '1.49.0', 'vitest': '5.1.0'
+          }
+        }, null, 2)}\n`
+      })
+      const tied = (table: string) =>
+        table.split('\n').filter(row => /@zag-js|vitest/.test(row)).map(row => row.split(/\s{2,}/).slice(1))
+      expect(tied(await repo.lift())).toEqual([
+        ['@vitest/coverage-istanbul', '5.1.0', '5.1.1'], ['vitest', '5.1.0', '5.1.1'],
+        ['@zag-js/dialog', '1.49.0', '1.49.1'], ['@zag-js/tabs', '1.49.0', '1.49.1']
+      ])
+      expect((await repo.lift('--hold', '@zag-js/tabs', 'Waits')).split('\n')
+        .filter(row => /@zag-js|vitest/.test(row)).map(row => row.endsWith('Waits')))
+        .toEqual([false, false, true, true])
+      await Bun.write(join(scratch, lift.HOLDS), '')
+      await repo.lift('--write')
+      const pins = JSON.parse(await repo.read('package.json')).devDependencies
+      expect([pins['@zag-js/dialog'], pins['@zag-js/tabs'], pins.vitest, pins['@vitest/coverage-istanbul']])
+        .toEqual(['1.49.1', '1.49.1', '5.1.1', '5.1.1'])
+    })
 
   it('reads a hold recorded by an earlier run into the table', async ({ expect, scratch }) => {
     const repo = await Repo.seeded(scratch)

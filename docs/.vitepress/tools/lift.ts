@@ -91,7 +91,9 @@ export const HOLDS = '.mise/holds.toml'
  * The pins two sources carry that move together, each set lifting to the
  * lowest of its members' newest versions and held whole where one member is.
  */
-const LINKS = [['github:wasm-bindgen/wasm-bindgen', 'wasm-bindgen'], ['bun', '@types/bun']]
+const LINKS = [
+  ['github:wasm-bindgen/wasm-bindgen', 'wasm-bindgen'], ['bun', '@types/bun'], ['vitest', '@vitest/coverage-istanbul']
+]
 const MANIFESTS = {
   actions : ['.github/workflows/*.yml', '.github/actions/*/action.yml'],
   bun     : 'package.json',
@@ -366,7 +368,7 @@ export class Bench {
 
 /**
  * One move a lift makes, meaning a pin behind its newest release together with
- * each pin `LINKS` ties to it, and the reason a hold keeps them in place.
+ * each pin `LINKS` and the `@zag-js` packages of `package.json` tie to it, and the reason a hold keeps them in place.
  */
 class Lift {
   constructor(readonly pins: Pin[], readonly hold?: string) {}
@@ -494,7 +496,8 @@ class Pins {
    */
   static async read(root: string, registries: Registries): Promise<Pins> {
     const pins = await Promise.all(Object.values(READERS).map(read => read(root, registries)))
-    return new Pins(pins.flat(), await holdsOf(root))
+    const zag  = pins.flat().filter(pin => pin.source === 'bun' && pin.name.startsWith('@zag-js/'))
+    return new Pins(pins.flat(), await holdsOf(root), [...LINKS, zag.map(pin => pin.name)])
   }
 
   /**
