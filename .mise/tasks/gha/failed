@@ -1,0 +1,8 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE description = "Print each task the report of the run's `mise run` names as failed, separated by commas, reading `.cache/ci/report.json` or the file `REPORT` names"
+
+awk -F'"' '
+  $2 == "name"                          { task = $4 }
+  $2 == "status" && $4 == "failed" && task { printf "%s%s", sep, task; sep = ", " }
+  END                                   { print "" }
+' "${REPORT:-.cache/ci/report.json}"

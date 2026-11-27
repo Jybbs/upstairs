@@ -1,6 +1,8 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "compile"
 #MISE description = "Compile the orbit crate to WebAssembly and write its bindings into `rust/pkg/`"
+#MISE outputs     = ["rust/pkg/orbit.js", "rust/pkg/orbit_bg.wasm"]
+#MISE sources     = [".mise/mise.lock", "rust/Cargo.lock", "rust/Cargo.toml", "rust/src/**/*.rs"]
 
 cargo build \
   --locked \

@@ -283,12 +283,12 @@ describe('Repository', () => {
     [
       'a sweep missing a row',
       ({ sweep }) => ({ sweep: sweep.filter(task => task !== 'site:press') }),
-      'repo:ci does not depend on site:press, which a row runs'
+      'repo:ci does not run site:press, which a row runs'
     ],
     [
       'a sweep running a task no row runs',
       ({ sweep }) => ({ sweep: [...sweep, 'site:test'] }),
-      'repo:ci depends on site:test, which no row runs'
+      'repo:ci runs site:test, which no row runs'
     ],
     [
       'a ruleset requiring a check no workflow ends on',

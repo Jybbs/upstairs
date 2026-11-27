@@ -18,6 +18,7 @@ interface Job {
   conclusion : string | null
   name       : string
   status     : string
+  steps?     : { name: string }[]
 }
 
 interface Logbook {
@@ -29,6 +30,7 @@ type Fields = Record<string, string>
 
 type Needs = Record<string, { outputs?: Fields, result: string }>
 
+const FAILED  = /^Failed task ([^$].*)$/
 const FIELD   = /\{\{([\w.-]+)\}\}/g
 const LIST    = new Intl.ListFormat('en')
 const PASSING = new Set(['skipped', 'success'])
@@ -42,6 +44,15 @@ const filledOf = (template: string, fields: Fields) => template
   .filter(line => [...line.matchAll(FIELD)].every(([, key]) => fields[key]))
   .map(line => line.replace(FIELD, (_, key) => fields[key]))
   .join('\n')
+
+/**
+ * The suffix of a job's row naming each task its `Failed task` step lists, as
+ * the step a failed run writes once it reads the report of `mise run`.
+ */
+const failedIn = ({ steps = [] }: Job): string => {
+  const tasks = steps.flatMap(({ name }) => name.match(FAILED)?.[1].split(', ') ?? [])
+  return tasks.length ? ` in ${tasks.map(task => `\`${task}\``).join(', ')}` : ''
+}
 
 /**
  * Keys each output of each job in `needs` as `job.output`.
@@ -91,7 +102,7 @@ export const contextOf = (env: Record<string, string | undefined>): Context => {
  */
 export const logbookOf = (jobs: Job[], needs: Needs, template: string, fields: Fields): Logbook => {
   const finished = jobs.filter(job => job.status === 'completed')
-  const rows     = finished.map(job => `| \`${job.name}\` | ${job.conclusion} |`).join('\n')
+  const rows     = finished.map(job => `| \`${job.name}\` | ${job.conclusion}${failedIn(job)} |`).join('\n')
   const failed   = finished.filter(job => job.conclusion === 'failure').map(job => `\`${job.name}\``)
   return {
     passed  : Object.values(needs).every(({ result }) => PASSING.has(result)),

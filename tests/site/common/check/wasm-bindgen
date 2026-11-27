@@ -1,0 +1,9 @@
+#!/bin/sh
+(IFS=$(printf '\t'); printf 'wasm-bindgen\t%s\n' "$*") >> "$STAND_IN_CALLS"
+while [ "$#" -gt 0 ]; do
+  [ "$1" = --out-dir ] && out=$2
+  shift
+done
+mkdir -p "$out"
+: > "$out/orbit.js"
+: > "$out/orbit_bg.wasm"

@@ -14,7 +14,7 @@ type Task   = 'crate/affected' | 'site/affected' | 'site/check' | 'site/typechec
 
 const ANSWERS = 'tests/site/fixtures/answers.json'
 const CHECKED = [
-  'run', 'site:lint', ':::', 'site:typecheck', ':::', 'site:affected', ':::', 'crate:affected'
+  'run', 'lock:mise', ':::', 'site:lint', ':::', 'site:typecheck', ':::', 'site:affected', ':::', 'crate:affected'
 ]
 const CONFIG  = '.mise/config.toml'
 const DENY    = 'rust/.cargo/deny.toml'
@@ -192,7 +192,7 @@ describe.concurrent('runTask', () => {
 
 describe.concurrent('site:check', () => {
   it(
-    'calls site:lint, site:typecheck, site:affected, and crate:affected in one mise run',
+    'calls lock:mise, site:lint, site:typecheck, site:affected, and crate:affected in one mise run',
     async ({ expect, repo }) => expect((await repo.run('site/check')).calls).toEqual([CHECKED])
   )
 

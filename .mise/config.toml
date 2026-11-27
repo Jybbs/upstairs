@@ -1,5 +1,15 @@
 min_version = "2026.11.10"
 
+[doctor.checks.catalog]
+description = "The satellite catalog is in docs/public/, which development reuses rather than downloading"
+hint        = "Copy docs/public/catalog.bin from another worktree"
+run         = "test -f docs/public/catalog.bin"
+
+[doctor.checks.merge-base]
+description = "origin/main shares a merge base with HEAD, which site:affected and crate:affected read"
+hint        = "Run git fetch origin main"
+run         = "git merge-base origin/main HEAD"
+
 [env]
 AUDIT_IGNORE              = """
 GHSA-fc5q-39xc-vjpf A ReDoS in `picomatch`, which only the build and test tools resolve, with no release fixing it
@@ -12,6 +22,9 @@ NPM_CONFIG_IGNORE_SCRIPTS = "1"
 [settings]
 auto_install = false
 
+[settings.task]
+source_freshness_hash_contents = true
+
 [tool_config]
 locked = true
 
@@ -20,6 +33,7 @@ bun                                = "1.4.5"
 cargo-deny                         = { os = ["linux", "macos/arm64", "windows"], version = "0.22.0" }
 "github:EmbarkStudios/cargo-about" = { os = ["linux", "macos/arm64", "windows"], version = "0.9.3" }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.130"
+jq                                 = "1.8.2"
 lychee                             = "0.24.2"
 rust                               = { components = "clippy,rustfmt", profile = "minimal", targets = "wasm32-unknown-unknown", version = "1.100.0" }
 zizmor                             = "1.33.1"

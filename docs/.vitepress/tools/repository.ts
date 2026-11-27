@@ -254,7 +254,9 @@ export class Repository {
       (await parseFile(at(FILES.labels))).labels,
       packagesOf(await parseFile(at(FILES.manifest))),
       await Promise.all((await pathsOf(root, '.github/rulesets/*.json')).map(parseFile)),
-      (await parseFile(at(FILES.sweep)))['repo:ci'].depends,
+      ((await parseFile(at(FILES.sweep)))['repo:ci'].run as string)
+        .split(':::')
+        .map(task => task.trim().split(/\s+/).at(-1)!),
       await $`mise tasks ls --hidden --json --no-global`.cwd(root).json() as MiseTask[],
       await Promise.all((await pathsOf(root, '.github/ISSUE_TEMPLATE/*.{md,yml}'))
         .filter(path => !path.endsWith('config.yml'))
@@ -497,10 +499,10 @@ export class Repository {
     return [
       ...tasks
         .filter(task => !this.sweep.includes(task))
-        .map(task => `repo:ci does not depend on ${task}, which a row runs`),
+        .map(task => `repo:ci does not run ${task}, which a row runs`),
       ...this.sweep
         .filter(task => !tasks.includes(task))
-        .map(task => `repo:ci depends on ${task}, which no row runs`)
+        .map(task => `repo:ci runs ${task}, which no row runs`)
     ]
   }
 

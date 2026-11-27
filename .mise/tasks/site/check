@@ -1,6 +1,6 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "check"
-#MISE description = "Lint and type-check the site while running the site's cases and the crate's tests the branch's changes since `origin/main` reach, skipping a tree an earlier run passed"
+#MISE description = "Verify `.mise/mise.lock`, lint and type-check the site while running the site's cases and the crate's tests the branch's changes since `origin/main` reach, skipping a tree an earlier run passed"
 
 cache=.cache/check
 mkdir -p "$cache"
@@ -16,6 +16,7 @@ if grep -qsxF "$tree" "$cache/passed"; then
 fi
 
 mise run \
+  lock:mise ::: \
   site:lint ::: \
   site:typecheck ::: \
   site:affected ::: \

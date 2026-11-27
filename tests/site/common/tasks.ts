@@ -23,7 +23,7 @@ export interface TaskRun {
 
 /**
  * The `PATH` a task runs with, holding the stand-ins for `bun`, `cargo`, `gh`,
- * and `mise` ahead of the path the suite runs on.
+ * `mise`, and `wasm-bindgen` ahead of the path the suite runs on.
  */
 export const STAND_IN_PATH = [join(import.meta.dirname, 'check'), process.env.PATH].join(delimiter)
 
