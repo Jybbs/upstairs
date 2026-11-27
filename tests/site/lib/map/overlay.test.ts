@@ -471,13 +471,13 @@ it.each([
 /**
  * Builds a canvas whose 2D context ignores every call but `arc`, `beginPath`,
  * `fill`, `lineTo`, `setTransform`, and `stroke`, recording the width and
- * alpha of each ribbon filled, the alpha, radius, and fill style of each disc
+ * alpha and end-to-end span of each ribbon filled, the alpha, radius, and fill style of each disc
  * and ring drawn, and the place, turn, and fill style of each shape filled
  * from a path or under a moved transform.
  */
 const sketchOf = () => {
   const marks: { alpha: number, filled: boolean, radius: number, style: unknown }[] = []
-  const ribbons: { alpha: number, width: number }[] = []
+  const ribbons: { alpha: number, tip: number[], width: number }[] = []
   const shapes: { at: number[], style: unknown, turn: number[] }[] = []
   let points: number[][] = []
   let radius             = 0
@@ -499,7 +499,8 @@ const sketchOf = () => {
       }
       if (round) return marks.push({ alpha, filled: true, radius, style: context.fillStyle })
       const [[x, y], [u, v]] = [points[0], points.at(-1)!]
-      ribbons.push({ alpha, width: Math.hypot(u - x, v - y) })
+      const [[a, b], [c, d]] = [points[points.length / 2 - 1], points[points.length / 2]]
+      ribbons.push({ alpha, tip: [c - a, d - b], width: Math.hypot(u - x, v - y) })
     },
     lineTo       : (x: number, y: number) => points.push([x, y]),
     setTransform : (...values: number[]) => { transform = values },
@@ -522,9 +523,10 @@ const drawnAt = (
   seconds   : number,
   elevation : number,
   as        : 'held' | 'none' | 'selected',
-  { changes = {}, covered = [], north = 0, traced = true }: {
+  { changes = {}, covered = [], heading = 'east', north = 0, traced = true }: {
     changes? : Partial<Pass>,
     covered? : Box[],
+    heading? : 'east' | 'north',
     north?   : number,
     traced?  : boolean
   } = {}
@@ -534,7 +536,12 @@ const drawnAt = (
   const tracks = new Tracks()
   const track  = new Float32Array(121 * TRACK_WIDTH)
   for (let sample = 0; sample < 121; sample++) {
-    track.set([BOSTON.latitude, BOSTON.longitude - 1 + sample / 60, elevation], sample * TRACK_WIDTH)
+    const north = heading === 'north'
+    track.set([
+      BOSTON.latitude + (north ? sample / 60 - 1 : 0),
+      BOSTON.longitude + (north ? 0 : sample / 60 - 1),
+      elevation
+    ], sample * TRACK_WIDTH)
   }
   const pass = passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600, ...changes })
   tracks.add([pass], track, Uint32Array.of(0), 121)
@@ -568,6 +575,50 @@ it.each([
   expect(ribbons.filter((_, index) => index % 2).map(ribbon => ribbon.width))
     .toEqual(ribbons.filter((_, index) => index % 2).map(() => expect.closeTo(width)))
   expect(ribbons.length).toBeGreaterThan(0)
+})
+
+it('gives a ribbon’s last point the heading of the second before it', () => {
+  const { ribbons } = drawnAt(3600, 90, 'selected', { heading: 'north' })
+  const [{ tip }]   = ribbons.filter((_, index) => index % 2)
+  expect([Math.abs(tip[0]), tip[1]]).toEqual([expect.closeTo(6), expect.closeTo(0)])
+})
+
+it('starts the passes of a new scan unhighlighted', () => {
+  vi.stubGlobal('Path2D', class { constructor(readonly d: string) {} })
+  onTestFinished(() => { vi.unstubAllGlobals() })
+  const tracks = new Tracks()
+  const track  = new Float32Array(121 * TRACK_WIDTH)
+  for (let sample = 0; sample < 121; sample++) {
+    track.set([BOSTON.latitude, BOSTON.longitude - 1 + sample / 60, 45], sample * TRACK_WIDTH)
+  }
+  const first  = passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600 })
+  const second = passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600 })
+  tracks.add([first], track, Uint32Array.of(0), 121)
+  const sketch = sketchOf()
+  const state  = {
+    gathered : false,
+    held     : null,
+    kinds    : SHOWN,
+    named    : null,
+    reduced  : true,
+    selected : first as Pass | null,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => true,
+    tracks   : tracks
+  }
+  const overlay = new Overlay(sketchOf().canvas, sketch.canvas, state)
+  overlay.resize(400, 400, 1)
+  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(900)
+  const before = sketch.ribbons.length
+  tracks.clear()
+  tracks.add([second], track, Uint32Array.of(0), 121)
+  state.reduced  = false
+  state.selected = null
+  overlay.draw(900)
+  expect(before).toBeGreaterThan(0)
+  expect(sketch.ribbons.length).toBe(before)
 })
 
 it('draws the stretch flown at a third, at once under reduced motion, and marks the peak', () => {
