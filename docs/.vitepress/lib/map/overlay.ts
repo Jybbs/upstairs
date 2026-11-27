@@ -859,10 +859,8 @@ export class Overlay {
         const y       = view.row(tracks.latitude)
         const sine    = Math.sin(Math.max(tracks.elevation, 0) * Math.PI / 180)
         const half    = (low + (high - low) * sine + grow) / 2
-        const last    = (tracks.samples - 1) * TRACK_STEP
-        const behind  = seconds + 1 > last
-        if (!tracks.at(pass, behind ? seconds - 1 : seconds + 1)) return false
-        const way     = behind ? -1 : 1
+        const way     = seconds + 1 > (tracks.samples - 1) * TRACK_STEP ? -1 : 1
+        if (!tracks.at(pass, seconds + way)) return false
         let dx        = (view.column(tracks.longitude) - x) * way
         let dy        = (view.row(tracks.latitude) - y) * way
         const length  = Math.hypot(dx, dy)

@@ -583,7 +583,7 @@ it('gives a ribbon’s last point the heading of the second before it', () => {
   expect([Math.abs(tip[0]), tip[1]]).toEqual([expect.closeTo(6), expect.closeTo(0)])
 })
 
-it('starts the passes of a new scan unhighlighted', () => {
+it.each(['held', 'selected'] as const)('starts the passes of a new scan without a %s track', as => {
   vi.stubGlobal('Path2D', class { constructor(readonly d: string) {} })
   onTestFinished(() => { vi.unstubAllGlobals() })
   const tracks = new Tracks()
@@ -597,11 +597,11 @@ it('starts the passes of a new scan unhighlighted', () => {
   const sketch = sketchOf()
   const state  = {
     gathered : false,
-    held     : null,
+    held     : as === 'held' ? first : null as Pass | null,
     kinds    : SHOWN,
     named    : null,
     reduced  : true,
-    selected : first as Pass | null,
+    selected : as === 'selected' ? first : null as Pass | null,
     spot     : BOSTON,
     start    : 0,
     traced   : () => true,
@@ -615,6 +615,7 @@ it('starts the passes of a new scan unhighlighted', () => {
   tracks.clear()
   tracks.add([second], track, Uint32Array.of(0), 121)
   state.reduced  = false
+  state.held     = null
   state.selected = null
   overlay.draw(900)
   expect(before).toBeGreaterThan(0)
