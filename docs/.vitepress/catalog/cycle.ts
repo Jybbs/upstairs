@@ -283,9 +283,10 @@ export class Cycle {
    * Queries Space-Track for the elements with the login the service holds as
    * its secrets and stores those of the payloads the kept SATCAT marks active.
    * No SATCAT kept, no login set, a failure the query names, fewer than
-   * `AT_LEAST` active payloads, or a failed write to Workers KV logs one
-   * `catalog.failed` record at error level and keeps the stored file, whereas a
-   * logout that fails logs `catalog.unclosed` at error level alone.
+   * `AT_LEAST` active payloads, a payload the encoder refuses, or a failed
+   * write to Workers KV logs one `catalog.failed` record at error level and
+   * keeps the stored file, whereas a logout that fails logs `catalog.unclosed`
+   * at error level alone.
    */
   private async store(time: number): Promise<Outcome['elements']> {
     const failed = (kind: string, reason: string) => {
@@ -306,7 +307,13 @@ export class Cycle {
     const active = activeOf(satcat.codes, records)
     if (active.length < AT_LEAST)
       return failed('unchecked', `Expected ${AT_LEAST} or more active payloads, got ${active.length}`)
-    return this.env.CATALOG.put(FILE, encode(time, active)).then(
+    let file: Uint8Array
+    try {
+      file = encode(time, active)
+    } catch (error) {
+      return failed('unencoded', error instanceof Error ? error.message : String(error))
+    }
+    return this.env.CATALOG.put(FILE, file).then(
       () => {
         console.log({ event: 'catalog.stored', active: active.length, queried: records.length })
         return 'stored' as const

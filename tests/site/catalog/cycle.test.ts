@@ -141,6 +141,8 @@ describe('a download cycle', () => {
     expect(state.get('satcat')).toMatchObject({ time: LISTED })
     expect(await countOf(stored.get(catalog.FILE))).toBe(QUERIED.length)
     expect(console.error).not.toHaveBeenCalled()
+    expect(console.log)
+      .toHaveBeenCalledWith({ event: 'catalog.stored', active: QUERIED.length, queried: QUERIED.length })
   })
 
   it('dates the stored file by the time the cycle ran', async () => {
@@ -269,6 +271,17 @@ describe('a download cycle', () => {
     expect(stored.size).toBe(0)
     expect(logged())
       .toEqual([expect.objectContaining({ kind: 'unstored', reason: 'Error: KV PUT failed: 500' })])
+  })
+
+  it('logs one structured error where the encoder refuses a record', async () => {
+    const records = QUERIED.map((record, row) => row ? record : { ...record, ECCENTRICITY: 1e-30 })
+    const { cycle, stored } = cycleOf(good, { elements: async () => records })
+    expect(await cycle.run(start)).toEqual({ elements: 'failed', satcat: 'downloaded' })
+    expect(stored.size).toBe(0)
+    expect(logged())
+      .toEqual([expect.objectContaining({
+        event: 'catalog.failed', kind: 'unencoded', reason: expect.stringContaining('no decimal form')
+      })])
   })
 
   it('stores the elements a query returned where the logout fails, logging the logout', async () => {
