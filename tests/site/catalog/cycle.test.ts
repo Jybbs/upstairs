@@ -271,6 +271,15 @@ describe('a download cycle', () => {
       .toEqual([expect.objectContaining({ kind: 'unstored', reason: 'Error: KV PUT failed: 500' })])
   })
 
+  it('logs one structured error where the encoder refuses a record', async () => {
+    const records = QUERIED.map((record, row) => row ? record : { ...record, ECCENTRICITY: 1e-30 })
+    const { cycle, stored } = cycleOf(good, { elements: async () => records })
+    expect(await cycle.run(start)).toEqual({ elements: 'failed', satcat: 'downloaded' })
+    expect(stored.size).toBe(0)
+    expect(logged())
+      .toEqual([expect.objectContaining({ event: 'catalog.failed', reason: expect.stringContaining('no decimal form') })])
+  })
+
   it('stores the elements a query returned where the logout fails, logging the logout', async () => {
     const elements = answeredBy(replies.ACCEPTED, replies.json(QUERIED), refused(500))
     const { cycle, stored } = cycleOf(good, { elements })
