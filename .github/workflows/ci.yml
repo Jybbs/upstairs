@@ -30,8 +30,8 @@ jobs:
           - { name: 🔐 Lockfiles,  task: lock:check,     tools: bun rust }
           - { name: 📋 Audit,      task: repo:audit,     tools: *bun }
           - { name: 🔦 Workflows,  task: repo:lint,      tools: zizmor }
-          - { name: ☂️ Coverage,   task: site:coverage,  tools: &wasm bun rust github:wasm-bindgen/wasm-bindgen }
-          - { name: ✂️ Knip,       task: site:cruft,     tools: *wasm }
+          - { name: ☂️ Coverage,   task: site:coverage,  tools: bun jq rust github:wasm-bindgen/wasm-bindgen }
+          - { name: ✂️ Knip,       task: site:cruft,     tools: &wasm bun rust github:wasm-bindgen/wasm-bindgen }
           - { name: 🔗 Links,      task: site:links,     tools: bun github:EmbarkStudios/cargo-about lychee rust github:wasm-bindgen/wasm-bindgen }
           - { name: ⚓ Oxlint,     task: site:lint,      tools: *bun }
           - { name: 📰 Press,      task: site:press,     tools: bun github:EmbarkStudios/cargo-about rust github:wasm-bindgen/wasm-bindgen }
