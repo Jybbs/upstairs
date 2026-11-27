@@ -283,9 +283,10 @@ export class Cycle {
    * Queries Space-Track for the elements with the login the service holds as
    * its secrets and stores those of the payloads the kept SATCAT marks active.
    * No SATCAT kept, no login set, a failure the query names, fewer than
-   * `AT_LEAST` active payloads, a payload the encoder refuses, or a failed write to Workers KV logs one
-   * `catalog.failed` record at error level and keeps the stored file, whereas a
-   * logout that fails logs `catalog.unclosed` at error level alone.
+   * `AT_LEAST` active payloads, a payload the encoder refuses, or a failed
+   * write to Workers KV logs one `catalog.failed` record at error level and
+   * keeps the stored file, whereas a logout that fails logs `catalog.unclosed`
+   * at error level alone.
    */
   private async store(time: number): Promise<Outcome['elements']> {
     const failed = (kind: string, reason: string) => {
