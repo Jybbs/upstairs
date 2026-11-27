@@ -27,8 +27,8 @@ class Project {
     await mkdir(join(root, '.mise/tasks/site'), { recursive: true })
     await mkdir(join(root, 'node_modules'))
     await cp(join(ROOT, TASK), join(root, TASK))
-    await Promise.all(['.mise/config.toml', 'bun.lock', 'package.json']
-      .map(file => writeFile(join(root, file), '')))
+    await cp(join(ROOT, '.mise/config.toml'), join(root, '.mise/config.toml'))
+    await Promise.all(['bun.lock', 'package.json'].map(file => writeFile(join(root, file), '')))
     return new Project(root)
   }
 
@@ -40,11 +40,12 @@ class Project {
   }
 
   /**
-   * Moves the modified time of `file` a minute past now.
+   * Replaces the text of `file`, or moves its modified time a minute past now
+   * where `text` is left out.
    */
-  change(file: string): Promise<void> {
+  change(file: string, text?: string): Promise<void> {
     const later = Date.now() / 1000 + 60
-    return utimes(join(this.root, file), later, later)
+    return text === undefined ? utimes(join(this.root, file), later, later) : writeFile(join(this.root, file), text)
   }
 
   /**
@@ -88,9 +89,18 @@ describe.concurrent('site:install', () => {
     'installs again once %s changes',
     async (file, { expect, project }) => {
       await project.install()
-      await project.change(file)
+      await project.change(file, 'edited\n')
       expect(await project.install()).toBe(0)
       expect(await project.calls()).toEqual([INSTALL, INSTALL])
+    })
+
+  it.for(['bun.lock', 'package.json'])(
+    'skips the run once %s is rewritten with the contents it had',
+    async (file, { expect, project }) => {
+      await project.install()
+      await project.change(file)
+      expect(await project.install()).toBe(0)
+      expect(await project.calls()).toEqual([INSTALL])
     })
 
   it('installs again once the packages are removed', async ({ expect, project }) => {
@@ -102,7 +112,7 @@ describe.concurrent('site:install', () => {
 
   it('fails every run while the frozen install fails after bun.lock changes', async ({ expect, project }) => {
     await project.install()
-    await project.change('bun.lock')
+    await project.change('bun.lock', 'edited\n')
     expect([await project.install(1), await project.install(1)]).toEqual([1, 1])
     expect(await project.calls()).toEqual([INSTALL, INSTALL, INSTALL])
   })

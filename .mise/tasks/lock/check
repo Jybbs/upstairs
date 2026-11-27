@@ -1,7 +1,7 @@
 #!/usr/bin/env -S bash -euo pipefail
 #MISE alias       = "lockfile"
+#MISE depends     = ["lock:mise"]
 #MISE description = "Verify each lockfile matches its manifest"
 
-mise lock --check --json | bun run docs/.vitepress/tools/lockfile.ts
 bun install --dry-run --frozen-lockfile
 cargo metadata --format-version 1 --locked --manifest-path rust/Cargo.toml > /dev/null

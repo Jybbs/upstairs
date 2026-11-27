@@ -17,12 +17,12 @@ The site reads the satellite catalog from `docs/public/catalog.bin`, which `mise
 |---|---|
 | `mise serve` | *VitePress's dev server, reloading a page as it is edited* |
 | `mise press` | *VitePress's build of the site into `docs/.vitepress/dist/`* |
-| `mise compile` | *The orbit crate under `rust/` compiled to WebAssembly, its bindings written into `rust/pkg/`, which `mise serve` and `mise press` each run first* |
+| `mise compile` | *The orbit crate under `rust/` compiled to WebAssembly where its sources, manifests, or tool lockfile changed in content, its bindings written into `rust/pkg/`, which `mise serve` and `mise press` each run first* |
 | `mise test` | *The site's suite under `tests/site/`* |
 | `mise check` | *Oxlint and `vue-tsc` over the site together with the cases of its suite the branch's changes since `origin/main` reach, counting a file a case reads off disk and the crate's build under `rust/pkg/`, or the whole suite where a change reaches `.mise/config.toml`, `.mise/mise.lock`, `bun.lock`, `package.json`, the suite's Vitest config, or its setup file and the code that file imports, save that an edit to the `READS` table in `tests/site/common/reads.ts` alone reruns the cases loading each module whose entry it changes and the checks of the table, skipping a tree an earlier run passed* |
 | `mise answers` | *The orbit crate's tests, holding its results to the known answers under `tests/site/fixtures/`* |
 | `mise reel` | *The README's preview of the home map, recorded frame by frame from the fixture catalog under `tests/site/fixtures/` into `.github/` in each scheme, in a Chromium the task installs under `.cache/playwright/` on its first run* |
-| `mise ci` | *Every check a pull request runs, listed under Checks below* |
+| `mise ci` | *Every check a pull request runs, listed under Checks below, each one run even after another fails, with its report written to `.cache/ci/report.json`* |
 | `mise relock` | *`mise lock`, `bun install`, and `cargo update --workspace`, re-resolving each lockfile after its manifest changes* |
 | `mise lift` | *A table of every tool, package, crate, and action pinned behind its newest release with any hold on it, each lift tried in a scratch copy of the tree under `--try`, the passing lifts written onto the branch under `--write`, and a hold recorded in `.mise/holds.toml` under `--hold <pin> <reason>`* |
 | `mise bump` | *`version` in `package.json` moved to the next minor release, or to the next patch or major one under `--patch` or `--major`, the rest of the manifest left as it stands* |

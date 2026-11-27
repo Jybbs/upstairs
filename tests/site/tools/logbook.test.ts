@@ -39,6 +39,17 @@ describe('logbookOf', () => {
   })
 
   it.each([
+    ['one task', ['Run repo:audit', 'Failed task repo:audit'], '`repo:audit`'],
+    ['two tasks', ['Failed task lock:audit, repo:audit'], '`lock:audit`, `repo:audit`'],
+    ['a step whose name stays unevaluated', ['Failed task ${{ steps.failed.outputs.task }}'], null],
+    ['no step naming one', ['Run repo:audit'], null]
+  ])('names the failed tasks of a job row given %s', (_, steps, named) => {
+    const failed = { ...job('failure', '📋 Audit'), steps: steps.map(name => ({ name })) }
+    expect(logbookOf([failed], { check: { result: 'failure' } }, TEMPLATE, { run: RUN }).summary)
+      .toContain(`| \`📋 Audit\` | failure${named ? ` in ${named}` : ''} |`)
+  })
+
+  it.each([
     ['fills each output the job set', { alias: 'a', url: 'u' }, 'Jobs\n\nPublished at a and u.\nDone'],
     ['leaves out a line naming an output the job left unset', { alias: 'a' }, 'Jobs\n\nDone'],
     ['leaves out a line naming a job that set no outputs, as a skipped job does', {}, 'Jobs\n\nDone']

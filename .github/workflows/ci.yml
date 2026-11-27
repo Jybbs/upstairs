@@ -48,10 +48,22 @@ jobs:
         with : { tools: "${{ matrix.tools }}" }
 
       - name : Run ${{ matrix.task }}
-        run  : mise run "$TASK"
         env:
           GH_TOKEN : ${{ (matrix.task == 'lock:audit' || matrix.task == 'repo:lint') && github.token || '' }}
           TASK     : ${{ matrix.task }}
+        run: |
+          mkdir -p .cache/ci
+          mise run --report-file .cache/ci/report.json "$TASK"
+
+      - name : Read the failed task
+        id   : failed
+        if   : failure()
+        run  : echo "task=$(mise run -q gha:failed)" >> "$GITHUB_OUTPUT"
+
+      - name : Failed task ${{ steps.failed.outputs.task }}
+        if   : failure() && steps.failed.outputs.task != ''
+        env  : { FAILED: "${{ steps.failed.outputs.task }}" }
+        run  : echo "::error title=Failed task::$FAILED"
 
       - name : Write the coverage figure the badge reads
         if   : matrix.task == 'site:coverage'

@@ -1,18 +1,20 @@
 ["repo:ci"]
 alias       = "ci"
-depends     = [
-  "catalog:bundle",
-  "crate:lint",
-  "crate:test",
-  "lock:audit",
-  "lock:check",
-  "repo:audit",
-  "repo:lint",
-  "site:coverage",
-  "site:cruft",
-  "site:links",
-  "site:lint",
-  "site:press",
-  "site:typecheck"
-]
-description = "Run every check a pull request runs"
+description = "Run every check a pull request runs, each one even after another fails, and write the run's report to `.cache/ci/report.json`"
+run         = """
+mkdir -p .cache/ci
+mise run --continue-on-error --report-file .cache/ci/report.json \
+  catalog:bundle ::: \
+  crate:lint ::: \
+  crate:test ::: \
+  lock:audit ::: \
+  lock:check ::: \
+  repo:audit ::: \
+  repo:lint ::: \
+  site:coverage ::: \
+  site:cruft ::: \
+  site:links ::: \
+  site:lint ::: \
+  site:press ::: \
+  site:typecheck
+"""

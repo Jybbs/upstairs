@@ -1,0 +1,4 @@
+#!/usr/bin/env -S bash -euo pipefail
+#MISE description = "Verify `.mise/mise.lock` matches `.mise/config.toml`, failing on a dropped tool version or platform that `mise lock --check` passes"
+
+mise lock --check --json | bun run docs/.vitepress/tools/lockfile.ts
