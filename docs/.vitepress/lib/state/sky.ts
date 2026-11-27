@@ -318,6 +318,12 @@ class Sky {
    */
   get present(): number { return (Date.now() - this.start.value) / 1000 }
 
+  /**
+   * Whether the present stands outside the window, past its end or, where the
+   * device's clock was set back, before its start.
+   */
+  private get outside(): boolean { return this.present < 0 || this.present >= this.span }
+
   private askAll(asked: Asked) { for (const worker of this.workers) worker.postMessage(asked) }
 
   /**
@@ -510,6 +516,20 @@ class Sky {
     history.replaceState(null, '', location.pathname + location.search + address.fragmentOf(spot, kept))
   }
 
+  /**
+   * Moves to the spot and shows the kinds the page's address names once a
+   * reader changes it, showing the kinds `declared` holds where it names a
+   * spot alone and leaving the spot where it names the one shown or none.
+   */
+  reread() {
+    const spot  = address.spotIn(location.hash)
+    const shown = address.kindsIn(location.hash)
+    if (spot && address.fragmentOf(spot, null) !== address.fragmentOf(this.spot.value, null)) {
+      this.moveTo(spot, null)
+    }
+    if (shown ?? spot) this.trace(shown ?? declared)
+  }
+
   private moveTo(spot: Spot, place: string | null) {
     this.spot.value  = spot
     this.place.value = place
@@ -528,10 +548,10 @@ class Sky {
 
   /**
    * Returns the clock to the present, opening a new window once the present
-   * has passed the end of this one.
+   * stands outside this one.
    */
   back() {
-    if (this.present >= this.span) return this.toNow()
+    if (this.outside) return this.toNow()
     this.clock.value = resting
     this.moveClock(this.present)
   }
@@ -641,7 +661,7 @@ class Sky {
    * where the next `latch` reads the frame it stopped on.
    */
   advance(realSeconds: number) {
-    if (this.clock.value === 'live') this.seconds = Math.min(this.present, this.span)
+    if (this.clock.value === 'live') this.seconds = clamp(this.present, 0, this.span)
     else if (this.clock.value === 'running') {
       this.seconds = Math.min(this.seconds + realSeconds * CLOCK.lapse, this.span)
       if (this.seconds < this.span) return
@@ -651,12 +671,12 @@ class Sky {
   }
 
   /**
-   * Moves a live window to the present once the present passes its end, and
-   * otherwise counts what is up at the clock's time, taking the reading where
-   * the map cannot draw.
+   * Moves a live window to the present once the present stands outside it,
+   * and otherwise counts what is up at the clock's time, taking the reading
+   * where the map cannot draw.
    */
   tally() {
-    if (this.clock.value === 'live' && this.present >= this.span) return this.toNow()
+    if (this.clock.value === 'live' && this.outside) return this.toNow()
     this.at.value  = this.seconds
     this.now.value = this.present
     this.count()

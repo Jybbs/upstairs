@@ -470,14 +470,15 @@ it.each([
 
 /**
  * Builds a canvas whose 2D context ignores every call but `arc`, `beginPath`,
- * `fill`, `lineTo`, `setTransform`, and `stroke`, recording the width and
- * alpha of each ribbon filled, the alpha, radius, and fill style of each disc
- * and ring drawn, and the place, turn, and fill style of each shape filled
- * from a path or under a moved transform.
+ * `fill`, `lineTo`, `setTransform`, and `stroke`, recording the alpha of each
+ * ribbon filled, its width across its first point, and the offset across its
+ * last, the alpha, radius, and fill style of each disc and ring drawn, and the
+ * place, turn, and fill style of each shape filled from a path or under a moved
+ * transform.
  */
 const sketchOf = () => {
   const marks: { alpha: number, filled: boolean, radius: number, style: unknown }[] = []
-  const ribbons: { alpha: number, width: number }[] = []
+  const ribbons: { alpha: number, tip: number[], width: number }[] = []
   const shapes: { at: number[], style: unknown, turn: number[] }[] = []
   let points: number[][] = []
   let radius             = 0
@@ -499,7 +500,8 @@ const sketchOf = () => {
       }
       if (round) return marks.push({ alpha, filled: true, radius, style: context.fillStyle })
       const [[x, y], [u, v]] = [points[0], points.at(-1)!]
-      ribbons.push({ alpha, width: Math.hypot(u - x, v - y) })
+      const [[a, b], [c, d]] = [points[points.length / 2 - 1], points[points.length / 2]]
+      ribbons.push({ alpha, tip: [c - a, d - b], width: Math.hypot(u - x, v - y) })
     },
     lineTo       : (x: number, y: number) => points.push([x, y]),
     setTransform : (...values: number[]) => { transform = values },
@@ -512,19 +514,20 @@ const sketchOf = () => {
 }
 
 /**
- * Draws one satellite crossing the view eastward at `elevation` degrees,
- * through a pass `changes` sets, chosen or held as `as` names, at `seconds`
- * into the window, its kind shown or left out by the filters as `traced` sets,
- * under the panels `covered` names, on a view centered `north` degrees north
- * of the spot.
+ * Draws one satellite crossing the view eastward, or northward where `heading`
+ * names it, at `elevation` degrees, through a pass `changes` sets, chosen or
+ * held as `as` names, at `seconds` into the window, its kind shown or left out
+ * by the filters as `traced` sets, under the panels `covered` names, on a view
+ * centered `north` degrees north of the spot.
  */
 const drawnAt = (
   seconds   : number,
   elevation : number,
   as        : 'held' | 'none' | 'selected',
-  { changes = {}, covered = [], north = 0, traced = true }: {
+  { changes = {}, covered = [], heading = 'east', north = 0, traced = true }: {
     changes? : Partial<Pass>,
     covered? : Box[],
+    heading? : 'east' | 'north',
     north?   : number,
     traced?  : boolean
   } = {}
@@ -534,7 +537,12 @@ const drawnAt = (
   const tracks = new Tracks()
   const track  = new Float32Array(121 * TRACK_WIDTH)
   for (let sample = 0; sample < 121; sample++) {
-    track.set([BOSTON.latitude, BOSTON.longitude - 1 + sample / 60, elevation], sample * TRACK_WIDTH)
+    const due = heading === 'north'
+    track.set([
+      BOSTON.latitude + (due ? sample / 60 - 1 : 0),
+      BOSTON.longitude + (due ? 0 : sample / 60 - 1),
+      elevation
+    ], sample * TRACK_WIDTH)
   }
   const pass = passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600, ...changes })
   tracks.add([pass], track, Uint32Array.of(0), 121)
@@ -568,6 +576,71 @@ it.each([
   expect(ribbons.filter((_, index) => index % 2).map(ribbon => ribbon.width))
     .toEqual(ribbons.filter((_, index) => index % 2).map(() => expect.closeTo(width)))
   expect(ribbons.length).toBeGreaterThan(0)
+})
+
+it('gives a ribbon’s last point the heading of the second before it', () => {
+  const { ribbons } = drawnAt(3600, 90, 'selected', { heading: 'north' })
+  const [{ tip }]   = ribbons.filter((_, index) => index % 2)
+  expect(tip).toEqual([expect.closeTo(-6), expect.closeTo(0)])
+})
+
+/**
+ * Draws a pass held or chosen, as `as` names, at 900 seconds under reduced
+ * motion, returning the sketch, the state to change before the next draw, the
+ * tracks and the pass they hold, and a draw at the same moment.
+ */
+const heldOrChosen = (as: 'held' | 'selected') => {
+  vi.stubGlobal('Path2D', class { constructor(readonly d: string) {} })
+  onTestFinished(() => { vi.unstubAllGlobals() })
+  const tracks = new Tracks()
+  const track  = new Float32Array(121 * TRACK_WIDTH)
+  for (let sample = 0; sample < 121; sample++) {
+    track.set([BOSTON.latitude, BOSTON.longitude - 1 + sample / 60, 45], sample * TRACK_WIDTH)
+  }
+  const pass = passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600 })
+  tracks.add([pass], track, Uint32Array.of(0), 121)
+  const sketch = sketchOf()
+  const state  = {
+    gathered : false,
+    held     : as === 'held' ? pass : null as Pass | null,
+    kinds    : SHOWN,
+    named    : null,
+    reduced  : true,
+    selected : as === 'selected' ? pass : null as Pass | null,
+    spot     : BOSTON,
+    start    : 0,
+    traced   : () => true,
+    tracks   : tracks
+  }
+  const overlay = new Overlay(sketchOf().canvas, sketch.canvas, state)
+  overlay.resize(400, 400, 1)
+  overlay.view.set(400, 400, 9, BOSTON.longitude, BOSTON.latitude)
+  overlay.draw(900)
+  const rescan = () => {
+    tracks.clear()
+    tracks.add([passOf(25544, { peakAt: 1800, riseAt: 0, setAt: 3600 })], track, Uint32Array.of(0), 121)
+  }
+  return { draw: () => overlay.draw(900), rescan, sketch, state }
+}
+
+it.each(['held', 'selected'] as const)('starts the passes of a new scan without a %s track', as => {
+  const { draw, rescan, sketch, state } = heldOrChosen(as)
+  const before = sketch.ribbons.length
+  rescan()
+  state.reduced  = false
+  state.held     = null
+  state.selected = null
+  draw()
+  expect(before).toBeGreaterThan(0)
+  expect(sketch.ribbons.length).toBe(before)
+})
+
+it.each(['held', 'selected'] as const)('keeps a %s track at its strength from one frame to the next', as => {
+  const { draw, sketch, state } = heldOrChosen(as)
+  const first = sketch.ribbons.map(({ alpha }) => alpha)
+  state.reduced = false
+  draw()
+  expect(sketch.ribbons.slice(first.length).map(({ alpha }) => alpha)).toEqual(first)
 })
 
 it('draws the stretch flown at a third, at once under reduced motion, and marks the peak', () => {

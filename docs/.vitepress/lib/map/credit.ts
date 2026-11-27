@@ -200,11 +200,18 @@ export class Credit {
   readonly close = () => { this.open.value = false }
 
   /**
-   * Follows the lines the sources of `map` carry, closing the credit as the
-   * map is dragged.
+   * Follows the lines the sources of `map` carry, holding the lines it has
+   * where an event of a source leaves them as they were, and closing the
+   * credit as the map is dragged.
    */
   follow(map: Map) {
-    const read = () => { this.lines.value = linesOf(map) }
+    const read = () => {
+      const lines = linesOf(map)
+      const held  = this.lines.value
+      if (lines.length !== held.length || lines.some((line, index) => line !== held[index])) {
+        this.lines.value = lines
+      }
+    }
     map.on('sourcedata', read)
     map.on('dragstart', this.close)
     read()
