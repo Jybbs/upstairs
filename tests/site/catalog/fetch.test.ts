@@ -71,6 +71,17 @@ describe('the catalog task', () => {
     expect(lines).toEqual([`5000 satellites written to ${join(scratch, catalog.FILE)}`])
   })
 
+  it('writes the file where the logout fails, printing the failure', async ({ scratch }) => {
+    await writeFile(join(scratch, '.netrc'), NETRC)
+    const { lines, read, status } = await runIn(scratch, [], url =>
+      url.endsWith('ajaxauth/logout') ? new Response(null, { status: 500 }) : served(url))
+    expect([status, read.length]).toEqual([0, 5000])
+    expect(lines).toEqual([
+      'Space-Track answered 500, so the session may still be open.',
+      `5000 satellites written to ${join(scratch, catalog.FILE)}`
+    ])
+  })
+
   it('reads saved files under --elements and --satcat, requesting nothing and dating the file by the '
    + 'elements file', async ({ scratch }) => {
     const elements = join(scratch, 'elements.json')

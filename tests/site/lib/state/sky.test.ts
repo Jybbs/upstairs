@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as catalog           from '../../../../docs/.vitepress/lib/orbit/catalog.ts'
+import { kindOrder }          from '../../../../docs/.vitepress/lib/orbit/kinds.ts'
 import * as scan              from '../../../../docs/.vitepress/lib/orbit/scan.ts'
 import type { Answer, Asked } from '../../../../docs/.vitepress/lib/orbit/worker.ts'
 import { stubMatchMedia }     from '../../common/stubs.ts'
@@ -128,6 +129,11 @@ const traced = (passes: scan.Pass[]) => {
   hear({ id, type: 'done' })
 }
 
+/**
+ * The counts `latch` reads from a map drawing no satellite.
+ */
+const NONE = new Uint16Array(kindOrder.length)
+
 beforeEach(() => vi.useFakeTimers({ now: NOW }))
 afterEach(() => {
   vi.useRealTimers()
@@ -135,26 +141,87 @@ afterEach(() => {
 })
 
 describe('the count a screen reader hears', () => {
-  it('stays silent until the grid arrives', async () => {
+  /**
+   * Finishes the latest scan with `count` passes standing above the horizon.
+   */
+  const standing = (sky: Awaited<ReturnType<typeof loaded>>, count: number) =>
+    traced(Array.from({ length: count }, () => passAt(sky.seconds - 300, 30, { ...OTHER, kind: 'weather' })))
+
+  it('stays silent while the passes are traced', async () => {
     const sky = await loaded()
-    sky.tally()
+    hear({ counts: countsOf(5), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
+    sky.latch(NONE)
     expect(sky.spoken.value).toBe('')
   })
 
-  it('announces the count once the grid arrives, and a changed count only after 20 seconds', async () => {
-    const sky      = await loaded()
-    const id       = scanned()
-    hear({ counts: countsOf(5), id, step: scan.GRID_STEP, type: 'counts' })
+  it('announces the count the readout shows, and a changed one only after 20 seconds', async () => {
+    const sky = await loaded()
+    standing(sky, 5)
+    sky.latch(NONE)
     expect(sky.spoken.value).toBe('5 satellites above the horizon')
     sky.scan()
-    hear({ counts: countsOf(7), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
-    expect(sky.spoken.value).toBe('5 satellites above the horizon')
+    standing(sky, 7)
+    sky.latch(NONE)
     vi.advanceTimersByTime(19_999)
-    sky.tally()
-    expect(sky.spoken.value).toBe('5 satellites above the horizon')
+    sky.latch(NONE)
+    expect([sky.reading.value.above, sky.spoken.value]).toEqual([7, '5 satellites above the horizon'])
     vi.advanceTimersByTime(1)
-    sky.tally()
+    sky.latch(NONE)
     expect(sky.spoken.value).toBe('7 satellites above the horizon')
+  })
+
+  it.each([
+    [0, '0 satellites above the horizon'],
+    [1, '1 satellite above the horizon'],
+    [2, '2 satellites above the horizon']
+  ])('announces a count of %i as "%s"', async (count, spoken) => {
+    const sky = await loaded()
+    standing(sky, count)
+    sky.latch(NONE)
+    expect(sky.spoken.value).toBe(spoken)
+  })
+
+  it('announces the count where the map cannot draw, which takes no reading of its own', async () => {
+    const sky       = await loaded()
+    sky.blank.value = true
+    standing(sky, 2)
+    expect([sky.reading.value.above, sky.spoken.value]).toEqual([2, '2 satellites above the horizon'])
+  })
+
+  it('announces a count held back by the 20 seconds once they end, where the map cannot draw', async () => {
+    const sky       = await loaded()
+    sky.blank.value = true
+    standing(sky, 2)
+    vi.advanceTimersByTime(8_000)
+    sky.scan()
+    standing(sky, 7)
+    const held = sky.spoken.value
+    vi.advanceTimersByTime(12_000)
+    expect([held, sky.reading.value.above, sky.spoken.value])
+      .toEqual(['2 satellites above the horizon', 7, '7 satellites above the horizon'])
+  })
+
+  it('counts again once a kind is switched off where the map cannot draw', async () => {
+    const sky       = await loaded()
+    sky.blank.value = true
+    standing(sky, 2)
+    vi.advanceTimersByTime(20_000)
+    sky.trace(kindOrder.filter(kind => kind !== 'weather'))
+    vi.advanceTimersByTime(20_000)
+    expect([sky.reading.value.above, sky.spoken.value]).toEqual([0, '0 satellites above the horizon'])
+  })
+
+  it('keeps announcing the reading’s count once the count above has moved on', async () => {
+    const sky = await loaded()
+    traced([passAt(sky.seconds - 610, 30)])
+    sky.tally()
+    sky.latch(NONE)
+    vi.advanceTimersByTime(26_000)
+    sky.advance(26)
+    sky.tally()
+    sky.latch(NONE)
+    expect([sky.up.value, sky.reading.value.above, sky.spoken.value])
+      .toEqual([0, 1, '1 satellite above the horizon'])
   })
 })
 
@@ -213,6 +280,29 @@ describe('the window', () => {
     sky.tally()
     expect(sky.start.value).toBe(moved ? scan.minuteOf(now) - 300_000 : start)
     expect(posted.at(-1)).toMatchObject({ start: sky.start.value, type: 'scan' })
+  })
+})
+
+describe('the device clock set back', () => {
+  it('moves the window to begin at the present, its count still a number', async () => {
+    const sky = await loaded()
+    hear({ counts: countsOf(3), id: scanned(), step: scan.GRID_STEP, type: 'counts' })
+    const now = sky.start.value - 600_000
+    vi.setSystemTime(now)
+    sky.advance(1)
+    const drawn = sky.seconds
+    sky.tally()
+    expect([drawn, sky.start.value, sky.seconds, sky.up.value])
+      .toEqual([0, scan.minuteOf(now) - 300_000, 300, 3])
+  })
+
+  it('opens a new window at the present on the way back from a chosen moment', async () => {
+    const sky = await loaded()
+    sky.seek(2000)
+    const now = sky.start.value - 600_000
+    vi.setSystemTime(now)
+    sky.back()
+    expect([sky.start.value, sky.clock.value]).toEqual([scan.minuteOf(now) - 300_000, 'live'])
   })
 })
 
@@ -277,6 +367,31 @@ describe('the spot in the address', () => {
     const sky = await loaded('#48.86,2.29?kinds=starlink')
     move(sky)
     expect(location.hash).toBe(written)
+  })
+
+  it.each([
+    ['moves to the spot and shows the kinds a changed address names', '#48.86,2.29?kinds=starlink',
+      { latitude: 48.86, longitude: 2.29 }, null, ['starlink'], true],
+    ['moves to the spot a changed address names, showing the kinds a first visit shows', '#48.86,2.29',
+      { latitude: 48.86, longitude: 2.29 }, null,
+      ['crewed', 'science', 'earth', 'weather', 'navigation'], true],
+    ['shows the kinds a changed address names, keeping the spot', '#?kinds=starlink',
+      { latitude: 42.36, longitude: -71.06 }, 'Boston', ['starlink'], false],
+    ['shows the kinds a changed address names beside the spot shown, keeping its place',
+      '#42.36,-71.06?kinds=starlink', { latitude: 42.36, longitude: -71.06 }, 'Boston', ['starlink'], false],
+    ['shows the kinds a first visit shows where a changed address names the spot shown alone',
+      '#42.36,-71.06', { latitude: 42.36, longitude: -71.06 }, 'Boston',
+      ['crewed', 'science', 'earth', 'weather', 'navigation'], false],
+    ['leaves the page as it is where a changed address names neither', '#credits',
+      { latitude: 42.36, longitude: -71.06 }, 'Boston', ['earth'], false]
+  ] as const)('%s', async (_, fragment, spot, place, kinds, scans) => {
+    const sky = await loaded()
+    sky.trace(['earth'])
+    const asked = posted.length
+    history.replaceState(null, '', `/somewhere?at=1${fragment}`)
+    sky.reread()
+    expect([sky.spot.value, sky.place.value, sky.showing.value, posted.length > asked])
+      .toEqual([spot, place, kinds, scans])
   })
 
   it('clears the address of any spot once the browser locates the reader', async () => {
@@ -698,9 +813,9 @@ describe('the scan workers', () => {
     const id      = scanned()
     const counted = workers.map(worker => {
       hearFrom(worker, { counts: countsOf(2), id, step: scan.GRID_STEP, type: 'counts' })
-      return sky.spoken.value
+      return sky.up.value
     })
-    expect(counted).toEqual(['', '', '', '8 satellites above the horizon'])
+    expect(counted).toEqual([0, 0, 0, 8])
   })
 
   it('reads the share traced across every worker, finishing once every worker has', async () => {

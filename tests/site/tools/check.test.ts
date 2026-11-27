@@ -247,6 +247,7 @@ describe.concurrent('crate:affected', () => {
     ['an edit under tests/rust/', edit('tests/rust/answers/main.rs'), true],
     ['an edit to the records', edit(RECORDS), true],
     ['an edit to the known answers', edit(ANSWERS), true],
+    ['an edit to the antimeridian record', edit('tests/site/fixtures/antimeridian.json'), true],
     ['an edit under rust/ beside one under rust/.cargo/', edit(DENY, 'rust/src/lib.rs'), true],
     ['no change', edit(), false],
     ['an edit and an untracked file outside rust/ and the fixtures', edit('README.md', 'docs/new.md'), false],

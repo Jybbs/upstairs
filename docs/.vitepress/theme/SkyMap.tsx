@@ -5,20 +5,20 @@ import mapWorker       from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { useData }     from 'vitepress'
 import { computed, defineComponent, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, watch } from 'vue'
 
-import { DETENT, Detents, type Step }   from '../lib/map/detents.ts'
-import { Hosts }                        from '../lib/map/hosts.ts'
-import { numeralIn }                    from '../lib/map/numeral.ts'
-import { Overlay }                      from '../lib/map/overlay.ts'
-import * as places                      from '../lib/map/places.ts'
-import { styleOf }                      from '../lib/map/style.ts'
-import { STEEP, TRACK_STEP, type Pass } from '../lib/orbit/scan.ts'
-import { clamp }                        from '../lib/site/motion.ts'
-import { SCHEMES }                      from '../lib/site/palette.ts'
-import { usePhone }                     from '../lib/site/phone.ts'
-import { SHEETS }                       from '../lib/site/sheets.ts'
-import { sky }                          from '../lib/state/sky.ts'
-import { Tracks }                       from '../lib/state/tracks.ts'
-import Icon                             from './Icon.tsx'
+import { DETENT, Detents, type Step } from '../lib/map/detents.ts'
+import { Hosts }                      from '../lib/map/hosts.ts'
+import { numeralIn }                  from '../lib/map/numeral.ts'
+import { Overlay }                    from '../lib/map/overlay.ts'
+import * as places                    from '../lib/map/places.ts'
+import { styleOf }                    from '../lib/map/style.ts'
+import * as scan                      from '../lib/orbit/scan.ts'
+import { clamp }                      from '../lib/site/motion.ts'
+import { SCHEMES }                    from '../lib/site/palette.ts'
+import { usePhone }                   from '../lib/site/phone.ts'
+import { SHEETS }                     from '../lib/site/sheets.ts'
+import { sky }                        from '../lib/state/sky.ts'
+import { Tracks }                     from '../lib/state/tracks.ts'
+import Icon                           from './Icon.tsx'
 
 const DEM     = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
 const FLY_MS  = 900
@@ -59,13 +59,6 @@ export default defineComponent(
 
     const { isDark } = useData()
     const scheme     = computed(() => SCHEMES[isDark.value ? 'night' : 'day'])
-    /**
-     * Centers the zoom buttons in the map left above a phone's sheet while a
-     * pass is pinned, and in the whole map otherwise.
-     */
-    const zoomAt = computed(() => sky.pinned.value && sky.covered.value
-      ? { top: `calc((100% - ${sky.covered.value}px) / 2)` }
-      : undefined)
 
     let contourTiles: string
     let demTiles: string
@@ -95,15 +88,15 @@ export default defineComponent(
      * Finds the bounds of a pass's stretch above `STEEP` degrees beside the
      * spot, and of its whole crossing.
      */
-    const boundsOf = (pass: Pass) => {
+    const boundsOf = (pass: scan.Pass) => {
       const index                   = sky.tracks.passes.indexOf(pass)
       const { latitude, longitude } = sky.spot.value
       const high                    = new maplibregl.LngLatBounds()
       const whole                   = new maplibregl.LngLatBounds()
-      for (let at = pass.riseAt; at <= pass.setAt; at += TRACK_STEP) {
+      for (let at = pass.riseAt; at <= pass.setAt; at += scan.TRACK_STEP) {
         if (!sky.tracks.at(index, at)) continue
         whole.extend([sky.tracks.longitude, sky.tracks.latitude])
-        if (sky.tracks.elevation > STEEP) high.extend([sky.tracks.longitude, sky.tracks.latitude])
+        if (sky.tracks.elevation > scan.STEEP) high.extend([sky.tracks.longitude, sky.tracks.latitude])
       }
       if (!high.isEmpty()) high.extend([longitude, latitude])
       return { high, whole }
@@ -114,7 +107,7 @@ export default defineComponent(
      * stretch above `STEEP` degrees lies beside the spot, where the pass climbs
      * that high, and the camera fitting the whole crossing.
      */
-    const stepsOf = (pass: Pass): Step[] => {
+    const stepsOf = (pass: scan.Pass): Step[] => {
       const { high, whole } = boundsOf(pass)
       return [high, whole].flatMap(bounds => {
         const camera = !bounds.isEmpty() && map.cameraForBounds(bounds, { padding: PADDING })
@@ -184,10 +177,14 @@ export default defineComponent(
     }
 
     /**
-     * Eases the map to set a spot under the chooser's pin.
+     * Eases the map to set a spot under the chooser's pin, over MapLibre's
+     * default duration unless `options` names one, since `easeTo` copies an
+     * explicit `undefined` over that default and eases by `NaN`.
      */
-    const aimAt = (longitude: number, latitude: number, duration?: number) =>
-      map.easeTo({ center: [longitude, latitude], duration, offset: [0, -sky.raised.value / 2] })
+    const aimAt = (
+      { latitude, longitude } : scan.Spot,
+      options?                : Pick<maplibregl.EaseToOptions, 'duration'>
+    ) => map.easeTo({ ...options, center: [longitude, latitude], offset: [0, -sky.raised.value / 2] })
 
     /**
      * Eases the map back to the spot.
@@ -226,12 +223,13 @@ export default defineComponent(
       const near   = places.placeNear(overlay.labels, x, y, overlay.view)
       if (!near) return
       const town   = near.label
-      if (near.distance > 0.5) return aimAt(town.longitude, town.latitude, PULL_MS)
+      if (near.distance > 0.5) return aimAt(town, { duration: PULL_MS })
       sky.aim.value = { place: town.name, spot: { latitude: town.latitude, longitude: town.longitude } }
     }
 
     useEventListener(frame, 'wheel', wheel, { capture: true, passive: false })
     useEventListener(frame, 'keydown', keyed, { capture: true })
+    if (!props.backdrop) useEventListener('hashchange', () => sky.reread())
 
     const fit = () => {
       const { clientWidth, clientHeight } = frame.value!
@@ -268,13 +266,14 @@ export default defineComponent(
 
     /**
      * Links the map's stylesheet from the page's head once, resolving once it
-     * has loaded.
+     * has loaded or failed to load, the map drawing without it after a failure.
      */
     const styled = () => new Promise(resolve => {
       const href = SHEETS.map.hrefOf(maplibregl.getVersion())
       if (document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) return resolve(null)
-      const link = Object.assign(document.createElement('link'), { href, rel: 'stylesheet' })
-      link.onload = resolve
+      const link   = Object.assign(document.createElement('link'), { href, rel: 'stylesheet' })
+      link.onerror = resolve
+      link.onload  = resolve
       document.head.append(link)
     })
 
@@ -424,15 +423,23 @@ export default defineComponent(
     })
     watch([sky.choosing, sky.raised], ([choosing], [was]) => {
       if (!map) return
-      const { latitude, longitude } = choosing === 'open' ? sky.aim.value!.spot : sky.spot.value
-      if (choosing === 'open') return aimAt(longitude, latitude)
+      if (choosing === 'open') return aimAt(sky.aim.value!.spot)
+      const { latitude, longitude } = sky.spot.value
       if (choosing === 'landing') return map.easeTo({ center: [longitude, latitude], duration: FLY_MS })
       pin.value = null
       if (was === 'open') home()
     })
     watch(sky.gather, regather)
     watch(sky.covered, () => overlay?.invalidate())
-    watch([frame, phone], ([map]) => { panels.value = map ? places.panelsOver(map) : [] }, { flush: 'post' })
+    /**
+     * Observes each panel beside the map. The zoom buttons are passed over,
+     * since the sheet's resize reshapes them inside its own delivery, which the
+     * browser reports as a `ResizeObserver` loop error, and the sheet and the
+     * map each place the names again as they resize.
+     */
+    watch([frame, phone], ([map]) => {
+      panels.value = map ? places.panelsOver(map).filter(panel => !map.parentElement!.contains(panel)) : []
+    }, { flush: 'post' })
     useResizeObserver(panels, () => overlay?.invalidate())
     /**
      * Whether `bounds` stand wholly inside the map short of `padding`.
@@ -496,23 +503,27 @@ export default defineComponent(
         )}
         {!props.backdrop && (
           <div
-            style={zoomAt.value}
-            class="absolute top-1/2 right-inset z-10 flex -translate-y-1/2 flex-col overflow-hidden rounded-sm
-                   border border-rule bg-panel/95 text-ink shadow-lift [&>button]:grid [&>button]:size-11
-                   [&>button]:cursor-pointer [&>button]:place-items-center [&>button:hover]:bg-lift"
-            role="group"
-            aria-label="Zoom"
-            data-label-clear
+            style={{ bottom: `${sky.covered.value}px` }}
+            class="pointer-events-none absolute top-0 right-inset z-10 flex w-24 items-center justify-end
+                   @container-size"
           >
-            <button type="button" aria-label="Zoom in" onClick={() => zoomBy(1)}><Icon name="zin" /></button>
-            <button
-              type="button"
-              class="border-t border-rule"
-              aria-label="Zoom out"
-              onClick={() => zoomBy(-1)}
+            <div
+              class="pointer-events-auto flex flex-col divide-y divide-rule overflow-hidden rounded-sm
+                     border border-rule bg-panel/95 text-ink shadow-lift [&>button]:grid
+                     [&>button]:size-11 [&>button]:cursor-pointer [&>button]:place-items-center
+                     [&>button:hover]:bg-lift [@container(height<6rem)]:flex-row
+                     [@container(height<6rem)]:divide-x [@container(height<6rem)]:divide-y-0"
+              role="group"
+              aria-label="Zoom"
+              data-label-clear
             >
-              <Icon name="zout" />
-            </button>
+              <button type="button" aria-label="Zoom in" onClick={() => zoomBy(1)}>
+                <Icon name="zin" />
+              </button>
+              <button type="button" aria-label="Zoom out" onClick={() => zoomBy(-1)}>
+                <Icon name="zout" />
+              </button>
+            </div>
           </div>
         )}
         {hosts.message.value && <div class="pointer-events-none absolute inset-0 bg-panel/62" />}

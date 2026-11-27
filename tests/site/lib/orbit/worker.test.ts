@@ -22,7 +22,12 @@ const batches = encode(FETCHED, Array.from(
   (_, copy) => full.map(record => ({ ...record, NORAD_CAT_ID: record.NORAD_CAT_ID + copy * 100_000 }))
 ).flat() as unknown as Record[])
 
-const built = vi.hoisted(() => ({ grids: 0, ready: Promise.resolve() as Promise<unknown>, throws: false }))
+const built = vi.hoisted(() => ({
+  fails  : 0,
+  grids  : 0,
+  ready  : Promise.resolve() as Promise<unknown>,
+  throws : false
+}))
 
 vi.mock('../../../../rust/pkg/orbit.js', async importOriginal => {
   const crate = await importOriginal<typeof import('../../../../rust/pkg/orbit.js')>()
@@ -31,6 +36,7 @@ vi.mock('../../../../rust/pkg/orbit.js', async importOriginal => {
     ...crate,
     default : async () => {
       await built.ready
+      if (built.fails-- > 0) throw new TypeError('Failed to fetch')
       return crate.default({ module_or_path: await readFile(wasm) })
     },
     Grid    : class extends crate.Grid {
@@ -76,6 +82,7 @@ class Channel {
 const loaded = async (answer = () => new Response(file), helpers: MessagePort[] = []) => {
   heard        = []
   heed         = () => {}
+  built.fails  = 0
   built.grids  = 0
   built.ready  = Promise.resolve()
   built.throws = false
@@ -153,6 +160,18 @@ describe('loading the catalog', () => {
     expect(heard.slice(first)).toEqual(heard.slice(0, first))
   })
 
+  it('downloads the orbit module again on a load after it failed to download', async () => {
+    await loaded()
+    const counts = answersOf('loaded').map(({ count }) => count)
+    built.fails  = 1
+    hear         = await started()
+    heard        = []
+    await hear(LOAD)
+    await hear(LOAD)
+    expect(heard.map(answer => answer.type === 'loaded' ? answer.count : answer))
+      .toEqual([{ reason: 'TypeError: Failed to fetch', type: 'failed' }, ...counts])
+  })
+
   it('answers no scan asked for before a catalog has loaded', async () => {
     await loaded(() => new Response(null, { status: 503 }))
     await hear(scanOf(1))
@@ -163,12 +182,24 @@ describe('loading the catalog', () => {
 describe('a scan', () => {
   beforeEach(() => loaded())
 
-  it('counts the sky over the spot as the known answers do, then traces each pass and finishes', async () => {
-    await hear(scanOf(1))
+  it.each([answers, ...answers.elsewhere])('counts the sky over $spot as the known answers do, then traces '
+                                         + 'each pass and finishes', async ({ grid, spot }) => {
+    await hear(scanOf(1, spot))
     const [counts] = answersOf('counts')
-    expect(Array.from(counts.counts)).toEqual(answers.grid.counts)
+    expect(Array.from(counts.counts)).toEqual(grid.counts)
     const types = typesOf(1)
     expect(types).toEqual(['counts', ...types.slice(1, -1).map(() => 'passes'), 'done'])
+  })
+
+  it.each([answers, ...answers.elsewhere])('traces the highest pass of each satellite over $spot where the '
+                                         + 'known answers do', async ({ passes, spot }) => {
+    await hear({ ...scanOf(1, spot), minutes: answers.track.minutes })
+    const traced  = answersOf('passes').flatMap(answer => answer.passes)
+    const highest = (id: number) => traced.filter(pass => pass.id === id).toSorted((a, b) => b.peak - a.peak)[0]
+    const known   = passes.filter(pass => pass !== null)
+    expect([...new Set(traced.map(pass => pass.id))].toSorted()).toEqual(known.map(pass => pass.id).toSorted())
+    expect(known.map(({ id }) => [id, highest(id)?.riseAt, highest(id)?.setAt]))
+      .toEqual(known.map(({ id, riseAt, setAt }) => [id, riseAt, setAt]))
   })
 
   it('traces every satellite but Starlink before any Starlink', async () => {
@@ -256,6 +287,18 @@ describe('a catalog shared with a helper', () => {
     return { lead: hear, shares }
   }
 
+  /**
+   * Starts a fresh helper following a stand-in port, with what it posted so
+   * far forgotten, returning its handler and the port.
+   */
+  const followed = async () => {
+    const port   = portOf()
+    const helper = await started()
+    heard        = []
+    await helper({ from: port as unknown as MessagePort, type: 'follow' })
+    return { helper, port }
+  }
+
   it('hands the helper every other row of the catalog and posts every satellite from the lead', async () => {
     const { shares } = await shared()
     const posted     = answersOf('loaded').flatMap(({ satellites }) => satellites)
@@ -274,9 +317,7 @@ describe('a catalog shared with a helper', () => {
     await hear(scanOf(1))
     const alone            = answersOf('passes').flatMap(answer => answer.passes)
     const { lead, shares } = await shared()
-    const port             = portOf()
-    const helper           = await started()
-    await helper({ from: port as unknown as MessagePort, type: 'follow' })
+    const { helper, port } = await followed()
     for (const data of shares) await port.onmessage!({ data })
     heard = []
     await lead(scanOf(1))
@@ -292,27 +333,41 @@ describe('a catalog shared with a helper', () => {
 
   it('posts the count of every row loaded once it holds each share, '
    + 'and nothing after following another port', async () => {
-    const { shares } = await shared()
-    const port       = portOf()
-    const helper     = await started()
-    heard            = []
-    await helper({ from: port as unknown as MessagePort, type: 'follow' })
+    const { shares }       = await shared()
+    const { helper, port } = await followed()
     await port.onmessage!({ data: shares[0] })
-    const first      = port.onmessage!
+    const first            = port.onmessage!
     await helper({ from: { close() {} } as unknown as MessagePort, type: 'follow' })
     await first({ data: shares[1] })
     expect([heard, port.close.mock.calls.length])
       .toEqual([[{ count: shares[0].count, fetched: FETCHED, satellites: [], type: 'loaded' }], 1])
   })
 
+  it('posts why where its module fails to load, holding no share it is handed', async () => {
+    const { shares } = await shared()
+    built.fails      = 1
+    const { port }   = await followed()
+    await port.onmessage!({ data: shares[0] })
+    expect(heard).toEqual([{ reason: 'TypeError: Failed to fetch', type: 'failed' }])
+  })
+
+  it('posts nothing where its module fails to load after it follows another port', async () => {
+    await shared()
+    let fail         = () => {}
+    built.fails      = 1
+    built.ready      = new Promise<void>(resolve => { fail = resolve })
+    const { helper } = await followed()
+    await helper({ from: portOf() as unknown as MessagePort, type: 'follow' })
+    fail()
+    await new Promise(resolve => task(() => resolve(null)))
+    expect(heard).toEqual([])
+  })
+
   it('holds a share that arrives before its module is ready until the module is ready', async () => {
     const { shares } = await shared()
     let open         = () => {}
     built.ready      = new Promise<void>(resolve => { open = resolve })
-    const port       = portOf()
-    const helper     = await started()
-    heard            = []
-    await helper({ from: port as unknown as MessagePort, type: 'follow' })
+    const { port }   = await followed()
     const held       = port.onmessage!({ data: shares[0] })
     await new Promise(resolve => task(() => resolve(null)))
     const early      = heard.length
@@ -323,14 +378,11 @@ describe('a catalog shared with a helper', () => {
   })
 
   it('drops a share held for its module once the helper follows another port meanwhile', async () => {
-    const { shares } = await shared()
-    let open         = () => {}
-    built.ready      = new Promise<void>(resolve => { open = resolve })
-    const port       = portOf()
-    const helper     = await started()
-    heard            = []
-    await helper({ from: port as unknown as MessagePort, type: 'follow' })
-    const held       = port.onmessage!({ data: shares[0] })
+    const { shares }       = await shared()
+    let open               = () => {}
+    built.ready            = new Promise<void>(resolve => { open = resolve })
+    const { helper, port } = await followed()
+    const held             = port.onmessage!({ data: shares[0] })
     await helper({ from: portOf() as unknown as MessagePort, type: 'follow' })
     open()
     await held

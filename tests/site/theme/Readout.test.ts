@@ -5,8 +5,8 @@ import { defineComponent, h }     from 'vue'
 
 import { DAY }                                       from '../../../docs/.vitepress/lib/orbit/catalog.ts'
 import { kindOrder }                                 from '../../../docs/.vitepress/lib/orbit/kinds.ts'
-import type { sky as Sky }                          from '../../../docs/.vitepress/lib/state/sky.ts'
-import { WORDS }                                    from '../../../docs/.vitepress/lib/state/words.ts'
+import type { sky as Sky }                           from '../../../docs/.vitepress/lib/state/sky.ts'
+import { WORDS }                                     from '../../../docs/.vitepress/lib/state/words.ts'
 import { dialogListens, fakeClock, unmountOnFinish } from '../common/frames.ts'
 import { passOf }                                    from '../common/passes.ts'
 import { addScanned, lateSky }                       from '../common/sky.ts'
@@ -17,17 +17,16 @@ const FAILED = 'Error: The catalog answered 503'
 /**
  * Returns the line naming the place and the time, its spacing collapsed.
  */
-const lineOf = (wrapper: VueWrapper) => wrapper.get('p.truncate')
+const lineOf = (wrapper: VueWrapper) => wrapper.get('p.caps')
   .text()
   .replace(/\s+/g, ' ')
 
 /**
  * Mounts the readout over a fresh copy of the shared state and a stand-in
  * worker, with a catalog loaded, the scan finished, a count announced, and the
- * window opening at
- * 11:47 PM on Tuesday, November 10, 2026 in New York's time zone, read at
- * `seconds` into it, the device asking for reduced motion where `reduced` is
- * set.
+ * window opening at 11:47 PM on Tuesday, November 10, 2026 in New York's time
+ * zone, read at `seconds` into it, the device asking for reduced motion where
+ * `reduced` is set.
  */
 const mounted = async (seconds: number, reduced = false) => {
   stubMatchMedia(query => reduced && query.includes('reduce'))
@@ -51,7 +50,7 @@ it.each([
   ['12:00 AM', 780, ['Wed'], 'The time read is on Wednesday, November 11.']
 ])('names the weekday before the time at %s only once the day turns', async (time, at, weekday, spoken) => {
   const { wrapper } = await mounted(at)
-  expect(lineOf(wrapper)).toBe(`Above Boston · ${[...weekday, time].join(' ')}`)
+  expect(lineOf(wrapper)).toBe(`Above Boston · ${[...weekday, time].join(' ')} EST`)
   expect(wrapper.findAll('[aria-live="polite"]')[1].text()).toBe(spoken)
 })
 
@@ -88,7 +87,7 @@ it('names the kind the tally holds last, with how many the map draws of how many
   }
   await wrapper.vm.$nextTick()
   await wrapper.get('[aria-label="Earth, 5 on this map"]').trigger('pointerenter', { pointerType: 'mouse' })
-  expect(wrapper.get('p.h-3').text()).toBe('Earth · 5 of 7 up')
+  expect(wrapper.get('p.items-center').text()).toBe('Earth · 5 of 7 up')
 })
 
 it('sets the figure to what the map draws and the last line to what stands above the horizon', async () => {
@@ -96,7 +95,7 @@ it('sets the figure to what the map draws and the last line to what stands above
   sky.up.value           = 12
   sky.reading.value      = { ...sky.reading.value, above: 9, onMap: 5 }
   await wrapper.vm.$nextTick()
-  expect([wrapper.get('output').text(), wrapper.get('p.h-3').text()]).toEqual(['5', 'Of 9 above the horizon'])
+  expect([wrapper.get('output').text(), wrapper.get('p.items-center').text()]).toEqual(['5', 'Of 9 above the horizon'])
 })
 
 it.each([
@@ -135,7 +134,15 @@ it.each([
   const { sky, wrapper } = await mounted(30)
   sky.clock.value        = clock
   await wrapper.vm.$nextTick()
-  expect(lineOf(wrapper)).toBe(`Above Boston · ${time}`)
+  expect(lineOf(wrapper)).toBe(`Above Boston · ${time} EST`)
+})
+
+it('cuts the place where the line runs out of room, keeping the time and its zone whole', async () => {
+  const { wrapper } = await mounted(30)
+  const line        = wrapper.get('p.caps')
+  const time        = line.get(':scope > span:last-child')
+  expect([line.classes('truncate'), line.get('button').classes('truncate'), time.classes()])
+    .toEqual([false, true, expect.arrayContaining(['shrink-0', 'whitespace-pre'])])
 })
 
 it('opens the spot chooser from the place it reads', async () => {
@@ -266,12 +273,34 @@ it.each([
   expect([lines[0].classes('font-display'), lines.at(-1)!.text()]).toEqual([true, sky.moment.value.next])
 })
 
-it('reads no count and the orbits’ age once the catalog has expired', async () => {
-  const { sky, wrapper } = await mounted(0)
+it.each([
+  ['reads no count and the orbits’ age once the catalog has expired', false],
+  ['says why a folded readout reads no count once the catalog has expired', true]
+])('%s, aloud as well', async (_, folded) => {
+  const { Readout, sky } = await mounted(0)
+  const wrapper          = mount(Readout, { props: { folded } })
+  sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
+  const aged             = 'Orbits 15 days old, too old to draw'
+  await wrapper.vm.$nextTick()
+  expect(['output', 'p.items-center', '[aria-live="polite"]'].map(selector => wrapper.get(selector).text()))
+    .toEqual(['—', aged, aged])
+})
+
+it('leaves the orbits’ age out of a folded readout while the catalog is fresh', async () => {
+  const { Readout } = await mounted(0)
+  const wrapper     = mount(Readout, { props: { folded: true } })
+  expect([wrapper.find('p.items-center').exists(), wrapper.get('[aria-live="polite"]').text()])
+    .toEqual([false, '5 satellites above the horizon'])
+})
+
+it('sets no fixed height on the orbits’ age, so a line wrapping on a phone grows its row', async () => {
+  const { Readout, sky } = await mounted(0)
+  const wrapper          = mount(Readout, { props: { folded: true } })
   sky.loaded.value       = { count: 9, fetched: sky.start.value - 15 * DAY }
   await wrapper.vm.$nextTick()
-  expect([wrapper.get('output').text(), wrapper.get('p.h-3').text()])
-    .toEqual(['—', 'Orbits 15 days old, too old to draw'])
+  const heights = wrapper.get('p.items-center').classes()
+    .filter(name => /^(max-)?h-/.test(name.replace(/^.*:/, '')))
+  expect(heights).toEqual([])
 })
 
 it.each([

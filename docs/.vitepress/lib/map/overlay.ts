@@ -276,6 +276,7 @@ export class Overlay {
   private eased              = performance.now()
   private heldStrength       = new Float32Array(256)
   private chosenStrength     = new Float32Array(256)
+  private scanned: Pass[] | null = null
   private named: Kind | null = null
   private marks: Record<Kind, Path2D> | null = null
   private gatherX            = new Float32Array(0)
@@ -768,10 +769,16 @@ export class Overlay {
   /**
    * Eases each pass's held and chosen strengths toward the pass held and the
    * pass chosen, over `EASE` and at once under reduced motion, growing the
-   * arrays they sit in only as the passes outgrow them.
+   * arrays they sit in only as the passes outgrow them, and starting each
+   * scan's passes unhighlighted.
    */
   private ease(state: Drawn) {
     const { passes } = state.tracks
+    if (passes !== this.scanned) {
+      this.heldStrength.fill(0)
+      this.chosenStrength.fill(0)
+      this.scanned = passes
+    }
     if (passes.length > this.heldStrength.length) {
       const size          = 2 ** Math.ceil(Math.log2(passes.length))
       const held          = new Float32Array(size)
@@ -852,9 +859,10 @@ export class Overlay {
         const y       = view.row(tracks.latitude)
         const sine    = Math.sin(Math.max(tracks.elevation, 0) * Math.PI / 180)
         const half    = (low + (high - low) * sine + grow) / 2
-        if (!tracks.at(pass, Math.min(seconds + 1, (tracks.samples - 1) * TRACK_STEP))) return false
-        let dx        = view.column(tracks.longitude) - x
-        let dy        = view.row(tracks.latitude) - y
+        const way     = seconds + 1 > (tracks.samples - 1) * TRACK_STEP ? -1 : 1
+        if (!tracks.at(pass, seconds + way)) return false
+        let dx        = (view.column(tracks.longitude) - x) * way
+        let dy        = (view.row(tracks.latitude) - y) * way
         const length  = Math.hypot(dx, dy)
         if (length > view.world / 2) return false
         dx            = length ? dx / length : 1
@@ -882,13 +890,12 @@ export class Overlay {
   }
 
   /**
-   * Draws a satellite as a dot in the one tone, 2 pixels plus 2.5 for its
+   * Draws a satellite as a dot in its kind's color, 2 pixels plus 2.5 for its
    * nearness and strengthened by it, laying `BEADS` behind it and emptying to
-   * an open ring past its nearest point. The held and the chosen dots take
-   * their kind's color and a ring, and a dot whose pass the filters leave out
-   * of the list draws at half strength, its beads included. Draws at `x`, `y`,
-   * the place `tracks.up` wrote, since laying the beads reads other moments
-   * into `tracks`.
+   * an open ring past its nearest point. The held and the chosen dots take a
+   * ring, and a dot whose pass the filters leave out of the list draws at half
+   * strength, its beads included. Draws at `x`, `y`, the place `tracks.up`
+   * wrote, since laying the beads reads other moments into `tracks`.
    */
   private drawDot(
     context : CanvasRenderingContext2D,
@@ -905,7 +912,7 @@ export class Overlay {
     const radius      = radiusOf(nearness)
     const open        = openOf(record, seconds)
     const held        = record === state.selected || record === state.held
-    const color       = held ? this.scheme.kinds[record.kind] : this.scheme.dim
+    const color       = this.scheme.kinds[record.kind]
     let alpha         = (0.45 + 0.55 * nearness) * fadeOf(record, seconds) * (traced ? 1 : 0.5)
     if (held) alpha   = Math.max(alpha, 0.9)
     alpha            *= this.strength(record.kind)

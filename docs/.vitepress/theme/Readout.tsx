@@ -5,7 +5,7 @@ import { coordinatesOf }                          from '../lib/orbit/compass.ts'
 import { KINDS, kindOrder, kindSlots }            from '../lib/orbit/kinds.ts'
 import { useChooser }                             from '../lib/site/chooser.ts'
 import { CLOCK }                                  from '../lib/state/clock.ts'
-import { minuteFormat, secondFormat, sky }        from '../lib/state/sky.ts'
+import { minuteFormat, sky }                      from '../lib/state/sky.ts'
 import { WORDS }                                  from '../lib/state/words.ts'
 import Icon                                       from './Icon.tsx'
 import Orbits                                     from './Orbits.tsx'
@@ -18,8 +18,17 @@ import Tally                                      from './Tally.tsx'
  */
 const UNDERLINED    = `caps cursor-pointer text-ink underline decoration-rule underline-offset-4
                        hover:decoration-soft max-sm:py-3.25`
+const ZONED         = { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' } as const
 const dateFormat    = new Intl.DateTimeFormat([], { day: 'numeric', month: 'long', weekday: 'long' })
 const weekdayFormat = new Intl.DateTimeFormat([], { weekday: 'short' })
+/**
+ * The clock to the minute, and to the second while the fast-forward runs,
+ * each closing on the short name of the reader's time zone.
+ */
+const zonedFormats = {
+  minute : new Intl.DateTimeFormat([], ZONED),
+  second : new Intl.DateTimeFormat([], { ...ZONED, second: '2-digit' })
+}
 
 /**
  * Reads the spot, the time, and the count of satellites on the map, or the
@@ -28,7 +37,8 @@ const weekdayFormat = new Intl.DateTimeFormat([], { weekday: 'short' })
  * at any failure.
  *
  * `folded` folds the readout into the head of a phone's sheet, the count and
- * the time over the search, where the sheet shows the pinned pass below.
+ * the time over the search, with the orbits' age under the count once the
+ * catalog has expired, where the sheet shows the pinned pass below.
  */
 export default defineComponent(
   (props: { folded?: boolean }) => {
@@ -63,6 +73,14 @@ export default defineComponent(
       }
     })
     /**
+     * The orbits' age once the catalog has expired, which the line under the
+     * count shows, folded or not, and the polite region reads in the count's
+     * place.
+     */
+    const aged = computed(() => sky.expired.value
+      ? `Orbits ${Math.floor(sky.age.value)} days old, too old to draw`
+      : '')
+    /**
      * The kinds not shown, which every count the readout gives leaves out.
      */
     const hidden = computed(() => kindOrder.filter(kind => !sky.traced[kind]))
@@ -89,10 +107,12 @@ export default defineComponent(
       return `Draw the sky as it is now, the frame is ${minutes} ${away < 0 ? 'behind' : 'ahead'}`
     })
     /**
-     * The clock, after the weekday once the time read falls on a later day.
+     * The clock in the reader's time zone, after the weekday once the time read
+     * falls on a later day.
      */
     const when = computed(() => {
-      const clock = sky.clockOf(sky.at.value, sky.clock.value === 'running' ? secondFormat : undefined)
+      const unit  = sky.clock.value === 'running' ? 'second' : 'minute'
+      const clock = sky.clockOf(sky.at.value, zonedFormats[unit])
       return later.value ? `${sky.dayOf(sky.at.value, weekdayFormat)} ${clock}` : clock
     })
 
@@ -103,11 +123,11 @@ export default defineComponent(
     /**
      * Sets the line under the tally: the orbits' age once the catalog has
      * expired, the kind the tally names, or how many stand above the horizon.
+     * The line's negative margins of half its line height less 6 pixels hold
+     * one line to a 12-pixel row, and each wrapped line adds its height.
      */
     const status = () => {
-      if (sky.stage.value === 'expired') {
-        return `Orbits ${Math.floor(sky.age.value)} days old, too old to draw`
-      }
+      if (aged.value) return aged.value
       if (named.value) return [<Icon name={named.value.kind} />, named.value.line]
       return `Of ${sky.reading.value.above.toLocaleString()} above the horizon`
     }
@@ -178,11 +198,11 @@ export default defineComponent(
           props.folded ? 'px-4 pb-3' : 'rounded-sm border border-rule bg-panel/95 p-4 backdrop-blur-sm'
         ]}
       >
-        <p class="caps truncate text-soft">
-          {'Above '}
+        <p class="caps flex items-baseline text-soft">
+          <span class="shrink-0 whitespace-pre">{'Above '}</span>
           <button
             {...chooser.value.getTriggerProps()}
-            class={UNDERLINED}
+            class={[UNDERLINED, 'truncate']}
             aria-label={`Choose the spot, now ${over.value}`}
           >
             <Icon name="place" class="-mt-0.5 inline align-middle" />
@@ -199,7 +219,7 @@ export default defineComponent(
               ))}
             </span>
           </button>
-          {' · '}<span class="text-ink">{when.value}</span>
+          <span class="shrink-0 whitespace-pre">{' · '}<span class="text-ink">{when.value}</span></span>
         </p>
         {!props.folded && sky.shown.value && !sky.moment.value.failure
           ? (
@@ -260,13 +280,15 @@ export default defineComponent(
             </div>,
             sky.waiting.value
               ? [<Orbits moment={sky.moment.value} size={props.folded ? 72 : 80} />, foot()]
-              : !props.folded && [
-                <Tally />,
-                <p class="caps flex h-3 items-center gap-2 text-soft">{status()}</p>
+              : [
+                !props.folded && <Tally />,
+                (!props.folded || aged.value) && (
+                  <p class="caps -my-[calc(0.5lh-0.375rem)] flex items-center gap-2 text-soft">{status()}</p>
+                )
               ],
             leftOut()
           ]}
-        <p class="sr-only" aria-live="polite">{sky.spoken.value}</p>
+        <p class="sr-only" aria-live="polite">{aged.value || sky.spoken.value}</p>
         <p class="sr-only" aria-live="polite">{dated.value}</p>
         <PlaceSearch />
       </section>

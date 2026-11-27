@@ -17,6 +17,18 @@ type Result = { craft: search.Match } | { place: search.Place }
  * The fewest letters a search reads.
  */
 const LEAST  = 3
+/**
+ * Holds the list to the space on the side it opens to, and to no less than
+ * three rows of 44 pixels with its padding and border, so a list outgrowing
+ * the space below overflows it and opens above, the minimum height Floating
+ * UI's `size` documentation gives `flip` at https://floating-ui.com/docs/size.
+ */
+const LISTED = 'max-h-[max(var(--available-height),9rem)]'
+/**
+ * The longest the browser looks for a location once it may share one, in
+ * milliseconds, the wait the Geolocation specification's example sets.
+ */
+const LOCATE = 10_000
 const SEARCH = 'https://photon.komoot.io/api/'
 const SHOWN  = 5
 const WAIT   = 350
@@ -39,16 +51,21 @@ const valueOf = (result: Result) =>
 /**
  * Searches the whole catalog by name and the places Photon finds by name
  * through a combobox, moving to the result chosen, with a notice under it in
- * the flow of the page where the browser declines to share a location.
+ * the flow of the page where the browser shares no location. The notice's live
+ * region stands from the start, out of the flow while it is empty, since a
+ * screen reader announces a change within a region and not a region added with
+ * its text.
  */
 export default defineComponent(
   () => {
-    const declined = ref(false)
-    const found    = ref<search.Place[]>([])
-    const trouble  = ref<string | null>(null)
-    const words    = ref('')
-    const typed    = computed(() => words.value.trim())
-    let latest     = 0
+    const found   = ref<search.Place[]>([])
+    const notice  = ref('')
+    const trouble = ref<string | null>(null)
+    const words   = ref('')
+    const typed   = computed(() => words.value.trim())
+    let asks      = 0
+    let latest    = 0
+    let shared    = 0
 
     /**
      * Seconds into the window of the present's whole minute.
@@ -81,11 +98,27 @@ export default defineComponent(
       return pass.setAt >= minute.value ? 'Up now' : `Set ${sky.clockOf(pass.setAt)}`
     }
 
+    /**
+     * Moves to the spot the browser locates, saying whether it declined or
+     * found none within `LOCATE` milliseconds where it shares none, leaving
+     * out the failure of a request older than one that found the spot.
+     */
     const nearMe = () => {
-      declined.value = false
+      const asked  = ++asks
+      notice.value = ''
       navigator.geolocation.getCurrentPosition(
-        ({ coords }) => sky.locate({ latitude: coords.latitude, longitude: coords.longitude }),
-        () => { declined.value = true }
+        ({ coords }) => {
+          shared       = asked
+          notice.value = ''
+          sky.locate({ latitude: coords.latitude, longitude: coords.longitude })
+        },
+        ({ code, TIMEOUT }) => {
+          if (shared > asked) return
+          notice.value = code === TIMEOUT
+            ? `The browser found no location within ${LOCATE / 1000} seconds.`
+            : 'The browser did not share a location.'
+        },
+        { timeout: LOCATE }
       )
     }
 
@@ -193,8 +226,10 @@ export default defineComponent(
           <div {...box.value.getPositionerProps()} class="z-20">
             <ul
               {...box.value.getContentProps()}
-              class="max-h-(--available-height) overflow-y-auto rounded-sm border border-rule bg-lift py-1
-                     text-sm shadow-md"
+              class={[
+                LISTED,
+                'overflow-y-auto rounded-sm border border-rule bg-lift py-1 text-sm shadow-md'
+              ]}
             >
               {crafts.value.map(craft => (
                 <li key={craft.satellite.id} role="presentation">
@@ -205,7 +240,7 @@ export default defineComponent(
                            hover:bg-panel data-highlighted:bg-panel max-sm:min-h-11"
                   >
                     <Icon name={craft.satellite.kind} />
-                    <SatelliteName name={craft.satellite.name} class="truncate" />{' '}
+                    <SatelliteName name={craft.satellite.name} class="wrap-anywhere" />{' '}
                     <span class="ml-auto shrink-0 text-soft">{noteOf(craft)}</span>
                   </button>
                 </li>
@@ -221,7 +256,8 @@ export default defineComponent(
                     class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left
                            hover:bg-panel data-highlighted:bg-panel max-sm:min-h-11"
                   >
-                    <Icon name="place" class="text-soft" /><span class="truncate">{place.label}</span>{' '}
+                    <Icon name="place" class="text-soft" />
+                    <span class="wrap-anywhere">{place.label}</span>{' '}
                     {place.kind && <span class="ml-auto shrink-0 text-soft">{place.kind}</span>}
                   </button>
                 </li>
@@ -230,9 +266,7 @@ export default defineComponent(
           </div>
         )}
       </form>,
-      declined.value && (
-        <p class="text-[15px] leading-snug text-soft" role="status">The browser did not share a location.</p>
-      )
+      <p class="text-[15px] leading-snug text-soft empty:sr-only" role="status">{notice.value}</p>
     ]
   },
   { name: 'PlaceSearch' }

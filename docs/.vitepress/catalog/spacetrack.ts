@@ -67,6 +67,20 @@ export class Unchecked extends Failure {
 }
 
 /**
+ * Cancels the body of an answer nothing reads, whether or not it still arrives.
+ */
+const discard = async (answer: Response) => { await answer.body?.cancel().catch(() => {}) }
+
+/**
+ * Reads the JSON of an answer, or `undefined` where its body is not JSON,
+ * failing with `Unavailable` where the body stops arriving.
+ */
+const jsonOf = (answer: Response): Promise<unknown> => answer.json().catch((cause: unknown) => {
+  if (!(cause instanceof SyntaxError))
+    throw new Unavailable('Space-Track’s answer stopped arriving', { cause })
+})
+
+/**
  * Returns the record the query answered with as `entry`, each number read from
  * the text Space-Track sends it as, or `undefined` where a field is missing or
  * a number reads as none.
@@ -83,44 +97,45 @@ const recordOf = (entry: unknown) => {
 
 /**
  * Returns the records of an answer to the query, failing on anything but a
- * list of `AT_LEAST` records or more, each holding every field in `FIELDS`.
+ * list of `AT_LEAST` records or more, each holding every field in `FIELDS`,
+ * with a reason that holds none of the answer's text.
  */
 export const queriedOf = (answer: unknown) => {
-  const records = Array.isArray(answer) ? answer.map(recordOf) : []
-  if (records.length >= AT_LEAST && !records.includes(undefined)) return records as Record[]
-  throw new Unchecked(`Expected a list of ${AT_LEAST} or more records, got `
-                    + JSON.stringify(answer)?.slice(0, 60))
+  const entries = Array.isArray(answer) ? answer as unknown[] : []
+  const records = entries.map(recordOf).filter(record => record !== undefined)
+  if (records.length >= AT_LEAST && records.length === entries.length) return records
+  throw new Unchecked(`Expected a list of ${AT_LEAST} or more records holding every field, got `
+                    + (Array.isArray(answer) ? `${records.length} of ${entries.length}`
+                       : answer === undefined ? 'a body that is not JSON' : typeof answer))
 }
 
 /**
  * Sends the login, query, and logout requests through `fetcher`, each aborted
- * once no answer arrives within `wait` milliseconds.
+ * once no whole answer arrives within `wait` milliseconds.
  */
 export class SpaceTrack {
   constructor(private readonly fetcher: typeof fetch = fetch, private readonly wait = WAIT) {}
 
   /**
    * Logs in with `login`, returning whether Space-Track accepted it, and logs
-   * out of the session an accepted login opens before returning.
+   * out of the session an accepted login opens before returning, failing where
+   * the logout does.
    */
   async accepts(login: Login) {
-    return await this.session(login, async () => true) ?? false
+    return await this.session(login, async () => true, error => { throw error }) ?? false
   }
 
   /**
    * Logs in with `login`, queries `QUERY` inside the session, and logs out,
-   * returning the records of the answer. A rejected login fails with
-   * `Rejected`, a request that fails with `Unavailable`, and an answer that is
-   * not a catalog with `Unchecked`.
+   * returning the records of the answer and passing the error of a logout that
+   * fails to `unclosed`. A rejected login fails with `Rejected`, a login or a
+   * query that fails with `Unavailable`, as does one whose body stops arriving,
+   * and an answer that is not a catalog with `Unchecked`.
    */
-  async elements(login: Login) {
-    const records = await this.session(login, async cookie => {
-      const answer = await this.send(QUERY, { headers: { cookie } })
-      return queriedOf(await answer.json().catch((error: unknown) => {
-        throw new Unchecked(String(error))
-      }))
-    })
-    if (records === undefined) throw new Rejected(`Space-Track rejected the login for ${login.identity}`)
+  async elements(login: Login, unclosed: (error: Error) => void) {
+    const records = await this.session(login, async cookie =>
+      queriedOf(await jsonOf(await this.send(QUERY, { headers: { cookie } }))), unclosed)
+    if (records === undefined) throw new Rejected('Space-Track rejected the login')
     return records
   }
 
@@ -134,19 +149,24 @@ export class SpaceTrack {
     const answer = await fetcher(`${ORIGIN}/${path}`, { ...init, signal: AbortSignal.timeout(wait) })
       .catch((cause: unknown) => { throw new Unavailable('Space-Track could not be reached', { cause }) })
     if (answer.status === 200) return answer
-    await answer.body?.cancel()
+    await discard(answer)
     throw new Unavailable(`Space-Track answered ${answer.status}`)
   }
 
   /**
    * Logs in with `login` and runs `use` with the session's cookie, logging out
-   * once it settles, and returns what `use` returns, or `undefined` where
-   * Space-Track rejected the login and opened no session.
+   * once it settles, passing the error of a logout that fails to `unclosed`,
+   * and returns what `use` returns, or `undefined` where Space-Track rejected
+   * the login and opened no session.
    */
-  private async session<T>(login: Login, use: (cookie: string) => Promise<T>) {
+  private async session<T>(
+    login    : Login,
+    use      : (cookie: string) => Promise<T>,
+    unclosed : (error: Error) => void
+  ) {
     const body   = new URLSearchParams({ identity: login.identity, password: login.password })
     const answer = await this.send('ajaxauth/login', { body, method: 'POST' })
-    const reply  = await answer.json().catch(() => undefined) as unknown
+    const reply  = await jsonOf(answer)
     if (Object(reply).Login === 'Failed') return undefined
     if (reply !== '')
       throw new Unavailable('Space-Track answered the login with neither an acceptance nor a rejection')
@@ -154,7 +174,7 @@ export class SpaceTrack {
     try {
       return await use(cookie)
     } finally {
-      await (await this.send('ajaxauth/logout', { headers: { cookie } })).body?.cancel()
+      await this.send('ajaxauth/logout', { headers: { cookie } }).then(discard, unclosed)
     }
   }
 }

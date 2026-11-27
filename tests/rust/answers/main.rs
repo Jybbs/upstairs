@@ -1,20 +1,21 @@
 //! Holds the crate to the positions, the grid, and the passes `satellite.js`
-//! computed for the records under `tests/site/fixtures/`, within 10 meters and
-//! a thousandth of a degree, which a position's azimuth divides by the cosine
-//! of its elevation. Those answers take each epoch cut to the millisecond,
-//! which moves a low satellite by up to 8 meters, so the tolerance sits above
-//! that shift. The answers place each pass's highest point at a sample, so a
-//! traced peak falls within one sample of theirs, stands no lower, and lies
-//! within a hundredth of a degree of a dense search.
+//! computed for the records in `tests/site/fixtures/records.json` over each spot
+//! of the answers, within 10 meters and a thousandth of a degree, which a
+//! position's azimuth divides by the cosine of its elevation. Those answers take
+//! each epoch cut to the millisecond, which moves a low satellite by up to 8
+//! meters, so the tolerance sits above that shift. The answers place each pass's
+//! highest point at a sample, so a traced peak falls within one sample of theirs,
+//! stands no lower, and lies within a hundredth of a degree of a dense search.
 
 mod frame;
 mod grid;
 mod orbits;
 mod tracer;
 
+use std::iter;
 use std::sync::LazyLock;
 
-use orbit::{ELEMENTS, Grid, Orbits, Propagator, Site, Trace, Tracer};
+use orbit::{ELEMENTS, Grid, Orbits, Propagator, Sighting, Site, Trace, Tracer};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
@@ -25,11 +26,18 @@ struct Answers {
     decayed: Decayed,
     fields: Vec<String>,
     grid: Window,
-    passes: Vec<Option<Pass>>,
     positions: Vec<Position>,
     spot: Spot,
     start: String,
     track: Window,
+}
+
+/// How many satellites stand above a spot at each sample of the grid, and the
+/// catalog number of each one that rises at any sample.
+#[derive(Deserialize)]
+struct Count {
+    counts: Vec<u16>,
+    risen: Vec<u64>,
 }
 
 #[derive(Deserialize)]
@@ -61,24 +69,50 @@ struct Placed {
 
 #[derive(Deserialize)]
 struct Position {
-    azimuth: f64,
-    elevation: f64,
     height: f64,
     id: u64,
     latitude: f64,
     longitude: f64,
     minutes: f64,
-    range: f64,
     teme: [f64; 3],
 }
 
+/// The look from a spot to a satellite at the moment of the `Position` sharing
+/// its index.
 #[derive(Deserialize)]
+struct Seen {
+    azimuth: f64,
+    elevation: f64,
+    range: f64,
+}
+
+#[derive(Deserialize)]
+struct Skies {
+    elsewhere: Vec<Sky>,
+    #[serde(flatten)]
+    home: Sky,
+}
+
+/// What the answers hold above one spot.
+#[derive(Deserialize)]
+struct Sky {
+    grid: Count,
+    passes: Vec<Option<Pass>>,
+    positions: Vec<Seen>,
+    spot: Spot,
+}
+
+#[derive(Debug, Deserialize)]
 struct Spot {
     latitude: f64,
     longitude: f64,
 }
 
 impl Spot {
+    fn sight(&self, grid: &Grid) -> Sighting {
+        grid.sight(self.latitude, self.longitude)
+    }
+
     fn site(&self) -> Site {
         Site::new(self.latitude, self.longitude)
     }
@@ -86,11 +120,7 @@ impl Spot {
 
 #[derive(Deserialize)]
 struct Window {
-    #[serde(default)]
-    counts: Vec<u16>,
     minutes: f64,
-    #[serde(default)]
-    risen: Vec<u64>,
     step: f64,
     #[serde(default)]
     width: usize,
@@ -107,10 +137,10 @@ impl Window {
         grid
     }
 
-    fn tracer(&self) -> Tracer {
+    fn tracer(&self, spot: &Spot) -> Tracer {
         Tracer::new(
-            ANSWERS.spot.latitude,
-            ANSWERS.spot.longitude,
+            spot.latitude,
+            spot.longitude,
             start(),
             self.samples(),
             self.step,
@@ -120,10 +150,17 @@ impl Window {
 
 static ANSWERS: LazyLock<Answers> = LazyLock::new(|| read("answers.json"));
 static RECORDS: LazyLock<Vec<Map<String, Value>>> = LazyLock::new(|| read("records.json"));
-static TRACE: LazyLock<Trace> = LazyLock::new(|| {
+/// The sky above each spot of the answers, the first standing at `ANSWERS.spot`.
+static SKIES: LazyLock<Vec<Sky>> = LazyLock::new(|| {
+    let Skies { elsewhere, home } = read("answers.json");
+    iter::once(home).chain(elsewhere).collect()
+});
+/// Every record traced over each spot of `SKIES`, in its order.
+static TRACES: LazyLock<Vec<Trace>> = LazyLock::new(|| {
     let orbits = orbits(&RECORDS);
     let rows: Vec<u32> = (0..orbits.size() as u32).collect();
-    ANSWERS.track.tracer().trace(&orbits, &rows)
+    let trace = |sky: &Sky| ANSWERS.track.tracer(&sky.spot).trace(&orbits, &rows);
+    SKIES.iter().map(trace).collect()
 });
 
 const ANGLE: f64 = 1e-3;

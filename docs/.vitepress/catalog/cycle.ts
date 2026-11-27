@@ -2,13 +2,14 @@
  * Runs the download cycle once an hour, keeping CelesTrak's SATCAT current and
  * storing in Workers KV the elements Space-Track serves for each payload the
  * SATCAT marks active. The SATCAT is downloaded only where its directory lists
- * a file newer than the one kept, each request sent from each region in turn
- * until one reaches CelesTrak with an answer other than a 403 naming a download
- * the cycle did not make. A refusal, a 403 for data that has not updated, an
- * answer that fails its check, no region reaching CelesTrak, or no headers
- * within the wait starts a wait the cycle ends on its own, logged once and kept
- * in the storage of the Durable Object until a request succeeds, while the
- * elements are still queried on the SATCAT kept.
+ * a file newer than both the one kept and the last one to fail its check, each
+ * request sent from each region in turn until one reaches CelesTrak with an
+ * answer other than a 403 naming a download the cycle did not make. A refusal,
+ * a 403 for data that has not updated, an answer that fails its check, no
+ * region reaching CelesTrak, or no headers within the wait starts a wait the
+ * cycle ends on its own, logged once and kept in the storage of the Durable
+ * Object until a request succeeds, while the elements are still queried on the
+ * SATCAT kept.
  */
 import { DAY, FILE, type Record } from '../lib/orbit/catalog.ts'
 import * as celestrak             from './celestrak.ts'
@@ -40,6 +41,12 @@ type Misses = { [region in Region]?: string }
 type Outcome = { elements: 'failed' | 'stored', satcat: 'current' | 'downloaded' | 'waiting' }
 
 export type Region = typeof REGIONS[number]
+
+/**
+ * The fault of the last SATCAT file that arrived whole and failed its check,
+ * beside the time the directory listed for that file.
+ */
+type Unchecked = { fault: celestrak.Failure & { region: Region }, time: number }
 
 /**
  * The record of a wait, naming the kind of failure, the reason, and the region
@@ -154,7 +161,8 @@ export const activeOf = (codes: celestrak.Satcat['codes'], records: readonly Rec
 /**
  * Runs the cycle each hour, keeping the time of the last attempt, of the last
  * request CelesTrak answered, the region that last reached CelesTrak, the wait,
- * and the SATCAT in the storage of the Durable Object.
+ * the SATCAT, and the fault of the last SATCAT file to fail its check in the
+ * storage of the Durable Object.
  */
 export class Cycle {
   constructor(
@@ -181,31 +189,38 @@ export class Cycle {
    * Reads the SATCAT directory from the first region that reaches CelesTrak,
    * starting from the one that last did, and downloads the SATCAT file from
    * that region where the directory lists it newer than the one kept, reading
-   * the directory once a run. The time each request was sent is kept under
-   * `downloaded` for a SATCAT file CelesTrak answered with 200, and for any
-   * answer that fails its check, and under `aborted` for each request that
-   * timed out waiting for headers. A region that fails to connect, or whose 403
-   * names a download the cycle did not make, passes to the next, and any other
-   * failure returns the fault that starts a wait. Where no region is left, the
-   * fault is the last such 403 beside each region's result, or `unreached`
-   * where there was none.
+   * the directory once a run. A SATCAT file that arrives whole and fails its
+   * check is kept under `unchecked` as its fault and the time listed, and that
+   * fault is returned again, with no download, until the directory lists a
+   * newer time. The time each request was sent is kept under `downloaded` for a
+   * SATCAT file CelesTrak answered with 200, and for any answer that fails its
+   * check, and under `aborted` for each request that timed out waiting for
+   * headers. A region that fails to connect, or whose 403 names a download the
+   * cycle did not make, passes to the next, and any other failure returns the
+   * fault that starts a wait. Where no region is left, the fault is the last
+   * such 403 beside each region's result, or `unreached` where there was none.
    */
   private async refresh(): Promise<Fault | 'current' | 'downloaded'> {
     const downloaded      = this.state.get<number>('downloaded') ?? -Infinity
     const aborted         = this.state.get<number>('aborted') ?? -Infinity
     const reached         = this.state.get<Region>('reached')
     const kept            = this.state.get<celestrak.Satcat>('satcat')?.time ?? -Infinity
+    const unchecked       = this.state.get<Unchecked>('unchecked')
     const regions: Misses = {}
+    let checked: number | undefined
     let listed: number | undefined
-    let shared: celestrak.Failure & { region: Region } | undefined
+    let shared: Unchecked['fault'] | undefined
     for (const region of REGIONS.toSorted((a, b) => Number(b === reached) - Number(a === reached))) {
       let sent = Date.now()
       try {
         listed ??= await celestrak.download(this.send(region, celestrak.DIRECTORY), celestrak.listedOf)
         this.state.put('reached', region)
         if (listed <= kept) return 'current'
+        if (unchecked !== undefined && listed <= unchecked.time) return unchecked.fault
         sent        = Date.now()
-        const codes = await celestrak.download(this.send(region, celestrak.SATCAT), celestrak.codesOf)
+        const file  = await celestrak.download(this.send(region, celestrak.SATCAT), body => body)
+        checked     = listed
+        const codes = celestrak.codesOf(file)
         this.state.put('downloaded', sent)
         this.state.put('satcat', { codes, time: listed } satisfies celestrak.Satcat)
         console.log({ event: 'catalog.sorted', listed: isoOf(listed), payloads: Object.keys(codes).length })
@@ -217,6 +232,8 @@ export class Cycle {
           if (kind === 'unanswered') this.state.put('aborted', sent)
           if (kind === 'unchecked') this.state.put('downloaded', sent)
           shared = { ...error.failure, region }
+          if (checked !== undefined)
+            this.state.put('unchecked', { fault: shared, time: checked } satisfies Unchecked)
           if (!elsewhere(downloaded, aborted, error.failure)) return shared
         }
         regions[region] = error.message
@@ -266,8 +283,10 @@ export class Cycle {
    * Queries Space-Track for the elements with the login the service holds as
    * its secrets and stores those of the payloads the kept SATCAT marks active.
    * No SATCAT kept, no login set, a failure the query names, fewer than
-   * `AT_LEAST` active payloads, or a failed write to Workers KV logs one
-   * `catalog.failed` record at error level and keeps the stored file.
+   * `AT_LEAST` active payloads, a payload the encoder refuses, or a failed
+   * write to Workers KV logs one `catalog.failed` record at error level and
+   * keeps the stored file, whereas a logout that fails logs `catalog.unclosed`
+   * at error level alone.
    */
   private async store(time: number): Promise<Outcome['elements']> {
     const failed = (kind: string, reason: string) => {
@@ -279,7 +298,8 @@ export class Cycle {
     if (satcat === undefined) return failed('unsorted', 'No SATCAT is kept yet')
     if (identity === undefined || password === undefined)
       return failed('unset', 'No Space-Track login is set as the service’s secrets')
-    const records = await this.spaceTrack.elements({ identity, password }).catch((error: unknown) => {
+    const records = await this.spaceTrack.elements({ identity, password }, ({ message: reason }) =>
+      console.error({ event: 'catalog.unclosed', reason, time: isoOf(time) })).catch((error: unknown) => {
       if (error instanceof spacetrack.Failure) return error
       throw error
     })
@@ -287,7 +307,13 @@ export class Cycle {
     const active = activeOf(satcat.codes, records)
     if (active.length < AT_LEAST)
       return failed('unchecked', `Expected ${AT_LEAST} or more active payloads, got ${active.length}`)
-    return this.env.CATALOG.put(FILE, encode(time, active)).then(
+    let file: Uint8Array
+    try {
+      file = encode(time, active)
+    } catch (error) {
+      return failed('unencoded', error instanceof Error ? error.message : String(error))
+    }
+    return this.env.CATALOG.put(FILE, file).then(
       () => {
         console.log({ event: 'catalog.stored', active: active.length, queried: records.length })
         return 'stored' as const

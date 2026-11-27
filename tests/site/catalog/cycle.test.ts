@@ -6,6 +6,8 @@ import * as spacetrack         from '../../../docs/.vitepress/catalog/spacetrack
 import * as catalog            from '../../../docs/.vitepress/lib/orbit/catalog.ts'
 import { QUERIED, contentsOf } from '../common/catalog.ts'
 import * as answers            from '../common/celestrak.ts'
+import { LOST, stopping }      from '../common/fetchers.ts'
+import * as replies            from '../common/spacetrack.ts'
 
 type Answer = (region: cycles.Region, source: string, init?: RequestInit) => Response | Promise<Response>
 
@@ -20,6 +22,10 @@ const SECRETS                     = {
   [spacetrack.SECRETS.password] : LOGIN.password
 }
 
+/**
+ * A text naming the login, as an error or an answer might.
+ */
+const NAMED    = `${LOGIN.identity} ${LOGIN.password}`
 const SPACINGS = [[EVERY - MINUTE - 1, 'early'], [EVERY - MINUTE, 'current']] as const
 const BACKOFF  = [EVERY, 2 * EVERY, 4 * EVERY, 8 * EVERY, 16 * EVERY, LONGEST, LONGEST]
 const ASKED    = [
@@ -47,7 +53,7 @@ const MISSES    = [
   ['Cloudflare answers 521', refused(521), '521'],
   ['Cloudflare answers 522', refused(522), '522'],
   ['Cloudflare answers 523', refused(523), '523'],
-  ['the request throws', () => { throw new TypeError('Network connection lost') }, 'Network connection lost']
+  ['the request throws', () => { throw LOST }, LOST.message]
 ] as const
 
 /**
@@ -68,7 +74,7 @@ const cycleOf = (
     env      = SECRETS as Partial<typeof SECRETS>,
     write    = async () => {}
   }: {
-    elements? : () => Promise<catalog.Record[]>
+    elements? : spacetrack.SpaceTrack['elements']
     env?      : Partial<typeof SECRETS>
     write?    : () => Promise<void>
   } = {}
@@ -96,6 +102,12 @@ const cycleOf = (
 }
 
 const countOf = async (file: unknown) => (await contentsOf(file)).records.length
+
+/**
+ * Queries the elements as the client does, Space-Track answering with `given`.
+ */
+const answeredBy = (...given: (() => Response)[]): spacetrack.SpaceTrack['elements'] => (login, unclosed) =>
+  new spacetrack.SpaceTrack(replies.answering(...given)).elements(login, unclosed)
 
 const logged = () => vi.mocked(console.error).mock.calls.map(([entry]) => entry)
 
@@ -125,10 +137,12 @@ describe('a download cycle', () => {
     expect(await cycle.run(start)).toEqual({ elements: 'stored', satcat: 'downloaded' })
     expect(asked()).toEqual([[REGIONS[0], DIRECTORY], [REGIONS[0], SATCAT]])
     for (const [, , init] of fetcher.mock.calls) expect(init).toMatchObject({ redirect: 'manual' })
-    expect(spaceTrack.elements).toHaveBeenCalledExactlyOnceWith(LOGIN)
+    expect(spaceTrack.elements).toHaveBeenCalledExactlyOnceWith(LOGIN, expect.any(Function))
     expect(state.get('satcat')).toMatchObject({ time: LISTED })
     expect(await countOf(stored.get(catalog.FILE))).toBe(QUERIED.length)
     expect(console.error).not.toHaveBeenCalled()
+    expect(console.log)
+      .toHaveBeenCalledWith({ event: 'catalog.stored', active: QUERIED.length, queried: QUERIED.length })
   })
 
   it('dates the stored file by the time the cycle ran', async () => {
@@ -259,6 +273,68 @@ describe('a download cycle', () => {
       .toEqual([expect.objectContaining({ kind: 'unstored', reason: 'Error: KV PUT failed: 500' })])
   })
 
+  it('logs one structured error where the encoder refuses a record', async () => {
+    const records = QUERIED.map((record, row) => row ? record : { ...record, ECCENTRICITY: 1e-30 })
+    const { cycle, stored } = cycleOf(good, { elements: async () => records })
+    expect(await cycle.run(start)).toEqual({ elements: 'failed', satcat: 'downloaded' })
+    expect(stored.size).toBe(0)
+    expect(logged())
+      .toEqual([expect.objectContaining({
+        event: 'catalog.failed', kind: 'unencoded', reason: expect.stringContaining('no decimal form')
+      })])
+  })
+
+  it('stores the elements a query returned where the logout fails, logging the logout', async () => {
+    const elements = answeredBy(replies.ACCEPTED, replies.json(QUERIED), refused(500))
+    const { cycle, stored } = cycleOf(good, { elements })
+    expect(await cycle.run(start)).toEqual({ elements: 'stored', satcat: 'downloaded' })
+    expect(await countOf(stored.get(catalog.FILE))).toBe(QUERIED.length)
+    expect(logged()).toEqual([{
+      event: 'catalog.unclosed', reason: 'Space-Track answered 500', time: new Date(start).toISOString()
+    }])
+  })
+
+  it('names the failure of the query where the query and the logout both fail', async () => {
+    const elements  = answeredBy(replies.ACCEPTED, refused(503), refused(500))
+    const { cycle } = cycleOf(good, { elements })
+    expect(await cycle.run(start)).toEqual({ elements: 'failed', satcat: 'downloaded' })
+    const time = new Date(start).toISOString()
+    expect(logged()).toEqual([
+      { event: 'catalog.unclosed', reason: 'Space-Track answered 500', time },
+      { event: 'catalog.failed', kind: 'unavailable', reason: 'Space-Track answered 503', time }
+    ])
+  })
+
+  it('logs a body that stops arriving as Space-Track being unavailable', async () => {
+    const stopped   = stopping('[{"OBJECT', LOST)
+    const { cycle } = cycleOf(good, { elements: answeredBy(replies.ACCEPTED, stopped, replies.LOGGED) })
+    expect(await cycle.run(start)).toMatchObject({ elements: 'failed' })
+    expect(logged()).toEqual([expect.objectContaining({ event: 'catalog.failed', kind: 'unavailable' })])
+  })
+
+  it.each<[string, (() => Response)[]]>([
+    ['the login is rejected', [replies.REJECTED]],
+    ['the login fails on an error naming it', [() => { throw new TypeError(NAMED) }]],
+    ['the login is answered with a page naming it', [() => new Response(NAMED)]],
+    ['the query is answered with a page naming it', [replies.ACCEPTED, () => new Response(NAMED),
+      replies.LOGGED]],
+    ['the query is answered with an object naming it', [replies.ACCEPTED,
+      replies.json({ error: NAMED }), replies.LOGGED]],
+    ['the query is answered with a list naming it', [replies.ACCEPTED, replies.json([NAMED]),
+      replies.LOGGED]],
+    ['the query stops arriving on an error naming it', [replies.ACCEPTED,
+      stopping(NAMED, new TypeError(NAMED)), replies.LOGGED]],
+    ['the logout fails on an error naming it', [replies.ACCEPTED, replies.json(QUERIED),
+      () => { throw new TypeError(NAMED) }]]
+  ])('keeps the account and the password of the login out of every record where %s', async (_, given) => {
+    const { cycle } = cycleOf(good, { elements: answeredBy(...given) })
+    await cycle.run(start)
+    const records = JSON.stringify([vi.mocked(console.error).mock.calls, vi.mocked(console.log).mock.calls])
+    expect(console.error).toHaveBeenCalledOnce()
+    expect(records).not.toContain(LOGIN.identity)
+    expect(records).not.toContain(LOGIN.password)
+  })
+
   it('fails the run where the query fails outside the named kinds', async () => {
     const { cycle, stored } = cycleOf(good, { elements: async () => { throw new TypeError('broken') } })
     await expect(cycle.run(start)).rejects.toThrow(TypeError)
@@ -309,10 +385,7 @@ describe('a download cycle', () => {
     })
 
   it('waits on a refusal whose body fails while it is read, asking CelesTrak once', async () => {
-    const body = () => new ReadableStream({
-      pull: controller => controller.error(new TypeError('Network connection lost'))
-    })
-    const { cycle, state, fetcher } = cycleOf(() => new Response(body(), { status: 403 }))
+    const { cycle, state, fetcher } = cycleOf(stopping('', LOST, { status: 403 }))
     await cycle.run(start)
     expect(await cycle.run(start + EVERY - MINUTE - 1)).toBe('early')
     expect(fetcher).toHaveBeenCalledOnce()
@@ -339,6 +412,97 @@ describe('a download cycle', () => {
       region   : REGIONS[0],
       until    : new Date(start + EVERY).toISOString()
     })
+  })
+
+  it.each([
+    ['missing a column', 'OBJECT_NAME\r\n'],
+    ['holding too few payloads', answers.satcatBody([[1, 'PAY', '+']])]
+  ])('downloads a SATCAT file %s once for the time its directory lists, reading the directory on each run '
+   + 'and logging the wait each starts', async (_, satcat) => {
+    const { asked, cycle, fetcher, waited } = cycleOf(servedOf(LISTED, satcat))
+    await cycle.run(start)
+    const { reason } = waited()
+    for (const hours of [1, 2, 3]) {
+      fetcher.mockClear()
+      expect(await cycle.run(start + hours * EVERY)).toEqual({ elements: 'failed', satcat: 'waiting' })
+      expect(asked()).toEqual([[REGIONS[0], DIRECTORY]])
+      expect(waited()).toEqual({
+        event    : 'catalog.waiting',
+        kind     : 'unchecked',
+        reason   : reason,
+        refusals : 0,
+        region   : REGIONS[0],
+        time     : new Date(start + hours * EVERY).toISOString(),
+        until    : new Date(start + (hours + 1) * EVERY).toISOString()
+      })
+    }
+  })
+
+  it('names the region a SATCAT file failed its check through on a later run reading the directory '
+   + 'through another region', async () => {
+    let answer = servedOf(LISTED, 'OBJECT_NAME\r\n')
+    const { asked, cycle, fetcher, state, waited } = cycleOf((...args) => answer(...args))
+    await cycle.run(start)
+    fetcher.mockClear()
+    answer = (region, source) => {
+      if (region === REGIONS[0]) throw LOST
+      return good(region, source)
+    }
+    expect(await cycle.run(start + EVERY)).toMatchObject({ satcat: 'waiting' })
+    expect(asked()).toEqual([[REGIONS[0], DIRECTORY], [REGIONS[1], DIRECTORY]])
+    expect(state.get('reached')).toBe(REGIONS[1])
+    expect(waited()).toMatchObject({ kind: 'unchecked', region: REGIONS[0] })
+  })
+
+  it.each([
+    ['the same time', LISTED, 'waiting', [DIRECTORY]],
+    ['an older time', LISTED - 1000, 'waiting', [DIRECTORY]],
+    ['a newer time', LISTED + 1000, 'downloaded', [DIRECTORY, SATCAT]]
+  ])('reads the directory listing %s on the run after a SATCAT file that fails its check, downloading '
+   + 'SATCAT only for a newer one', async (_, listed, outcome, sources) => {
+    let answer = servedOf(LISTED, 'OBJECT_NAME\r\n')
+    const { asked, cycle, fetcher } = cycleOf((...args) => answer(...args))
+    await cycle.run(start)
+    fetcher.mockClear()
+    answer = servedOf(listed)
+    expect(await cycle.run(start + EVERY)).toMatchObject({ satcat: outcome })
+    expect(asked()).toEqual(sources.map(source => [REGIONS[0], source]))
+  })
+
+  it('queries the elements on the SATCAT kept while a newer file fails its check', async () => {
+    let answer = good
+    const { cycle, spaceTrack, state, stored } = cycleOf((...args) => answer(...args))
+    await cycle.run(start)
+    answer = servedOf(LISTED + 1000, 'OBJECT_NAME\r\n')
+    for (const hours of [1, 2]) {
+      stored.clear()
+      expect(await cycle.run(start + hours * EVERY)).toEqual({ elements: 'stored', satcat: 'waiting' })
+      expect(await countOf(stored.get(catalog.FILE))).toBe(QUERIED.length)
+    }
+    expect(state.get('satcat')).toMatchObject({ time: LISTED })
+    expect(spaceTrack.elements).toHaveBeenCalledTimes(3)
+  })
+
+  it('answers current once the directory lists the time of the SATCAT kept again after a newer file '
+   + 'failed its check', async () => {
+    let answer = good
+    const { cycle } = cycleOf((...args) => answer(...args))
+    await cycle.run(start)
+    answer = servedOf(LISTED + 1000, 'OBJECT_NAME\r\n')
+    await cycle.run(start + EVERY)
+    answer = good
+    expect(await cycle.run(start + 2 * EVERY)).toEqual({ elements: 'stored', satcat: 'current' })
+  })
+
+  it('downloads a SATCAT file whose body stopped arriving again on the next run', async () => {
+    const stopped  = stopping('OBJECT_NAME\r\n', LOST)
+    let answer: Answer = (region, source) => source === SATCAT ? stopped() : good(region, source)
+    const { asked, cycle, fetcher } = cycleOf((...args) => answer(...args))
+    expect(await cycle.run(start)).toMatchObject({ satcat: 'waiting' })
+    fetcher.mockClear()
+    answer = good
+    expect(await cycle.run(start + EVERY)).toMatchObject({ satcat: 'downloaded' })
+    expect(asked()).toEqual([[REGIONS[0], DIRECTORY], [REGIONS[0], SATCAT]])
   })
 
   it('reads a directory entry naming the SATCAT file by its path', async () => {

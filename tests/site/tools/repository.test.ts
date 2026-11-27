@@ -24,6 +24,25 @@ const TRIGGERS      = { push: { branches: ['main'] }, workflow_dispatch: null }
 const CANCELS       = 'lets a draft run cancel a ready one, '
                     + `its concurrency group not ending on ${DRAFT_GROUP}`
 const CATALOG       = `${MAIN} && ${READY}`
+const SPEC          = [
+  'name mise',
+  'flag --timing {',
+  '    alias "--no-timing" hide=#true',
+  '}',
+  'flag --quiet {',
+  '    alias quiet',
+  '}',
+  'cmd audit help="Check tool versions" effect=read {',
+  '    flag --json',
+  '}',
+  'cmd exec help="Run a command" {',
+  '    alias x ex',
+  '    alias run-with hide=#true',
+  '    cmd nested {',
+  '        alias n',
+  '    }',
+  '}'
+].join('\n')
 const SITE          = `(${MAIN} || (github.event_name == 'pull_request'${HEAD_NOT_MAIN} `
                     + `&& github.event.pull_request.head.repo.full_name == github.repository)) && ${READY}`
 
@@ -39,6 +58,11 @@ const checked = (jobs: Record<string, Job>, types?: string[]) =>
   added(jobs, { pull_request: { paths: ['docs/**'], types } })
 
 const job = (change: Job) => added({ added: change })
+
+const realias = (...aliases: string[]): Change => ({ tasks }) => ({
+  commands : repository.commandsOf(SPEC),
+  tasks    : tasks.map(task => task.name === 'repo:audit' ? { ...task, aliases } : task)
+})
 
 const refit = (file: string, fields: Partial<repository.Workflow>) =>
   rework(file, workflow => ({ ...workflow, ...fields }))
@@ -101,7 +125,20 @@ describe('Repository', () => {
   )
 
   it('reads each task by its name and its alias, from a task file and from a TOML table', () =>
-    expect(base.tasks).toEqual(expect.arrayContaining(['audit', 'catalog:bundle', 'ci', 'repo:ci'])))
+    expect(base.tasks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ aliases: ['declarations'], name: 'repo:audit' }),
+      expect.objectContaining({ aliases: [], name: 'catalog:bundle' }),
+      expect.objectContaining({ aliases: ['ci'], name: 'repo:ci' })
+    ])))
+
+  it('reads each top-level command of a usage spec with its bare aliases, beside help', () =>
+    expect(repository.commandsOf(SPEC)).toEqual(['help', 'audit', 'exec', 'x', 'ex', 'run-with']))
+
+  it('reads the commands and command aliases the running mise lists, beside help', () =>
+    expect(base.commands).toEqual(expect.arrayContaining(['help', 'exec', 'x'])))
+
+  it('reports nothing for a task alias no command of the usage spec takes', () =>
+    expect(variant(realias('nested')).problems).toEqual(base.problems))
 
   it.each(['paths', 'paths-ignore'])(
     'leaves out of the checks a workflow whose pull_request trigger filters by %s',
@@ -117,7 +154,7 @@ describe('Repository', () => {
   )
 
   it.each<[string, Job]>([
-    ['runs a task by its alias', { steps: [{ run: 'mise run audit' }] }],
+    ['runs a task by its alias', { steps: [{ run: 'mise run declarations' }] }],
     ['passes a flag and its value before the task', { steps: [{ run: 'mise run --jobs 4 site:test' }] }],
     [
       'runs the task its matrix row names',
@@ -455,6 +492,21 @@ describe('Repository', () => {
       'an action pinned to two commits',
       () => action(CHECKOUT_PIN.replace('3d3c', '0000')),
       'actions/checkout is pinned to more than one commit'
+    ],
+    [
+      'a task alias a mise command takes',
+      realias('audit'),
+      "repo:audit takes the alias audit, which runs one of mise's own commands rather than the task"
+    ],
+    [
+      'a task alias a mise command alias takes',
+      realias('x'),
+      "repo:audit takes the alias x, which runs one of mise's own commands rather than the task"
+    ],
+    [
+      'only the alias a mise command takes, of a task with two',
+      realias('declarations', 'audit'),
+      "repo:audit takes the alias audit, which runs one of mise's own commands rather than the task"
     ],
     [
       'settings turning immutable releases off',

@@ -1,3 +1,4 @@
+import { useThrottleFn }                                  from '@vueuse/core'
 import { computed, reactive, ref, shallowRef, toRaw }     from 'vue'
 
 import { Credit }                                         from '../map/credit.ts'
@@ -49,14 +50,6 @@ const opening        = shared ? { place: null, spot: shared } : address.HOME
  * minutes`.
  */
 export const minuteFormat = new Intl.NumberFormat([], { style: 'unit', unit: 'minute', unitDisplay: 'long' })
-/**
- * The clock reading to the second while the fast-forward runs.
- */
-export const secondFormat = new Intl.DateTimeFormat([], {
-  hour   : 'numeric',
-  minute : '2-digit',
-  second : '2-digit'
-})
 const zeros               = kinds.kindOrder.map(() => 0)
 /**
  * The kinds shown on a first visit, which the address leaves unwritten.
@@ -166,7 +159,7 @@ class Sky {
   readonly pinned   = shallowRef<Pass | null>(null)
   /**
    * How many pixels of the map's foot a phone's sheet covers, which the map
-   * frames a pinned pass above.
+   * frames a pinned pass and centers its zoom buttons above.
    */
   readonly covered  = ref(0)
   /**
@@ -238,7 +231,6 @@ class Sky {
   private heard                      = new Heard(0)
   private latchedAt                  = -Infinity
   private scanId                     = 0
-  private spokenAt                   = 0
   /**
    * The scan workers, the first downloading the catalog and handing each of
    * the others its share.
@@ -325,6 +317,12 @@ class Sky {
    * Seconds into the window the present stands at.
    */
   get present(): number { return (Date.now() - this.start.value) / 1000 }
+
+  /**
+   * Whether the present stands outside the window, past its end or, where the
+   * device's clock was set back, before its start.
+   */
+  private get outside(): boolean { return this.present < 0 || this.present >= this.span }
 
   private askAll(asked: Asked) { for (const worker of this.workers) worker.postMessage(asked) }
 
@@ -505,6 +503,7 @@ class Sky {
     this.record(address.spotIn(location.hash))
     if (this.done.value) this.chooseFocus()
     this.unlatch()
+    if (this.blank.value) this.tally()
   }
 
   /**
@@ -515,6 +514,20 @@ class Sky {
     const shown = this.showing.value
     const kept  = shown.join() === declared.join() ? null : shown
     history.replaceState(null, '', location.pathname + location.search + address.fragmentOf(spot, kept))
+  }
+
+  /**
+   * Moves to the spot and shows the kinds the page's address names once a
+   * reader changes it, showing the kinds `declared` holds where it names a
+   * spot alone and leaving the spot where it names the one shown or none.
+   */
+  reread() {
+    const spot  = address.spotIn(location.hash)
+    const shown = address.kindsIn(location.hash)
+    if (spot && address.fragmentOf(spot, null) !== address.fragmentOf(this.spot.value, null)) {
+      this.moveTo(spot, null)
+    }
+    if (shown ?? spot) this.trace(shown ?? declared)
   }
 
   private moveTo(spot: Spot, place: string | null) {
@@ -535,10 +548,10 @@ class Sky {
 
   /**
    * Returns the clock to the present, opening a new window once the present
-   * has passed the end of this one.
+   * stands outside this one.
    */
   back() {
-    if (this.present >= this.span) return this.toNow()
+    if (this.outside) return this.toNow()
     this.clock.value = resting
     this.moveClock(this.present)
   }
@@ -648,7 +661,7 @@ class Sky {
    * where the next `latch` reads the frame it stopped on.
    */
   advance(realSeconds: number) {
-    if (this.clock.value === 'live') this.seconds = Math.min(this.present, this.span)
+    if (this.clock.value === 'live') this.seconds = clamp(this.present, 0, this.span)
     else if (this.clock.value === 'running') {
       this.seconds = Math.min(this.seconds + realSeconds * CLOCK.lapse, this.span)
       if (this.seconds < this.span) return
@@ -658,29 +671,31 @@ class Sky {
   }
 
   /**
-   * Moves a live window to the present once the present passes its end, and
-   * otherwise counts what is up at the clock's time and announces the count.
+   * Moves a live window to the present once the present stands outside it,
+   * and otherwise counts what is up at the clock's time, taking the reading
+   * where the map cannot draw.
    */
   tally() {
-    if (this.clock.value === 'live' && this.present >= this.span) return this.toNow()
+    if (this.clock.value === 'live' && this.outside) return this.toNow()
     this.at.value  = this.seconds
     this.now.value = this.present
-    if (this.count()) this.speak()
+    this.count()
+    if (this.blank.value) this.latch(new Uint16Array(kinds.kindOrder.length))
   }
 
   /**
    * Counts what is up at the clock's time, of the kinds shown once the traces
-   * finish and reading the rough grid of every kind until then, and returns
-   * false while the grid has not arrived.
+   * finish and reading the rough grid of every kind until then, leaving the
+   * count where it stands while the grid has not arrived.
    */
-  private count(): boolean {
+  private count() {
     if (!this.done.value) {
       const counts = this.counts
-      if (!counts) return false
+      if (!counts) return
       const position = this.seconds / this.countStep
       const index    = Math.min(Math.floor(position), counts.length - 2)
       this.up.value  = Math.round(counts[index] + (counts[index + 1] - counts[index]) * (position - index))
-      return true
+      return
     }
     let up                                = 0
     const { aboveKinds, seconds, tracks } = this
@@ -693,7 +708,6 @@ class Sky {
       aboveKinds[kinds.kindSlots[kind]]++
     }
     this.up.value = up
-    return true
   }
 
   /**
@@ -705,29 +719,33 @@ class Sky {
    * Takes a reading from what the map draws by kind, `onMap` in the order of
    * `KINDS`, on every call while the passes are traced or the fast-forward
    * runs, and otherwise once the last reading is `CLOCK.latch` milliseconds
-   * old.
+   * old, announcing the reading it holds once the traces finish.
    */
   latch(onMap: Uint16Array) {
-    const now = Date.now()
-    if (this.done.value && this.clock.value !== 'running' && now - this.latchedAt < CLOCK.latch) return
-    this.latchedAt     = now
-    this.reading.value = {
-      above      : this.up.value,
-      aboveKinds : [...this.aboveKinds],
-      kinds      : [...onMap],
-      onMap      : onMap.reduce((sum, count) => sum + count, 0)
+    const now  = Date.now()
+    const held = this.done.value && this.clock.value !== 'running' && now - this.latchedAt < CLOCK.latch
+    if (!held) {
+      this.latchedAt     = now
+      this.reading.value = {
+        above      : this.up.value,
+        aboveKinds : [...this.aboveKinds],
+        kinds      : [...onMap],
+        onMap      : onMap.reduce((sum, count) => sum + count, 0)
+      }
     }
+    if (this.done.value) void this.speak()
   }
 
   /**
-   * Writes the count to `spoken` at most once every `CLOCK.spoken` milliseconds.
+   * Writes the reading's count above the horizon to `spoken`, the count the
+   * readout shows, at most once every `CLOCK.spoken` milliseconds and once
+   * more as that time ends where a later count waits.
    */
-  private speak() {
-    const now = Date.now()
-    if (now - this.spokenAt < CLOCK.spoken) return
-    this.spokenAt     = now
-    this.spoken.value = `${this.up.value.toLocaleString()} satellites above the horizon`
-  }
+  private readonly speak = useThrottleFn(() => {
+    if (!this.done.value) return
+    const { above }   = this.reading.value
+    this.spoken.value = `${above.toLocaleString()} satellite${above === 1 ? '' : 's'} above the horizon`
+  }, CLOCK.spoken, true)
 
   /**
    * Returns the climb of `pass` from its rise to its set, cut at the ends of
@@ -737,6 +755,11 @@ class Sky {
     const index = this.tracks.passes.indexOf(pass)
     return footholdsOf(index, this.span, this.spot.value, this.start.value, this.tracks)
   }
+
+  /**
+   * Returns the moment `seconds` into the window.
+   */
+  dateOf(seconds: number): Date { return new Date(this.start.value + seconds * 1000) }
 
   /**
    * Returns the clock time of a moment in the window in the viewer's own time
@@ -767,8 +790,6 @@ class Sky {
   laterDay(seconds: number): boolean {
     return this.dateOf(seconds).toDateString() !== this.dateOf(0).toDateString()
   }
-
-  private dateOf(seconds: number): Date { return new Date(this.start.value + seconds * 1000) }
 }
 
 export const sky = new Sky()

@@ -36,20 +36,20 @@ describe('the catalog file', () => {
     expect(catalog.FIELDS).toEqual(answers.fields)
   })
 
-  it('places each record, segment by segment, where the known answers do', async () => {
+  it.each([answers, ...answers.elsewhere])('places each record, segment by segment, where the known answers '
+                                         + 'do at $spot', async ({ grid: { counts, risen }, spot }) => {
     const wasm = new URL('../../../../rust/pkg/orbit_bg.wasm', import.meta.url)
     await init({ module_or_path: await readFile(wasm) })
     const orbits = new orbit.Orbits()
     for (const segment of segments) {
       orbits.extend(segment.records.map(record => record.EPOCH), catalog.elementsOf(segment.records))
     }
-    const { grid: window, spot } = answers
-    const grid     = new orbit.Grid(orbits, Date.parse(answers.start), window.counts.length, window.step)
+    const grid     = new orbit.Grid(orbits, Date.parse(answers.start), counts.length, answers.grid.step)
     grid.fill(orbits, 0, orbits.size)
     const sighting = grid.sight(spot.latitude, spot.longitude)
-    const risen    = Array.from(sighting.risen, row => satellitesOf(decoded)[row].id)
-    expect(Array.from(sighting.counts)).toEqual(window.counts)
-    expect(risen.toSorted()).toEqual(window.risen.toSorted())
+    const seen     = Array.from(sighting.risen, row => satellitesOf(decoded)[row].id)
+    expect(Array.from(sighting.counts)).toEqual(counts)
+    expect(seen.toSorted()).toEqual(risen.toSorted())
   })
 
   it.each([
