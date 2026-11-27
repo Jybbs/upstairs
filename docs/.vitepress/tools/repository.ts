@@ -499,10 +499,10 @@ export class Repository {
     return [
       ...tasks
         .filter(task => !this.sweep.includes(task))
-        .map(task => `repo:ci does not depend on ${task}, which a row runs`),
+        .map(task => `repo:ci does not run ${task}, which a row runs`),
       ...this.sweep
         .filter(task => !tasks.includes(task))
-        .map(task => `repo:ci depends on ${task}, which no row runs`)
+        .map(task => `repo:ci runs ${task}, which no row runs`)
     ]
   }
 

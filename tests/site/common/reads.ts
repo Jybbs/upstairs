@@ -36,7 +36,8 @@ export const READS: Record<string, string[]> = {
   'tests/site/tools/lockfile.test.ts'           : ['docs/.vitepress/tools/lockfile.ts'],
   'tests/site/tools/logbook.test.ts'            : ['.github/scripts/summaries/deploy.md'],
   'tests/site/tools/mise.test.ts'               : [
-    '.mise/config.toml', '.mise/tasks/crate/compile', '.mise/tasks/gha/failed', '.mise/tasks/repo/ci.toml'
+    '.mise/config.toml', '.mise/tasks/crate/compile', '.mise/tasks/gha/failed', '.mise/tasks/lock/check',
+    '.mise/tasks/repo/ci.toml'
   ],
   'tests/site/tools/prune.test.ts'              : ['.mise/tasks/gha/prune'],
   'tests/site/tools/reel.test.ts'               : ['.github/reel-*.gif'],

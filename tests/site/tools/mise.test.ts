@@ -1,4 +1,4 @@
-import { cp, mkdir, utimes, writeFile } from 'node:fs/promises'
+import { cp, mkdir, rename, utimes, writeFile } from 'node:fs/promises'
 import { delimiter, dirname, join }     from 'node:path'
 
 import { $ }        from 'bun'
@@ -15,7 +15,7 @@ const CHECKS   = [
 const COMPILE  = '.mise/tasks/crate/compile'
 const FAILED   = '.mise/tasks/gha/failed'
 const MISE     = Bun.which('mise')!
-const SOURCES  = ['rust/Cargo.lock', 'rust/Cargo.toml', 'rust/src/lib.rs']
+const SOURCES  = ['rust/Cargo.lock', 'rust/Cargo.toml', 'rust/src/lib.rs', 'rust/src/orbits.rs']
 
 /**
  * A project in a scratch folder holding the repository's mise config and the
@@ -26,11 +26,11 @@ class Project {
   private constructor(readonly root: string) {}
 
   static async laid(root: string, tasks: string[] = []): Promise<Project> {
-    await mkdir(join(root, '.mise/tasks/crate'), { recursive: true })
-    await mkdir(join(root, '.mise/tasks/repo'), { recursive: true })
-    await mkdir(join(root, 'rust/src'), { recursive: true })
+    await Promise.all(['rust/src', ...tasks.map(file => dirname(file))].map(dir =>
+      mkdir(join(root, dir), { recursive: true })))
+    await mkdir(join(root, '.mise'), { recursive: true })
     await Promise.all(['.mise/config.toml', ...tasks].map(file => cp(join(ROOT, file), join(root, file))))
-    await Promise.all(['.mise/mise.lock', ...SOURCES].map(file => writeFile(join(root, file), '')))
+    await Promise.all(['.mise/mise.lock', 'calls', ...SOURCES].map(file => writeFile(join(root, file), '')))
     return new Project(root)
   }
 
@@ -90,6 +90,26 @@ describe.concurrent('crate:compile', () => {
       expect(await project.programs()).toEqual(['build', 'wasm-bindgen', 'build', 'wasm-bindgen'])
     }
   )
+
+  it('builds again once rust/pkg is removed', async ({ expect, project }) => {
+    await project.run('crate:compile')
+    await rename(join(project.root, 'rust/pkg'), join(project.root, 'rust/pkg.junk'))
+    await project.run('crate:compile')
+    expect(await project.programs()).toEqual(['build', 'wasm-bindgen', 'build', 'wasm-bindgen'])
+  })
+})
+
+describe.concurrent('lock:check', () => {
+  const locked = scratched.extend('project', async ({ scratch }) => {
+    const project = await Project.laid(scratch, ['.mise/tasks/lock/check'])
+    await writeFile(join(scratch, 'mise.toml'), `[tasks."lock:mise"]\nrun = 'exit 5'\n`)
+    return project
+  })
+
+  locked('fails wherever lock:mise fails, before checking bun.lock or rust/Cargo.lock', async ({ expect, project }) => {
+    const { code } = await project.run('lock:check')
+    expect([code, await project.calls()]).toEqual([5, []])
+  })
 })
 
 describe.concurrent('repo:ci', () => {
