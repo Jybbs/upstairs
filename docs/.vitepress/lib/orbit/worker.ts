@@ -6,7 +6,9 @@
  * it, keeps the first share, and posts every satellite of the segment, while a
  * helper asked to `follow` holds the rows its port hands it. Each scan posts
  * the share's counts and then its passes in batches, stops once a newer scan
- * arrives, and posts `untraced` where it throws.
+ * arrives, and posts `untraced` where it throws. Each load and follow loads
+ * the module through `init`, which holds it once loaded and downloads it again
+ * after a failed try.
  */
 
 import init, * as orbit from '../../../../rust/pkg/orbit.js'
@@ -48,7 +50,6 @@ export interface Share {
 const BATCH                   = 100
 const CHUNK                   = 400
 const channel                 = new MessageChannel()
-const ready                   = init()
 const waiting: (() => void)[] = []
 
 let held: { grid: orbit.Grid, key: string } | null = null
@@ -84,14 +85,18 @@ const drop = () => {
 
 /**
  * Starts holding the rows a helper's port hands it, dropping what it held
- * before and posting the count of every row loaded once it holds each share.
+ * before and posting the count of every row loaded once it holds each share,
+ * or why the module failed to load.
  */
 const follow = (from: MessagePort) => {
   drop()
   source         = from
+  const ready    = init().then(() => true, (error: unknown) => {
+    if (source === from) post({ reason: String(error), type: 'failed' })
+    return false
+  })
   from.onmessage = async ({ data: { count, fetched, records } }: MessageEvent<Share>) => {
-    await ready
-    if (source !== from) return
+    if (!await ready || source !== from) return
     hold(records)
     post({ count, fetched, satellites: [], type: 'loaded' })
   }
@@ -137,10 +142,9 @@ const hold = (records: readonly catalog.Record[]) => {
 const load = async (url: string, helpers: MessagePort[]) => {
   drop()
   try {
-    const body = await catalog.bodyOf(url)
-    await ready
-    let count  = 0
-    const size = helpers.length + 1
+    const [body] = await Promise.all([catalog.bodyOf(url), init()])
+    let count    = 0
+    const size   = helpers.length + 1
     for await (const { fetched, records } of catalog.segmentsOf(body)) {
       const first = count
       count      += records.length

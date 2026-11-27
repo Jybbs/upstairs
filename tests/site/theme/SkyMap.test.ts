@@ -303,6 +303,28 @@ it('links the map sheet itself where the page holds only its preload, '
   expect([linked.map(link => link.rel), made.mock.calls.length]).toEqual([['preload', 'stylesheet'], 1])
 })
 
+it('builds the map without its sheet where the sheet fails to load', async () => {
+  await mounted()
+  document.head.replaceChildren()
+  const { component: SkyMap } = await freshSky(() => import('../../../docs/.vitepress/theme/SkyMap.tsx'))
+  vi.spyOn(document.head, 'append').mockImplementationOnce(link =>
+    queueMicrotask(() => (link as HTMLLinkElement).dispatchEvent(new Event('error'))))
+  made.mockClear()
+  mount(SkyMap)
+  await flushPromises()
+  expect(made).toHaveBeenCalledOnce()
+})
+
+it.each([
+  ['moves to the spot a changed address names', {}, { latitude: 48.86, longitude: 2.29 }],
+  ['leaves the spot as a backdrop', { backdrop: true }, { latitude: 42.36, longitude: -71.06 }]
+])('%s', async (_, props, spot) => {
+  const { sky } = await mounted(null, props)
+  history.replaceState(null, '', `${location.pathname}#48.86,2.29`)
+  window.dispatchEvent(new Event('hashchange'))
+  expect(sky.spot.value).toEqual(spot)
+})
+
 it('lets the pinned pass go on a press of the empty map', async () => {
   const { pass, sky } = await mounted()
   sky.pin(pass)
