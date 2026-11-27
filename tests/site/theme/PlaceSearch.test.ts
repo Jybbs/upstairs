@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { type VueWrapper, enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { compile }                                                  from 'tailwindcss'
 import { afterEach, expect, it, vi }                                from 'vitest'
 
 import * as catalog             from '../../../docs/.vitepress/lib/orbit/catalog.ts'
@@ -10,6 +11,33 @@ import { stubMatchMedia }       from '../common/stubs.ts'
 import photon                   from '../fixtures/photon.json' with { type: 'json' }
 
 enableAutoUnmount(afterEach)
+
+const { build } = await compile('@tailwind utilities;')
+const STYLES    = document.head.appendChild(document.createElement('style'))
+
+/**
+ * Lays the page out `width` by `height` pixels with the search's 44-pixel form
+ * at `top`, and the list as tall as its 44-pixel rows with its padding and
+ * border, held to the `max-height` Tailwind compiles from its `max-h-` class,
+ * since happy-dom fails to parse the `@layer` statement other classes bring.
+ */
+const laidOut = (top: number, width: number, height: number) => {
+  vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(height)
+  vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(width)
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    return this.matches('form')
+      ? DOMRect.fromRect({ height: 44, width: width - 32, x: 16, y: top })
+      : new DOMRect()
+  })
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+    const list = this.matches('[data-part=positioner]') && this.querySelector('ul')
+    if (!list) return 0
+    STYLES.textContent = build([...list.classList].filter(name => name.startsWith('max-h-')))
+    const rows         = 10 + 44 * list.children.length
+    const caps         = getComputedStyle(list).maxHeight.match(/[\d.]+(?=px)/g)
+    return caps ? Math.min(rows, Math.max(...caps.map(Number))) : rows
+  })
+}
 
 /**
  * Mounts the search as `mounted` does and types `iss` into it, returning the
@@ -402,12 +430,7 @@ it.each([
   ['opens the list above the search where the space below cannot hold it', 600, 'top', '588px'],
   ['opens the list below the search where the space on either side holds it', 80, 'bottom', '531px']
 ])('%s, as wide as the search and no taller than the space it opens into', async (_, top, side, height) => {
-  vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(667)
-  vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(390)
-  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(54)
-  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-    return this.matches('form') ? DOMRect.fromRect({ height: 44, width: 358, x: 16, y: top }) : new DOMRect()
-  })
+  laidOut(top, 390, 667)
   const { wrapper } = await listed(state => addScanned(state, [passOf(25544, { name: 'ISS (ZARYA)' })]))
   await vi.advanceTimersByTimeAsync(100)
   const list      = wrapper.get('ul')
@@ -415,9 +438,26 @@ it.each([
   expect([
     list.attributes('data-placement'),
     style.getPropertyValue('--available-height'),
-    list.classes('max-h-(--available-height)'),
+    getComputedStyle(list.element).maxHeight,
     list.classes('overflow-y-auto'),
     style.width,
     style.getPropertyValue('--reference-width')
-  ]).toEqual([side, height, true, true, 'var(--reference-width)', '358px'])
+  ]).toEqual([side, height, `max(${height}, 144px)`, true, 'var(--reference-width)', '358px'])
+})
+
+it('moves the list above the search once its rows outgrow the 110 pixels below it on a phone', async () => {
+  let answer: (response: Response) => void = () => {}
+  vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => { answer = resolve })))
+  laidOut(678, 320, 844)
+  const { wrapper } = await mounted(state =>
+    addScanned(state, [passOf(1, { name: 'TURKMENALEM52E/MONACOSAT' })]))
+  await wrapper.get('input').trigger('focusin')
+  await typed(wrapper, 'turkmenalem')
+  const opened = wrapper.get('ul').attributes('data-placement')
+  answer(Response.json(photon))
+  await flushPromises()
+  window.dispatchEvent(new Event('resize'))
+  await vi.advanceTimersByTimeAsync(100)
+  expect([opened, wrapper.get('ul').attributes('data-placement'), wrapper.findAll('li').length])
+    .toEqual(['bottom', 'top', 1 + photon.features.length])
 })

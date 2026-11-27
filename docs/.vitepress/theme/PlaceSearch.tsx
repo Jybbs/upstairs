@@ -18,6 +18,13 @@ type Result = { craft: search.Match } | { place: search.Place }
  */
 const LEAST  = 3
 /**
+ * Holds the list to the space on the side it opens to, and to no less than
+ * three rows of 44 pixels with its padding and border, so a list outgrowing
+ * the space below overflows it and opens above, the minimum height Floating
+ * UI's `size` documentation gives `flip` at https://floating-ui.com/docs/size.
+ */
+const LISTED = 'max-h-[max(var(--available-height),9rem)]'
+/**
  * The longest the browser looks for a location once it may share one, in
  * milliseconds, the wait the Geolocation specification's example sets.
  */
@@ -219,8 +226,10 @@ export default defineComponent(
           <div {...box.value.getPositionerProps()} class="z-20">
             <ul
               {...box.value.getContentProps()}
-              class="max-h-(--available-height) overflow-y-auto rounded-sm border border-rule bg-lift py-1
-                     text-sm shadow-md"
+              class={[
+                LISTED,
+                'overflow-y-auto rounded-sm border border-rule bg-lift py-1 text-sm shadow-md'
+              ]}
             >
               {crafts.value.map(craft => (
                 <li key={craft.satellite.id} role="presentation">
@@ -247,7 +256,8 @@ export default defineComponent(
                     class="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left
                            hover:bg-panel data-highlighted:bg-panel max-sm:min-h-11"
                   >
-                    <Icon name="place" class="text-soft" /><span class="wrap-anywhere">{place.label}</span>{' '}
+                    <Icon name="place" class="text-soft" />
+                    <span class="wrap-anywhere">{place.label}</span>{' '}
                     {place.kind && <span class="ml-auto shrink-0 text-soft">{place.kind}</span>}
                   </button>
                 </li>

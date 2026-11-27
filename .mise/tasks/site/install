@@ -1,4 +1,7 @@
 #!/usr/bin/env -S bash -euo pipefail
-#MISE description = "Install the packages `bun.lock` resolves, failing where the lockfile would change"
+#MISE description = "Install the packages `bun.lock` resolves, failing where the lockfile would change, unless `node_modules` holds the marker of the last install that passed and neither `package.json` nor `bun.lock` changed since"
+#MISE outputs     = ["node_modules/.site-install"]
+#MISE sources     = ["bun.lock", "package.json"]
 
 bun install --frozen-lockfile
+touch node_modules/.site-install

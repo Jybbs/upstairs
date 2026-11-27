@@ -30,6 +30,12 @@ export const STAND_IN_PATH = [join(import.meta.dirname, 'check'), process.env.PA
 export const linesOf = (text: string): string[] => text.split('\n').filter(Boolean)
 
 /**
+ * Each call a stand-in recorded in `file`, as its arguments.
+ */
+export const callsIn = async (file: string): Promise<string[][]> =>
+  linesOf(await Bun.file(file).text()).map(call => call.split('\t'))
+
+/**
  * Runs the task file at `.mise/tasks/<task>` of the worktree from `cwd` under
  * `env` laid over `STAND_IN_PATH`, the nth call to a stand-in other than
  * `gh api` and `gh cache list` exiting with the nth status in `exit`, every
@@ -49,7 +55,7 @@ export async function runTask(
     .nothrow()
     .quiet()
   return {
-    calls  : linesOf(await Bun.file(env.STAND_IN_CALLS).text()).map(call => call.split('\t')),
+    calls  : await callsIn(env.STAND_IN_CALLS),
     code   : result.exitCode,
     stderr : result.stderr.toString(),
     stdout : result.stdout.toString()
